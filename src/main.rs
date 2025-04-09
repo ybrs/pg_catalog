@@ -1,7 +1,7 @@
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use datafusion::datasource::{MemTable, TableProvider, TableType};
 use datafusion::datasource::provider::TableProviderFilterPushDown;
-use datafusion::execution::context::{SessionContext, SessionState};
+use datafusion::execution::context::{SessionContext};
 use datafusion::logical_expr::Expr;
 use datafusion::physical_plan::ExecutionPlan;
 use datafusion::error::Result;
