@@ -1,11 +1,18 @@
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
+
+use datafusion::catalog::CatalogProvider;
+use datafusion::catalog::SchemaProvider;
+
+use datafusion::catalog::memory::{MemoryCatalogProvider, MemorySchemaProvider};
 use datafusion::datasource::{MemTable, TableProvider, TableType};
 use datafusion::datasource::provider::TableProviderFilterPushDown;
-use datafusion::execution::context::{SessionContext};
+use datafusion::execution::context::SessionContext;
 use datafusion::logical_expr::Expr;
 use datafusion::physical_plan::ExecutionPlan;
 use datafusion::error::Result;
 use async_trait::async_trait;
+use datafusion::common::DataFusionError;
+use arrow::record_batch::RecordBatch;
 
 use serde::Deserialize;
 use serde_json::json;
@@ -17,7 +24,7 @@ use std::fs;
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Deserialize)]
-struct YamlSchema(HashMap<String, BTreeMap<String, String>>);
+struct YamlSchema(HashMap<String, HashMap<String, HashMap<String, BTreeMap<String, String>>>>);
 
 fn map_pg_type(pg_type: &str) -> DataType {
     match pg_type.to_lowercase().as_str() {
@@ -30,19 +37,30 @@ fn map_pg_type(pg_type: &str) -> DataType {
     }
 }
 
-fn parse_schema(yaml_path: &str) -> HashMap<String, SchemaRef> {
+fn parse_schema(yaml_path: &str) -> HashMap<String, HashMap<String, HashMap<String, SchemaRef>>> {
     let contents = fs::read_to_string(yaml_path).expect("Failed to read schema.yaml");
     let parsed: YamlSchema = serde_yaml::from_str(&contents).expect("Invalid YAML schema");
 
-    parsed
-        .0
+    parsed.0
         .into_iter()
-        .map(|(table, columns)| {
-            let fields: Vec<Field> = columns
+        .map(|(catalog_name, schemas)| {
+            let schemas = schemas
                 .into_iter()
-                .map(|(col, typ)| Field::new(&col, map_pg_type(&typ), true))
+                .map(|(schema_name, tables)| {
+                    let tables = tables
+                        .into_iter()
+                        .map(|(table_name, columns)| {
+                            let fields: Vec<Field> = columns
+                                .into_iter()
+                                .map(|(col, typ)| Field::new(&col, map_pg_type(&typ), true))
+                                .collect();
+                            (table_name, Arc::new(Schema::new(fields)))
+                        })
+                        .collect();
+                    (schema_name, tables)
+                })
                 .collect();
-            (table, Arc::new(Schema::new(fields)))
+            (catalog_name, schemas)
         })
         .collect()
 }
@@ -57,17 +75,18 @@ struct ScanTrace {
 
 #[derive(Debug)]
 struct ObservableMemTable {
-    name: String,
     schema: SchemaRef,
     mem: Arc<MemTable>,
     log: Arc<Mutex<Vec<ScanTrace>>>,
+    table_name: String,
 }
 
 impl ObservableMemTable {
-    fn new(name: String, schema: SchemaRef, log: Arc<Mutex<Vec<ScanTrace>>>) -> Self {
-        let mem = MemTable::try_new(schema.clone(), vec![]).unwrap();
+    fn new(table_name: String, schema: SchemaRef, log: Arc<Mutex<Vec<ScanTrace>>>) -> Self {
+        let dummy_batch = RecordBatch::new_empty(schema.clone());
+        let mem = MemTable::try_new(schema.clone(), vec![vec![dummy_batch]]).unwrap();
         Self {
-            name,
+            table_name,
             schema,
             mem: Arc::new(mem),
             log,
@@ -106,7 +125,7 @@ impl TableProvider for ObservableMemTable {
         }
 
         self.log.lock().unwrap().push(ScanTrace {
-            table: self.name.clone(),
+            table: self.table_name.clone(),
             projection: projection.cloned(),
             filters: filters.to_vec(),
             types,
@@ -126,14 +145,23 @@ async fn main() -> datafusion::error::Result<()> {
 
     let schema_path = &args[1];
     let sql = &args[2];
-
-    let schemas = parse_schema(schema_path);
     let log = Arc::new(Mutex::new(Vec::new()));
     let ctx = SessionContext::new();
+    let schemas = parse_schema(schema_path);
 
-    for (table, schema) in &schemas {
-        let wrapped = ObservableMemTable::new(table.clone(), schema.clone(), log.clone());
-        ctx.register_table(table, Arc::new(wrapped))?;
+    for (catalog_name, schemas) in schemas {
+        let catalog_provider = Arc::new(MemoryCatalogProvider::new());
+        ctx.register_catalog(&catalog_name, catalog_provider.clone());
+
+        for (schema_name, tables) in schemas {
+            let schema_provider = Arc::new(MemorySchemaProvider::new());
+            catalog_provider.register_schema(&schema_name, schema_provider.clone());
+
+            for (table, schema_ref) in tables {
+                let wrapped = ObservableMemTable::new(table.clone(), schema_ref, log.clone());
+                schema_provider.register_table(table, Arc::new(wrapped))?;
+            }
+        }
     }
 
     let df = ctx.sql(sql).await?;
