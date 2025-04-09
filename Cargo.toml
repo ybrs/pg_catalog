@@ -1,0 +1,10 @@
+[package]
+name = "datafusion_query_parser"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+datafusion = "46.0.1"
+sqlparser = "0.36.0"
+tokio = { version = "1.0", features = ["full"] }
+serde_json = "1.0"
