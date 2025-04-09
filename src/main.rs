@@ -11,7 +11,7 @@ use datafusion::logical_expr::Expr;
 use datafusion::physical_plan::ExecutionPlan;
 use datafusion::error::Result;
 use async_trait::async_trait;
-use datafusion::common::DataFusionError;
+// use datafusion::common::DataFusionError;
 use arrow::record_batch::RecordBatch;
 
 use serde::Deserialize;
@@ -146,7 +146,25 @@ async fn main() -> datafusion::error::Result<()> {
     let schema_path = &args[1];
     let sql = &args[2];
     let log = Arc::new(Mutex::new(Vec::new()));
-    let ctx = SessionContext::new();
+
+
+    let default_catalog = args.iter()
+        .position(|x| x == "--default-catalog")
+        .and_then(|i| args.get(i + 1))
+        .unwrap_or(&"datafusion".to_string())
+        .clone();
+
+    let default_schema = args.iter()
+        .position(|x| x == "--default-schema")
+        .and_then(|i| args.get(i + 1))
+        .unwrap_or(&"public".to_string())
+        .clone();
+
+    let config = datafusion::execution::context::SessionConfig::new()
+        .with_default_catalog_and_schema(&default_catalog, &default_schema);
+
+    let ctx = SessionContext::new_with_config(config);
+
     let schemas = parse_schema(schema_path);
 
     for (catalog_name, schemas) in schemas {
@@ -155,7 +173,7 @@ async fn main() -> datafusion::error::Result<()> {
 
         for (schema_name, tables) in schemas {
             let schema_provider = Arc::new(MemorySchemaProvider::new());
-            catalog_provider.register_schema(&schema_name, schema_provider.clone());
+            let _ = catalog_provider.register_schema(&schema_name, schema_provider.clone());
 
             for (table, schema_ref) in tables {
                 let wrapped = ObservableMemTable::new(table.clone(), schema_ref, log.clone());
