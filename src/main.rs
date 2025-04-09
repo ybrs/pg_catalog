@@ -1,4 +1,4 @@
-use sqlparser::ast::{BinaryOperator, Expr, ObjectName, SelectItem, SetExpr, Statement, TableAlias, TableFactor, TableWithJoins};
+use sqlparser::ast::{BinaryOperator, Expr, ObjectName, SelectItem, SetExpr, Statement, TableAlias, TableFactor, TableWithJoins, JoinOperator, JoinConstraint};
 use sqlparser::dialect::GenericDialect;
 use sqlparser::parser::Parser;
 use std::collections::{HashMap, HashSet};
@@ -125,6 +125,17 @@ fn process_table_with_joins(table_with_joins: &TableWithJoins, table_info: &mut 
     process_table_factor(&table_with_joins.relation, table_info, aliases);
     for join in &table_with_joins.joins {
         process_table_factor(&join.relation, table_info, aliases);
+        if let JoinOperator::LeftOuter(JoinConstraint::On(expr))
+            | JoinOperator::RightOuter(JoinConstraint::On(expr))
+            | JoinOperator::FullOuter(JoinConstraint::On(expr))
+            | JoinOperator::Inner(JoinConstraint::On(expr))
+            | JoinOperator::LeftSemi(JoinConstraint::On(expr))
+            | JoinOperator::LeftAnti(JoinConstraint::On(expr))
+            | JoinOperator::RightSemi(JoinConstraint::On(expr))
+            | JoinOperator::RightAnti(JoinConstraint::On(expr)) = &join.join_operator
+        {
+            distribute_filters(expr, table_info, aliases);
+        }
     }
 }
 
