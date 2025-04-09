@@ -1,161 +1,139 @@
-use sqlparser::ast::{BinaryOperator, Expr, ObjectName, SelectItem, SetExpr, Statement, TableAlias, TableFactor, TableWithJoins, JoinOperator, JoinConstraint};
-use sqlparser::dialect::GenericDialect;
-use sqlparser::parser::Parser;
-use std::collections::{HashMap, HashSet};
+use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
+use datafusion::datasource::MemTable;
+use datafusion::execution::context::SessionContext;
+use datafusion::logical_expr::{Expr, LogicalPlan, TableScan};
+use datafusion::common::TableReference;
+
+use regex::Regex;
+use serde::Deserialize;
+use serde_yaml;
+use std::collections::{BTreeMap, HashMap};
 use std::env;
+use std::fs;
+use std::sync::Arc;
 
-#[tokio::main]
-async fn main() {
-    let args: Vec<String> = env::args().collect();
-    if args.len() != 2 {
-        eprintln!("Usage: {} \"SQL_QUERY\"", args[0]);
-        std::process::exit(1);
+#[derive(Debug, Deserialize)]
+struct YamlSchema(HashMap<String, BTreeMap<String, String>>);
+
+fn map_pg_type(pg_type: &str) -> DataType {
+    let re_varchar = Regex::new(r"^varchar\\(\\d+\\)$").unwrap();
+    match pg_type.to_lowercase().as_str() {
+        "uuid" => DataType::Utf8,
+        "int" | "integer" => DataType::Int32,
+        "bigint" => DataType::Int64,
+        "bool" | "boolean" => DataType::Boolean,
+        other if re_varchar.is_match(other) => DataType::Utf8,
+        _ => DataType::Utf8,
     }
-    let sql_query = &args[1];
+}
 
-    let dialect = GenericDialect {};
-    let ast = Parser::parse_sql(&dialect, sql_query).expect("Failed to parse SQL");
+fn parse_schema(yaml_path: &str) -> HashMap<String, SchemaRef> {
+    let contents = fs::read_to_string(yaml_path).expect("Failed to read schema.yaml");
+    let parsed: YamlSchema = serde_yaml::from_str(&contents).expect("Invalid YAML schema");
 
-    let mut table_info: HashMap<String, (HashSet<String>, HashSet<String>)> = HashMap::new();
-    let mut aliases: HashMap<String, String> = HashMap::new();
+    parsed
+        .0
+        .into_iter()
+        .map(|(table, columns)| {
+            let fields: Vec<Field> = columns
+                .into_iter()
+                .map(|(col, typ)| Field::new(&col, map_pg_type(&typ), true))
+                .collect();
+            (table, Arc::new(Schema::new(fields)))
+        })
+        .collect()
+}
 
-    if let Some(Statement::Query(query)) = ast.get(0) {
-        if let SetExpr::Select(select) = query.body.as_ref() {
-            process_select(select, &mut table_info, &mut aliases);
+fn collect_info_from_plan(plan: &LogicalPlan) -> serde_json::Value {
+    let mut table_info: HashMap<String, (Vec<String>, Vec<String>, BTreeMap<String, String>)> = HashMap::new();
+
+    fn walk(plan: &LogicalPlan, table_info: &mut HashMap<String, (Vec<String>, Vec<String>, BTreeMap<String, String>)>) {
+        match plan {
+            LogicalPlan::Projection(p) => {
+                for e in &p.expr {
+                    if let Expr::Column(col) = e {
+
+                        let table = match &col.relation {
+                            Some(TableReference::Bare { table }) => table.clone(),
+                            Some(TableReference::Partial { table, .. }) => table.clone(),
+                            Some(TableReference::Full { table, .. }) => table.clone(),
+                            _ => Arc::from("<unknown>"),
+                        };
+                        table_info.entry(table.to_string()).or_default().0.push(col.name.clone());
+                    }
+                }
+                walk(&p.input, table_info);
+            }
+            LogicalPlan::Filter(f) => {
+                let mut exprs = vec![f.predicate.to_string()];
+                walk(&f.input, table_info);
+                if let LogicalPlan::TableScan(scan) = f.input.as_ref() {
+                    let table = &scan.table_name;
+                    table_info.entry(table.to_string()).or_default().1.append(&mut exprs);
+                }
+            }
+            LogicalPlan::TableScan(scan) => {
+                let schema = scan
+                    .source
+                    .schema()
+                    .fields()
+                    .iter()
+                    .map(|f| (f.name().clone(), f.data_type().to_string()))
+                    .collect::<BTreeMap<_, _>>();
+                table_info.entry(scan.table_name.to_string()).or_default().2 = schema;
+            }
+            _ => {
+                for child in plan.inputs() {
+                    walk(child, table_info);
+                }
+            }
         }
     }
 
-    let result: Vec<_> = table_info
+    walk(plan, &mut table_info);
+
+    let out: Vec<_> = table_info
         .into_iter()
-        .map(|(table, (columns, filters))| {
+        .map(|(table, (columns, filters, types))| {
             serde_json::json!({
                 "table": table,
                 "columns": columns,
                 "filters": filters,
+                "types": types
             })
         })
         .collect();
-
-    println!("{}", serde_json::to_string_pretty(&result).unwrap());
+    serde_json::Value::Array(out)
 }
 
-fn process_select(select: &sqlparser::ast::Select, table_info: &mut HashMap<String, (HashSet<String>, HashSet<String>)>, aliases: &mut HashMap<String, String>) {
-    for table_with_joins in &select.from {
-        process_table_with_joins(table_with_joins, table_info, aliases);
+#[tokio::main]
+async fn main() -> datafusion::error::Result<()> {
+    let args: Vec<String> = env::args().collect();
+    if args.len() < 3 {
+        eprintln!("Usage: {} schema.yaml \"SQL_QUERY\" [--show-plan]", args[0]);
+        std::process::exit(1);
+    }
+    let schema_path = &args[1];
+    let sql = &args[2];
+    let show_plan = args.iter().any(|x| x == "--show-plan");
+
+    let schemas = parse_schema(schema_path);
+    let ctx = SessionContext::new();
+
+    for (table, schema) in schemas.iter() {
+        let empty = MemTable::try_new(schema.clone(), vec![])?;
+        ctx.register_table(table, Arc::new(empty))?;
     }
 
-    for projection in &select.projection {
-        match projection {
-            SelectItem::UnnamedExpr(expr) | SelectItem::ExprWithAlias { expr, .. } => {
-                collect_columns(expr, table_info, aliases);
-            }
-            SelectItem::QualifiedWildcard(obj_name, _) => {
-                let table = resolve_table_name(&obj_name.to_string(), aliases);
-                table_info.entry(table).or_default();
-            }
-            SelectItem::Wildcard(_) => {}
-        }
+    let df = ctx.sql(sql).await?;
+    let plan = df.logical_plan();
+
+    if show_plan {
+        println!("{:?}", plan);
     }
 
-    if let Some(selection) = &select.selection {
-        distribute_filters(selection, table_info, aliases);
-    }
-}
+    let json = collect_info_from_plan(&plan);
+    println!("{}", serde_json::to_string_pretty(&json).unwrap());
 
-fn collect_columns(expr: &Expr, table_info: &mut HashMap<String, (HashSet<String>, HashSet<String>)>, aliases: &HashMap<String, String>) {
-    match expr {
-        Expr::CompoundIdentifier(idents) if idents.len() == 2 => {
-            let table = resolve_table_name(&idents[0].value, aliases);
-            let column = &idents[1].value;
-            table_info.entry(table).or_default().0.insert(column.clone());
-        }
-        Expr::Identifier(ident) => {
-            for (_table, (cols, _)) in table_info.iter_mut() {
-                cols.insert(ident.value.clone());
-            }
-        }
-        Expr::BinaryOp { left, right, .. } => {
-            collect_columns(left, table_info, aliases);
-            collect_columns(right, table_info, aliases);
-        }
-        Expr::Nested(e) => collect_columns(e, table_info, aliases),
-        _ => {}
-    }
-}
-
-fn distribute_filters(expr: &Expr, table_info: &mut HashMap<String, (HashSet<String>, HashSet<String>)>, aliases: &HashMap<String, String>) {
-    match expr {
-        Expr::BinaryOp { left, op, right } if matches!(op, BinaryOperator::And) => {
-            distribute_filters(left, table_info, aliases);
-            distribute_filters(right, table_info, aliases);
-        }
-        Expr::BinaryOp { .. } => {
-            let involved_tables: HashSet<_> = extract_tables_from_expr(expr, aliases);
-            if involved_tables.len() == 1 {
-                if let Some(table) = involved_tables.iter().next() {
-                    table_info.entry(table.clone()).or_default().1.insert(expr.to_string());
-                }
-            }
-        }
-        Expr::Nested(e) => distribute_filters(e, table_info, aliases),
-        _ => {}
-    }
-}
-
-fn extract_tables_from_expr(expr: &Expr, aliases: &HashMap<String, String>) -> HashSet<String> {
-    let mut set = HashSet::new();
-    match expr {
-        Expr::CompoundIdentifier(idents) if idents.len() == 2 => {
-            let table = resolve_table_name(&idents[0].value, aliases);
-            set.insert(table);
-        }
-        Expr::BinaryOp { left, right, .. } => {
-            set.extend(extract_tables_from_expr(left, aliases));
-            set.extend(extract_tables_from_expr(right, aliases));
-        }
-        Expr::Nested(e) => {
-            set.extend(extract_tables_from_expr(e, aliases));
-        }
-        _ => {}
-    }
-    set
-}
-
-fn process_table_with_joins(table_with_joins: &TableWithJoins, table_info: &mut HashMap<String, (HashSet<String>, HashSet<String>)>, aliases: &mut HashMap<String, String>) {
-    process_table_factor(&table_with_joins.relation, table_info, aliases);
-    for join in &table_with_joins.joins {
-        process_table_factor(&join.relation, table_info, aliases);
-        if let JoinOperator::LeftOuter(JoinConstraint::On(expr))
-            | JoinOperator::RightOuter(JoinConstraint::On(expr))
-            | JoinOperator::FullOuter(JoinConstraint::On(expr))
-            | JoinOperator::Inner(JoinConstraint::On(expr))
-            | JoinOperator::LeftSemi(JoinConstraint::On(expr))
-            | JoinOperator::LeftAnti(JoinConstraint::On(expr))
-            | JoinOperator::RightSemi(JoinConstraint::On(expr))
-            | JoinOperator::RightAnti(JoinConstraint::On(expr)) = &join.join_operator
-        {
-            distribute_filters(expr, table_info, aliases);
-        }
-    }
-}
-
-fn process_table_factor(factor: &TableFactor, table_info: &mut HashMap<String, (HashSet<String>, HashSet<String>)>, aliases: &mut HashMap<String, String>) {
-    match factor {
-        TableFactor::Table { name, alias, .. } => {
-            let real = name.to_string();
-            table_info.entry(real.clone()).or_default();
-            if let Some(TableAlias { name: alias_name, .. }) = alias {
-                aliases.insert(alias_name.value.clone(), real);
-            }
-        }
-        TableFactor::Derived { subquery, alias, .. } => {
-            let table = alias.as_ref().map(|a| a.name.to_string()).unwrap_or_else(|| subquery.to_string());
-            table_info.entry(table).or_default();
-        }
-        _ => {}
-    }
-}
-
-fn resolve_table_name(alias_or_name: &str, aliases: &HashMap<String, String>) -> String {
-    aliases.get(alias_or_name).cloned().unwrap_or_else(|| alias_or_name.to_string())
+    Ok(())
 }

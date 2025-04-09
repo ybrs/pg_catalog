@@ -1,0 +1,7 @@
+users:
+  id: uuid
+  name: varchar(120)
+  role_id: uuid
+roles:
+  id: uuid
+  name: varchar(120)
