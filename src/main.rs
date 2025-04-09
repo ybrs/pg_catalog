@@ -1,28 +1,31 @@
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
-use datafusion::datasource::MemTable;
-use datafusion::execution::context::SessionContext;
-use datafusion::logical_expr::{Expr, LogicalPlan, TableScan};
-use datafusion::common::TableReference;
+use datafusion::datasource::{MemTable, TableProvider, TableType};
+use datafusion::datasource::provider::TableProviderFilterPushDown;
+use datafusion::execution::context::{SessionContext, SessionState};
+use datafusion::logical_expr::Expr;
+use datafusion::physical_plan::ExecutionPlan;
+use datafusion::error::Result;
+use async_trait::async_trait;
 
-use regex::Regex;
 use serde::Deserialize;
+use serde_json::json;
 use serde_yaml;
+
 use std::collections::{BTreeMap, HashMap};
 use std::env;
 use std::fs;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Deserialize)]
 struct YamlSchema(HashMap<String, BTreeMap<String, String>>);
 
 fn map_pg_type(pg_type: &str) -> DataType {
-    let re_varchar = Regex::new(r"^varchar\\(\\d+\\)$").unwrap();
     match pg_type.to_lowercase().as_str() {
         "uuid" => DataType::Utf8,
         "int" | "integer" => DataType::Int32,
         "bigint" => DataType::Int64,
         "bool" | "boolean" => DataType::Boolean,
-        other if re_varchar.is_match(other) => DataType::Utf8,
+        _ if pg_type.to_lowercase().starts_with("varchar") => DataType::Utf8,
         _ => DataType::Utf8,
     }
 }
@@ -44,96 +47,127 @@ fn parse_schema(yaml_path: &str) -> HashMap<String, SchemaRef> {
         .collect()
 }
 
-fn collect_info_from_plan(plan: &LogicalPlan) -> serde_json::Value {
-    let mut table_info: HashMap<String, (Vec<String>, Vec<String>, BTreeMap<String, String>)> = HashMap::new();
+#[derive(Debug, Clone)]
+struct ScanTrace {
+    table: String,
+    projection: Option<Vec<usize>>,
+    filters: Vec<Expr>,
+    types: BTreeMap<String, String>,
+}
 
-    fn walk(plan: &LogicalPlan, table_info: &mut HashMap<String, (Vec<String>, Vec<String>, BTreeMap<String, String>)>) {
-        match plan {
-            LogicalPlan::Projection(p) => {
-                for e in &p.expr {
-                    if let Expr::Column(col) = e {
+#[derive(Debug)]
+struct ObservableMemTable {
+    name: String,
+    schema: SchemaRef,
+    mem: Arc<MemTable>,
+    log: Arc<Mutex<Vec<ScanTrace>>>,
+}
 
-                        let table = match &col.relation {
-                            Some(TableReference::Bare { table }) => table.clone(),
-                            Some(TableReference::Partial { table, .. }) => table.clone(),
-                            Some(TableReference::Full { table, .. }) => table.clone(),
-                            _ => Arc::from("<unknown>"),
-                        };
-                        table_info.entry(table.to_string()).or_default().0.push(col.name.clone());
-                    }
-                }
-                walk(&p.input, table_info);
-            }
-            LogicalPlan::Filter(f) => {
-                let mut exprs = vec![f.predicate.to_string()];
-                walk(&f.input, table_info);
-                if let LogicalPlan::TableScan(scan) = f.input.as_ref() {
-                    let table = &scan.table_name;
-                    table_info.entry(table.to_string()).or_default().1.append(&mut exprs);
-                }
-            }
-            LogicalPlan::TableScan(scan) => {
-                let schema = scan
-                    .source
-                    .schema()
-                    .fields()
-                    .iter()
-                    .map(|f| (f.name().clone(), f.data_type().to_string()))
-                    .collect::<BTreeMap<_, _>>();
-                table_info.entry(scan.table_name.to_string()).or_default().2 = schema;
-            }
-            _ => {
-                for child in plan.inputs() {
-                    walk(child, table_info);
-                }
-            }
+impl ObservableMemTable {
+    fn new(name: String, schema: SchemaRef, log: Arc<Mutex<Vec<ScanTrace>>>) -> Self {
+        let mem = MemTable::try_new(schema.clone(), vec![]).unwrap();
+        Self {
+            name,
+            schema,
+            mem: Arc::new(mem),
+            log,
         }
     }
+}
 
-    walk(plan, &mut table_info);
+#[async_trait]
+impl TableProvider for ObservableMemTable {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 
-    let out: Vec<_> = table_info
-        .into_iter()
-        .map(|(table, (columns, filters, types))| {
-            serde_json::json!({
-                "table": table,
-                "columns": columns,
-                "filters": filters,
-                "types": types
-            })
-        })
-        .collect();
-    serde_json::Value::Array(out)
+    fn schema(&self) -> SchemaRef {
+        self.schema.clone()
+    }
+
+    fn table_type(&self) -> TableType {
+        TableType::Base
+    }
+
+    fn supports_filters_pushdown(&self, filters: &[&Expr]) -> Result<Vec<TableProviderFilterPushDown>> {
+        Ok(vec![TableProviderFilterPushDown::Inexact; filters.len()])
+    }
+
+    async fn scan(
+        &self,
+        state: &dyn datafusion::catalog::Session,
+        projection: Option<&Vec<usize>>,
+        filters: &[Expr],
+        limit: Option<usize>,
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        let mut types = BTreeMap::new();
+        for f in self.schema.fields() {
+            types.insert(f.name().clone(), f.data_type().to_string());
+        }
+
+        self.log.lock().unwrap().push(ScanTrace {
+            table: self.name.clone(),
+            projection: projection.cloned(),
+            filters: filters.to_vec(),
+            types,
+        });
+
+        self.mem.scan(state, projection, filters, limit).await
+    }
 }
 
 #[tokio::main]
 async fn main() -> datafusion::error::Result<()> {
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
-        eprintln!("Usage: {} schema.yaml \"SQL_QUERY\" [--show-plan]", args[0]);
+        eprintln!("Usage: {} schema.yaml \"SQL_QUERY\"", args[0]);
         std::process::exit(1);
     }
+
     let schema_path = &args[1];
     let sql = &args[2];
-    let show_plan = args.iter().any(|x| x == "--show-plan");
 
     let schemas = parse_schema(schema_path);
+    let log = Arc::new(Mutex::new(Vec::new()));
     let ctx = SessionContext::new();
 
-    for (table, schema) in schemas.iter() {
-        let empty = MemTable::try_new(schema.clone(), vec![])?;
-        ctx.register_table(table, Arc::new(empty))?;
+    for (table, schema) in &schemas {
+        let wrapped = ObservableMemTable::new(table.clone(), schema.clone(), log.clone());
+        ctx.register_table(table, Arc::new(wrapped))?;
     }
 
     let df = ctx.sql(sql).await?;
-    let plan = df.logical_plan();
+    let _ = df.collect().await?;
 
-    if show_plan {
-        println!("{:?}", plan);
-    }
+    let out: Vec<_> = log.lock().unwrap().iter().map(|entry| {
+        let columns: Vec<_> = match &entry.projection {
+            Some(p) => p.iter().map(|i| entry.schema().field(*i).name().clone()).collect(),
+            None => entry.types.keys().cloned().collect(),
+        };
+        json!({
+            "table": entry.table,
+            "columns": columns,
+            "filters": entry.filters.iter().map(|f| f.to_string()).collect::<Vec<_>>(),
+            "types": entry.types,
+        })
+    }).collect();
 
-    let json = collect_info_from_plan(&plan);
-    println!("{}", serde_json::to_string_pretty(&json).unwrap());
+    println!("{}", serde_json::to_string_pretty(&out).unwrap());
 
     Ok(())
+}
+
+trait SchemaAccess {
+    fn schema(&self) -> SchemaRef;
+}
+
+impl SchemaAccess for ScanTrace {
+    fn schema(&self) -> SchemaRef {
+        Arc::new(Schema::new(
+            self.types
+                .iter()
+                .map(|(k, v)| Field::new(k, map_pg_type(v), true))
+                .collect::<Vec<_>>(),
+        ))
+    }
 }
