@@ -13,6 +13,7 @@ use datafusion::error::Result;
 use async_trait::async_trait;
 // use datafusion::common::DataFusionError;
 use arrow::record_batch::RecordBatch;
+use datafusion::arrow::util::pretty;
 
 use serde::Deserialize;
 use serde_json::json;
@@ -24,7 +25,13 @@ use std::fs;
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Deserialize)]
-struct YamlSchema(HashMap<String, HashMap<String, HashMap<String, BTreeMap<String, String>>>>);
+struct TableDef {
+    schema: BTreeMap<String, String>,
+    rows: Option<Vec<BTreeMap<String, serde_json::Value>>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct YamlSchema(HashMap<String, HashMap<String, HashMap<String, TableDef>>>);
 
 fn map_pg_type(pg_type: &str) -> DataType {
     match pg_type.to_lowercase().as_str() {
@@ -37,32 +44,102 @@ fn map_pg_type(pg_type: &str) -> DataType {
     }
 }
 
-fn parse_schema(yaml_path: &str) -> HashMap<String, HashMap<String, HashMap<String, SchemaRef>>> {
+// fn parse_schema(yaml_path: &str) -> HashMap<String, HashMap<String, HashMap<String, SchemaRef>>> {
+//     let contents = fs::read_to_string(yaml_path).expect("Failed to read schema.yaml");
+//     let parsed: YamlSchema = serde_yaml::from_str(&contents).expect("Invalid YAML schema");
+//
+//     parsed.0
+//         .into_iter()
+//         .map(|(catalog_name, schemas)| {
+//             let schemas = schemas
+//                 .into_iter()
+//                 .map(|(schema_name, tables)| {
+//                     let tables = tables
+//                         .into_iter()
+//                         .map(|(table_name, columns)| {
+//                             let fields: Vec<Field> = columns
+//                                 .into_iter()
+//                                 .map(|(col, typ)| Field::new(&col, map_pg_type(&typ), true))
+//                                 .collect();
+//                             (table_name, Arc::new(Schema::new(fields)))
+//                         })
+//                         .collect();
+//                     (schema_name, tables)
+//                 })
+//                 .collect();
+//             (catalog_name, schemas)
+//         })
+//         .collect()
+// }
+
+fn parse_schema(yaml_path: &str) -> HashMap<String, HashMap<String, HashMap<String, (SchemaRef, Vec<RecordBatch>)>>> {
     let contents = fs::read_to_string(yaml_path).expect("Failed to read schema.yaml");
     let parsed: YamlSchema = serde_yaml::from_str(&contents).expect("Invalid YAML schema");
 
-    parsed.0
-        .into_iter()
-        .map(|(catalog_name, schemas)| {
-            let schemas = schemas
-                .into_iter()
-                .map(|(schema_name, tables)| {
-                    let tables = tables
-                        .into_iter()
-                        .map(|(table_name, columns)| {
-                            let fields: Vec<Field> = columns
-                                .into_iter()
-                                .map(|(col, typ)| Field::new(&col, map_pg_type(&typ), true))
-                                .collect();
-                            (table_name, Arc::new(Schema::new(fields)))
-                        })
-                        .collect();
-                    (schema_name, tables)
-                })
-                .collect();
-            (catalog_name, schemas)
-        })
-        .collect()
+    parsed.0.into_iter().map(|(catalog_name, schemas)| {
+        let schemas = schemas.into_iter().map(|(schema_name, tables)| {
+            let tables = tables.into_iter().map(|(table_name, def)| {
+                let fields: Vec<Field> = def.schema.iter()
+                    .map(|(col, typ)| Field::new(col, map_pg_type(typ), true))
+                    .collect();
+
+                let schema_ref = Arc::new(Schema::new(fields.clone()));
+
+                let record_batch = if let Some(rows) = def.rows {
+                    let mut cols: Vec<Vec<serde_json::Value>> = vec![vec![]; fields.len()];
+                    for row in rows {
+                        for (i, field) in fields.iter().enumerate() {
+                            cols[i].push(row.get(field.name()).cloned().unwrap_or(serde_json::Value::Null));
+                        }
+                    }
+
+let arrays = fields.iter().zip(cols.into_iter())
+    .map(|(field, col_data)| {
+        use arrow::array::*;
+        use arrow::datatypes::DataType;
+
+        let array: ArrayRef = match field.data_type() {
+            DataType::Utf8 => Arc::new(StringArray::from(
+                col_data.into_iter()
+                    .map(|v| v.as_str().map(|s| s.to_string()))
+                    .collect::<Vec<_>>()
+            )),
+            DataType::Int32 => Arc::new(Int32Array::from(
+                col_data.into_iter()
+                    .map(|v| v.as_i64().map(|i| i as i32))
+                    .collect::<Vec<_>>()
+            )),
+            DataType::Int64 => Arc::new(Int64Array::from(
+                col_data.into_iter()
+                    .map(|v| v.as_i64())
+                    .collect::<Vec<_>>()
+            )),
+            DataType::Boolean => Arc::new(BooleanArray::from(
+                col_data.into_iter()
+                    .map(|v| v.as_bool())
+                    .collect::<Vec<_>>()
+            )),
+            _ => Arc::new(StringArray::from(
+                col_data.into_iter()
+                    .map(|v| Some(v.to_string()))
+                    .collect::<Vec<_>>()
+            )),
+        };
+        array
+    })
+    .collect::<Vec<_>>();
+
+                    vec![RecordBatch::try_new(schema_ref.clone(), arrays).unwrap()]
+                } else {
+                    vec![RecordBatch::new_empty(schema_ref.clone())]
+                };
+
+                (table_name, (schema_ref, record_batch))
+            }).collect();
+            (schema_name, tables)
+        }).collect();
+        (catalog_name, schemas)
+    }).collect()
 }
 
 #[derive(Debug, Clone)]
@@ -82,9 +159,8 @@ struct ObservableMemTable {
 }
 
 impl ObservableMemTable {
-    fn new(table_name: String, schema: SchemaRef, log: Arc<Mutex<Vec<ScanTrace>>>) -> Self {
-        let dummy_batch = RecordBatch::new_empty(schema.clone());
-        let mem = MemTable::try_new(schema.clone(), vec![vec![dummy_batch]]).unwrap();
+    fn new(table_name: String, schema: SchemaRef, log: Arc<Mutex<Vec<ScanTrace>>>, data: Vec<RecordBatch>) -> Self {
+        let mem = MemTable::try_new(schema.clone(), vec![data]).unwrap();
         Self {
             table_name,
             schema,
@@ -175,15 +251,16 @@ async fn main() -> datafusion::error::Result<()> {
             let schema_provider = Arc::new(MemorySchemaProvider::new());
             let _ = catalog_provider.register_schema(&schema_name, schema_provider.clone());
 
-            for (table, schema_ref) in tables {
-                let wrapped = ObservableMemTable::new(table.clone(), schema_ref, log.clone());
+            for (table, (schema_ref, batches)) in tables {
+                let wrapped = ObservableMemTable::new(table.clone(), schema_ref, log.clone(), batches);
                 schema_provider.register_table(table, Arc::new(wrapped))?;
             }
         }
     }
 
     let df = ctx.sql(sql).await?;
-    let _ = df.collect().await?;
+    let results = df.collect().await?;
+    pretty::print_batches(&results)?;
 
     let out: Vec<_> = log.lock().unwrap().iter().map(|entry| {
         let columns: Vec<_> = match &entry.projection {
