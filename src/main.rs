@@ -139,7 +139,7 @@ impl TableProvider for ObservableMemTable {
 async fn main() -> datafusion::error::Result<()> {
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
-        eprintln!("Usage: {} schema.yaml \"SQL_QUERY\"", args[0]);
+        println!("Usage: {} schema.yaml \"SQL_QUERY\"", args[0]);
         std::process::exit(1);
     }
 
