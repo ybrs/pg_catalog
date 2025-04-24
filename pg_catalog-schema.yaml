@@ -1,0 +1,41 @@
+public:
+  pg_catalog:  # schema name is same as catalog in this case
+    pg_namespace:
+      schema:
+        oid: int
+        nspname: varchar(64)
+        nspowner: int
+        nspacl: varchar(256)
+      rows:
+        - oid: 1
+          nspname: "pg_catalog"
+          nspowner: 10
+          nspacl: null
+        - oid: 2
+          nspname: "public"
+          nspowner: 10
+          nspacl: null
+        - oid: 3
+          nspname: "crm"
+          nspowner: 10
+          nspacl: null
+
+    pg_description:
+      schema:
+        objoid: int
+        classoid: int
+        objsubid: int
+        description: varchar(256)
+      rows:
+        - objoid: 1
+          classoid: 2615  # oid for pg_namespace
+          objsubid: 0
+          description: "System catalog schema"
+        - objoid: 2
+          classoid: 2615
+          objsubid: 0
+          description: "Default public schema"
+        - objoid: 3
+          classoid: 2615
+          objsubid: 0
+          description: "CRM data schema"

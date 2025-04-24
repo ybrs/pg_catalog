@@ -24,6 +24,9 @@ use std::env;
 use std::fs;
 use std::sync::{Arc, Mutex};
 
+mod replace;
+use crate::replace::create_regclass_udf;
+
 #[derive(Debug, Deserialize)]
 struct TableDef {
     schema: BTreeMap<String, String>,
@@ -32,6 +35,7 @@ struct TableDef {
 
 #[derive(Debug, Deserialize)]
 struct YamlSchema(HashMap<String, HashMap<String, HashMap<String, TableDef>>>);
+
 
 fn map_pg_type(pg_type: &str) -> DataType {
     match pg_type.to_lowercase().as_str() {
@@ -257,6 +261,8 @@ async fn main() -> datafusion::error::Result<()> {
             }
         }
     }
+
+    ctx.register_udf(create_regclass_udf());
 
     let df = ctx.sql(sql).await?;
     let results = df.collect().await?;
