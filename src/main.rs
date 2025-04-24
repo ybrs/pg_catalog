@@ -48,34 +48,6 @@ fn map_pg_type(pg_type: &str) -> DataType {
     }
 }
 
-// fn parse_schema(yaml_path: &str) -> HashMap<String, HashMap<String, HashMap<String, SchemaRef>>> {
-//     let contents = fs::read_to_string(yaml_path).expect("Failed to read schema.yaml");
-//     let parsed: YamlSchema = serde_yaml::from_str(&contents).expect("Invalid YAML schema");
-//
-//     parsed.0
-//         .into_iter()
-//         .map(|(catalog_name, schemas)| {
-//             let schemas = schemas
-//                 .into_iter()
-//                 .map(|(schema_name, tables)| {
-//                     let tables = tables
-//                         .into_iter()
-//                         .map(|(table_name, columns)| {
-//                             let fields: Vec<Field> = columns
-//                                 .into_iter()
-//                                 .map(|(col, typ)| Field::new(&col, map_pg_type(&typ), true))
-//                                 .collect();
-//                             (table_name, Arc::new(Schema::new(fields)))
-//                         })
-//                         .collect();
-//                     (schema_name, tables)
-//                 })
-//                 .collect();
-//             (catalog_name, schemas)
-//         })
-//         .collect()
-// }
-
 fn parse_schema(yaml_path: &str) -> HashMap<String, HashMap<String, HashMap<String, (SchemaRef, Vec<RecordBatch>)>>> {
     let contents = fs::read_to_string(yaml_path).expect("Failed to read schema.yaml");
     let parsed: YamlSchema = serde_yaml::from_str(&contents).expect("Invalid YAML schema");
