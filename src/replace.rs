@@ -7,10 +7,6 @@ use sqlparser::ast::{DataType as SQLDataType, Expr, Function, FunctionArg, Funct
 use sqlparser::dialect::PostgreSqlDialect;
 use sqlparser::parser::{Parser, ParserError};
 use std::sync::Arc;
-use FunctionArg::Unnamed;
-use sqlparser::tokenizer::Tokenizer;
-
-
 use sqlparser::ast::*;
 
 
@@ -35,27 +31,9 @@ pub fn create_regclass_udf() -> ScalarUDF {
     )
 }
 
-use sqlparser::ast::*;
 
 
-// pub fn parse_sql_and_dump_ast(sql: &str) {
-//     let dialect = PostgreSqlDialect {};
-//     let mut statements = Parser::parse_sql(&dialect, sql).unwrap();
-//
-//     visit_statements_mut(&mut statements, |stmt| {
-//         if let Statement::Query(query) = stmt {
-//             query.limit = None;
-//         }
-//         ControlFlow::<()>::Continue(())
-//     });
-//
-//     for stmt in statements {
-//         println!("{}", stmt);
-//     }
-// }
-
-
-pub fn parse_sql_and_dump_ast(sql: &str) {
+pub fn replace_regclass(sql: &str) -> String {
     let dialect = PostgreSqlDialect {};
     let mut statements = Parser::parse_sql(&dialect, sql).unwrap();
 
@@ -97,11 +75,11 @@ pub fn parse_sql_and_dump_ast(sql: &str) {
         ControlFlow::<()>::Continue(())
     });
 
-    println!("sql after ====");
-    for stmt in statements {
-        println!("{}", stmt);
-    }
-    println!("=======");
+    statements
+        .into_iter()
+        .map(|stmt| stmt.to_string())
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 
@@ -112,9 +90,34 @@ mod tests {
 
 
     #[test]
-    fn test_usage() -> Result<(), Box<dyn Error>> {
+    fn test_various_sql_cases() -> Result<(), Box<dyn Error>> {
+        let cases = vec![
+            (
+                "SELECT 'pg_namespace'::regclass FROM foo LIMIT 10",
+                "SELECT regclass('pg_namespace') FROM foo LIMIT 10",
+            ),
+            (
+                "WITH cte AS (SELECT 'pg_class'::regclass) SELECT * FROM cte",
+                "WITH cte AS (SELECT regclass('pg_class')) SELECT * FROM cte",
+            ),
+            (
+                "SELECT t.*, 'pg_class'::regclass FROM table1 t JOIN table2 ON true",
+                "SELECT t.*, regclass('pg_class') FROM table1 AS t JOIN table2 ON true",
+            ),
+            (
+                "SELECT * FROM (SELECT 'pg_class'::regclass) sub",
+                "SELECT * FROM (SELECT regclass('pg_class')) AS sub",
+            ),
+        ];
 
-        parse_sql_and_dump_ast("select 'pg_namespace'::regclass from foo limit 10");
+        for (input, expected) in cases {
+            let transformed = replace_regclass(input);
+            assert_eq!(transformed, expected, "Failed for input: {}", input);
+        }
+
         Ok(())
     }
+
+
+
 }
