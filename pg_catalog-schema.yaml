@@ -1,5 +1,5 @@
 public:
-  pg_catalog:  # schema name is same as catalog in this case
+  pg_catalog:
     pg_namespace:
       schema:
         oid: int
