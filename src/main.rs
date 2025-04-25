@@ -4,14 +4,16 @@ mod clean_duplicate_columns;
 mod server;
 
 use std::env;
+use std::sync::Arc;
 use arrow::util::pretty;
+use crate::server::start_server;
 use crate::session::{print_execution_log, get_session_context, execute_sql};
 
 #[tokio::main]
-async fn main() -> datafusion::error::Result<()> {
+async fn main() -> anyhow::Result<()> {
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
-        println!("Usage: {} schema.yaml \"SQL_QUERY\"", args[0]);
+        println!("Usage: {} schema.yaml ", args[0]);
         std::process::exit(1);
     }
 
@@ -30,8 +32,11 @@ async fn main() -> datafusion::error::Result<()> {
         .clone();
 
     let (ctx, log) = get_session_context(schema_path, default_catalog.clone(), default_schema.clone())?;
-    let results = execute_sql(&ctx, sql.as_str()).await?;
-    pretty::print_batches(&results)?;
-    print_execution_log(log.clone());
+    // let results = execute_sql(&ctx, sql.as_str()).await?;
+    // pretty::print_batches(&results)?;
+    // print_execution_log(log.clone());
+
+    start_server(Arc::new(ctx), "127.0.0.1:5433").await?;
+
     Ok(())
 }

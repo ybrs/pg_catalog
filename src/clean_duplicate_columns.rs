@@ -93,7 +93,7 @@ pub fn alias_all_columns(sql: &str) -> (String, HashMap<String, String>){
         .collect::<Vec<_>>()
         .join(" ");
 
-    println!("result: {:?} alias_map: {:?}", res, alias_map);
+    // println!("result: {:?} alias_map: {:?}", res, alias_map);
 
     (res, alias_map)
 }

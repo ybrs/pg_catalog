@@ -40,7 +40,7 @@ pub fn replace_regclass(sql: &str) -> String {
 
     visit_statements_mut(&mut statements, |stmt| {
         visit_expressions_mut(stmt, |expr| {
-            dbg!(&expr); // leave this if you want to debug input
+            // dbg!(&expr); // leave this if you want to debug input
             if let Expr::Cast { expr: inner_expr, data_type, .. } = expr {
                 if let DataType::Regclass = data_type {
                     if let Expr::Value(inner_val) = &**inner_expr {

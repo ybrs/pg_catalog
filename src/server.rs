@@ -62,7 +62,7 @@ fn batch_to_field_info(batch: &RecordBatch, format: &Format) -> PgWireResult<Vec
             f.name().to_string(),
             None,
             None,
-            Type::TEXT, // We return everything as TEXT for simplicity
+            Type::TEXT, // TODO: We return everything as TEXT for simplicity
             format.format_for(idx),
         )
     }).collect())
