@@ -25,7 +25,9 @@ use std::fs;
 use std::sync::{Arc, Mutex};
 
 mod replace;
-use crate::replace::create_regclass_udf;
+mod clean_duplicate_columns;
+
+use crate::replace::{create_regclass_udf, replace_regclass};
 
 #[derive(Debug, Deserialize)]
 struct TableDef {
@@ -236,7 +238,11 @@ async fn main() -> datafusion::error::Result<()> {
 
     ctx.register_udf(create_regclass_udf());
 
-    let df = ctx.sql(sql).await?;
+    println!("original sql {:?}", sql);
+    let sql = replace_regclass(sql);
+    println!("sql after rewrite: {:?}", sql);
+    let df = ctx.sql(sql.as_str()).await?;
+
     let results = df.collect().await?;
     pretty::print_batches(&results)?;
 

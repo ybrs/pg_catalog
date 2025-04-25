@@ -1,0 +1,124 @@
+use sqlparser::ast::*;
+use sqlparser::dialect::PostgreSqlDialect;
+use sqlparser::parser::Parser;
+use std::collections::HashSet;
+use std::ops::ControlFlow;
+use uuid::Uuid;
+
+
+pub fn alias_all_columns(sql: &str) -> String {
+    let dialect = PostgreSqlDialect {};
+    let mut statements = Parser::parse_sql(&dialect, sql).unwrap();
+
+    let _ = visit_statements_mut(&mut statements, |stmt| {
+        if let Statement::Query(query) = stmt {
+            let mut stack = vec![&mut query.body];
+
+            while let Some(set_expr) = stack.pop() {
+                match set_expr.as_mut() {
+                    SetExpr::Select(select) => {
+                        let mut new_proj = Vec::new();
+                        for item in &select.projection {
+                            match item {
+                                SelectItem::UnnamedExpr(expr) => match expr {
+                                    Expr::Wildcard(_) | Expr::QualifiedWildcard(_, _) => {
+                                        new_proj.push(SelectItem::UnnamedExpr(expr.clone()));
+                                    }
+                                    _ => {
+                                        let alias = format!("\"{}\"", Uuid::new_v4().simple());
+                                        new_proj.push(SelectItem::ExprWithAlias {
+                                            expr: expr.clone(),
+                                            alias: Ident::new(alias),
+                                        });
+                                    }
+                                },
+                                _ => new_proj.push(item.clone()),
+                            }
+                        }
+                        select.projection = new_proj;
+                    }
+                    SetExpr::SetOperation { left, right, .. } => {
+                        stack.push(left);
+                        stack.push(right);
+                    }
+                    SetExpr::Query(q) => {
+                        stack.push(&mut q.body);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        ControlFlow::<()>::Continue(())
+    });
+
+
+    let result = statements
+        .into_iter()
+        .map(|stmt| stmt.to_string())
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    println!("{}", result);
+    result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::error::Error;
+
+    #[test]
+    fn test_alias_all_columns() -> Result<(), Box<dyn Error>> {
+        let cases = vec![
+            (
+                "SELECT t.id FROM foo",
+                vec!["SELECT t.id AS", "FROM foo"],
+            ),
+            (
+                "SELECT t.id AS f FROM foo",
+                vec!["SELECT t.id AS f FROM foo"], // Should stay the same
+            ),
+            (
+                "SELECT t.* FROM foo",
+                vec!["SELECT t.* FROM foo"], // No aliasing needed
+            ),
+            (
+                "SELECT t.id, t.* FROM foo",
+                vec!["SELECT t.id AS", "t.*", "FROM foo"], // Only t.id gets alias
+            ),
+            (
+                "SELECT 1 FROM foo",
+                vec!["SELECT 1 AS", "FROM foo"], // literal should also get alias
+            ),
+            (
+                "SELECT t.id + 1 FROM foo",
+                vec!["SELECT t.id + 1 AS", "FROM foo"], // expressions get alias
+            ),
+
+            (
+                "select * from (SELECT t.a FROM t) T1",
+                vec!["SELECT t.a AS", ""], // TODO: fix the test case
+            ),
+            (
+                "WITH cte AS (SELECT t.a FROM t) SELECT * FROM cte",
+                vec!["SELECT t.a AS", "SELECT * FROM cte"], // t.a gets alias, SELECT * stays
+            ),
+        ];
+
+        for (input, expected_substrings) in cases {
+            let transformed = alias_all_columns(input);
+            for expected in expected_substrings {
+                assert!(
+                    transformed.contains(expected),
+                    "Expected substring not found:\ninput: {}\nexpected: {}\nactual: {}",
+                    input,
+                    expected,
+                    transformed
+                );
+            }
+        }
+
+        Ok(())
+    }
+}
