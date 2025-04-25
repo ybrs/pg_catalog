@@ -11,9 +11,7 @@ use datafusion::logical_expr::Expr;
 use datafusion::physical_plan::ExecutionPlan;
 use datafusion::error::Result;
 use async_trait::async_trait;
-// use datafusion::common::DataFusionError;
 use arrow::record_batch::RecordBatch;
-use datafusion::arrow::util::pretty;
 
 use serde::Deserialize;
 use serde_json::json;

@@ -1,9 +1,8 @@
 use sqlparser::ast::*;
 use sqlparser::dialect::PostgreSqlDialect;
 use sqlparser::parser::Parser;
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap};
 use std::ops::ControlFlow;
-use uuid::Uuid;
 
 
 fn alias_projection(select: &mut Select, counter: &mut usize, alias_map: &mut HashMap<String, String>) {

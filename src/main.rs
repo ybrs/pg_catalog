@@ -3,7 +3,6 @@ mod replace;
 mod clean_duplicate_columns;
 use std::env;
 use arrow::util::pretty;
-use serde_json::json;
 use crate::session::{print_execution_log, get_session_context, execute_sql};
 
 #[tokio::main]

@@ -3,9 +3,9 @@ use arrow::datatypes::DataType as ArrowDataType;
 use datafusion::logical_expr::{create_udf, ColumnarValue, ScalarUDF, Volatility};
 use datafusion::scalar::ScalarValue;
 
-use sqlparser::ast::{DataType as SQLDataType, Expr, Function, FunctionArg, FunctionArgExpr, FunctionArguments, Ident, ObjectName, ObjectNamePart, Query, Select, SelectItem, SetExpr, Statement, Value};
+use sqlparser::ast::{Expr, Function, FunctionArg, FunctionArgExpr, FunctionArguments, Ident, ObjectName, ObjectNamePart, Value};
 use sqlparser::dialect::PostgreSqlDialect;
-use sqlparser::parser::{Parser, ParserError};
+use sqlparser::parser::{Parser};
 use std::sync::Arc;
 use sqlparser::ast::*;
 
