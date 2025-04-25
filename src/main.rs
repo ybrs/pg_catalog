@@ -31,12 +31,27 @@ async fn main() -> anyhow::Result<()> {
         .unwrap_or(&"public".to_string())
         .clone();
 
+    let host = args.iter()
+        .position(|x| x == "--host")
+        .and_then(|i| args.get(i + 1))
+        .unwrap_or(&"127.0.0.1".to_string())
+        .clone();
+
+    let port = args.iter()
+        .position(|x| x == "--port")
+        .and_then(|i| args.get(i + 1))
+        .unwrap_or(&"5433".to_string())
+        .clone();
+
+    let address = format!("{}:{}", host, port);
+
+
     let (ctx, log) = get_session_context(schema_path, default_catalog.clone(), default_schema.clone())?;
     // let results = execute_sql(&ctx, sql.as_str()).await?;
     // pretty::print_batches(&results)?;
     // print_execution_log(log.clone());
 
-    start_server(Arc::new(ctx), "127.0.0.1:5433").await?;
+    start_server(Arc::new(ctx), &address).await?;
 
     Ok(())
 }
