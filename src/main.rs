@@ -190,15 +190,15 @@ impl TableProvider for ObservableMemTable {
     }
 }
 
-fn rename_columns(batch: &RecordBatch, name_map: &HashMap<&str, &str>) -> RecordBatch {
+fn rename_columns(batch: &RecordBatch, name_map: &HashMap<String, String>) -> RecordBatch {
     let new_fields = batch
         .schema()
         .fields()
         .iter()
         .map(|old_field| {
             let new_name = name_map
-                .get(old_field.name().as_str())
-                .copied()
+                .get(old_field.name())
+                .map(|s| s.as_str())
                 .unwrap_or_else(|| old_field.name().as_str());
             Field::new(new_name, old_field.data_type().clone(), old_field.is_nullable())
         })
@@ -266,13 +266,9 @@ async fn main() -> datafusion::error::Result<()> {
 
     let results = df.collect().await?;
 
-    let alias_mapping = HashMap::from([
-        ("alias_0", "oid"),
-    ]);
-
     let results: Vec<RecordBatch> = results
         .iter()
-        .map(|batch| rename_columns(batch, &alias_mapping))
+        .map(|batch| rename_columns(batch, &aliases))
         .collect();
 
     pretty::print_batches(&results)?;
