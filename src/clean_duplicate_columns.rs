@@ -32,7 +32,16 @@ fn walk_set_expr(expr: &mut SetExpr) {
     match expr {
         SetExpr::Select(select) => {
             alias_projection(select);
+            for table_with_joins in &mut select.from {
+                match &mut table_with_joins.relation {
+                    TableFactor::Derived { subquery, .. } => {
+                        walk_query(subquery);
+                    }
+                    _ => {}
+                }
+            }
         }
+
         SetExpr::SetOperation { left, right, .. } => {
             walk_set_expr(left);
             walk_set_expr(right);
@@ -116,8 +125,13 @@ mod tests {
             ),
 
             (
-                "select * from (SELECT t.a FROM t) T1",
-                vec!["SELECT t.a AS", ""], // TODO: fix the test case
+                "select * from (SELECT t.a FROM t)",
+                vec!["SELECT t.a AS"],
+            ),
+
+            (
+                "select * from (SELECT t.a, t.b FROM t) T1",
+                vec!["SELECT t.a AS", "t.b AS"],
             ),
         ];
 
