@@ -6,7 +6,7 @@ use std::ops::ControlFlow;
 use uuid::Uuid;
 
 
-fn alias_projection(select: &mut Select) {
+fn alias_projection(select: &mut Select, counter: &mut usize) {
     let mut new_proj = Vec::new();
     for item in &select.projection {
         match item {
@@ -15,7 +15,8 @@ fn alias_projection(select: &mut Select) {
                     new_proj.push(SelectItem::UnnamedExpr(expr.clone()));
                 }
                 _ => {
-                    let alias = format!("\"{}\"", Uuid::new_v4().simple());
+                    let alias = format!("alias_{}", *counter);
+                    *counter += 1;
                     new_proj.push(SelectItem::ExprWithAlias {
                         expr: expr.clone(),
                         alias: Ident::new(alias),
@@ -31,7 +32,7 @@ fn alias_projection(select: &mut Select) {
 fn walk_set_expr(expr: &mut SetExpr) {
     match expr {
         SetExpr::Select(select) => {
-            alias_projection(select);
+            alias_projection(select, &mut 0);
             for table_with_joins in &mut select.from {
                 match &mut table_with_joins.relation {
                     TableFactor::Derived { subquery, .. } => {
