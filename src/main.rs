@@ -1,6 +1,8 @@
 mod session;
 mod replace;
 mod clean_duplicate_columns;
+mod server;
+
 use std::env;
 use arrow::util::pretty;
 use crate::session::{print_execution_log, get_session_context, execute_sql};
