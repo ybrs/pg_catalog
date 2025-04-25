@@ -17,7 +17,16 @@ fn alias_projection(select: &mut Select, counter: &mut usize, alias_map: &mut Ha
                 _ => {
                     let alias = format!("alias_{}", *counter);
                     *counter += 1;
-                    alias_map.insert(alias.clone(), expr.to_string());
+
+                    let name = match expr {
+                        Expr::CompoundIdentifier(segments) => segments.last().map(|id| id.value.clone()).unwrap_or("?column?".to_string()),
+                        Expr::Identifier(id) => id.value.clone(),
+                        _ => "?column?".to_string(),
+                    };
+
+                    alias_map.insert(alias.clone(), name);
+
+                    // alias_map.insert(alias.clone(), expr.to_string());
                     new_proj.push(SelectItem::ExprWithAlias {
                         expr: expr.clone(),
                         alias: Ident::new(alias),
@@ -65,7 +74,7 @@ fn walk_query(query: &mut Query, counter: &mut usize, alias_map: &mut HashMap<St
     }
 }
 
-pub fn alias_all_columns(sql: &str) -> String {
+pub fn alias_all_columns(sql: &str) -> (String, HashMap<String, String>){
     let dialect = PostgreSqlDialect {};
     let mut statements = Parser::parse_sql(&dialect, sql).unwrap();
 
@@ -87,7 +96,7 @@ pub fn alias_all_columns(sql: &str) -> String {
 
     println!("result: {:?} alias_map: {:?}", res, alias_map);
 
-    res
+    (res, alias_map)
 }
 
 
@@ -141,7 +150,7 @@ mod tests {
         ];
 
         for (input, expected_substrings) in cases {
-            let transformed = alias_all_columns(input);
+            let (transformed, aliases) = alias_all_columns(input);
             for expected in expected_substrings {
                 assert!(
                     transformed.contains(expected),

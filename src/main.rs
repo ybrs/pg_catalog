@@ -259,7 +259,8 @@ async fn main() -> datafusion::error::Result<()> {
 
     println!("original sql {:?}", sql);
     let sql = replace_regclass(sql);
-    let sql = alias_all_columns(sql.as_str());
+    //
+    let (sql, aliases) = alias_all_columns(sql.as_str());
     println!("sql after rewrite: {:?}", sql);
     let df = ctx.sql(sql.as_str()).await?;
 
