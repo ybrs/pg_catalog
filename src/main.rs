@@ -208,37 +208,49 @@ fn rename_columns(batch: &RecordBatch, name_map: &HashMap<String, String>) -> Re
     RecordBatch::try_new(new_schema, batch.columns().to_vec()).unwrap()
 }
 
-#[tokio::main]
-async fn main() -> datafusion::error::Result<()> {
-    let args: Vec<String> = env::args().collect();
-    if args.len() < 3 {
-        println!("Usage: {} schema.yaml \"SQL_QUERY\"", args[0]);
-        std::process::exit(1);
-    }
+trait SchemaAccess {
+    fn schema(&self) -> SchemaRef;
+}
 
-    let schema_path = &args[1];
-    let sql = &args[2];
+impl SchemaAccess for ScanTrace {
+    fn schema(&self) -> SchemaRef {
+        Arc::new(Schema::new(
+            self.types
+                .iter()
+                .map(|(k, v)| Field::new(k, map_pg_type(v), true))
+                .collect::<Vec<_>>(),
+        ))
+    }
+}
+
+
+async fn execute_sql(
+    ctx: &SessionContext,
+    sql: &str,
+) -> datafusion::error::Result<Vec<RecordBatch>> {
+    let sql = replace_regclass(sql);
+    let (sql, aliases) = alias_all_columns(&sql);
+
+    let df = ctx.sql(&sql).await?;
+    let results = df.collect().await?;
+
+    let results = results
+        .iter()
+        .map(|batch| rename_columns(batch, &aliases))
+        .collect();
+
+    Ok(results)
+}
+
+fn get_session_context(schema_path: &String, default_catalog:String, default_schema:String) -> datafusion::error::Result<(SessionContext, Arc<Mutex<Vec<ScanTrace>>>)> {
     let log = Arc::new(Mutex::new(Vec::new()));
 
-
-    let default_catalog = args.iter()
-        .position(|x| x == "--default-catalog")
-        .and_then(|i| args.get(i + 1))
-        .unwrap_or(&"datafusion".to_string())
-        .clone();
-
-    let default_schema = args.iter()
-        .position(|x| x == "--default-schema")
-        .and_then(|i| args.get(i + 1))
-        .unwrap_or(&"public".to_string())
-        .clone();
+    let schemas = parse_schema(schema_path.as_str());
 
     let config = datafusion::execution::context::SessionConfig::new()
         .with_default_catalog_and_schema(&default_catalog, &default_schema);
 
     let ctx = SessionContext::new_with_config(config);
-
-    let schemas = parse_schema(schema_path);
 
     for (catalog_name, schemas) in schemas {
         let catalog_provider = Arc::new(MemoryCatalogProvider::new());
@@ -256,21 +268,34 @@ async fn main() -> datafusion::error::Result<()> {
     }
 
     ctx.register_udf(create_regclass_udf());
+    Ok((ctx, log))
+}
 
-    println!("original sql {:?}", sql);
-    let sql = replace_regclass(sql);
-    //
-    let (sql, aliases) = alias_all_columns(sql.as_str());
-    println!("sql after rewrite: {:?}", sql);
-    let df = ctx.sql(sql.as_str()).await?;
 
-    let results = df.collect().await?;
+#[tokio::main]
+async fn main() -> datafusion::error::Result<()> {
+    let args: Vec<String> = env::args().collect();
+    if args.len() < 3 {
+        println!("Usage: {} schema.yaml \"SQL_QUERY\"", args[0]);
+        std::process::exit(1);
+    }
 
-    let results: Vec<RecordBatch> = results
-        .iter()
-        .map(|batch| rename_columns(batch, &aliases))
-        .collect();
+    let schema_path = &args[1];
+    let sql = &args[2];
+    let default_catalog = args.iter()
+        .position(|x| x == "--default-catalog")
+        .and_then(|i| args.get(i + 1))
+        .unwrap_or(&"datafusion".to_string())
+        .clone();
 
+    let default_schema = args.iter()
+        .position(|x| x == "--default-schema")
+        .and_then(|i| args.get(i + 1))
+        .unwrap_or(&"public".to_string())
+        .clone();
+
+    let (ctx, log) = get_session_context(schema_path, default_catalog.clone(), default_schema.clone())?;
+    let results = execute_sql(&ctx, sql.as_str()).await?;
     pretty::print_batches(&results)?;
 
     let out: Vec<_> = log.lock().unwrap().iter().map(|entry| {
@@ -289,19 +314,4 @@ async fn main() -> datafusion::error::Result<()> {
     println!("{}", serde_json::to_string_pretty(&out).unwrap());
 
     Ok(())
-}
-
-trait SchemaAccess {
-    fn schema(&self) -> SchemaRef;
-}
-
-impl SchemaAccess for ScanTrace {
-    fn schema(&self) -> SchemaRef {
-        Arc::new(Schema::new(
-            self.types
-                .iter()
-                .map(|(k, v)| Field::new(k, map_pg_type(v), true))
-                .collect::<Vec<_>>(),
-        ))
-    }
 }
