@@ -1,12 +1,12 @@
 use sqlparser::ast::*;
 use sqlparser::dialect::PostgreSqlDialect;
 use sqlparser::parser::Parser;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::ops::ControlFlow;
 use uuid::Uuid;
 
 
-fn alias_projection(select: &mut Select, counter: &mut usize) {
+fn alias_projection(select: &mut Select, counter: &mut usize, alias_map: &mut HashMap<String, String>) {
     let mut new_proj = Vec::new();
     for item in &select.projection {
         match item {
@@ -17,6 +17,7 @@ fn alias_projection(select: &mut Select, counter: &mut usize) {
                 _ => {
                     let alias = format!("alias_{}", *counter);
                     *counter += 1;
+                    alias_map.insert(alias.clone(), expr.to_string());
                     new_proj.push(SelectItem::ExprWithAlias {
                         expr: expr.clone(),
                         alias: Ident::new(alias),
@@ -29,14 +30,14 @@ fn alias_projection(select: &mut Select, counter: &mut usize) {
     select.projection = new_proj;
 }
 
-fn walk_set_expr(expr: &mut SetExpr) {
+fn walk_set_expr(expr: &mut SetExpr,  counter: &mut usize, alias_map: &mut HashMap<String, String>) {
     match expr {
         SetExpr::Select(select) => {
-            alias_projection(select, &mut 0);
+            alias_projection(select, counter, alias_map );
             for table_with_joins in &mut select.from {
                 match &mut table_with_joins.relation {
                     TableFactor::Derived { subquery, .. } => {
-                        walk_query(subquery);
+                        walk_query(subquery, counter, alias_map);
                     }
                     _ => {}
                 }
@@ -44,22 +45,22 @@ fn walk_set_expr(expr: &mut SetExpr) {
         }
 
         SetExpr::SetOperation { left, right, .. } => {
-            walk_set_expr(left);
-            walk_set_expr(right);
+            walk_set_expr(left, counter, alias_map);
+            walk_set_expr(right, counter, alias_map);
         }
         SetExpr::Query(subquery) => {
-            walk_query(subquery);
+            walk_query(subquery, counter, alias_map);
         }
         _ => {}
     }
 }
 
-fn walk_query(query: &mut Query) {
-    walk_set_expr(&mut query.body);
+fn walk_query(query: &mut Query, counter: &mut usize, alias_map: &mut HashMap<String, String>) {
+    walk_set_expr(&mut query.body, counter, alias_map);
 
     if let Some(with) = &mut query.with {
         for cte in &mut with.cte_tables {
-            walk_query(&mut cte.query);
+            walk_query(&mut cte.query, counter, alias_map);
         }
     }
 }
@@ -68,9 +69,12 @@ pub fn alias_all_columns(sql: &str) -> String {
     let dialect = PostgreSqlDialect {};
     let mut statements = Parser::parse_sql(&dialect, sql).unwrap();
 
+    let mut alias_map = HashMap::new();
+    let mut counter = 1;
+
     let _ = visit_statements_mut(&mut statements, |stmt| {
         if let Statement::Query(query) = stmt {
-            walk_query(query);
+            walk_query(query, &mut counter, &mut alias_map);
         }
         ControlFlow::<()>::Continue(())
     });
@@ -81,7 +85,7 @@ pub fn alias_all_columns(sql: &str) -> String {
         .collect::<Vec<_>>()
         .join(" ");
 
-    println!("result: {:?}", res);
+    println!("result: {:?} alias_map: {:?}", res, alias_map);
 
     res
 }

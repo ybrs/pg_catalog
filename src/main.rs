@@ -23,6 +23,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::env;
 use std::fs;
 use std::sync::{Arc, Mutex};
+use crate::clean_duplicate_columns::alias_all_columns;
 
 mod replace;
 mod clean_duplicate_columns;
@@ -189,6 +190,24 @@ impl TableProvider for ObservableMemTable {
     }
 }
 
+fn rename_columns(batch: &RecordBatch, name_map: &HashMap<&str, &str>) -> RecordBatch {
+    let new_fields = batch
+        .schema()
+        .fields()
+        .iter()
+        .map(|old_field| {
+            let new_name = name_map
+                .get(old_field.name().as_str())
+                .copied()
+                .unwrap_or_else(|| old_field.name().as_str());
+            Field::new(new_name, old_field.data_type().clone(), old_field.is_nullable())
+        })
+        .collect::<Vec<_>>();
+
+    let new_schema = std::sync::Arc::new(Schema::new(new_fields));
+    RecordBatch::try_new(new_schema, batch.columns().to_vec()).unwrap()
+}
+
 #[tokio::main]
 async fn main() -> datafusion::error::Result<()> {
     let args: Vec<String> = env::args().collect();
@@ -240,10 +259,21 @@ async fn main() -> datafusion::error::Result<()> {
 
     println!("original sql {:?}", sql);
     let sql = replace_regclass(sql);
+    let sql = alias_all_columns(sql.as_str());
     println!("sql after rewrite: {:?}", sql);
     let df = ctx.sql(sql.as_str()).await?;
 
     let results = df.collect().await?;
+
+    let alias_mapping = HashMap::from([
+        ("alias_0", "oid"),
+    ]);
+
+    let results: Vec<RecordBatch> = results
+        .iter()
+        .map(|batch| rename_columns(batch, &alias_mapping))
+        .collect();
+
     pretty::print_batches(&results)?;
 
     let out: Vec<_> = log.lock().unwrap().iter().map(|entry| {
