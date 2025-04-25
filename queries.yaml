@@ -1,39 +1,95 @@
 tests:
 - query: select 1;
+  pretty_query: |-
+    SELECT 1;
+  query_hash: b1698e52a0f16203489454196a0c6307
   expected: ''
 - query: SELECT d.datname as "Name", pg_catalog.pg_get_userbyid(d.datdba) as "Owner",
     pg_catalog.pg_encoding_to_char(d.encoding) as "Encoding", d.datcollate as "Collate",
     d.datctype as "Ctype", pg_catalog.array_to_string(d.datacl, E'\n') AS "Access
     privileges" FROM pg_catalog.pg_database d ORDER BY 1;
+  pretty_query: |-
+    SELECT d.datname AS "Name",
+           pg_catalog.pg_get_userbyid(d.datdba) AS "Owner",
+           pg_catalog.pg_encoding_to_char(d.encoding) AS "Encoding",
+           d.datcollate AS "Collate",
+           d.datctype AS "Ctype",
+           pg_catalog.array_to_string(d.datacl, E'\n') AS "Access privileges"
+    FROM pg_catalog.pg_database d
+    ORDER BY 1;
+  query_hash: 7c297b6362fb1d45789f14d1771a373c
   expected: ''
 - query: SET extra_float_digits = 3
+  pretty_query: |-
+    SET extra_float_digits = 3
+  query_hash: b880ab7f0059323f9c12a093c045e2df
   expected: ''
 - query: SET application_name = 'PostgreSQL JDBC Driver'
+  pretty_query: |-
+    SET application_name = 'PostgreSQL JDBC Driver'
+  query_hash: c06b4d7fb04ab23ab5bd680ee083b554
   expected: ''
 - query: SET application_name = 'DBeaver 24.2.3 - Read PostgreSQL database list'
+  pretty_query: |-
+    SET application_name = 'DBeaver 24.2.3 - Read PostgreSQL database list'
+  query_hash: 51d5cf60159eff5be2aedd92ad611c35
   expected: ''
 - query: SELECT db.oid,db.* FROM pg_catalog.pg_database db WHERE 1 = 1 AND datallowconn
     AND NOT datistemplate OR db.datname =$1 ORDER BY db.datname
+  pretty_query: |-
+    SELECT db.oid,
+           db.*
+    FROM pg_catalog.pg_database db
+    WHERE 1 = 1
+      AND datallowconn
+      AND NOT datistemplate
+      OR db.datname =$1
+    ORDER BY db.datname
+  query_hash: d93a815d72e39de9b5ef12b00cabfde2
   expected: ''
   parameters:
     $1: postgres
 - query: SELECT current_database()
-  expected: ''
-- query: SET extra_float_digits = 3
-  expected: ''
-- query: SET application_name = 'PostgreSQL JDBC Driver'
+  pretty_query: |-
+    SELECT current_database()
+  query_hash: 1eb3e37cdab08453e24b075287bb0804
   expected: ''
 - query: SET application_name = 'DBeaver 24.2.3 - Main <postgres>'
+  pretty_query: |-
+    SET application_name = 'DBeaver 24.2.3 - Main <postgres>'
+  query_hash: ff5bb7ba6068296604f94f6e990dd228
   expected: ''
 - query: SELECT current_schema(),session_user
+  pretty_query: |-
+    SELECT current_schema(),
+           SESSION_USER
+  query_hash: ff82cf1259a3c48c98ef9d9270fb1154
   expected: ''
 - query: SELECT n.oid,n.*,d.description FROM pg_catalog.pg_namespace n LEFT OUTER
     JOIN pg_catalog.pg_description d ON d.objoid=n.oid AND d.objsubid=0 AND d.classoid='pg_namespace'::regclass
     ORDER BY nspname
+  pretty_query: |-
+    SELECT n.oid,
+           n.*,
+           d.description
+    FROM pg_catalog.pg_namespace n
+    LEFT OUTER JOIN pg_catalog.pg_description d ON d.objoid=n.oid
+    AND d.objsubid=0
+    AND d.classoid='pg_namespace'::regclass
+    ORDER BY nspname
+  query_hash: 2d0d46f5fa0e99942018db45668a9913
   expected: ''
 - query: SELECT n.nspname = ANY(current_schemas(true)), n.nspname, t.typname FROM
     pg_catalog.pg_type t JOIN pg_catalog.pg_namespace n ON t.typnamespace = n.oid
     WHERE t.oid = $1
+  pretty_query: |-
+    SELECT n.nspname = ANY(current_schemas(TRUE)),
+           n.nspname,
+           t.typname
+    FROM pg_catalog.pg_type t
+    JOIN pg_catalog.pg_namespace n ON t.typnamespace = n.oid
+    WHERE t.oid = $1
+  query_hash: f6c9abd144fb49432c75985ca6ee3417
   expected: ''
   parameters:
     $1: '1034'
@@ -43,33 +99,75 @@ tests:
     as nspname                    from generate_series(1, array_upper(current_schemas(false),
     1)) as s(r) ) as r          using ( nspname )        ) as sp     ON sp.nspoid
     = typnamespace  WHERE pg_type.oid = $1  ORDER BY sp.r, pg_type.oid DESC
+  pretty_query: |-
+    SELECT typinput='pg_catalog.array_in'::regproc AS is_array,
+           typtype,
+           typname,
+           pg_type.oid
+    FROM pg_catalog.pg_type
+    LEFT JOIN
+      (SELECT ns.oid AS nspoid,
+              ns.nspname,
+              r.r
+       FROM pg_namespace AS ns
+       JOIN
+         (SELECT s.r,
+                 (current_schemas(FALSE))[s.r] AS nspname
+          FROM generate_series(1, array_upper(current_schemas(FALSE), 1)) AS s(r)) AS r USING (nspname)) AS sp ON sp.nspoid = typnamespace
+    WHERE pg_type.oid = $1
+    ORDER BY sp.r,
+             pg_type.oid DESC
+  query_hash: 3648a4ca4275a37b7a2ea74a73efc4de
   expected: ''
   parameters:
     $1: '1034'
 - query: SHOW search_path
-  expected: ''
-- query: SET extra_float_digits = 3
-  expected: ''
-- query: SET application_name = 'PostgreSQL JDBC Driver'
+  pretty_query: |-
+    SHOW search_path
+  query_hash: 4bca2a5401cb79d3e557bfc00fe0e32e
   expected: ''
 - query: SET application_name = 'DBeaver 24.2.3 - Metadata <postgres>'
-  expected: ''
-- query: SELECT current_schema(),session_user
-  expected: ''
-- query: SHOW search_path
+  pretty_query: |-
+    SET application_name = 'DBeaver 24.2.3 - Metadata <postgres>'
+  query_hash: fd71ad1e94be670d4b501c682fde6c79
   expected: ''
 - query: select * from pg_catalog.pg_settings where name=$1
+  pretty_query: |-
+    SELECT *
+    FROM pg_catalog.pg_settings
+    WHERE name=$1
+  query_hash: 78d927d8f907ed3c2f4572c76826d0cd
   expected: ''
   parameters:
     $1: standard_conforming_strings
 - query: select string_agg(word, ',') from pg_catalog.pg_get_keywords() where word
     <> ALL ('{a,abs,absolute,action,ada,add,admin,after,all,allocate,alter,always,and,any,are,array,as,asc,asensitive,assertion,assignment,asymmetric,at,atomic,attribute,attributes,authorization,avg,before,begin,bernoulli,between,bigint,binary,blob,boolean,both,breadth,by,c,call,called,cardinality,cascade,cascaded,case,cast,catalog,catalog_name,ceil,ceiling,chain,char,char_length,character,character_length,character_set_catalog,character_set_name,character_set_schema,characteristics,characters,check,checked,class_origin,clob,close,coalesce,cobol,code_units,collate,collation,collation_catalog,collation_name,collation_schema,collect,column,column_name,command_function,command_function_code,commit,committed,condition,condition_number,connect,connection_name,constraint,constraint_catalog,constraint_name,constraint_schema,constraints,constructors,contains,continue,convert,corr,corresponding,count,covar_pop,covar_samp,create,cross,cube,cume_dist,current,current_collation,current_date,current_default_transform_group,current_path,current_role,current_time,current_timestamp,current_transform_group_for_type,current_user,cursor,cursor_name,cycle,data,date,datetime_interval_code,datetime_interval_precision,day,deallocate,dec,decimal,declare,default,defaults,deferrable,deferred,defined,definer,degree,delete,dense_rank,depth,deref,derived,desc,describe,descriptor,deterministic,diagnostics,disconnect,dispatch,distinct,domain,double,drop,dynamic,dynamic_function,dynamic_function_code,each,element,else,end,end-exec,equals,escape,every,except,exception,exclude,excluding,exec,execute,exists,exp,external,extract,false,fetch,filter,final,first,float,floor,following,for,foreign,fortran,found,free,from,full,function,fusion,g,general,get,global,go,goto,grant,granted,group,grouping,having,hierarchy,hold,hour,identity,immediate,implementation,in,including,increment,indicator,initially,inner,inout,input,insensitive,insert,instance,instantiable,int,integer,intersect,intersection,interval,into,invoker,is,isolation,join,k,key,key_member,key_type,language,large,last,lateral,leading,left,length,level,like,ln,local,localtime,localtimestamp,locator,lower,m,map,match,matched,max,maxvalue,member,merge,message_length,message_octet_length,message_text,method,min,minute,minvalue,mod,modifies,module,month,more,multiset,mumps,name,names,national,natural,nchar,nclob,nesting,new,next,no,none,normalize,normalized,not,"null",nullable,nullif,nulls,number,numeric,object,octet_length,octets,of,old,on,only,open,option,options,or,order,ordering,ordinality,others,out,outer,output,over,overlaps,overlay,overriding,pad,parameter,parameter_mode,parameter_name,parameter_ordinal_position,parameter_specific_catalog,parameter_specific_name,parameter_specific_schema,partial,partition,pascal,path,percent_rank,percentile_cont,percentile_disc,placing,pli,position,power,preceding,precision,prepare,preserve,primary,prior,privileges,procedure,public,range,rank,read,reads,real,recursive,ref,references,referencing,regr_avgx,regr_avgy,regr_count,regr_intercept,regr_r2,regr_slope,regr_sxx,regr_sxy,regr_syy,relative,release,repeatable,restart,result,return,returned_cardinality,returned_length,returned_octet_length,returned_sqlstate,returns,revoke,right,role,rollback,rollup,routine,routine_catalog,routine_name,routine_schema,row,row_count,row_number,rows,savepoint,scale,schema,schema_name,scope_catalog,scope_name,scope_schema,scroll,search,second,section,security,select,self,sensitive,sequence,serializable,server_name,session,session_user,set,sets,similar,simple,size,smallint,some,source,space,specific,specific_name,specifictype,sql,sqlexception,sqlstate,sqlwarning,sqrt,start,state,statement,static,stddev_pop,stddev_samp,structure,style,subclass_origin,submultiset,substring,sum,symmetric,system,system_user,table,table_name,tablesample,temporary,then,ties,time,timestamp,timezone_hour,timezone_minute,to,top_level_count,trailing,transaction,transaction_active,transactions_committed,transactions_rolled_back,transform,transforms,translate,translation,treat,trigger,trigger_catalog,trigger_name,trigger_schema,trim,true,type,uescape,unbounded,uncommitted,under,union,unique,unknown,unnamed,unnest,update,upper,usage,user,user_defined_type_catalog,user_defined_type_code,user_defined_type_name,user_defined_type_schema,using,value,values,var_pop,var_samp,varchar,varying,view,when,whenever,where,width_bucket,window,with,within,without,work,write,year,zone}'::text[])
+  pretty_query: |-
+    SELECT string_agg(word, ',')
+    FROM pg_catalog.pg_get_keywords()
+    WHERE word <> ALL ('{a,abs,absolute,action,ada,add,admin,after,all,allocate,alter,always,and,any,are,array,as,asc,asensitive,assertion,assignment,asymmetric,at,atomic,attribute,attributes,authorization,avg,before,begin,bernoulli,between,bigint,binary,blob,boolean,both,breadth,by,c,call,called,cardinality,cascade,cascaded,case,cast,catalog,catalog_name,ceil,ceiling,chain,char,char_length,character,character_length,character_set_catalog,character_set_name,character_set_schema,characteristics,characters,check,checked,class_origin,clob,close,coalesce,cobol,code_units,collate,collation,collation_catalog,collation_name,collation_schema,collect,column,column_name,command_function,command_function_code,commit,committed,condition,condition_number,connect,connection_name,constraint,constraint_catalog,constraint_name,constraint_schema,constraints,constructors,contains,continue,convert,corr,corresponding,count,covar_pop,covar_samp,create,cross,cube,cume_dist,current,current_collation,current_date,current_default_transform_group,current_path,current_role,current_time,current_timestamp,current_transform_group_for_type,current_user,cursor,cursor_name,cycle,data,date,datetime_interval_code,datetime_interval_precision,day,deallocate,dec,decimal,declare,default,defaults,deferrable,deferred,defined,definer,degree,delete,dense_rank,depth,deref,derived,desc,describe,descriptor,deterministic,diagnostics,disconnect,dispatch,distinct,domain,double,drop,dynamic,dynamic_function,dynamic_function_code,each,element,else,end,end-exec,equals,escape,every,except,exception,exclude,excluding,exec,execute,exists,exp,external,extract,false,fetch,filter,final,first,float,floor,following,for,foreign,fortran,found,free,from,full,function,fusion,g,general,get,global,go,goto,grant,granted,group,grouping,having,hierarchy,hold,hour,identity,immediate,implementation,in,including,increment,indicator,initially,inner,inout,input,insensitive,insert,instance,instantiable,int,integer,intersect,intersection,interval,into,invoker,is,isolation,join,k,key,key_member,key_type,language,large,last,lateral,leading,left,length,level,like,ln,local,localtime,localtimestamp,locator,lower,m,map,match,matched,max,maxvalue,member,merge,message_length,message_octet_length,message_text,method,min,minute,minvalue,mod,modifies,module,month,more,multiset,mumps,name,names,national,natural,nchar,nclob,nesting,new,next,no,none,normalize,normalized,not,"null",nullable,nullif,nulls,number,numeric,object,octet_length,octets,of,old,on,only,open,option,options,or,order,ordering,ordinality,others,out,outer,output,over,overlaps,overlay,overriding,pad,parameter,parameter_mode,parameter_name,parameter_ordinal_position,parameter_specific_catalog,parameter_specific_name,parameter_specific_schema,partial,partition,pascal,path,percent_rank,percentile_cont,percentile_disc,placing,pli,position,power,preceding,precision,prepare,preserve,primary,prior,privileges,procedure,public,range,rank,read,reads,real,recursive,ref,references,referencing,regr_avgx,regr_avgy,regr_count,regr_intercept,regr_r2,regr_slope,regr_sxx,regr_sxy,regr_syy,relative,release,repeatable,restart,result,return,returned_cardinality,returned_length,returned_octet_length,returned_sqlstate,returns,revoke,right,role,rollback,rollup,routine,routine_catalog,routine_name,routine_schema,row,row_count,row_number,rows,savepoint,scale,schema,schema_name,scope_catalog,scope_name,scope_schema,scroll,search,second,section,security,select,self,sensitive,sequence,serializable,server_name,session,session_user,set,sets,similar,simple,size,smallint,some,source,space,specific,specific_name,specifictype,sql,sqlexception,sqlstate,sqlwarning,sqrt,start,state,statement,static,stddev_pop,stddev_samp,structure,style,subclass_origin,submultiset,substring,sum,symmetric,system,system_user,table,table_name,tablesample,temporary,then,ties,time,timestamp,timezone_hour,timezone_minute,to,top_level_count,trailing,transaction,transaction_active,transactions_committed,transactions_rolled_back,transform,transforms,translate,translation,treat,trigger,trigger_catalog,trigger_name,trigger_schema,trim,true,type,uescape,unbounded,uncommitted,under,union,unique,unknown,unnamed,unnest,update,upper,usage,user,user_defined_type_catalog,user_defined_type_code,user_defined_type_name,user_defined_type_schema,using,value,values,var_pop,var_samp,varchar,varying,view,when,whenever,where,width_bucket,window,with,within,without,work,write,year,zone}'::text[])
+  query_hash: 625aefbc8e8e7a7e70085c42dd959b47
   expected: ''
 - query: SELECT version()
+  pretty_query: |-
+    SELECT version()
+  query_hash: 62dfb7024dcbed7e20d94826d6bbe2d2
   expected: ''
 - query: SELECT * FROM pg_catalog.pg_enum WHERE 1<>1 LIMIT 1
+  pretty_query: |-
+    SELECT *
+    FROM pg_catalog.pg_enum
+    WHERE 1<>1
+    LIMIT 1
+  query_hash: ae557a192c08ca131a6e6b04d84dfdb8
   expected: ''
 - query: SELECT reltype FROM pg_catalog.pg_class WHERE 1<>1 LIMIT 1
+  pretty_query: |-
+    SELECT reltype
+    FROM pg_catalog.pg_class
+    WHERE 1<>1
+    LIMIT 1
+  query_hash: 7d15d0fa3605e606b98902f2f892b505
   expected: ''
 - query: SELECT t.oid,t.*,c.relkind,format_type(nullif(t.typbasetype, 0), t.typtypmod)
     as base_type_name, d.description FROM pg_catalog.pg_type t LEFT OUTER JOIN pg_catalog.pg_type
@@ -77,141 +175,71 @@ tests:
     LEFT OUTER JOIN pg_catalog.pg_description d ON t.oid=d.objoid WHERE t.typname
     IS NOT NULL AND (c.relkind IS NULL OR c.relkind = 'c') AND (et.typcategory IS
     NULL OR et.typcategory <> 'C')
+  pretty_query: |-
+    SELECT t.oid,
+           t.*,
+           c.relkind,
+           format_type(nullif(t.typbasetype, 0), t.typtypmod) AS base_type_name,
+           d.description
+    FROM pg_catalog.pg_type t
+    LEFT OUTER JOIN pg_catalog.pg_type et ON et.oid=t.typelem
+    LEFT OUTER JOIN pg_catalog.pg_class c ON c.oid=t.typrelid
+    LEFT OUTER JOIN pg_catalog.pg_description d ON t.oid=d.objoid
+    WHERE t.typname IS NOT NULL
+      AND (c.relkind IS NULL
+           OR c.relkind = 'c')
+      AND (et.typcategory IS NULL
+           OR et.typcategory <> 'C')
+  query_hash: 60d8b7304a71b8f449e7904e76fc2c8c
   expected: ''
 - query: SELECT * FROM pg_catalog.pg_enum
-  expected: ''
-- query: SET extra_float_digits = 3
-  expected: ''
-- query: SET application_name = 'PostgreSQL JDBC Driver'
-  expected: ''
-- query: SET application_name = 'DBeaver 24.2.3 - Read PostgreSQL database list'
-  expected: ''
-- query: SELECT db.oid,db.* FROM pg_catalog.pg_database db WHERE 1 = 1 AND datallowconn
-    AND NOT datistemplate OR db.datname =$1 ORDER BY db.datname
-  expected: ''
-  parameters:
-    $1: postgres
-- query: SELECT current_database()
-  expected: ''
-- query: SET extra_float_digits = 3
-  expected: ''
-- query: SET application_name = 'PostgreSQL JDBC Driver'
-  expected: ''
-- query: SET application_name = 'DBeaver 24.2.3 - Main <postgres>'
-  expected: ''
-- query: SELECT current_schema(),session_user
-  expected: ''
-- query: SELECT n.oid,n.*,d.description FROM pg_catalog.pg_namespace n LEFT OUTER
-    JOIN pg_catalog.pg_description d ON d.objoid=n.oid AND d.objsubid=0 AND d.classoid='pg_namespace'::regclass
-    ORDER BY nspname
-  expected: ''
-- query: SELECT n.nspname = ANY(current_schemas(true)), n.nspname, t.typname FROM
-    pg_catalog.pg_type t JOIN pg_catalog.pg_namespace n ON t.typnamespace = n.oid
-    WHERE t.oid = $1
-  expected: ''
-  parameters:
-    $1: '1034'
-- query: SELECT typinput='pg_catalog.array_in'::regproc as is_array, typtype, typname,
-    pg_type.oid   FROM pg_catalog.pg_type   LEFT JOIN (select ns.oid as nspoid, ns.nspname,
-    r.r           from pg_namespace as ns           join ( select s.r, (current_schemas(false))[s.r]
-    as nspname                    from generate_series(1, array_upper(current_schemas(false),
-    1)) as s(r) ) as r          using ( nspname )        ) as sp     ON sp.nspoid
-    = typnamespace  WHERE pg_type.oid = $1  ORDER BY sp.r, pg_type.oid DESC
-  expected: ''
-  parameters:
-    $1: '1034'
-- query: SHOW search_path
-  expected: ''
-- query: SET extra_float_digits = 3
-  expected: ''
-- query: SET application_name = 'PostgreSQL JDBC Driver'
-  expected: ''
-- query: SET application_name = 'DBeaver 24.2.3 - Metadata <postgres>'
-  expected: ''
-- query: SELECT current_schema(),session_user
-  expected: ''
-- query: SHOW search_path
-  expected: ''
-- query: select * from pg_catalog.pg_settings where name=$1
-  expected: ''
-  parameters:
-    $1: standard_conforming_strings
-- query: select string_agg(word, ',') from pg_catalog.pg_get_keywords() where word
-    <> ALL ('{a,abs,absolute,action,ada,add,admin,after,all,allocate,alter,always,and,any,are,array,as,asc,asensitive,assertion,assignment,asymmetric,at,atomic,attribute,attributes,authorization,avg,before,begin,bernoulli,between,bigint,binary,blob,boolean,both,breadth,by,c,call,called,cardinality,cascade,cascaded,case,cast,catalog,catalog_name,ceil,ceiling,chain,char,char_length,character,character_length,character_set_catalog,character_set_name,character_set_schema,characteristics,characters,check,checked,class_origin,clob,close,coalesce,cobol,code_units,collate,collation,collation_catalog,collation_name,collation_schema,collect,column,column_name,command_function,command_function_code,commit,committed,condition,condition_number,connect,connection_name,constraint,constraint_catalog,constraint_name,constraint_schema,constraints,constructors,contains,continue,convert,corr,corresponding,count,covar_pop,covar_samp,create,cross,cube,cume_dist,current,current_collation,current_date,current_default_transform_group,current_path,current_role,current_time,current_timestamp,current_transform_group_for_type,current_user,cursor,cursor_name,cycle,data,date,datetime_interval_code,datetime_interval_precision,day,deallocate,dec,decimal,declare,default,defaults,deferrable,deferred,defined,definer,degree,delete,dense_rank,depth,deref,derived,desc,describe,descriptor,deterministic,diagnostics,disconnect,dispatch,distinct,domain,double,drop,dynamic,dynamic_function,dynamic_function_code,each,element,else,end,end-exec,equals,escape,every,except,exception,exclude,excluding,exec,execute,exists,exp,external,extract,false,fetch,filter,final,first,float,floor,following,for,foreign,fortran,found,free,from,full,function,fusion,g,general,get,global,go,goto,grant,granted,group,grouping,having,hierarchy,hold,hour,identity,immediate,implementation,in,including,increment,indicator,initially,inner,inout,input,insensitive,insert,instance,instantiable,int,integer,intersect,intersection,interval,into,invoker,is,isolation,join,k,key,key_member,key_type,language,large,last,lateral,leading,left,length,level,like,ln,local,localtime,localtimestamp,locator,lower,m,map,match,matched,max,maxvalue,member,merge,message_length,message_octet_length,message_text,method,min,minute,minvalue,mod,modifies,module,month,more,multiset,mumps,name,names,national,natural,nchar,nclob,nesting,new,next,no,none,normalize,normalized,not,"null",nullable,nullif,nulls,number,numeric,object,octet_length,octets,of,old,on,only,open,option,options,or,order,ordering,ordinality,others,out,outer,output,over,overlaps,overlay,overriding,pad,parameter,parameter_mode,parameter_name,parameter_ordinal_position,parameter_specific_catalog,parameter_specific_name,parameter_specific_schema,partial,partition,pascal,path,percent_rank,percentile_cont,percentile_disc,placing,pli,position,power,preceding,precision,prepare,preserve,primary,prior,privileges,procedure,public,range,rank,read,reads,real,recursive,ref,references,referencing,regr_avgx,regr_avgy,regr_count,regr_intercept,regr_r2,regr_slope,regr_sxx,regr_sxy,regr_syy,relative,release,repeatable,restart,result,return,returned_cardinality,returned_length,returned_octet_length,returned_sqlstate,returns,revoke,right,role,rollback,rollup,routine,routine_catalog,routine_name,routine_schema,row,row_count,row_number,rows,savepoint,scale,schema,schema_name,scope_catalog,scope_name,scope_schema,scroll,search,second,section,security,select,self,sensitive,sequence,serializable,server_name,session,session_user,set,sets,similar,simple,size,smallint,some,source,space,specific,specific_name,specifictype,sql,sqlexception,sqlstate,sqlwarning,sqrt,start,state,statement,static,stddev_pop,stddev_samp,structure,style,subclass_origin,submultiset,substring,sum,symmetric,system,system_user,table,table_name,tablesample,temporary,then,ties,time,timestamp,timezone_hour,timezone_minute,to,top_level_count,trailing,transaction,transaction_active,transactions_committed,transactions_rolled_back,transform,transforms,translate,translation,treat,trigger,trigger_catalog,trigger_name,trigger_schema,trim,true,type,uescape,unbounded,uncommitted,under,union,unique,unknown,unnamed,unnest,update,upper,usage,user,user_defined_type_catalog,user_defined_type_code,user_defined_type_name,user_defined_type_schema,using,value,values,var_pop,var_samp,varchar,varying,view,when,whenever,where,width_bucket,window,with,within,without,work,write,year,zone}'::text[])
-  expected: ''
-- query: SELECT version()
-  expected: ''
-- query: SELECT * FROM pg_catalog.pg_enum WHERE 1<>1 LIMIT 1
-  expected: ''
-- query: SELECT reltype FROM pg_catalog.pg_class WHERE 1<>1 LIMIT 1
-  expected: ''
-- query: SELECT t.oid,t.*,c.relkind,format_type(nullif(t.typbasetype, 0), t.typtypmod)
-    as base_type_name, d.description FROM pg_catalog.pg_type t LEFT OUTER JOIN pg_catalog.pg_type
-    et ON et.oid=t.typelem LEFT OUTER JOIN pg_catalog.pg_class c ON c.oid=t.typrelid
-    LEFT OUTER JOIN pg_catalog.pg_description d ON t.oid=d.objoid WHERE t.typname
-    IS NOT NULL AND (c.relkind IS NULL OR c.relkind = 'c') AND (et.typcategory IS
-    NULL OR et.typcategory <> 'C')
-  expected: ''
-- query: SELECT * FROM pg_catalog.pg_enum
-  expected: ''
-- query: SET extra_float_digits = 3
-  expected: ''
-- query: SET application_name = 'PostgreSQL JDBC Driver'
+  pretty_query: |-
+    SELECT *
+    FROM pg_catalog.pg_enum
+  query_hash: a1e25afbd84c78b4aac4dab95f16e26a
   expected: ''
 - query: SET application_name = 'DBeaver 24.2.3 - Main <caasapi>'
-  expected: ''
-- query: SELECT current_schema(),session_user
-  expected: ''
-- query: SELECT n.oid,n.*,d.description FROM pg_catalog.pg_namespace n LEFT OUTER
-    JOIN pg_catalog.pg_description d ON d.objoid=n.oid AND d.objsubid=0 AND d.classoid='pg_namespace'::regclass
-    ORDER BY nspname
-  expected: ''
-- query: SELECT n.nspname = ANY(current_schemas(true)), n.nspname, t.typname FROM
-    pg_catalog.pg_type t JOIN pg_catalog.pg_namespace n ON t.typnamespace = n.oid
-    WHERE t.oid = $1
-  expected: ''
-  parameters:
-    $1: '1034'
-- query: SELECT typinput='pg_catalog.array_in'::regproc as is_array, typtype, typname,
-    pg_type.oid   FROM pg_catalog.pg_type   LEFT JOIN (select ns.oid as nspoid, ns.nspname,
-    r.r           from pg_namespace as ns           join ( select s.r, (current_schemas(false))[s.r]
-    as nspname                    from generate_series(1, array_upper(current_schemas(false),
-    1)) as s(r) ) as r          using ( nspname )        ) as sp     ON sp.nspoid
-    = typnamespace  WHERE pg_type.oid = $1  ORDER BY sp.r, pg_type.oid DESC
-  expected: ''
-  parameters:
-    $1: '1034'
-- query: SHOW search_path
-  expected: ''
-- query: SET extra_float_digits = 3
-  expected: ''
-- query: SET application_name = 'PostgreSQL JDBC Driver'
+  pretty_query: |-
+    SET application_name = 'DBeaver 24.2.3 - Main <caasapi>'
+  query_hash: c4d1bd440b2ab3da7320d0c77e2d44ac
   expected: ''
 - query: SET application_name = 'DBeaver 24.2.3 - Metadata <caasapi>'
-  expected: ''
-- query: SELECT current_schema(),session_user
-  expected: ''
-- query: SHOW search_path
-  expected: ''
-- query: SELECT t.oid,t.*,c.relkind,format_type(nullif(t.typbasetype, 0), t.typtypmod)
-    as base_type_name, d.description FROM pg_catalog.pg_type t LEFT OUTER JOIN pg_catalog.pg_type
-    et ON et.oid=t.typelem LEFT OUTER JOIN pg_catalog.pg_class c ON c.oid=t.typrelid
-    LEFT OUTER JOIN pg_catalog.pg_description d ON t.oid=d.objoid WHERE t.typname
-    IS NOT NULL AND (c.relkind IS NULL OR c.relkind = 'c') AND (et.typcategory IS
-    NULL OR et.typcategory <> 'C')
-  expected: ''
-- query: SELECT * FROM pg_catalog.pg_enum
+  pretty_query: |-
+    SET application_name = 'DBeaver 24.2.3 - Metadata <caasapi>'
+  query_hash: e55b0c1f29605cfb84c5b310a7815c59
   expected: ''
 - query: SELECT c.oid,c.*,d.description,pg_catalog.pg_get_expr(c.relpartbound, c.oid)
     as partition_expr,  pg_catalog.pg_get_partkeydef(c.oid) as partition_key FROM
     pg_catalog.pg_class c LEFT OUTER JOIN pg_catalog.pg_description d ON d.objoid=c.oid
     AND d.objsubid=0 AND d.classoid='pg_class'::regclass WHERE c.relnamespace=$1 AND
     c.relkind not in ('i','I','c')
+  pretty_query: |-
+    SELECT c.oid,
+           c.*,
+           d.description,
+           pg_catalog.pg_get_expr(c.relpartbound, c.oid) AS partition_expr,
+           pg_catalog.pg_get_partkeydef(c.oid) AS partition_key
+    FROM pg_catalog.pg_class c
+    LEFT OUTER JOIN pg_catalog.pg_description d ON d.objoid=c.oid
+    AND d.objsubid=0
+    AND d.classoid='pg_class'::regclass
+    WHERE c.relnamespace=$1
+      AND c.relkind NOT IN ('i',
+                            'I',
+                            'c')
+  query_hash: 0c24f4abbd17f90a745764394f52e4af
   expected: ''
   parameters:
     $1: '2200'
 - query: select c.oid,pg_catalog.pg_total_relation_size(c.oid) as total_rel_size,pg_catalog.pg_relation_size(c.oid)
     as rel_size FROM pg_class c WHERE c.relnamespace=$1
+  pretty_query: |-
+    SELECT c.oid,
+           pg_catalog.pg_total_relation_size(c.oid) AS total_rel_size,
+           pg_catalog.pg_relation_size(c.oid) AS rel_size
+    FROM pg_class c
+    WHERE c.relnamespace=$1
+  query_hash: cf997cda964886031667a24c9ed173e4
   expected: ''
   parameters:
     $1: '2200'
@@ -223,21 +251,74 @@ tests:
     dep on dep.refobjid = a.attrelid AND dep.deptype = 'i' and dep.refobjsubid = a.attnum
     and dep.classid = dep.refclassid WHERE NOT a.attisdropped AND c.relkind not in
     ('i','I','c') AND c.oid=$1 ORDER BY a.attnum
+  pretty_query: |-
+    SELECT c.relname,
+           a.*,
+           pg_catalog.pg_get_expr(ad.adbin, ad.adrelid, TRUE) AS def_value,
+           dsc.description,
+           dep.objid
+    FROM pg_catalog.pg_attribute a
+    INNER JOIN pg_catalog.pg_class c ON (a.attrelid=c.oid)
+    LEFT OUTER JOIN pg_catalog.pg_attrdef ad ON (a.attrelid=ad.adrelid
+                                                 AND a.attnum = ad.adnum)
+    LEFT OUTER JOIN pg_catalog.pg_description dsc ON (c.oid=dsc.objoid
+                                                      AND a.attnum = dsc.objsubid)
+    LEFT OUTER JOIN pg_depend dep ON dep.refobjid = a.attrelid
+    AND dep.deptype = 'i'
+    AND dep.refobjsubid = a.attnum
+    AND dep.classid = dep.refclassid
+    WHERE NOT a.attisdropped
+      AND c.relkind NOT IN ('i',
+                            'I',
+                            'c')
+      AND c.oid=$1
+    ORDER BY a.attnum
+  query_hash: c828b043803282076449c97e635326f0
   expected: ''
   parameters:
     $1: '16548'
 - query: SELECT a.oid,a.*,pd.description FROM pg_catalog.pg_roles a left join pg_catalog.pg_shdescription
     pd on a.oid = pd.objoid ORDER BY a.rolname
+  pretty_query: |-
+    SELECT a.oid,
+           a.*,
+           pd.description
+    FROM pg_catalog.pg_roles a
+    LEFT JOIN pg_catalog.pg_shdescription pd ON a.oid = pd.objoid
+    ORDER BY a.rolname
+  query_hash: 8cfd65154515b4c1772c79044f2662b1
   expected: ''
 - query: SELECT t.oid,t.*,pg_tablespace_location(t.oid) loc FROM pg_catalog.pg_tablespace
     t ORDER BY t.oid
+  pretty_query: |-
+    SELECT t.oid,
+           t.*,
+           pg_tablespace_location(t.oid) loc
+    FROM pg_catalog.pg_tablespace t
+    ORDER BY t.oid
+  query_hash: ca4080d01ba29fdd84b9498672e207e4
   expected: ''
 - query: SELECT i.*,c.relnamespace FROM pg_catalog.pg_inherits i,pg_catalog.pg_class
     c WHERE i.inhrelid=$1 AND c.oid=i.inhparent ORDER BY i.inhseqno
+  pretty_query: |-
+    SELECT i.*,
+           c.relnamespace
+    FROM pg_catalog.pg_inherits i,
+         pg_catalog.pg_class c
+    WHERE i.inhrelid=$1
+      AND c.oid=i.inhparent
+    ORDER BY i.inhseqno
+  query_hash: ca3149a4ae2c1c9b32ad07cc70a4334f
   expected: ''
   parameters:
     $1: '16548'
 - query: SELECT c.oid,c.* FROM pg_catalog.pg_collation c ORDER BY c.oid
+  pretty_query: |-
+    SELECT c.oid,
+           c.*
+    FROM pg_catalog.pg_collation c
+    ORDER BY c.oid
+  query_hash: 9d6bb0ddd8f68da5981d7a7bc8c7b006
   expected: ''
 - query: SELECT c.oid,c.*,t.relname as tabrelname,rt.relnamespace as refnamespace,d.description,
     case when c.contype='c' then "substring"(pg_get_constraintdef(c.oid), 7) else
@@ -245,6 +326,26 @@ tests:
     t ON t.oid=c.conrelid LEFT OUTER JOIN pg_catalog.pg_class rt ON rt.oid=c.confrelid
     LEFT OUTER JOIN pg_catalog.pg_description d ON d.objoid=c.oid AND d.objsubid=0
     AND d.classoid='pg_constraint'::regclass WHERE c.conrelid=$1 ORDER BY c.oid
+  pretty_query: |-
+    SELECT c.oid,
+           c.*,
+           t.relname AS tabrelname,
+           rt.relnamespace AS refnamespace,
+           d.description,
+           CASE
+               WHEN c.contype='c' THEN "substring"(pg_get_constraintdef(c.oid),
+                                                   7)
+               ELSE NULL
+           END consrc_copy
+    FROM pg_catalog.pg_constraint c
+    INNER JOIN pg_catalog.pg_class t ON t.oid=c.conrelid
+    LEFT OUTER JOIN pg_catalog.pg_class rt ON rt.oid=c.confrelid
+    LEFT OUTER JOIN pg_catalog.pg_description d ON d.objoid=c.oid
+    AND d.objsubid=0
+    AND d.classoid='pg_constraint'::regclass
+    WHERE c.conrelid=$1
+    ORDER BY c.oid
+  query_hash: 9c026645088d4aad982f51b10fb6d7bb
   expected: ''
   parameters:
     $1: '16548'
@@ -255,38 +356,34 @@ tests:
     FROM pg_catalog.pg_index i INNER JOIN pg_catalog.pg_class c ON c.oid=i.indexrelid
     INNER JOIN pg_catalog.pg_class tc ON tc.oid=i.indrelid LEFT OUTER JOIN pg_catalog.pg_description
     dsc ON i.indexrelid=dsc.objoid WHERE  i.indrelid=$1 ORDER BY c.relname
+  pretty_query: |-
+    SELECT i.*,
+           i.indkey AS keys,
+           c.relname,
+           c.relnamespace,
+           c.relam,
+           c.reltablespace,
+           tc.relname AS tabrelname,
+           dsc.description,
+           pg_catalog.pg_get_expr(i.indpred, i.indrelid) AS pred_expr,
+           pg_catalog.pg_get_expr(i.indexprs, i.indrelid, TRUE) AS expr,
+           pg_catalog.pg_relation_size(i.indexrelid) AS index_rel_size,
+           pg_catalog.pg_stat_get_numscans(i.indexrelid) AS index_num_scans
+    FROM pg_catalog.pg_index i
+    INNER JOIN pg_catalog.pg_class c ON c.oid=i.indexrelid
+    INNER JOIN pg_catalog.pg_class tc ON tc.oid=i.indrelid
+    LEFT OUTER JOIN pg_catalog.pg_description dsc ON i.indexrelid=dsc.objoid
+    WHERE i.indrelid=$1
+    ORDER BY c.relname
+  query_hash: bb382052b973a1b545abd0e027247c9c
   expected: ''
   parameters:
     $1: '16548'
-- query: SELECT n.nspname = ANY(current_schemas(true)), n.nspname, t.typname FROM
-    pg_catalog.pg_type t JOIN pg_catalog.pg_namespace n ON t.typnamespace = n.oid
-    WHERE t.oid = $1
-  expected: ''
-  parameters:
-    $1: '22'
-- query: SELECT typinput='pg_catalog.array_in'::regproc as is_array, typtype, typname,
-    pg_type.oid   FROM pg_catalog.pg_type   LEFT JOIN (select ns.oid as nspoid, ns.nspname,
-    r.r           from pg_namespace as ns           join ( select s.r, (current_schemas(false))[s.r]
-    as nspname                    from generate_series(1, array_upper(current_schemas(false),
-    1)) as s(r) ) as r          using ( nspname )        ) as sp     ON sp.nspoid
-    = typnamespace  WHERE pg_type.oid = $1  ORDER BY sp.r, pg_type.oid DESC
-  expected: ''
-  parameters:
-    $1: '22'
-- query: SELECT n.nspname = ANY(current_schemas(true)), n.nspname, t.typname FROM
-    pg_catalog.pg_type t JOIN pg_catalog.pg_namespace n ON t.typnamespace = n.oid
-    WHERE t.oid = $1
-  expected: ''
-  parameters:
-    $1: '30'
-- query: SELECT typinput='pg_catalog.array_in'::regproc as is_array, typtype, typname,
-    pg_type.oid   FROM pg_catalog.pg_type   LEFT JOIN (select ns.oid as nspoid, ns.nspname,
-    r.r           from pg_namespace as ns           join ( select s.r, (current_schemas(false))[s.r]
-    as nspname                    from generate_series(1, array_upper(current_schemas(false),
-    1)) as s(r) ) as r          using ( nspname )        ) as sp     ON sp.nspoid
-    = typnamespace  WHERE pg_type.oid = $1  ORDER BY sp.r, pg_type.oid DESC
-  expected: ''
-  parameters:
-    $1: '30'
 - query: SELECT am.oid,am.* FROM pg_catalog.pg_am am ORDER BY am.oid
+  pretty_query: |-
+    SELECT am.oid,
+           am.*
+    FROM pg_catalog.pg_am am
+    ORDER BY am.oid
+  query_hash: e20914c9fa407b2fcec4cfc56ced5179
   expected: ''
