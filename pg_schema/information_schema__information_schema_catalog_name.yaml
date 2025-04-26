@@ -1,0 +1,8 @@
+type: view
+view_sql: ' SELECT current_database()::information_schema.sql_identifier AS catalog_name;'
+schema:
+  catalog_name: varchar(64)
+pg_types:
+  catalog_name: name
+rows:
+- catalog_name: postgres

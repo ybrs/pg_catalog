@@ -1,0 +1,28 @@
+type: system_catalog
+schema:
+  oid: int
+  extname: varchar(64)
+  extowner: int
+  extnamespace: int
+  extrelocatable: boolean
+  extversion: varchar(256)
+  extconfig: varchar(256)
+  extcondition: varchar(256)
+pg_types:
+  oid: oid
+  extname: name
+  extowner: oid
+  extnamespace: oid
+  extrelocatable: bool
+  extversion: text
+  extconfig: _oid
+  extcondition: _text
+rows:
+- oid: 13025
+  extname: plpgsql
+  extowner: 10
+  extnamespace: 11
+  extrelocatable: false
+  extversion: '1.0'
+  extconfig: null
+  extcondition: null

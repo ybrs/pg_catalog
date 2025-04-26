@@ -1,0 +1,17 @@
+type: view
+view_sql: " SELECT relid,\n    schemaname,\n    relname,\n    blks_read,\n    blks_hit\n\
+  \   FROM pg_statio_all_sequences\n  WHERE (schemaname = ANY (ARRAY['pg_catalog'::name,\
+  \ 'information_schema'::name])) OR schemaname ~ '^pg_toast'::text;"
+schema:
+  relid: int
+  schemaname: varchar(64)
+  relname: varchar(64)
+  blks_read: bigint
+  blks_hit: bigint
+pg_types:
+  relid: oid
+  schemaname: name
+  relname: name
+  blks_read: int8
+  blks_hit: int8
+rows: []

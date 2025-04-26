@@ -1,0 +1,53 @@
+type: view
+view_sql: " SELECT l.slot_name,\n    l.plugin,\n    l.slot_type,\n    l.datoid,\n\
+  \    d.datname AS database,\n    l.temporary,\n    l.active,\n    l.active_pid,\n\
+  \    l.xmin,\n    l.catalog_xmin,\n    l.restart_lsn,\n    l.confirmed_flush_lsn,\n\
+  \    l.wal_status,\n    l.safe_wal_size,\n    l.two_phase,\n    l.inactive_since,\n\
+  \    l.conflicting,\n    l.invalidation_reason,\n    l.failover,\n    l.synced\n\
+  \   FROM pg_get_replication_slots() l(slot_name, plugin, slot_type, datoid, temporary,\
+  \ active, active_pid, xmin, catalog_xmin, restart_lsn, confirmed_flush_lsn, wal_status,\
+  \ safe_wal_size, two_phase, inactive_since, conflicting, invalidation_reason, failover,\
+  \ synced)\n     LEFT JOIN pg_database d ON l.datoid = d.oid;"
+schema:
+  slot_name: varchar(64)
+  plugin: varchar(64)
+  slot_type: varchar(256)
+  datoid: int
+  database: varchar(64)
+  temporary: boolean
+  active: boolean
+  active_pid: int
+  xmin: varchar(256)
+  catalog_xmin: varchar(256)
+  restart_lsn: varchar(256)
+  confirmed_flush_lsn: varchar(256)
+  wal_status: varchar(256)
+  safe_wal_size: bigint
+  two_phase: boolean
+  inactive_since: varchar(256)
+  conflicting: boolean
+  invalidation_reason: varchar(256)
+  failover: boolean
+  synced: boolean
+pg_types:
+  slot_name: name
+  plugin: name
+  slot_type: text
+  datoid: oid
+  database: name
+  temporary: bool
+  active: bool
+  active_pid: int4
+  xmin: xid
+  catalog_xmin: xid
+  restart_lsn: pg_lsn
+  confirmed_flush_lsn: pg_lsn
+  wal_status: text
+  safe_wal_size: int8
+  two_phase: bool
+  inactive_since: timestamptz
+  conflicting: bool
+  invalidation_reason: text
+  failover: bool
+  synced: bool
+rows: []

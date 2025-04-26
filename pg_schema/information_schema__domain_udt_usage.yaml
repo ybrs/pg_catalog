@@ -1,0 +1,54 @@
+type: view
+view_sql: " SELECT current_database()::information_schema.sql_identifier AS udt_catalog,\n\
+  \    nbt.nspname::information_schema.sql_identifier AS udt_schema,\n    bt.typname::information_schema.sql_identifier\
+  \ AS udt_name,\n    current_database()::information_schema.sql_identifier AS domain_catalog,\n\
+  \    nt.nspname::information_schema.sql_identifier AS domain_schema,\n    t.typname::information_schema.sql_identifier\
+  \ AS domain_name\n   FROM pg_type t,\n    pg_namespace nt,\n    pg_type bt,\n  \
+  \  pg_namespace nbt\n  WHERE t.typnamespace = nt.oid AND t.typbasetype = bt.oid\
+  \ AND bt.typnamespace = nbt.oid AND t.typtype = 'd'::\"char\" AND pg_has_role(bt.typowner,\
+  \ 'USAGE'::text);"
+schema:
+  udt_catalog: varchar(64)
+  udt_schema: varchar(64)
+  udt_name: varchar(64)
+  domain_catalog: varchar(64)
+  domain_schema: varchar(64)
+  domain_name: varchar(64)
+pg_types:
+  udt_catalog: name
+  udt_schema: name
+  udt_name: name
+  domain_catalog: name
+  domain_schema: name
+  domain_name: name
+rows:
+- udt_catalog: postgres
+  udt_schema: pg_catalog
+  udt_name: name
+  domain_catalog: postgres
+  domain_schema: information_schema
+  domain_name: sql_identifier
+- udt_catalog: postgres
+  udt_schema: pg_catalog
+  udt_name: int4
+  domain_catalog: postgres
+  domain_schema: information_schema
+  domain_name: cardinal_number
+- udt_catalog: postgres
+  udt_schema: pg_catalog
+  udt_name: varchar
+  domain_catalog: postgres
+  domain_schema: information_schema
+  domain_name: character_data
+- udt_catalog: postgres
+  udt_schema: pg_catalog
+  udt_name: varchar
+  domain_catalog: postgres
+  domain_schema: information_schema
+  domain_name: yes_or_no
+- udt_catalog: postgres
+  udt_schema: pg_catalog
+  udt_name: timestamptz
+  domain_catalog: postgres
+  domain_schema: information_schema
+  domain_name: time_stamp

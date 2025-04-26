@@ -1,0 +1,39 @@
+type: view
+view_sql: " SELECT DISTINCT current_database()::information_schema.sql_identifier\
+  \ AS specific_catalog,\n    np.nspname::information_schema.sql_identifier AS specific_schema,\n\
+  \    nameconcatoid(p.proname, p.oid)::information_schema.sql_identifier AS specific_name,\n\
+  \    current_database()::information_schema.sql_identifier AS routine_catalog,\n\
+  \    np1.nspname::information_schema.sql_identifier AS routine_schema,\n    nameconcatoid(p1.proname,\
+  \ p1.oid)::information_schema.sql_identifier AS routine_name\n   FROM pg_namespace\
+  \ np,\n    pg_proc p,\n    pg_depend d,\n    pg_proc p1,\n    pg_namespace np1\n\
+  \  WHERE np.oid = p.pronamespace AND p.oid = d.objid AND d.classid = 'pg_proc'::regclass::oid\
+  \ AND d.refobjid = p1.oid AND d.refclassid = 'pg_proc'::regclass::oid AND p1.pronamespace\
+  \ = np1.oid AND (p.prokind = ANY (ARRAY['f'::\"char\", 'p'::\"char\"])) AND (p1.prokind\
+  \ = ANY (ARRAY['f'::\"char\", 'p'::\"char\"])) AND pg_has_role(p1.proowner, 'USAGE'::text);"
+schema:
+  specific_catalog: varchar(64)
+  specific_schema: varchar(64)
+  specific_name: varchar(64)
+  routine_catalog: varchar(64)
+  routine_schema: varchar(64)
+  routine_name: varchar(64)
+pg_types:
+  specific_catalog: name
+  specific_schema: name
+  specific_name: name
+  routine_catalog: name
+  routine_schema: name
+  routine_name: name
+rows:
+- specific_catalog: postgres
+  specific_schema: information_schema
+  specific_name: _pg_char_octet_length_12681
+  routine_catalog: postgres
+  routine_schema: information_schema
+  routine_name: _pg_char_max_length_12680
+- specific_catalog: postgres
+  specific_schema: information_schema
+  specific_name: _pg_index_position_12677
+  routine_catalog: postgres
+  routine_schema: information_schema
+  routine_name: _pg_expandarray_12676

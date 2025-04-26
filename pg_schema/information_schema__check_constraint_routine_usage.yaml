@@ -1,0 +1,26 @@
+type: view
+view_sql: " SELECT DISTINCT current_database()::information_schema.sql_identifier\
+  \ AS constraint_catalog,\n    nc.nspname::information_schema.sql_identifier AS constraint_schema,\n\
+  \    c.conname::information_schema.sql_identifier AS constraint_name,\n    current_database()::information_schema.sql_identifier\
+  \ AS specific_catalog,\n    np.nspname::information_schema.sql_identifier AS specific_schema,\n\
+  \    nameconcatoid(p.proname, p.oid)::information_schema.sql_identifier AS specific_name\n\
+  \   FROM pg_namespace nc,\n    pg_constraint c,\n    pg_depend d,\n    pg_proc p,\n\
+  \    pg_namespace np\n  WHERE nc.oid = c.connamespace AND c.contype = 'c'::\"char\"\
+  \ AND c.oid = d.objid AND d.classid = 'pg_constraint'::regclass::oid AND d.refobjid\
+  \ = p.oid AND d.refclassid = 'pg_proc'::regclass::oid AND p.pronamespace = np.oid\
+  \ AND pg_has_role(p.proowner, 'USAGE'::text);"
+schema:
+  constraint_catalog: varchar(64)
+  constraint_schema: varchar(64)
+  constraint_name: varchar(64)
+  specific_catalog: varchar(64)
+  specific_schema: varchar(64)
+  specific_name: varchar(64)
+pg_types:
+  constraint_catalog: name
+  constraint_schema: name
+  constraint_name: name
+  specific_catalog: name
+  specific_schema: name
+  specific_name: name
+rows: []

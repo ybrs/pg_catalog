@@ -1,0 +1,34 @@
+type: view
+view_sql: " SELECT n.nspname AS schemaname,\n    c.relname AS tablename,\n    pol.polname\
+  \ AS policyname,\n        CASE\n            WHEN pol.polpermissive THEN 'PERMISSIVE'::text\n\
+  \            ELSE 'RESTRICTIVE'::text\n        END AS permissive,\n        CASE\n\
+  \            WHEN pol.polroles = '{0}'::oid[] THEN string_to_array('public'::text,\
+  \ ''::text)::name[]\n            ELSE ARRAY( SELECT pg_authid.rolname\n        \
+  \       FROM pg_authid\n              WHERE pg_authid.oid = ANY (pol.polroles)\n\
+  \              ORDER BY pg_authid.rolname)\n        END AS roles,\n        CASE\
+  \ pol.polcmd\n            WHEN 'r'::\"char\" THEN 'SELECT'::text\n            WHEN\
+  \ 'a'::\"char\" THEN 'INSERT'::text\n            WHEN 'w'::\"char\" THEN 'UPDATE'::text\n\
+  \            WHEN 'd'::\"char\" THEN 'DELETE'::text\n            WHEN '*'::\"char\"\
+  \ THEN 'ALL'::text\n            ELSE NULL::text\n        END AS cmd,\n    pg_get_expr(pol.polqual,\
+  \ pol.polrelid) AS qual,\n    pg_get_expr(pol.polwithcheck, pol.polrelid) AS with_check\n\
+  \   FROM pg_policy pol\n     JOIN pg_class c ON c.oid = pol.polrelid\n     LEFT\
+  \ JOIN pg_namespace n ON n.oid = c.relnamespace;"
+schema:
+  schemaname: varchar(64)
+  tablename: varchar(64)
+  policyname: varchar(64)
+  permissive: varchar(256)
+  roles: varchar(256)
+  cmd: varchar(256)
+  qual: varchar(256)
+  with_check: varchar(256)
+pg_types:
+  schemaname: name
+  tablename: name
+  policyname: name
+  permissive: text
+  roles: _name
+  cmd: text
+  qual: text
+  with_check: text
+rows: []

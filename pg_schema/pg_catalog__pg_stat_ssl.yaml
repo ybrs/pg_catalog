@@ -1,0 +1,36 @@
+type: view
+view_sql: " SELECT pid,\n    ssl,\n    sslversion AS version,\n    sslcipher AS cipher,\n\
+  \    sslbits AS bits,\n    ssl_client_dn AS client_dn,\n    ssl_client_serial AS\
+  \ client_serial,\n    ssl_issuer_dn AS issuer_dn\n   FROM pg_stat_get_activity(NULL::integer)\
+  \ s(datid, pid, usesysid, application_name, state, query, wait_event_type, wait_event,\
+  \ xact_start, query_start, backend_start, state_change, client_addr, client_hostname,\
+  \ client_port, backend_xid, backend_xmin, backend_type, ssl, sslversion, sslcipher,\
+  \ sslbits, ssl_client_dn, ssl_client_serial, ssl_issuer_dn, gss_auth, gss_princ,\
+  \ gss_enc, gss_delegation, leader_pid, query_id)\n  WHERE client_port IS NOT NULL;"
+schema:
+  pid: int
+  ssl: boolean
+  version: varchar(256)
+  cipher: varchar(256)
+  bits: int
+  client_dn: varchar(256)
+  client_serial: varchar(256)
+  issuer_dn: varchar(256)
+pg_types:
+  pid: int4
+  ssl: bool
+  version: text
+  cipher: text
+  bits: int4
+  client_dn: text
+  client_serial: numeric
+  issuer_dn: text
+rows:
+- pid: 74361
+  ssl: false
+  version: null
+  cipher: null
+  bits: null
+  client_dn: null
+  client_serial: null
+  issuer_dn: null

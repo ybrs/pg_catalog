@@ -1,0 +1,27 @@
+type: view
+view_sql: " SELECT pid,\n        CASE param1\n            WHEN 0 THEN 'initializing'::text\n\
+  \            WHEN 1 THEN 'waiting for checkpoint to finish'::text\n            WHEN\
+  \ 2 THEN 'estimating backup size'::text\n            WHEN 3 THEN 'streaming database\
+  \ files'::text\n            WHEN 4 THEN 'waiting for wal archiving to finish'::text\n\
+  \            WHEN 5 THEN 'transferring wal files'::text\n            ELSE NULL::text\n\
+  \        END AS phase,\n        CASE param2\n            WHEN '-1'::integer THEN\
+  \ NULL::bigint\n            ELSE param2\n        END AS backup_total,\n    param3\
+  \ AS backup_streamed,\n    param4 AS tablespaces_total,\n    param5 AS tablespaces_streamed\n\
+  \   FROM pg_stat_get_progress_info('BASEBACKUP'::text) s(pid, datid, relid, param1,\
+  \ param2, param3, param4, param5, param6, param7, param8, param9, param10, param11,\
+  \ param12, param13, param14, param15, param16, param17, param18, param19, param20);"
+schema:
+  pid: int
+  phase: varchar(256)
+  backup_total: bigint
+  backup_streamed: bigint
+  tablespaces_total: bigint
+  tablespaces_streamed: bigint
+pg_types:
+  pid: int4
+  phase: text
+  backup_total: int8
+  backup_streamed: int8
+  tablespaces_total: int8
+  tablespaces_streamed: int8
+rows: []

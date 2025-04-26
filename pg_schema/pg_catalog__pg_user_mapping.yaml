@@ -1,0 +1,12 @@
+type: system_catalog
+schema:
+  oid: int
+  umuser: int
+  umserver: int
+  umoptions: varchar(256)
+pg_types:
+  oid: oid
+  umuser: oid
+  umserver: oid
+  umoptions: _text
+rows: []

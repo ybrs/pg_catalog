@@ -1,0 +1,14 @@
+type: system_catalog
+schema:
+  oid: int
+  trftype: int
+  trflang: int
+  trffromsql: varchar(256)
+  trftosql: varchar(256)
+pg_types:
+  oid: oid
+  trftype: oid
+  trflang: oid
+  trffromsql: regproc
+  trftosql: regproc
+rows: []

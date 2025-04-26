@@ -1,0 +1,50 @@
+type: view
+view_sql: " SELECT oid AS datid,\n    datname,\n    pg_stat_get_db_conflict_tablespace(oid)\
+  \ AS confl_tablespace,\n    pg_stat_get_db_conflict_lock(oid) AS confl_lock,\n \
+  \   pg_stat_get_db_conflict_snapshot(oid) AS confl_snapshot,\n    pg_stat_get_db_conflict_bufferpin(oid)\
+  \ AS confl_bufferpin,\n    pg_stat_get_db_conflict_startup_deadlock(oid) AS confl_deadlock,\n\
+  \    pg_stat_get_db_conflict_logicalslot(oid) AS confl_active_logicalslot\n   FROM\
+  \ pg_database d;"
+schema:
+  datid: int
+  datname: varchar(64)
+  confl_tablespace: bigint
+  confl_lock: bigint
+  confl_snapshot: bigint
+  confl_bufferpin: bigint
+  confl_deadlock: bigint
+  confl_active_logicalslot: bigint
+pg_types:
+  datid: oid
+  datname: name
+  confl_tablespace: int8
+  confl_lock: int8
+  confl_snapshot: int8
+  confl_bufferpin: int8
+  confl_deadlock: int8
+  confl_active_logicalslot: int8
+rows:
+- datid: 5
+  datname: postgres
+  confl_tablespace: 0
+  confl_lock: 0
+  confl_snapshot: 0
+  confl_bufferpin: 0
+  confl_deadlock: 0
+  confl_active_logicalslot: 0
+- datid: 1
+  datname: template1
+  confl_tablespace: 0
+  confl_lock: 0
+  confl_snapshot: 0
+  confl_bufferpin: 0
+  confl_deadlock: 0
+  confl_active_logicalslot: 0
+- datid: 4
+  datname: template0
+  confl_tablespace: 0
+  confl_lock: 0
+  confl_snapshot: 0
+  confl_bufferpin: 0
+  confl_deadlock: 0
+  confl_active_logicalslot: 0

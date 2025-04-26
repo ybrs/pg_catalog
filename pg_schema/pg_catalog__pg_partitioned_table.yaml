@@ -1,0 +1,20 @@
+type: system_catalog
+schema:
+  partrelid: int
+  partstrat: varchar(256)
+  partnatts: int
+  partdefid: int
+  partattrs: varchar(256)
+  partclass: varchar(256)
+  partcollation: varchar(256)
+  partexprs: varchar(256)
+pg_types:
+  partrelid: oid
+  partstrat: char
+  partnatts: int2
+  partdefid: oid
+  partattrs: int2vector
+  partclass: oidvector
+  partcollation: oidvector
+  partexprs: pg_node_tree
+rows: []

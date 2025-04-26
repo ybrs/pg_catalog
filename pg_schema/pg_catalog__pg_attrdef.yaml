@@ -1,0 +1,12 @@
+type: system_catalog
+schema:
+  oid: int
+  adrelid: int
+  adnum: int
+  adbin: varchar(256)
+pg_types:
+  oid: oid
+  adrelid: oid
+  adnum: int2
+  adbin: pg_node_tree
+rows: []

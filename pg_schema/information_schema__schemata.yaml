@@ -1,0 +1,54 @@
+type: view
+view_sql: " SELECT current_database()::information_schema.sql_identifier AS catalog_name,\n\
+  \    n.nspname::information_schema.sql_identifier AS schema_name,\n    u.rolname::information_schema.sql_identifier\
+  \ AS schema_owner,\n    NULL::name::information_schema.sql_identifier AS default_character_set_catalog,\n\
+  \    NULL::name::information_schema.sql_identifier AS default_character_set_schema,\n\
+  \    NULL::name::information_schema.sql_identifier AS default_character_set_name,\n\
+  \    NULL::character varying::information_schema.character_data AS sql_path\n  \
+  \ FROM pg_namespace n,\n    pg_authid u\n  WHERE n.nspowner = u.oid AND (pg_has_role(n.nspowner,\
+  \ 'USAGE'::text) OR has_schema_privilege(n.oid, 'CREATE, USAGE'::text));"
+schema:
+  catalog_name: varchar(64)
+  schema_name: varchar(64)
+  schema_owner: varchar(64)
+  default_character_set_catalog: varchar(64)
+  default_character_set_schema: varchar(64)
+  default_character_set_name: varchar(64)
+  sql_path: varchar(256)
+pg_types:
+  catalog_name: name
+  schema_name: name
+  schema_owner: name
+  default_character_set_catalog: name
+  default_character_set_schema: name
+  default_character_set_name: name
+  sql_path: varchar
+rows:
+- catalog_name: postgres
+  schema_name: information_schema
+  schema_owner: aybarsb
+  default_character_set_catalog: null
+  default_character_set_schema: null
+  default_character_set_name: null
+  sql_path: null
+- catalog_name: postgres
+  schema_name: pg_catalog
+  schema_owner: aybarsb
+  default_character_set_catalog: null
+  default_character_set_schema: null
+  default_character_set_name: null
+  sql_path: null
+- catalog_name: postgres
+  schema_name: pg_toast
+  schema_owner: aybarsb
+  default_character_set_catalog: null
+  default_character_set_schema: null
+  default_character_set_name: null
+  sql_path: null
+- catalog_name: postgres
+  schema_name: public
+  schema_owner: pg_database_owner
+  default_character_set_catalog: null
+  default_character_set_schema: null
+  default_character_set_name: null
+  sql_path: null

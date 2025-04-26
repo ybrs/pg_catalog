@@ -1,0 +1,597 @@
+type: view
+view_sql: " SELECT abbrev,\n    utc_offset,\n    is_dst\n   FROM pg_timezone_abbrevs()\
+  \ pg_timezone_abbrevs(abbrev, utc_offset, is_dst);"
+schema:
+  abbrev: varchar(256)
+  utc_offset: varchar(256)
+  is_dst: boolean
+pg_types:
+  abbrev: text
+  utc_offset: interval
+  is_dst: bool
+rows:
+- abbrev: ACDT
+  utc_offset: '10:30:00'
+  is_dst: true
+- abbrev: ACSST
+  utc_offset: '10:30:00'
+  is_dst: true
+- abbrev: ACST
+  utc_offset: '9:30:00'
+  is_dst: false
+- abbrev: ACT
+  utc_offset: -1 day, 19:00:00
+  is_dst: false
+- abbrev: ACWST
+  utc_offset: '8:45:00'
+  is_dst: false
+- abbrev: ADT
+  utc_offset: -1 day, 21:00:00
+  is_dst: true
+- abbrev: AEDT
+  utc_offset: '11:00:00'
+  is_dst: true
+- abbrev: AESST
+  utc_offset: '11:00:00'
+  is_dst: true
+- abbrev: AEST
+  utc_offset: '10:00:00'
+  is_dst: false
+- abbrev: AFT
+  utc_offset: '4:30:00'
+  is_dst: false
+- abbrev: AKDT
+  utc_offset: -1 day, 16:00:00
+  is_dst: true
+- abbrev: AKST
+  utc_offset: -1 day, 15:00:00
+  is_dst: false
+- abbrev: ALMST
+  utc_offset: '7:00:00'
+  is_dst: true
+- abbrev: ALMT
+  utc_offset: '6:00:00'
+  is_dst: false
+- abbrev: AMST
+  utc_offset: '4:00:00'
+  is_dst: false
+- abbrev: AMT
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- abbrev: ANAST
+  utc_offset: '12:00:00'
+  is_dst: false
+- abbrev: ANAT
+  utc_offset: '12:00:00'
+  is_dst: false
+- abbrev: ARST
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- abbrev: ART
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- abbrev: AST
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- abbrev: AWSST
+  utc_offset: '9:00:00'
+  is_dst: true
+- abbrev: AWST
+  utc_offset: '8:00:00'
+  is_dst: false
+- abbrev: AZOST
+  utc_offset: 0:00:00
+  is_dst: true
+- abbrev: AZOT
+  utc_offset: -1 day, 23:00:00
+  is_dst: false
+- abbrev: AZST
+  utc_offset: '4:00:00'
+  is_dst: false
+- abbrev: AZT
+  utc_offset: '4:00:00'
+  is_dst: false
+- abbrev: BDST
+  utc_offset: '2:00:00'
+  is_dst: true
+- abbrev: BDT
+  utc_offset: '6:00:00'
+  is_dst: false
+- abbrev: BNT
+  utc_offset: '8:00:00'
+  is_dst: false
+- abbrev: BORT
+  utc_offset: '8:00:00'
+  is_dst: false
+- abbrev: BOT
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- abbrev: BRA
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- abbrev: BRST
+  utc_offset: -1 day, 22:00:00
+  is_dst: true
+- abbrev: BRT
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- abbrev: BST
+  utc_offset: '1:00:00'
+  is_dst: true
+- abbrev: BTT
+  utc_offset: '6:00:00'
+  is_dst: false
+- abbrev: CADT
+  utc_offset: '10:30:00'
+  is_dst: true
+- abbrev: CAST
+  utc_offset: '9:30:00'
+  is_dst: false
+- abbrev: CCT
+  utc_offset: '8:00:00'
+  is_dst: false
+- abbrev: CDT
+  utc_offset: -1 day, 19:00:00
+  is_dst: true
+- abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- abbrev: CET
+  utc_offset: '1:00:00'
+  is_dst: false
+- abbrev: CETDST
+  utc_offset: '2:00:00'
+  is_dst: true
+- abbrev: CHADT
+  utc_offset: '13:45:00'
+  is_dst: true
+- abbrev: CHAST
+  utc_offset: '12:45:00'
+  is_dst: false
+- abbrev: CHUT
+  utc_offset: '10:00:00'
+  is_dst: false
+- abbrev: CKT
+  utc_offset: -1 day, 14:00:00
+  is_dst: false
+- abbrev: CLST
+  utc_offset: -1 day, 21:00:00
+  is_dst: true
+- abbrev: CLT
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- abbrev: COT
+  utc_offset: -1 day, 19:00:00
+  is_dst: false
+- abbrev: CST
+  utc_offset: -1 day, 18:00:00
+  is_dst: false
+- abbrev: CXT
+  utc_offset: '7:00:00'
+  is_dst: false
+- abbrev: DAVT
+  utc_offset: '7:00:00'
+  is_dst: false
+- abbrev: DDUT
+  utc_offset: '10:00:00'
+  is_dst: false
+- abbrev: EASST
+  utc_offset: -1 day, 18:00:00
+  is_dst: false
+- abbrev: EAST
+  utc_offset: -1 day, 18:00:00
+  is_dst: false
+- abbrev: EAT
+  utc_offset: '3:00:00'
+  is_dst: false
+- abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- abbrev: EEST
+  utc_offset: '3:00:00'
+  is_dst: true
+- abbrev: EET
+  utc_offset: '2:00:00'
+  is_dst: false
+- abbrev: EETDST
+  utc_offset: '3:00:00'
+  is_dst: true
+- abbrev: EGST
+  utc_offset: 0:00:00
+  is_dst: true
+- abbrev: EGT
+  utc_offset: -1 day, 23:00:00
+  is_dst: false
+- abbrev: EST
+  utc_offset: -1 day, 19:00:00
+  is_dst: false
+- abbrev: FET
+  utc_offset: '3:00:00'
+  is_dst: false
+- abbrev: FJST
+  utc_offset: '13:00:00'
+  is_dst: true
+- abbrev: FJT
+  utc_offset: '12:00:00'
+  is_dst: false
+- abbrev: FKST
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- abbrev: FKT
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- abbrev: FNST
+  utc_offset: -1 day, 23:00:00
+  is_dst: true
+- abbrev: FNT
+  utc_offset: -1 day, 22:00:00
+  is_dst: false
+- abbrev: GALT
+  utc_offset: -1 day, 18:00:00
+  is_dst: false
+- abbrev: GAMT
+  utc_offset: -1 day, 15:00:00
+  is_dst: false
+- abbrev: GEST
+  utc_offset: '4:00:00'
+  is_dst: false
+- abbrev: GET
+  utc_offset: '4:00:00'
+  is_dst: false
+- abbrev: GFT
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- abbrev: GILT
+  utc_offset: '12:00:00'
+  is_dst: false
+- abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false
+- abbrev: GYT
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- abbrev: HKT
+  utc_offset: '8:00:00'
+  is_dst: false
+- abbrev: HST
+  utc_offset: -1 day, 14:00:00
+  is_dst: false
+- abbrev: ICT
+  utc_offset: '7:00:00'
+  is_dst: false
+- abbrev: IDT
+  utc_offset: '3:00:00'
+  is_dst: true
+- abbrev: IOT
+  utc_offset: '6:00:00'
+  is_dst: false
+- abbrev: IRKST
+  utc_offset: '8:00:00'
+  is_dst: false
+- abbrev: IRKT
+  utc_offset: '8:00:00'
+  is_dst: false
+- abbrev: IRT
+  utc_offset: '3:30:00'
+  is_dst: false
+- abbrev: IST
+  utc_offset: '2:00:00'
+  is_dst: false
+- abbrev: JAYT
+  utc_offset: '9:00:00'
+  is_dst: false
+- abbrev: JST
+  utc_offset: '9:00:00'
+  is_dst: false
+- abbrev: KDT
+  utc_offset: '10:00:00'
+  is_dst: true
+- abbrev: KGST
+  utc_offset: '6:00:00'
+  is_dst: true
+- abbrev: KGT
+  utc_offset: '6:00:00'
+  is_dst: false
+- abbrev: KOST
+  utc_offset: '11:00:00'
+  is_dst: false
+- abbrev: KRAST
+  utc_offset: '7:00:00'
+  is_dst: false
+- abbrev: KRAT
+  utc_offset: '7:00:00'
+  is_dst: false
+- abbrev: KST
+  utc_offset: '9:00:00'
+  is_dst: false
+- abbrev: LHDT
+  utc_offset: '10:30:00'
+  is_dst: false
+- abbrev: LHST
+  utc_offset: '10:30:00'
+  is_dst: false
+- abbrev: LIGT
+  utc_offset: '10:00:00'
+  is_dst: false
+- abbrev: LINT
+  utc_offset: '14:00:00'
+  is_dst: false
+- abbrev: LKT
+  utc_offset: '5:30:00'
+  is_dst: false
+- abbrev: MAGST
+  utc_offset: '11:00:00'
+  is_dst: false
+- abbrev: MAGT
+  utc_offset: '11:00:00'
+  is_dst: false
+- abbrev: MART
+  utc_offset: -1 day, 14:30:00
+  is_dst: false
+- abbrev: MAWT
+  utc_offset: '5:00:00'
+  is_dst: false
+- abbrev: MDT
+  utc_offset: -1 day, 18:00:00
+  is_dst: true
+- abbrev: MEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- abbrev: MESZ
+  utc_offset: '2:00:00'
+  is_dst: true
+- abbrev: MET
+  utc_offset: '1:00:00'
+  is_dst: false
+- abbrev: METDST
+  utc_offset: '2:00:00'
+  is_dst: true
+- abbrev: MEZ
+  utc_offset: '1:00:00'
+  is_dst: false
+- abbrev: MHT
+  utc_offset: '12:00:00'
+  is_dst: false
+- abbrev: MMT
+  utc_offset: '6:30:00'
+  is_dst: false
+- abbrev: MPT
+  utc_offset: '10:00:00'
+  is_dst: false
+- abbrev: MSD
+  utc_offset: '4:00:00'
+  is_dst: true
+- abbrev: MSK
+  utc_offset: '3:00:00'
+  is_dst: false
+- abbrev: MST
+  utc_offset: -1 day, 17:00:00
+  is_dst: false
+- abbrev: MUST
+  utc_offset: '5:00:00'
+  is_dst: true
+- abbrev: MUT
+  utc_offset: '4:00:00'
+  is_dst: false
+- abbrev: MVT
+  utc_offset: '5:00:00'
+  is_dst: false
+- abbrev: MYT
+  utc_offset: '8:00:00'
+  is_dst: false
+- abbrev: NDT
+  utc_offset: -1 day, 21:30:00
+  is_dst: true
+- abbrev: NFT
+  utc_offset: -1 day, 20:30:00
+  is_dst: false
+- abbrev: NOVST
+  utc_offset: '7:00:00'
+  is_dst: false
+- abbrev: NOVT
+  utc_offset: '7:00:00'
+  is_dst: false
+- abbrev: NPT
+  utc_offset: '5:45:00'
+  is_dst: false
+- abbrev: NST
+  utc_offset: -1 day, 20:30:00
+  is_dst: false
+- abbrev: NUT
+  utc_offset: -1 day, 13:00:00
+  is_dst: false
+- abbrev: NZDT
+  utc_offset: '13:00:00'
+  is_dst: true
+- abbrev: NZST
+  utc_offset: '12:00:00'
+  is_dst: false
+- abbrev: NZT
+  utc_offset: '12:00:00'
+  is_dst: false
+- abbrev: OMSST
+  utc_offset: '6:00:00'
+  is_dst: false
+- abbrev: OMST
+  utc_offset: '6:00:00'
+  is_dst: false
+- abbrev: PDT
+  utc_offset: -1 day, 17:00:00
+  is_dst: true
+- abbrev: PET
+  utc_offset: -1 day, 19:00:00
+  is_dst: false
+- abbrev: PETST
+  utc_offset: '12:00:00'
+  is_dst: false
+- abbrev: PETT
+  utc_offset: '12:00:00'
+  is_dst: false
+- abbrev: PGT
+  utc_offset: '10:00:00'
+  is_dst: false
+- abbrev: PHT
+  utc_offset: '8:00:00'
+  is_dst: false
+- abbrev: PKST
+  utc_offset: '6:00:00'
+  is_dst: true
+- abbrev: PKT
+  utc_offset: '5:00:00'
+  is_dst: false
+- abbrev: PMDT
+  utc_offset: -1 day, 22:00:00
+  is_dst: true
+- abbrev: PMST
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- abbrev: PONT
+  utc_offset: '11:00:00'
+  is_dst: false
+- abbrev: PST
+  utc_offset: -1 day, 16:00:00
+  is_dst: false
+- abbrev: PWT
+  utc_offset: '9:00:00'
+  is_dst: false
+- abbrev: PYST
+  utc_offset: -1 day, 21:00:00
+  is_dst: true
+- abbrev: PYT
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- abbrev: RET
+  utc_offset: '4:00:00'
+  is_dst: false
+- abbrev: SADT
+  utc_offset: '10:30:00'
+  is_dst: true
+- abbrev: SAST
+  utc_offset: '2:00:00'
+  is_dst: false
+- abbrev: SCT
+  utc_offset: '4:00:00'
+  is_dst: false
+- abbrev: SGT
+  utc_offset: '8:00:00'
+  is_dst: false
+- abbrev: TAHT
+  utc_offset: -1 day, 14:00:00
+  is_dst: false
+- abbrev: TFT
+  utc_offset: '5:00:00'
+  is_dst: false
+- abbrev: TJT
+  utc_offset: '5:00:00'
+  is_dst: false
+- abbrev: TKT
+  utc_offset: '13:00:00'
+  is_dst: false
+- abbrev: TMT
+  utc_offset: '5:00:00'
+  is_dst: false
+- abbrev: TOT
+  utc_offset: '13:00:00'
+  is_dst: false
+- abbrev: TRUT
+  utc_offset: '10:00:00'
+  is_dst: false
+- abbrev: TVT
+  utc_offset: '12:00:00'
+  is_dst: false
+- abbrev: UCT
+  utc_offset: 0:00:00
+  is_dst: false
+- abbrev: ULAST
+  utc_offset: '9:00:00'
+  is_dst: true
+- abbrev: ULAT
+  utc_offset: '8:00:00'
+  is_dst: false
+- abbrev: UT
+  utc_offset: 0:00:00
+  is_dst: false
+- abbrev: UTC
+  utc_offset: 0:00:00
+  is_dst: false
+- abbrev: UYST
+  utc_offset: -1 day, 22:00:00
+  is_dst: true
+- abbrev: UYT
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- abbrev: UZST
+  utc_offset: '6:00:00'
+  is_dst: true
+- abbrev: UZT
+  utc_offset: '5:00:00'
+  is_dst: false
+- abbrev: VET
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- abbrev: VLAST
+  utc_offset: '10:00:00'
+  is_dst: false
+- abbrev: VLAT
+  utc_offset: '10:00:00'
+  is_dst: false
+- abbrev: VOLT
+  utc_offset: '3:00:00'
+  is_dst: false
+- abbrev: VUT
+  utc_offset: '11:00:00'
+  is_dst: false
+- abbrev: WADT
+  utc_offset: '8:00:00'
+  is_dst: true
+- abbrev: WAKT
+  utc_offset: '12:00:00'
+  is_dst: false
+- abbrev: WAST
+  utc_offset: '7:00:00'
+  is_dst: false
+- abbrev: WAT
+  utc_offset: '1:00:00'
+  is_dst: false
+- abbrev: WDT
+  utc_offset: '9:00:00'
+  is_dst: true
+- abbrev: WET
+  utc_offset: 0:00:00
+  is_dst: false
+- abbrev: WETDST
+  utc_offset: '1:00:00'
+  is_dst: true
+- abbrev: WFT
+  utc_offset: '12:00:00'
+  is_dst: false
+- abbrev: WGST
+  utc_offset: -1 day, 22:00:00
+  is_dst: true
+- abbrev: WGT
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- abbrev: XJT
+  utc_offset: '6:00:00'
+  is_dst: false
+- abbrev: YAKST
+  utc_offset: '9:00:00'
+  is_dst: false
+- abbrev: YAKT
+  utc_offset: '9:00:00'
+  is_dst: false
+- abbrev: YAPT
+  utc_offset: '10:00:00'
+  is_dst: false
+- abbrev: YEKST
+  utc_offset: '6:00:00'
+  is_dst: true
+- abbrev: YEKT
+  utc_offset: '5:00:00'
+  is_dst: false
+- abbrev: Z
+  utc_offset: 0:00:00
+  is_dst: false
+- abbrev: ZULU
+  utc_offset: 0:00:00
+  is_dst: false

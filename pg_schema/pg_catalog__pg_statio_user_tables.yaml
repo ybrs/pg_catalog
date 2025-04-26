@@ -1,0 +1,31 @@
+type: view
+view_sql: " SELECT relid,\n    schemaname,\n    relname,\n    heap_blks_read,\n  \
+  \  heap_blks_hit,\n    idx_blks_read,\n    idx_blks_hit,\n    toast_blks_read,\n\
+  \    toast_blks_hit,\n    tidx_blks_read,\n    tidx_blks_hit\n   FROM pg_statio_all_tables\n\
+  \  WHERE (schemaname <> ALL (ARRAY['pg_catalog'::name, 'information_schema'::name]))\
+  \ AND schemaname !~ '^pg_toast'::text;"
+schema:
+  relid: int
+  schemaname: varchar(64)
+  relname: varchar(64)
+  heap_blks_read: bigint
+  heap_blks_hit: bigint
+  idx_blks_read: bigint
+  idx_blks_hit: bigint
+  toast_blks_read: bigint
+  toast_blks_hit: bigint
+  tidx_blks_read: bigint
+  tidx_blks_hit: bigint
+pg_types:
+  relid: oid
+  schemaname: name
+  relname: name
+  heap_blks_read: int8
+  heap_blks_hit: int8
+  idx_blks_read: int8
+  idx_blks_hit: int8
+  toast_blks_read: int8
+  toast_blks_hit: int8
+  tidx_blks_read: int8
+  tidx_blks_hit: int8
+rows: []

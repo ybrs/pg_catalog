@@ -1,0 +1,20 @@
+type: system_catalog
+schema:
+  oid: int
+  srvname: varchar(64)
+  srvowner: int
+  srvfdw: int
+  srvtype: varchar(256)
+  srvversion: varchar(256)
+  srvacl: varchar(256)
+  srvoptions: varchar(256)
+pg_types:
+  oid: oid
+  srvname: name
+  srvowner: oid
+  srvfdw: oid
+  srvtype: text
+  srvversion: text
+  srvacl: _aclitem
+  srvoptions: _text
+rows: []

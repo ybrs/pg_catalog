@@ -1,0 +1,30 @@
+type: view
+view_sql: " SELECT current_database()::information_schema.sql_identifier AS foreign_table_catalog,\n\
+  \    n.nspname::information_schema.sql_identifier AS foreign_table_schema,\n   \
+  \ c.relname::information_schema.sql_identifier AS foreign_table_name,\n    t.ftoptions,\n\
+  \    current_database()::information_schema.sql_identifier AS foreign_server_catalog,\n\
+  \    s.srvname::information_schema.sql_identifier AS foreign_server_name,\n    u.rolname::information_schema.sql_identifier\
+  \ AS authorization_identifier\n   FROM pg_foreign_table t,\n    pg_foreign_server\
+  \ s,\n    pg_foreign_data_wrapper w,\n    pg_authid u,\n    pg_namespace n,\n  \
+  \  pg_class c\n  WHERE w.oid = s.srvfdw AND u.oid = c.relowner AND (pg_has_role(c.relowner,\
+  \ 'USAGE'::text) OR has_table_privilege(c.oid, 'SELECT, INSERT, UPDATE, DELETE,\
+  \ TRUNCATE, REFERENCES, TRIGGER'::text) OR has_any_column_privilege(c.oid, 'SELECT,\
+  \ INSERT, UPDATE, REFERENCES'::text)) AND n.oid = c.relnamespace AND c.oid = t.ftrelid\
+  \ AND c.relkind = 'f'::\"char\" AND s.oid = t.ftserver;"
+schema:
+  foreign_table_catalog: varchar(64)
+  foreign_table_schema: varchar(64)
+  foreign_table_name: varchar(64)
+  ftoptions: varchar(256)
+  foreign_server_catalog: varchar(64)
+  foreign_server_name: varchar(64)
+  authorization_identifier: varchar(64)
+pg_types:
+  foreign_table_catalog: name
+  foreign_table_schema: name
+  foreign_table_name: name
+  ftoptions: _text
+  foreign_server_catalog: name
+  foreign_server_name: name
+  authorization_identifier: name
+rows: []

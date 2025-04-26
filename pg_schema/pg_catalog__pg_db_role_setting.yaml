@@ -1,0 +1,10 @@
+type: system_catalog
+schema:
+  setdatabase: int
+  setrole: int
+  setconfig: varchar(256)
+pg_types:
+  setdatabase: oid
+  setrole: oid
+  setconfig: _text
+rows: []

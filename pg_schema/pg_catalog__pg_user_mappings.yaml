@@ -1,0 +1,26 @@
+type: view
+view_sql: " SELECT u.oid AS umid,\n    s.oid AS srvid,\n    s.srvname,\n    u.umuser,\n\
+  \        CASE\n            WHEN u.umuser = 0::oid THEN 'public'::name\n        \
+  \    ELSE a.rolname\n        END AS usename,\n        CASE\n            WHEN u.umuser\
+  \ <> 0::oid AND a.rolname = CURRENT_USER AND (pg_has_role(s.srvowner, 'USAGE'::text)\
+  \ OR has_server_privilege(s.oid, 'USAGE'::text)) OR u.umuser = 0::oid AND pg_has_role(s.srvowner,\
+  \ 'USAGE'::text) OR ( SELECT pg_authid.rolsuper\n               FROM pg_authid\n\
+  \              WHERE pg_authid.rolname = CURRENT_USER) THEN u.umoptions\n      \
+  \      ELSE NULL::text[]\n        END AS umoptions\n   FROM pg_user_mapping u\n\
+  \     JOIN pg_foreign_server s ON u.umserver = s.oid\n     LEFT JOIN pg_authid a\
+  \ ON a.oid = u.umuser;"
+schema:
+  umid: int
+  srvid: int
+  srvname: varchar(64)
+  umuser: int
+  usename: varchar(64)
+  umoptions: varchar(256)
+pg_types:
+  umid: oid
+  srvid: oid
+  srvname: name
+  umuser: oid
+  usename: name
+  umoptions: _text
+rows: []

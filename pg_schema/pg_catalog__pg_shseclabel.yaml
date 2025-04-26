@@ -1,0 +1,12 @@
+type: system_catalog
+schema:
+  objoid: int
+  classoid: int
+  provider: varchar(256)
+  label: varchar(256)
+pg_types:
+  objoid: oid
+  classoid: oid
+  provider: text
+  label: text
+rows: []

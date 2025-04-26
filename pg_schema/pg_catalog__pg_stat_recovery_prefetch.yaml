@@ -1,0 +1,38 @@
+type: view
+view_sql: " SELECT stats_reset,\n    prefetch,\n    hit,\n    skip_init,\n    skip_new,\n\
+  \    skip_fpw,\n    skip_rep,\n    wal_distance,\n    block_distance,\n    io_depth\n\
+  \   FROM pg_stat_get_recovery_prefetch() s(stats_reset, prefetch, hit, skip_init,\
+  \ skip_new, skip_fpw, skip_rep, wal_distance, block_distance, io_depth);"
+schema:
+  stats_reset: varchar(256)
+  prefetch: bigint
+  hit: bigint
+  skip_init: bigint
+  skip_new: bigint
+  skip_fpw: bigint
+  skip_rep: bigint
+  wal_distance: int
+  block_distance: int
+  io_depth: int
+pg_types:
+  stats_reset: timestamptz
+  prefetch: int8
+  hit: int8
+  skip_init: int8
+  skip_new: int8
+  skip_fpw: int8
+  skip_rep: int8
+  wal_distance: int4
+  block_distance: int4
+  io_depth: int4
+rows:
+- stats_reset: '2025-04-26T01:05:37.177078+02:00'
+  prefetch: 0
+  hit: 0
+  skip_init: 0
+  skip_new: 0
+  skip_fpw: 0
+  skip_rep: 0
+  wal_distance: 0
+  block_distance: 1
+  io_depth: 0

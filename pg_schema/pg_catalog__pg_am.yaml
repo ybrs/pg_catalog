@@ -1,0 +1,40 @@
+type: system_catalog
+schema:
+  oid: int
+  amname: varchar(64)
+  amhandler: varchar(256)
+  amtype: varchar(256)
+pg_types:
+  oid: oid
+  amname: name
+  amhandler: regproc
+  amtype: char
+rows:
+- oid: 2
+  amname: heap
+  amhandler: heap_tableam_handler
+  amtype: t
+- oid: 403
+  amname: btree
+  amhandler: bthandler
+  amtype: i
+- oid: 405
+  amname: hash
+  amhandler: hashhandler
+  amtype: i
+- oid: 783
+  amname: gist
+  amhandler: gisthandler
+  amtype: i
+- oid: 2742
+  amname: gin
+  amhandler: ginhandler
+  amtype: i
+- oid: 4000
+  amname: spgist
+  amhandler: spghandler
+  amtype: i
+- oid: 3580
+  amname: brin
+  amhandler: brinhandler
+  amtype: i

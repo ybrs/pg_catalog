@@ -1,0 +1,18 @@
+type: view
+view_sql: " SELECT n.nspname,\n    c.relname,\n    a.attname,\n    a.attfdwoptions\n\
+  \   FROM pg_foreign_table t,\n    pg_authid u,\n    pg_namespace n,\n    pg_class\
+  \ c,\n    pg_attribute a\n  WHERE u.oid = c.relowner AND (pg_has_role(c.relowner,\
+  \ 'USAGE'::text) OR has_column_privilege(c.oid, a.attnum, 'SELECT, INSERT, UPDATE,\
+  \ REFERENCES'::text)) AND n.oid = c.relnamespace AND c.oid = t.ftrelid AND c.relkind\
+  \ = 'f'::\"char\" AND a.attrelid = c.oid AND a.attnum > 0;"
+schema:
+  nspname: varchar(64)
+  relname: varchar(64)
+  attname: varchar(64)
+  attfdwoptions: varchar(256)
+pg_types:
+  nspname: name
+  relname: name
+  attname: name
+  attfdwoptions: _text
+rows: []

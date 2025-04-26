@@ -1,0 +1,15 @@
+type: view
+view_sql: " SELECT foreign_server_catalog,\n    foreign_server_name,\n    (pg_options_to_table(srvoptions)).option_name::information_schema.sql_identifier\
+  \ AS option_name,\n    (pg_options_to_table(srvoptions)).option_value::information_schema.character_data\
+  \ AS option_value\n   FROM information_schema._pg_foreign_servers s;"
+schema:
+  foreign_server_catalog: varchar(64)
+  foreign_server_name: varchar(64)
+  option_name: varchar(64)
+  option_value: varchar(256)
+pg_types:
+  foreign_server_catalog: name
+  foreign_server_name: name
+  option_name: name
+  option_value: varchar
+rows: []

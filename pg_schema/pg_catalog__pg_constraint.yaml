@@ -1,0 +1,2984 @@
+type: system_catalog
+schema:
+  oid: int
+  conname: varchar(64)
+  connamespace: int
+  contype: varchar(256)
+  condeferrable: boolean
+  condeferred: boolean
+  convalidated: boolean
+  conrelid: int
+  contypid: int
+  conindid: int
+  conparentid: int
+  confrelid: int
+  confupdtype: varchar(256)
+  confdeltype: varchar(256)
+  confmatchtype: varchar(256)
+  conislocal: boolean
+  coninhcount: int
+  connoinherit: boolean
+  conkey: varchar(256)
+  confkey: varchar(256)
+  conpfeqop: varchar(256)
+  conppeqop: varchar(256)
+  conffeqop: varchar(256)
+  confdelsetcols: varchar(256)
+  conexclop: varchar(256)
+  conbin: varchar(256)
+pg_types:
+  oid: oid
+  conname: name
+  connamespace: oid
+  contype: char
+  condeferrable: bool
+  condeferred: bool
+  convalidated: bool
+  conrelid: oid
+  contypid: oid
+  conindid: oid
+  conparentid: oid
+  confrelid: oid
+  confupdtype: char
+  confdeltype: char
+  confmatchtype: char
+  conislocal: bool
+  coninhcount: int2
+  connoinherit: bool
+  conkey: _int2
+  confkey: _int2
+  conpfeqop: _oid
+  conppeqop: _oid
+  conffeqop: _oid
+  confdelsetcols: _int2
+  conexclop: _oid
+  conbin: pg_node_tree
+rows:
+- oid: 10115
+  conname: pg_proc_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 1255
+  contypid: 0
+  conindid: 2690
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10116
+  conname: pg_proc_proname_args_nsp_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 1255
+  contypid: 0
+  conindid: 2691
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2, 20, 3]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10117
+  conname: pg_type_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 1247
+  contypid: 0
+  conindid: 2703
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10118
+  conname: pg_type_typname_nsp_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 1247
+  contypid: 0
+  conindid: 2704
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2, 3]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10119
+  conname: pg_attribute_relid_attnam_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 1249
+  contypid: 0
+  conindid: 2658
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1, 2]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10120
+  conname: pg_attribute_relid_attnum_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 1249
+  contypid: 0
+  conindid: 2659
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1, 5]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10121
+  conname: pg_class_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 1259
+  contypid: 0
+  conindid: 2662
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10122
+  conname: pg_class_relname_nsp_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 1259
+  contypid: 0
+  conindid: 2663
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2, 3]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10123
+  conname: pg_attrdef_adrelid_adnum_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2604
+  contypid: 0
+  conindid: 2656
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2, 3]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10124
+  conname: pg_attrdef_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2604
+  contypid: 0
+  conindid: 2657
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10125
+  conname: pg_constraint_conrelid_contypid_conname_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2606
+  contypid: 0
+  conindid: 2665
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[8, 9, 2]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10126
+  conname: pg_constraint_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2606
+  contypid: 0
+  conindid: 2667
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10127
+  conname: pg_inherits_relid_seqno_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2611
+  contypid: 0
+  conindid: 2680
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1, 3]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10128
+  conname: pg_index_indexrelid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2610
+  contypid: 0
+  conindid: 2679
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10129
+  conname: pg_operator_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2617
+  contypid: 0
+  conindid: 2688
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10130
+  conname: pg_operator_oprname_l_r_n_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2617
+  contypid: 0
+  conindid: 2689
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2, 8, 9, 3]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10131
+  conname: pg_opfamily_am_name_nsp_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2753
+  contypid: 0
+  conindid: 2754
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2, 3, 4]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10132
+  conname: pg_opfamily_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2753
+  contypid: 0
+  conindid: 2755
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10133
+  conname: pg_opclass_am_name_nsp_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2616
+  contypid: 0
+  conindid: 2686
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2, 3, 4]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10134
+  conname: pg_opclass_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2616
+  contypid: 0
+  conindid: 2687
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10135
+  conname: pg_am_name_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2601
+  contypid: 0
+  conindid: 2651
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10136
+  conname: pg_am_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2601
+  contypid: 0
+  conindid: 2652
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10137
+  conname: pg_amop_fam_strat_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2602
+  contypid: 0
+  conindid: 2653
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2, 3, 4, 5]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10138
+  conname: pg_amop_opr_fam_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2602
+  contypid: 0
+  conindid: 2654
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[7, 6, 2]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10139
+  conname: pg_amop_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2602
+  contypid: 0
+  conindid: 2756
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10140
+  conname: pg_amproc_fam_proc_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2603
+  contypid: 0
+  conindid: 2655
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2, 3, 4, 5]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10141
+  conname: pg_amproc_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2603
+  contypid: 0
+  conindid: 2757
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10142
+  conname: pg_language_name_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2612
+  contypid: 0
+  conindid: 2681
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10143
+  conname: pg_language_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2612
+  contypid: 0
+  conindid: 2682
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10144
+  conname: pg_largeobject_metadata_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2995
+  contypid: 0
+  conindid: 2996
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10145
+  conname: pg_largeobject_loid_pn_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2613
+  contypid: 0
+  conindid: 2683
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1, 2]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10146
+  conname: pg_aggregate_fnoid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2600
+  contypid: 0
+  conindid: 2650
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10147
+  conname: pg_statistic_relid_att_inh_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2619
+  contypid: 0
+  conindid: 2696
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1, 2, 3]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10148
+  conname: pg_statistic_ext_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3381
+  contypid: 0
+  conindid: 3380
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10149
+  conname: pg_statistic_ext_name_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3381
+  contypid: 0
+  conindid: 3997
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[3, 4]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10150
+  conname: pg_statistic_ext_data_stxoid_inh_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3429
+  contypid: 0
+  conindid: 3433
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1, 2]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10151
+  conname: pg_rewrite_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2618
+  contypid: 0
+  conindid: 2692
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10152
+  conname: pg_rewrite_rel_rulename_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2618
+  contypid: 0
+  conindid: 2693
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[3, 2]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10153
+  conname: pg_trigger_tgrelid_tgname_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2620
+  contypid: 0
+  conindid: 2701
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2, 4]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10154
+  conname: pg_trigger_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2620
+  contypid: 0
+  conindid: 2702
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10155
+  conname: pg_event_trigger_evtname_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3466
+  contypid: 0
+  conindid: 3467
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10156
+  conname: pg_event_trigger_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3466
+  contypid: 0
+  conindid: 3468
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10157
+  conname: pg_description_o_c_o_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2609
+  contypid: 0
+  conindid: 2675
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1, 2, 3]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10158
+  conname: pg_cast_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2605
+  contypid: 0
+  conindid: 2660
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10159
+  conname: pg_cast_source_target_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2605
+  contypid: 0
+  conindid: 2661
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2, 3]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10160
+  conname: pg_enum_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3501
+  contypid: 0
+  conindid: 3502
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10161
+  conname: pg_enum_typid_label_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3501
+  contypid: 0
+  conindid: 3503
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2, 4]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10162
+  conname: pg_enum_typid_sortorder_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3501
+  contypid: 0
+  conindid: 3534
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2, 3]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10163
+  conname: pg_namespace_nspname_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2615
+  contypid: 0
+  conindid: 2684
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10164
+  conname: pg_namespace_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2615
+  contypid: 0
+  conindid: 2685
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10165
+  conname: pg_conversion_default_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2607
+  contypid: 0
+  conindid: 2668
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[3, 5, 6, 1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10166
+  conname: pg_conversion_name_nsp_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2607
+  contypid: 0
+  conindid: 2669
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2, 3]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10167
+  conname: pg_conversion_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2607
+  contypid: 0
+  conindid: 2670
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10168
+  conname: pg_database_datname_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 1262
+  contypid: 0
+  conindid: 2671
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10169
+  conname: pg_database_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 1262
+  contypid: 0
+  conindid: 2672
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10170
+  conname: pg_db_role_setting_databaseid_rol_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2964
+  contypid: 0
+  conindid: 2965
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1, 2]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10171
+  conname: pg_tablespace_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 1213
+  contypid: 0
+  conindid: 2697
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10172
+  conname: pg_tablespace_spcname_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 1213
+  contypid: 0
+  conindid: 2698
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10173
+  conname: pg_authid_rolname_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 1260
+  contypid: 0
+  conindid: 2676
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10174
+  conname: pg_authid_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 1260
+  contypid: 0
+  conindid: 2677
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10175
+  conname: pg_auth_members_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 1261
+  contypid: 0
+  conindid: 6303
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10176
+  conname: pg_auth_members_role_member_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 1261
+  contypid: 0
+  conindid: 2694
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2, 3, 4]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10177
+  conname: pg_auth_members_member_role_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 1261
+  contypid: 0
+  conindid: 2695
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[3, 2, 4]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10178
+  conname: pg_shdescription_o_c_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2396
+  contypid: 0
+  conindid: 2397
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1, 2]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10179
+  conname: pg_ts_config_cfgname_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3602
+  contypid: 0
+  conindid: 3608
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2, 3]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10180
+  conname: pg_ts_config_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3602
+  contypid: 0
+  conindid: 3712
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10181
+  conname: pg_ts_config_map_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3603
+  contypid: 0
+  conindid: 3609
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1, 2, 3]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10182
+  conname: pg_ts_dict_dictname_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3600
+  contypid: 0
+  conindid: 3604
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2, 3]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10183
+  conname: pg_ts_dict_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3600
+  contypid: 0
+  conindid: 3605
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10184
+  conname: pg_ts_parser_prsname_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3601
+  contypid: 0
+  conindid: 3606
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2, 3]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10185
+  conname: pg_ts_parser_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3601
+  contypid: 0
+  conindid: 3607
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10186
+  conname: pg_ts_template_tmplname_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3764
+  contypid: 0
+  conindid: 3766
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2, 3]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10187
+  conname: pg_ts_template_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3764
+  contypid: 0
+  conindid: 3767
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10188
+  conname: pg_extension_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3079
+  contypid: 0
+  conindid: 3080
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10189
+  conname: pg_extension_name_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3079
+  contypid: 0
+  conindid: 3081
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10190
+  conname: pg_foreign_data_wrapper_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2328
+  contypid: 0
+  conindid: 112
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10191
+  conname: pg_foreign_data_wrapper_name_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2328
+  contypid: 0
+  conindid: 548
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10192
+  conname: pg_foreign_server_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 1417
+  contypid: 0
+  conindid: 113
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10193
+  conname: pg_foreign_server_name_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 1417
+  contypid: 0
+  conindid: 549
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10194
+  conname: pg_user_mapping_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 1418
+  contypid: 0
+  conindid: 174
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10195
+  conname: pg_user_mapping_user_server_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 1418
+  contypid: 0
+  conindid: 175
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2, 3]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10196
+  conname: pg_foreign_table_relid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3118
+  contypid: 0
+  conindid: 3119
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10197
+  conname: pg_policy_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3256
+  contypid: 0
+  conindid: 3257
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10198
+  conname: pg_policy_polrelid_polname_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3256
+  contypid: 0
+  conindid: 3258
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[3, 2]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10199
+  conname: pg_replication_origin_roiident_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 6000
+  contypid: 0
+  conindid: 6001
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10200
+  conname: pg_replication_origin_roname_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 6000
+  contypid: 0
+  conindid: 6002
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10201
+  conname: pg_default_acl_role_nsp_obj_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 826
+  contypid: 0
+  conindid: 827
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2, 3, 4]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10202
+  conname: pg_default_acl_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 826
+  contypid: 0
+  conindid: 828
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10203
+  conname: pg_init_privs_o_c_o_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3394
+  contypid: 0
+  conindid: 3395
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1, 2, 3]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10204
+  conname: pg_seclabel_object_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3596
+  contypid: 0
+  conindid: 3597
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1, 2, 3, 4]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10205
+  conname: pg_shseclabel_object_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3592
+  contypid: 0
+  conindid: 3593
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1, 2, 3]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10206
+  conname: pg_collation_name_enc_nsp_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3456
+  contypid: 0
+  conindid: 3164
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2, 7, 3]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10207
+  conname: pg_collation_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3456
+  contypid: 0
+  conindid: 3085
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10208
+  conname: pg_parameter_acl_parname_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 6243
+  contypid: 0
+  conindid: 6246
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10209
+  conname: pg_parameter_acl_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 6243
+  contypid: 0
+  conindid: 6247
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10210
+  conname: pg_partitioned_table_partrelid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3350
+  contypid: 0
+  conindid: 3351
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10211
+  conname: pg_range_rngtypid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3541
+  contypid: 0
+  conindid: 3542
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10212
+  conname: pg_range_rngmultitypid_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3541
+  contypid: 0
+  conindid: 2228
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[3]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10213
+  conname: pg_transform_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3576
+  contypid: 0
+  conindid: 3574
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10214
+  conname: pg_transform_type_lang_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 3576
+  contypid: 0
+  conindid: 3575
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2, 3]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10215
+  conname: pg_sequence_seqrelid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 2224
+  contypid: 0
+  conindid: 5002
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10216
+  conname: pg_publication_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 6104
+  contypid: 0
+  conindid: 6110
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10217
+  conname: pg_publication_pubname_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 6104
+  contypid: 0
+  conindid: 6111
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10218
+  conname: pg_publication_namespace_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 6237
+  contypid: 0
+  conindid: 6238
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10219
+  conname: pg_publication_namespace_pnnspid_pnpubid_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 6237
+  contypid: 0
+  conindid: 6239
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[3, 2]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10220
+  conname: pg_publication_rel_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 6106
+  contypid: 0
+  conindid: 6112
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10221
+  conname: pg_publication_rel_prrelid_prpubid_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 6106
+  contypid: 0
+  conindid: 6113
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[3, 2]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10222
+  conname: pg_subscription_oid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 6100
+  contypid: 0
+  conindid: 6114
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10223
+  conname: pg_subscription_subname_index
+  connamespace: 11
+  contype: u
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 6100
+  contypid: 0
+  conindid: 6115
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2, 4]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 10224
+  conname: pg_subscription_rel_srrelid_srsubid_index
+  connamespace: 11
+  contype: p
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 6102
+  contypid: 0
+  conindid: 6117
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: true
+  conkey: '[2, 1]'
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: null
+- oid: 12690
+  conname: cardinal_number_domain_check
+  connamespace: 12675
+  contype: c
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 0
+  contypid: 12689
+  conindid: 0
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: false
+  conkey: null
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: '{OPEXPR :opno 525 :opfuncid 150 :opresulttype 16 :opretset false :opcollid
+    0 :inputcollid 0 :args ({COERCETODOMAINVALUE :typeId 23 :typeMod -1 :collation
+    0 :location -1} {CONST :consttype 23 :consttypmod -1 :constcollid 0 :constlen
+    4 :constbyval true :constisnull false :location -1 :constvalue 4 [ 0 0 0 0 0 0
+    0 0 ]}) :location -1}'
+- oid: 12703
+  conname: yes_or_no_check
+  connamespace: 12675
+  contype: c
+  condeferrable: false
+  condeferred: false
+  convalidated: true
+  conrelid: 0
+  contypid: 12702
+  conindid: 0
+  conparentid: 0
+  confrelid: 0
+  confupdtype: ' '
+  confdeltype: ' '
+  confmatchtype: ' '
+  conislocal: true
+  coninhcount: 0
+  connoinherit: false
+  conkey: null
+  confkey: null
+  conpfeqop: null
+  conppeqop: null
+  conffeqop: null
+  confdelsetcols: null
+  conexclop: null
+  conbin: '{SCALARARRAYOPEXPR :opno 98 :opfuncid 67 :hashfuncid 0 :negfuncid 0 :useOr
+    true :inputcollid 100 :args ({RELABELTYPE :arg {COERCETODOMAINVALUE :typeId 1043
+    :typeMod 7 :collation 100 :location -1} :resulttype 25 :resulttypmod -1 :resultcollid
+    100 :relabelformat 2 :location -1} {ARRAYCOERCEEXPR :arg {ARRAYEXPR :array_typeid
+    1015 :array_collid 100 :element_typeid 1043 :elements ({CONST :consttype 1043
+    :consttypmod -1 :constcollid 100 :constlen -1 :constbyval false :constisnull false
+    :location -1 :constvalue 7 [ 28 0 0 0 89 69 83 ]} {CONST :consttype 1043 :consttypmod
+    -1 :constcollid 100 :constlen -1 :constbyval false :constisnull false :location
+    -1 :constvalue 6 [ 24 0 0 0 78 79 ]}) :multidims false :location -1} :elemexpr
+    {RELABELTYPE :arg {CASETESTEXPR :typeId 1043 :typeMod -1 :collation 0} :resulttype
+    25 :resulttypmod -1 :resultcollid 100 :relabelformat 2 :location -1} :resulttype
+    1009 :resulttypmod -1 :resultcollid 100 :coerceformat 2 :location -1}) :location
+    -1}'

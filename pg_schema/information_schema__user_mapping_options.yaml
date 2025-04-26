@@ -1,0 +1,22 @@
+type: view
+view_sql: " SELECT um.authorization_identifier,\n    um.foreign_server_catalog,\n\
+  \    um.foreign_server_name,\n    opts.option_name::information_schema.sql_identifier\
+  \ AS option_name,\n        CASE\n            WHEN um.umuser <> 0::oid AND um.authorization_identifier::name\
+  \ = CURRENT_USER OR um.umuser = 0::oid AND pg_has_role(um.srvowner::name, 'USAGE'::text)\
+  \ OR ( SELECT pg_authid.rolsuper\n               FROM pg_authid\n              WHERE\
+  \ pg_authid.rolname = CURRENT_USER) THEN opts.option_value\n            ELSE NULL::text\n\
+  \        END::information_schema.character_data AS option_value\n   FROM information_schema._pg_user_mappings\
+  \ um,\n    LATERAL pg_options_to_table(um.umoptions) opts(option_name, option_value);"
+schema:
+  authorization_identifier: varchar(64)
+  foreign_server_catalog: varchar(64)
+  foreign_server_name: varchar(64)
+  option_name: varchar(64)
+  option_value: varchar(256)
+pg_types:
+  authorization_identifier: name
+  foreign_server_catalog: name
+  foreign_server_name: name
+  option_name: name
+  option_value: varchar
+rows: []

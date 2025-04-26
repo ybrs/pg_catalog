@@ -1,0 +1,18 @@
+type: view
+view_sql: " SELECT c.oid AS relid,\n    n.nspname AS schemaname,\n    c.relname,\n\
+  \    pg_stat_get_blocks_fetched(c.oid) - pg_stat_get_blocks_hit(c.oid) AS blks_read,\n\
+  \    pg_stat_get_blocks_hit(c.oid) AS blks_hit\n   FROM pg_class c\n     LEFT JOIN\
+  \ pg_namespace n ON n.oid = c.relnamespace\n  WHERE c.relkind = 'S'::\"char\";"
+schema:
+  relid: int
+  schemaname: varchar(64)
+  relname: varchar(64)
+  blks_read: bigint
+  blks_hit: bigint
+pg_types:
+  relid: oid
+  schemaname: name
+  relname: name
+  blks_read: int8
+  blks_hit: int8
+rows: []

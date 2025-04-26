@@ -1,0 +1,12 @@
+type: system_catalog
+schema:
+  oid: int
+  enumtypid: int
+  enumsortorder: float
+  enumlabel: varchar(64)
+pg_types:
+  oid: oid
+  enumtypid: oid
+  enumsortorder: float4
+  enumlabel: name
+rows: []

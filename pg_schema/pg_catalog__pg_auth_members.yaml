@@ -1,0 +1,39 @@
+type: system_catalog
+schema:
+  oid: int
+  roleid: int
+  member: int
+  grantor: int
+  admin_option: boolean
+  inherit_option: boolean
+  set_option: boolean
+pg_types:
+  oid: oid
+  roleid: oid
+  member: oid
+  grantor: oid
+  admin_option: bool
+  inherit_option: bool
+  set_option: bool
+rows:
+- oid: 10226
+  roleid: 3374
+  member: 3373
+  grantor: 10
+  admin_option: false
+  inherit_option: true
+  set_option: true
+- oid: 10227
+  roleid: 3375
+  member: 3373
+  grantor: 10
+  admin_option: false
+  inherit_option: true
+  set_option: true
+- oid: 10228
+  roleid: 3377
+  member: 3373
+  grantor: 10
+  admin_option: false
+  inherit_option: true
+  set_option: true

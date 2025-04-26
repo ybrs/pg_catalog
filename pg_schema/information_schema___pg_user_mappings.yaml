@@ -1,0 +1,23 @@
+type: view
+view_sql: " SELECT um.oid,\n    um.umoptions,\n    um.umuser,\n    COALESCE(u.rolname,\
+  \ 'PUBLIC'::name)::information_schema.sql_identifier AS authorization_identifier,\n\
+  \    s.foreign_server_catalog,\n    s.foreign_server_name,\n    s.authorization_identifier\
+  \ AS srvowner\n   FROM pg_user_mapping um\n     LEFT JOIN pg_authid u ON u.oid =\
+  \ um.umuser,\n    information_schema._pg_foreign_servers s\n  WHERE s.oid = um.umserver;"
+schema:
+  oid: int
+  umoptions: varchar(256)
+  umuser: int
+  authorization_identifier: varchar(64)
+  foreign_server_catalog: varchar(64)
+  foreign_server_name: varchar(64)
+  srvowner: varchar(64)
+pg_types:
+  oid: oid
+  umoptions: _text
+  umuser: oid
+  authorization_identifier: name
+  foreign_server_catalog: name
+  foreign_server_name: name
+  srvowner: name
+rows: []

@@ -1,0 +1,37 @@
+type: view
+view_sql: " SELECT pg_authid.rolname AS usename,\n    pg_authid.oid AS usesysid,\n\
+  \    pg_authid.rolcreatedb AS usecreatedb,\n    pg_authid.rolsuper AS usesuper,\n\
+  \    pg_authid.rolreplication AS userepl,\n    pg_authid.rolbypassrls AS usebypassrls,\n\
+  \    pg_authid.rolpassword AS passwd,\n    pg_authid.rolvaliduntil AS valuntil,\n\
+  \    s.setconfig AS useconfig\n   FROM pg_authid\n     LEFT JOIN pg_db_role_setting\
+  \ s ON pg_authid.oid = s.setrole AND s.setdatabase = 0::oid\n  WHERE pg_authid.rolcanlogin;"
+schema:
+  usename: varchar(64)
+  usesysid: int
+  usecreatedb: boolean
+  usesuper: boolean
+  userepl: boolean
+  usebypassrls: boolean
+  passwd: varchar(256)
+  valuntil: varchar(256)
+  useconfig: varchar(256)
+pg_types:
+  usename: name
+  usesysid: oid
+  usecreatedb: bool
+  usesuper: bool
+  userepl: bool
+  usebypassrls: bool
+  passwd: text
+  valuntil: timestamptz
+  useconfig: _text
+rows:
+- usename: aybarsb
+  usesysid: 10
+  usecreatedb: true
+  usesuper: true
+  userepl: true
+  usebypassrls: true
+  passwd: null
+  valuntil: null
+  useconfig: null

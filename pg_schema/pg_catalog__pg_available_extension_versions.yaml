@@ -1,0 +1,954 @@
+type: view
+view_sql: " SELECT e.name,\n    e.version,\n    x.extname IS NOT NULL AS installed,\n\
+  \    e.superuser,\n    e.trusted,\n    e.relocatable,\n    e.schema,\n    e.requires,\n\
+  \    e.comment\n   FROM pg_available_extension_versions() e(name, version, superuser,\
+  \ trusted, relocatable, schema, requires, comment)\n     LEFT JOIN pg_extension\
+  \ x ON e.name = x.extname AND e.version = x.extversion;"
+schema:
+  name: varchar(64)
+  version: varchar(256)
+  installed: boolean
+  superuser: boolean
+  trusted: boolean
+  relocatable: boolean
+  schema: varchar(64)
+  requires: varchar(256)
+  comment: varchar(256)
+pg_types:
+  name: name
+  version: text
+  installed: bool
+  superuser: bool
+  trusted: bool
+  relocatable: bool
+  schema: name
+  requires: _name
+  comment: text
+rows:
+- name: refint
+  version: '1.0'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: functions for implementing referential integrity (obsolete)
+- name: unaccent
+  version: '1.1'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: text search dictionary that removes accents
+- name: btree_gin
+  version: '1.0'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: support for indexing common datatypes in GIN
+- name: btree_gin
+  version: '1.1'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: support for indexing common datatypes in GIN
+- name: btree_gin
+  version: '1.2'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: support for indexing common datatypes in GIN
+- name: btree_gin
+  version: '1.3'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: support for indexing common datatypes in GIN
+- name: ltree
+  version: '1.1'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: data type for hierarchical tree-like structures
+- name: ltree
+  version: '1.2'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: data type for hierarchical tree-like structures
+- name: ltree
+  version: '1.3'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: data type for hierarchical tree-like structures
+- name: tsm_system_rows
+  version: '1.0'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: TABLESAMPLE method which accepts number of rows as a limit
+- name: dict_xsyn
+  version: '1.0'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: text search dictionary template for extended synonym processing
+- name: xml2
+  version: '1.1'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: false
+  schema: null
+  requires: null
+  comment: XPath querying and XSLT
+- name: hstore
+  version: '1.4'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: data type for storing sets of (key, value) pairs
+- name: hstore
+  version: '1.7'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: data type for storing sets of (key, value) pairs
+- name: hstore
+  version: '1.8'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: data type for storing sets of (key, value) pairs
+- name: hstore
+  version: '1.5'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: data type for storing sets of (key, value) pairs
+- name: hstore
+  version: '1.6'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: data type for storing sets of (key, value) pairs
+- name: pg_visibility
+  version: '1.1'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: examine the visibility map (VM) and page-level visibility info
+- name: pg_visibility
+  version: '1.2'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: examine the visibility map (VM) and page-level visibility info
+- name: cube
+  version: '1.2'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: data type for multidimensional cubes
+- name: cube
+  version: '1.3'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: data type for multidimensional cubes
+- name: cube
+  version: '1.4'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: data type for multidimensional cubes
+- name: cube
+  version: '1.5'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: data type for multidimensional cubes
+- name: seg
+  version: '1.1'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: data type for representing line segments or floating-point intervals
+- name: seg
+  version: '1.2'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: data type for representing line segments or floating-point intervals
+- name: seg
+  version: '1.3'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: data type for representing line segments or floating-point intervals
+- name: seg
+  version: '1.4'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: data type for representing line segments or floating-point intervals
+- name: intagg
+  version: '1.1'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: integer aggregator and enumerator (obsolete)
+- name: tcn
+  version: '1.0'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: Triggered change notifications
+- name: isn
+  version: '1.1'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: data types for international product numbering standards
+- name: isn
+  version: '1.2'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: data types for international product numbering standards
+- name: tsm_system_time
+  version: '1.0'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: TABLESAMPLE method which accepts time in milliseconds as a limit
+- name: lo
+  version: '1.1'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: Large Object maintenance
+- name: pgrowlocks
+  version: '1.2'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: show row-level locking information
+- name: sslinfo
+  version: '1.2'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: information about SSL certificates
+- name: pgstattuple
+  version: '1.4'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: show tuple-level statistics
+- name: pgstattuple
+  version: '1.5'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: show tuple-level statistics
+- name: autoinc
+  version: '1.0'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: functions for autoincrementing fields
+- name: pg_freespacemap
+  version: '1.1'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: examine the free space map (FSM)
+- name: pg_freespacemap
+  version: '1.2'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: examine the free space map (FSM)
+- name: file_fdw
+  version: '1.0'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: foreign-data wrapper for flat file access
+- name: pg_surgery
+  version: '1.0'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: extension to perform surgery on a damaged relation
+- name: pg_buffercache
+  version: '1.2'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: examine the shared buffer cache
+- name: pg_buffercache
+  version: '1.3'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: examine the shared buffer cache
+- name: pg_buffercache
+  version: '1.4'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: examine the shared buffer cache
+- name: pg_buffercache
+  version: '1.5'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: examine the shared buffer cache
+- name: dblink
+  version: '1.2'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: connect to other PostgreSQL databases from within a database
+- name: pg_stat_statements
+  version: '1.4'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: track planning and execution statistics of all SQL statements executed
+- name: pg_stat_statements
+  version: '1.5'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: track planning and execution statistics of all SQL statements executed
+- name: pg_stat_statements
+  version: '1.6'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: track planning and execution statistics of all SQL statements executed
+- name: pg_stat_statements
+  version: '1.9'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: track planning and execution statistics of all SQL statements executed
+- name: pg_stat_statements
+  version: '1.10'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: track planning and execution statistics of all SQL statements executed
+- name: pg_stat_statements
+  version: '1.7'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: track planning and execution statistics of all SQL statements executed
+- name: pg_stat_statements
+  version: '1.8'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: track planning and execution statistics of all SQL statements executed
+- name: pg_stat_statements
+  version: '1.11'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: track planning and execution statistics of all SQL statements executed
+- name: insert_username
+  version: '1.0'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: functions for tracking who changed a table
+- name: pg_prewarm
+  version: '1.1'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: prewarm relation data
+- name: pg_prewarm
+  version: '1.2'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: prewarm relation data
+- name: earthdistance
+  version: '1.1'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: '[''cube'']'
+  comment: calculate great-circle distances on the surface of the Earth
+- name: earthdistance
+  version: '1.2'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: '[''cube'']'
+  comment: calculate great-circle distances on the surface of the Earth
+- name: uuid-ossp
+  version: '1.1'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: generate universally unique identifiers (UUIDs)
+- name: intarray
+  version: '1.2'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: functions, operators, and index support for 1-D arrays of integers
+- name: intarray
+  version: '1.3'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: functions, operators, and index support for 1-D arrays of integers
+- name: intarray
+  version: '1.4'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: functions, operators, and index support for 1-D arrays of integers
+- name: intarray
+  version: '1.5'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: functions, operators, and index support for 1-D arrays of integers
+- name: pg_trgm
+  version: '1.3'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: text similarity measurement and index searching based on trigrams
+- name: pg_trgm
+  version: '1.4'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: text similarity measurement and index searching based on trigrams
+- name: pg_trgm
+  version: '1.5'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: text similarity measurement and index searching based on trigrams
+- name: pg_trgm
+  version: '1.6'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: text similarity measurement and index searching based on trigrams
+- name: dict_int
+  version: '1.0'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: text search dictionary template for integers
+- name: amcheck
+  version: '1.0'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: functions for verifying relation integrity
+- name: amcheck
+  version: '1.1'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: functions for verifying relation integrity
+- name: amcheck
+  version: '1.2'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: functions for verifying relation integrity
+- name: amcheck
+  version: '1.3'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: functions for verifying relation integrity
+- name: amcheck
+  version: '1.4'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: functions for verifying relation integrity
+- name: btree_gist
+  version: '1.2'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: support for indexing common datatypes in GiST
+- name: btree_gist
+  version: '1.6'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: support for indexing common datatypes in GiST
+- name: btree_gist
+  version: '1.7'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: support for indexing common datatypes in GiST
+- name: btree_gist
+  version: '1.3'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: support for indexing common datatypes in GiST
+- name: btree_gist
+  version: '1.4'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: support for indexing common datatypes in GiST
+- name: btree_gist
+  version: '1.5'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: support for indexing common datatypes in GiST
+- name: pageinspect
+  version: '1.5'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: inspect the contents of database pages at a low level
+- name: pageinspect
+  version: '1.8'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: inspect the contents of database pages at a low level
+- name: pageinspect
+  version: '1.9'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: inspect the contents of database pages at a low level
+- name: pageinspect
+  version: '1.6'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: inspect the contents of database pages at a low level
+- name: pageinspect
+  version: '1.7'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: inspect the contents of database pages at a low level
+- name: pageinspect
+  version: '1.10'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: inspect the contents of database pages at a low level
+- name: pageinspect
+  version: '1.11'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: inspect the contents of database pages at a low level
+- name: pageinspect
+  version: '1.12'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: inspect the contents of database pages at a low level
+- name: moddatetime
+  version: '1.0'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: functions for tracking last modification time
+- name: fuzzystrmatch
+  version: '1.1'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: determine similarities and distance between strings
+- name: fuzzystrmatch
+  version: '1.2'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: determine similarities and distance between strings
+- name: pgcrypto
+  version: '1.3'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: cryptographic functions
+- name: tablefunc
+  version: '1.0'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: functions that manipulate whole tables, including crosstab
+- name: pg_walinspect
+  version: '1.0'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: functions to inspect contents of PostgreSQL Write-Ahead Log
+- name: pg_walinspect
+  version: '1.1'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: functions to inspect contents of PostgreSQL Write-Ahead Log
+- name: postgres_fdw
+  version: '1.0'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: foreign-data wrapper for remote PostgreSQL servers
+- name: postgres_fdw
+  version: '1.1'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: foreign-data wrapper for remote PostgreSQL servers
+- name: bloom
+  version: '1.0'
+  installed: false
+  superuser: true
+  trusted: false
+  relocatable: true
+  schema: null
+  requires: null
+  comment: bloom access method - signature file based index
+- name: citext
+  version: '1.4'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: data type for case-insensitive character strings
+- name: citext
+  version: '1.5'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: data type for case-insensitive character strings
+- name: citext
+  version: '1.6'
+  installed: false
+  superuser: true
+  trusted: true
+  relocatable: true
+  schema: null
+  requires: null
+  comment: data type for case-insensitive character strings
+- name: plpgsql
+  version: '1.0'
+  installed: true
+  superuser: true
+  trusted: true
+  relocatable: false
+  schema: pg_catalog
+  requires: null
+  comment: PL/pgSQL procedural language

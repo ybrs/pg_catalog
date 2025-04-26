@@ -1,0 +1,48 @@
+type: view
+view_sql: " SELECT current_database()::information_schema.sql_identifier AS constraint_catalog,\n\
+  \    rs.nspname::information_schema.sql_identifier AS constraint_schema,\n    con.conname::information_schema.sql_identifier\
+  \ AS constraint_name,\n    current_database()::information_schema.sql_identifier\
+  \ AS domain_catalog,\n    n.nspname::information_schema.sql_identifier AS domain_schema,\n\
+  \    t.typname::information_schema.sql_identifier AS domain_name,\n        CASE\n\
+  \            WHEN con.condeferrable THEN 'YES'::text\n            ELSE 'NO'::text\n\
+  \        END::information_schema.yes_or_no AS is_deferrable,\n        CASE\n   \
+  \         WHEN con.condeferred THEN 'YES'::text\n            ELSE 'NO'::text\n \
+  \       END::information_schema.yes_or_no AS initially_deferred\n   FROM pg_namespace\
+  \ rs,\n    pg_namespace n,\n    pg_constraint con,\n    pg_type t\n  WHERE rs.oid\
+  \ = con.connamespace AND n.oid = t.typnamespace AND t.oid = con.contypid AND (pg_has_role(t.typowner,\
+  \ 'USAGE'::text) OR has_type_privilege(t.oid, 'USAGE'::text));"
+schema:
+  constraint_catalog: varchar(64)
+  constraint_schema: varchar(64)
+  constraint_name: varchar(64)
+  domain_catalog: varchar(64)
+  domain_schema: varchar(64)
+  domain_name: varchar(64)
+  is_deferrable: varchar(256)
+  initially_deferred: varchar(256)
+pg_types:
+  constraint_catalog: name
+  constraint_schema: name
+  constraint_name: name
+  domain_catalog: name
+  domain_schema: name
+  domain_name: name
+  is_deferrable: varchar
+  initially_deferred: varchar
+rows:
+- constraint_catalog: postgres
+  constraint_schema: information_schema
+  constraint_name: cardinal_number_domain_check
+  domain_catalog: postgres
+  domain_schema: information_schema
+  domain_name: cardinal_number
+  is_deferrable: 'NO'
+  initially_deferred: 'NO'
+- constraint_catalog: postgres
+  constraint_schema: information_schema
+  constraint_name: yes_or_no_check
+  domain_catalog: postgres
+  domain_schema: information_schema
+  domain_name: yes_or_no
+  is_deferrable: 'NO'
+  initially_deferred: 'NO'

@@ -1,0 +1,35 @@
+type: view
+view_sql: " SELECT wal_records,\n    wal_fpi,\n    wal_bytes,\n    wal_buffers_full,\n\
+  \    wal_write,\n    wal_sync,\n    wal_write_time,\n    wal_sync_time,\n    stats_reset\n\
+  \   FROM pg_stat_get_wal() w(wal_records, wal_fpi, wal_bytes, wal_buffers_full,\
+  \ wal_write, wal_sync, wal_write_time, wal_sync_time, stats_reset);"
+schema:
+  wal_records: bigint
+  wal_fpi: bigint
+  wal_bytes: varchar(256)
+  wal_buffers_full: bigint
+  wal_write: bigint
+  wal_sync: bigint
+  wal_write_time: float
+  wal_sync_time: float
+  stats_reset: varchar(256)
+pg_types:
+  wal_records: int8
+  wal_fpi: int8
+  wal_bytes: numeric
+  wal_buffers_full: int8
+  wal_write: int8
+  wal_sync: int8
+  wal_write_time: float8
+  wal_sync_time: float8
+  stats_reset: timestamptz
+rows:
+- wal_records: 20780
+  wal_fpi: 523
+  wal_bytes: '5041966'
+  wal_buffers_full: 0
+  wal_write: 766
+  wal_sync: 0
+  wal_write_time: 0.0
+  wal_sync_time: 0.0
+  stats_reset: '2025-04-26T01:03:02.788083+02:00'

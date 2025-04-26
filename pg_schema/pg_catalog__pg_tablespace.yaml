@@ -1,0 +1,24 @@
+type: system_catalog
+schema:
+  oid: int
+  spcname: varchar(64)
+  spcowner: int
+  spcacl: varchar(256)
+  spcoptions: varchar(256)
+pg_types:
+  oid: oid
+  spcname: name
+  spcowner: oid
+  spcacl: _aclitem
+  spcoptions: _text
+rows:
+- oid: 1663
+  spcname: pg_default
+  spcowner: 10
+  spcacl: null
+  spcoptions: null
+- oid: 1664
+  spcname: pg_global
+  spcowner: 10
+  spcacl: null
+  spcoptions: null

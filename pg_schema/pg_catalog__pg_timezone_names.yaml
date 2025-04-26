@@ -1,0 +1,2406 @@
+type: view
+view_sql: " SELECT name,\n    abbrev,\n    utc_offset,\n    is_dst\n   FROM pg_timezone_names()\
+  \ pg_timezone_names(name, abbrev, utc_offset, is_dst);"
+schema:
+  name: varchar(256)
+  abbrev: varchar(256)
+  utc_offset: varchar(256)
+  is_dst: boolean
+pg_types:
+  name: text
+  abbrev: text
+  utc_offset: interval
+  is_dst: bool
+rows:
+- name: Indian/Mauritius
+  abbrev: '+04'
+  utc_offset: '4:00:00'
+  is_dst: false
+- name: Indian/Chagos
+  abbrev: '+06'
+  utc_offset: '6:00:00'
+  is_dst: false
+- name: Indian/Mayotte
+  abbrev: EAT
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: Indian/Christmas
+  abbrev: '+07'
+  utc_offset: '7:00:00'
+  is_dst: false
+- name: Indian/Cocos
+  abbrev: '+0630'
+  utc_offset: '6:30:00'
+  is_dst: false
+- name: Indian/Maldives
+  abbrev: '+05'
+  utc_offset: '5:00:00'
+  is_dst: false
+- name: Indian/Comoro
+  abbrev: EAT
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: Indian/Reunion
+  abbrev: '+04'
+  utc_offset: '4:00:00'
+  is_dst: false
+- name: Indian/Mahe
+  abbrev: '+04'
+  utc_offset: '4:00:00'
+  is_dst: false
+- name: Indian/Kerguelen
+  abbrev: '+05'
+  utc_offset: '5:00:00'
+  is_dst: false
+- name: Indian/Antananarivo
+  abbrev: EAT
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: Atlantic/Faroe
+  abbrev: WEST
+  utc_offset: '1:00:00'
+  is_dst: true
+- name: Atlantic/Canary
+  abbrev: WEST
+  utc_offset: '1:00:00'
+  is_dst: true
+- name: Atlantic/Stanley
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: Atlantic/Bermuda
+  abbrev: ADT
+  utc_offset: -1 day, 21:00:00
+  is_dst: true
+- name: Atlantic/South_Georgia
+  abbrev: '-02'
+  utc_offset: -1 day, 22:00:00
+  is_dst: false
+- name: Atlantic/St_Helena
+  abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Atlantic/Jan_Mayen
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Atlantic/Faeroe
+  abbrev: WEST
+  utc_offset: '1:00:00'
+  is_dst: true
+- name: Atlantic/Reykjavik
+  abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Atlantic/Cape_Verde
+  abbrev: '-01'
+  utc_offset: -1 day, 23:00:00
+  is_dst: false
+- name: Atlantic/Azores
+  abbrev: '+00'
+  utc_offset: 0:00:00
+  is_dst: true
+- name: Atlantic/Madeira
+  abbrev: WEST
+  utc_offset: '1:00:00'
+  is_dst: true
+- name: CST6CDT
+  abbrev: CDT
+  utc_offset: -1 day, 19:00:00
+  is_dst: true
+- name: Poland
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: US/Alaska
+  abbrev: AKDT
+  utc_offset: -1 day, 16:00:00
+  is_dst: true
+- name: US/Pacific
+  abbrev: PDT
+  utc_offset: -1 day, 17:00:00
+  is_dst: true
+- name: US/Eastern
+  abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: US/Michigan
+  abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: US/Arizona
+  abbrev: MST
+  utc_offset: -1 day, 17:00:00
+  is_dst: false
+- name: US/Indiana-Starke
+  abbrev: CDT
+  utc_offset: -1 day, 19:00:00
+  is_dst: true
+- name: US/Aleutian
+  abbrev: HDT
+  utc_offset: -1 day, 15:00:00
+  is_dst: true
+- name: US/Hawaii
+  abbrev: HST
+  utc_offset: -1 day, 14:00:00
+  is_dst: false
+- name: US/East-Indiana
+  abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: US/Central
+  abbrev: CDT
+  utc_offset: -1 day, 19:00:00
+  is_dst: true
+- name: US/Mountain
+  abbrev: MDT
+  utc_offset: -1 day, 18:00:00
+  is_dst: true
+- name: US/Samoa
+  abbrev: SST
+  utc_offset: -1 day, 13:00:00
+  is_dst: false
+- name: Kwajalein
+  abbrev: '+12'
+  utc_offset: '12:00:00'
+  is_dst: false
+- name: Brazil/DeNoronha
+  abbrev: '-02'
+  utc_offset: -1 day, 22:00:00
+  is_dst: false
+- name: Brazil/Acre
+  abbrev: '-05'
+  utc_offset: -1 day, 19:00:00
+  is_dst: false
+- name: Brazil/East
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: Brazil/West
+  abbrev: '-04'
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: Pacific/Port_Moresby
+  abbrev: '+10'
+  utc_offset: '10:00:00'
+  is_dst: false
+- name: Pacific/Chuuk
+  abbrev: '+10'
+  utc_offset: '10:00:00'
+  is_dst: false
+- name: Pacific/Easter
+  abbrev: '-06'
+  utc_offset: -1 day, 18:00:00
+  is_dst: false
+- name: Pacific/Kwajalein
+  abbrev: '+12'
+  utc_offset: '12:00:00'
+  is_dst: false
+- name: Pacific/Tongatapu
+  abbrev: '+13'
+  utc_offset: '13:00:00'
+  is_dst: false
+- name: Pacific/Yap
+  abbrev: '+10'
+  utc_offset: '10:00:00'
+  is_dst: false
+- name: Pacific/Wallis
+  abbrev: '+12'
+  utc_offset: '12:00:00'
+  is_dst: false
+- name: Pacific/Apia
+  abbrev: '+13'
+  utc_offset: '13:00:00'
+  is_dst: false
+- name: Pacific/Norfolk
+  abbrev: '+11'
+  utc_offset: '11:00:00'
+  is_dst: false
+- name: Pacific/Efate
+  abbrev: '+11'
+  utc_offset: '11:00:00'
+  is_dst: false
+- name: Pacific/Fiji
+  abbrev: '+12'
+  utc_offset: '12:00:00'
+  is_dst: false
+- name: Pacific/Funafuti
+  abbrev: '+12'
+  utc_offset: '12:00:00'
+  is_dst: false
+- name: Pacific/Palau
+  abbrev: +09
+  utc_offset: '9:00:00'
+  is_dst: false
+- name: Pacific/Guam
+  abbrev: ChST
+  utc_offset: '10:00:00'
+  is_dst: false
+- name: Pacific/Saipan
+  abbrev: ChST
+  utc_offset: '10:00:00'
+  is_dst: false
+- name: Pacific/Kosrae
+  abbrev: '+11'
+  utc_offset: '11:00:00'
+  is_dst: false
+- name: Pacific/Niue
+  abbrev: '-11'
+  utc_offset: -1 day, 13:00:00
+  is_dst: false
+- name: Pacific/Ponape
+  abbrev: '+11'
+  utc_offset: '11:00:00'
+  is_dst: false
+- name: Pacific/Wake
+  abbrev: '+12'
+  utc_offset: '12:00:00'
+  is_dst: false
+- name: Pacific/Galapagos
+  abbrev: '-06'
+  utc_offset: -1 day, 18:00:00
+  is_dst: false
+- name: Pacific/Johnston
+  abbrev: HST
+  utc_offset: -1 day, 14:00:00
+  is_dst: false
+- name: Pacific/Midway
+  abbrev: SST
+  utc_offset: -1 day, 13:00:00
+  is_dst: false
+- name: Pacific/Nauru
+  abbrev: '+12'
+  utc_offset: '12:00:00'
+  is_dst: false
+- name: Pacific/Guadalcanal
+  abbrev: '+11'
+  utc_offset: '11:00:00'
+  is_dst: false
+- name: Pacific/Chatham
+  abbrev: '+1245'
+  utc_offset: '12:45:00'
+  is_dst: false
+- name: Pacific/Auckland
+  abbrev: NZST
+  utc_offset: '12:00:00'
+  is_dst: false
+- name: Pacific/Noumea
+  abbrev: '+11'
+  utc_offset: '11:00:00'
+  is_dst: false
+- name: Pacific/Fakaofo
+  abbrev: '+13'
+  utc_offset: '13:00:00'
+  is_dst: false
+- name: Pacific/Tahiti
+  abbrev: '-10'
+  utc_offset: -1 day, 14:00:00
+  is_dst: false
+- name: Pacific/Gambier
+  abbrev: -09
+  utc_offset: -1 day, 15:00:00
+  is_dst: false
+- name: Pacific/Majuro
+  abbrev: '+12'
+  utc_offset: '12:00:00'
+  is_dst: false
+- name: Pacific/Honolulu
+  abbrev: HST
+  utc_offset: -1 day, 14:00:00
+  is_dst: false
+- name: Pacific/Pohnpei
+  abbrev: '+11'
+  utc_offset: '11:00:00'
+  is_dst: false
+- name: Pacific/Pago_Pago
+  abbrev: SST
+  utc_offset: -1 day, 13:00:00
+  is_dst: false
+- name: Pacific/Truk
+  abbrev: '+10'
+  utc_offset: '10:00:00'
+  is_dst: false
+- name: Pacific/Pitcairn
+  abbrev: -08
+  utc_offset: -1 day, 16:00:00
+  is_dst: false
+- name: Pacific/Marquesas
+  abbrev: -0930
+  utc_offset: -1 day, 14:30:00
+  is_dst: false
+- name: Pacific/Kanton
+  abbrev: '+13'
+  utc_offset: '13:00:00'
+  is_dst: false
+- name: Pacific/Bougainville
+  abbrev: '+11'
+  utc_offset: '11:00:00'
+  is_dst: false
+- name: Pacific/Tarawa
+  abbrev: '+12'
+  utc_offset: '12:00:00'
+  is_dst: false
+- name: Pacific/Rarotonga
+  abbrev: '-10'
+  utc_offset: -1 day, 14:00:00
+  is_dst: false
+- name: Pacific/Samoa
+  abbrev: SST
+  utc_offset: -1 day, 13:00:00
+  is_dst: false
+- name: Pacific/Kiritimati
+  abbrev: '+14'
+  utc_offset: '14:00:00'
+  is_dst: false
+- name: Pacific/Enderbury
+  abbrev: '+13'
+  utc_offset: '13:00:00'
+  is_dst: false
+- name: MST
+  abbrev: MST
+  utc_offset: -1 day, 17:00:00
+  is_dst: false
+- name: NZ
+  abbrev: NZST
+  utc_offset: '12:00:00'
+  is_dst: false
+- name: Arctic/Longyearbyen
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Universal
+  abbrev: UTC
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Libya
+  abbrev: EET
+  utc_offset: '2:00:00'
+  is_dst: false
+- name: Turkey
+  abbrev: '+03'
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: EST5EDT
+  abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: Greenwich
+  abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false
+- name: America/Puerto_Rico
+  abbrev: AST
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Recife
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Resolute
+  abbrev: CDT
+  utc_offset: -1 day, 19:00:00
+  is_dst: true
+- name: America/Manaus
+  abbrev: '-04'
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/New_York
+  abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: America/Rankin_Inlet
+  abbrev: CDT
+  utc_offset: -1 day, 19:00:00
+  is_dst: true
+- name: America/Lima
+  abbrev: '-05'
+  utc_offset: -1 day, 19:00:00
+  is_dst: false
+- name: America/St_Barthelemy
+  abbrev: AST
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Santo_Domingo
+  abbrev: AST
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Detroit
+  abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: America/Paramaribo
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Yakutat
+  abbrev: AKDT
+  utc_offset: -1 day, 16:00:00
+  is_dst: true
+- name: America/Santarem
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Punta_Arenas
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Scoresbysund
+  abbrev: '-01'
+  utc_offset: -1 day, 23:00:00
+  is_dst: true
+- name: America/Santiago
+  abbrev: '-04'
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Guyana
+  abbrev: '-04'
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Coral_Harbour
+  abbrev: EST
+  utc_offset: -1 day, 19:00:00
+  is_dst: false
+- name: America/Rio_Branco
+  abbrev: '-05'
+  utc_offset: -1 day, 19:00:00
+  is_dst: false
+- name: America/Porto_Acre
+  abbrev: '-05'
+  utc_offset: -1 day, 19:00:00
+  is_dst: false
+- name: America/Ciudad_Juarez
+  abbrev: MDT
+  utc_offset: -1 day, 18:00:00
+  is_dst: true
+- name: America/Nipigon
+  abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: America/Edmonton
+  abbrev: MDT
+  utc_offset: -1 day, 18:00:00
+  is_dst: true
+- name: America/Port_of_Spain
+  abbrev: AST
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Lower_Princes
+  abbrev: AST
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/St_Thomas
+  abbrev: AST
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Guatemala
+  abbrev: CST
+  utc_offset: -1 day, 18:00:00
+  is_dst: false
+- name: America/Catamarca
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Antigua
+  abbrev: AST
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Porto_Velho
+  abbrev: '-04'
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Rosario
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Chicago
+  abbrev: CDT
+  utc_offset: -1 day, 19:00:00
+  is_dst: true
+- name: America/Creston
+  abbrev: MST
+  utc_offset: -1 day, 17:00:00
+  is_dst: false
+- name: America/Managua
+  abbrev: CST
+  utc_offset: -1 day, 18:00:00
+  is_dst: false
+- name: America/Nassau
+  abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: America/Bogota
+  abbrev: '-05'
+  utc_offset: -1 day, 19:00:00
+  is_dst: false
+- name: America/Cancun
+  abbrev: EST
+  utc_offset: -1 day, 19:00:00
+  is_dst: false
+- name: America/Chihuahua
+  abbrev: CST
+  utc_offset: -1 day, 18:00:00
+  is_dst: false
+- name: America/Campo_Grande
+  abbrev: '-04'
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Halifax
+  abbrev: ADT
+  utc_offset: -1 day, 21:00:00
+  is_dst: true
+- name: America/Boise
+  abbrev: MDT
+  utc_offset: -1 day, 18:00:00
+  is_dst: true
+- name: America/Montreal
+  abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: America/Goose_Bay
+  abbrev: ADT
+  utc_offset: -1 day, 21:00:00
+  is_dst: true
+- name: America/Sao_Paulo
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Blanc-Sablon
+  abbrev: AST
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Phoenix
+  abbrev: MST
+  utc_offset: -1 day, 17:00:00
+  is_dst: false
+- name: America/Atikokan
+  abbrev: EST
+  utc_offset: -1 day, 19:00:00
+  is_dst: false
+- name: America/Cayenne
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Nuuk
+  abbrev: '-01'
+  utc_offset: -1 day, 23:00:00
+  is_dst: true
+- name: America/Santa_Isabel
+  abbrev: PDT
+  utc_offset: -1 day, 17:00:00
+  is_dst: true
+- name: America/Boa_Vista
+  abbrev: '-04'
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Bahia_Banderas
+  abbrev: CST
+  utc_offset: -1 day, 18:00:00
+  is_dst: false
+- name: America/Indiana/Vevay
+  abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: America/Indiana/Indianapolis
+  abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: America/Indiana/Winamac
+  abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: America/Indiana/Tell_City
+  abbrev: CDT
+  utc_offset: -1 day, 19:00:00
+  is_dst: true
+- name: America/Indiana/Petersburg
+  abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: America/Indiana/Vincennes
+  abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: America/Indiana/Knox
+  abbrev: CDT
+  utc_offset: -1 day, 19:00:00
+  is_dst: true
+- name: America/Indiana/Marengo
+  abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: America/Indianapolis
+  abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: America/Dominica
+  abbrev: AST
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Argentina/Salta
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Argentina/Ushuaia
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Argentina/Catamarca
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Argentina/ComodRivadavia
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Argentina/San_Juan
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Argentina/San_Luis
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Argentina/Rio_Gallegos
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Argentina/Jujuy
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Argentina/Tucuman
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Argentina/Buenos_Aires
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Argentina/Cordoba
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Argentina/La_Rioja
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Argentina/Mendoza
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/La_Paz
+  abbrev: '-04'
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Dawson
+  abbrev: MST
+  utc_offset: -1 day, 17:00:00
+  is_dst: false
+- name: America/Moncton
+  abbrev: ADT
+  utc_offset: -1 day, 21:00:00
+  is_dst: true
+- name: America/Matamoros
+  abbrev: CDT
+  utc_offset: -1 day, 19:00:00
+  is_dst: true
+- name: America/St_Vincent
+  abbrev: AST
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Regina
+  abbrev: CST
+  utc_offset: -1 day, 18:00:00
+  is_dst: false
+- name: America/Yellowknife
+  abbrev: MDT
+  utc_offset: -1 day, 18:00:00
+  is_dst: true
+- name: America/Rainy_River
+  abbrev: CDT
+  utc_offset: -1 day, 19:00:00
+  is_dst: true
+- name: America/Kralendijk
+  abbrev: AST
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Monterrey
+  abbrev: CST
+  utc_offset: -1 day, 18:00:00
+  is_dst: false
+- name: America/Jamaica
+  abbrev: EST
+  utc_offset: -1 day, 19:00:00
+  is_dst: false
+- name: America/Havana
+  abbrev: CDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: America/Tegucigalpa
+  abbrev: CST
+  utc_offset: -1 day, 18:00:00
+  is_dst: false
+- name: America/Guayaquil
+  abbrev: '-05'
+  utc_offset: -1 day, 19:00:00
+  is_dst: false
+- name: America/Metlakatla
+  abbrev: AKDT
+  utc_offset: -1 day, 16:00:00
+  is_dst: true
+- name: America/Mazatlan
+  abbrev: MST
+  utc_offset: -1 day, 17:00:00
+  is_dst: false
+- name: America/Belize
+  abbrev: CST
+  utc_offset: -1 day, 18:00:00
+  is_dst: false
+- name: America/Knox_IN
+  abbrev: CDT
+  utc_offset: -1 day, 19:00:00
+  is_dst: true
+- name: America/Cuiaba
+  abbrev: '-04'
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Merida
+  abbrev: CST
+  utc_offset: -1 day, 18:00:00
+  is_dst: false
+- name: America/Jujuy
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Cayman
+  abbrev: EST
+  utc_offset: -1 day, 19:00:00
+  is_dst: false
+- name: America/Belem
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Eirunepe
+  abbrev: '-05'
+  utc_offset: -1 day, 19:00:00
+  is_dst: false
+- name: America/St_Lucia
+  abbrev: AST
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Bahia
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Whitehorse
+  abbrev: MST
+  utc_offset: -1 day, 17:00:00
+  is_dst: false
+- name: America/Tortola
+  abbrev: AST
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Vancouver
+  abbrev: PDT
+  utc_offset: -1 day, 17:00:00
+  is_dst: true
+- name: America/Inuvik
+  abbrev: MDT
+  utc_offset: -1 day, 18:00:00
+  is_dst: true
+- name: America/Port-au-Prince
+  abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: America/Fortaleza
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Noronha
+  abbrev: '-02'
+  utc_offset: -1 day, 22:00:00
+  is_dst: false
+- name: America/Buenos_Aires
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Los_Angeles
+  abbrev: PDT
+  utc_offset: -1 day, 17:00:00
+  is_dst: true
+- name: America/El_Salvador
+  abbrev: CST
+  utc_offset: -1 day, 18:00:00
+  is_dst: false
+- name: America/Denver
+  abbrev: MDT
+  utc_offset: -1 day, 18:00:00
+  is_dst: true
+- name: America/Fort_Wayne
+  abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: America/Kentucky/Louisville
+  abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: America/Kentucky/Monticello
+  abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: America/North_Dakota/New_Salem
+  abbrev: CDT
+  utc_offset: -1 day, 19:00:00
+  is_dst: true
+- name: America/North_Dakota/Center
+  abbrev: CDT
+  utc_offset: -1 day, 19:00:00
+  is_dst: true
+- name: America/North_Dakota/Beulah
+  abbrev: CDT
+  utc_offset: -1 day, 19:00:00
+  is_dst: true
+- name: America/Glace_Bay
+  abbrev: ADT
+  utc_offset: -1 day, 21:00:00
+  is_dst: true
+- name: America/Montserrat
+  abbrev: AST
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Toronto
+  abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: America/Panama
+  abbrev: EST
+  utc_offset: -1 day, 19:00:00
+  is_dst: false
+- name: America/Cordoba
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Louisville
+  abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: America/Ensenada
+  abbrev: PDT
+  utc_offset: -1 day, 17:00:00
+  is_dst: true
+- name: America/Shiprock
+  abbrev: MDT
+  utc_offset: -1 day, 18:00:00
+  is_dst: true
+- name: America/Ojinaga
+  abbrev: CDT
+  utc_offset: -1 day, 19:00:00
+  is_dst: true
+- name: America/Thule
+  abbrev: ADT
+  utc_offset: -1 day, 21:00:00
+  is_dst: true
+- name: America/Caracas
+  abbrev: '-04'
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Araguaina
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Cambridge_Bay
+  abbrev: MDT
+  utc_offset: -1 day, 18:00:00
+  is_dst: true
+- name: America/Winnipeg
+  abbrev: CDT
+  utc_offset: -1 day, 19:00:00
+  is_dst: true
+- name: America/Grand_Turk
+  abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: America/Virgin
+  abbrev: AST
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Anchorage
+  abbrev: AKDT
+  utc_offset: -1 day, 16:00:00
+  is_dst: true
+- name: America/Costa_Rica
+  abbrev: CST
+  utc_offset: -1 day, 18:00:00
+  is_dst: false
+- name: America/Nome
+  abbrev: AKDT
+  utc_offset: -1 day, 16:00:00
+  is_dst: true
+- name: America/Grenada
+  abbrev: AST
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/St_Johns
+  abbrev: NDT
+  utc_offset: -1 day, 21:30:00
+  is_dst: true
+- name: America/Atka
+  abbrev: HDT
+  utc_offset: -1 day, 15:00:00
+  is_dst: true
+- name: America/Asuncion
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Hermosillo
+  abbrev: MST
+  utc_offset: -1 day, 17:00:00
+  is_dst: false
+- name: America/Tijuana
+  abbrev: PDT
+  utc_offset: -1 day, 17:00:00
+  is_dst: true
+- name: America/Marigot
+  abbrev: AST
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Juneau
+  abbrev: AKDT
+  utc_offset: -1 day, 16:00:00
+  is_dst: true
+- name: America/Montevideo
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Godthab
+  abbrev: '-01'
+  utc_offset: -1 day, 23:00:00
+  is_dst: true
+- name: America/Guadeloupe
+  abbrev: AST
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Maceio
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Pangnirtung
+  abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: America/St_Kitts
+  abbrev: AST
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Barbados
+  abbrev: AST
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Iqaluit
+  abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: America/Menominee
+  abbrev: CDT
+  utc_offset: -1 day, 19:00:00
+  is_dst: true
+- name: America/Martinique
+  abbrev: AST
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Mexico_City
+  abbrev: CST
+  utc_offset: -1 day, 18:00:00
+  is_dst: false
+- name: America/Swift_Current
+  abbrev: CST
+  utc_offset: -1 day, 18:00:00
+  is_dst: false
+- name: America/Miquelon
+  abbrev: '-02'
+  utc_offset: -1 day, 22:00:00
+  is_dst: true
+- name: America/Curacao
+  abbrev: AST
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Dawson_Creek
+  abbrev: MST
+  utc_offset: -1 day, 17:00:00
+  is_dst: false
+- name: America/Mendoza
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: America/Adak
+  abbrev: HDT
+  utc_offset: -1 day, 15:00:00
+  is_dst: true
+- name: America/Thunder_Bay
+  abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: America/Aruba
+  abbrev: AST
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Fort_Nelson
+  abbrev: MST
+  utc_offset: -1 day, 17:00:00
+  is_dst: false
+- name: America/Sitka
+  abbrev: AKDT
+  utc_offset: -1 day, 16:00:00
+  is_dst: true
+- name: America/Anguilla
+  abbrev: AST
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: America/Danmarkshavn
+  abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Australia/Melbourne
+  abbrev: AEST
+  utc_offset: '10:00:00'
+  is_dst: false
+- name: Australia/Queensland
+  abbrev: AEST
+  utc_offset: '10:00:00'
+  is_dst: false
+- name: Australia/North
+  abbrev: ACST
+  utc_offset: '9:30:00'
+  is_dst: false
+- name: Australia/Lord_Howe
+  abbrev: '+1030'
+  utc_offset: '10:30:00'
+  is_dst: false
+- name: Australia/Adelaide
+  abbrev: ACST
+  utc_offset: '9:30:00'
+  is_dst: false
+- name: Australia/Yancowinna
+  abbrev: ACST
+  utc_offset: '9:30:00'
+  is_dst: false
+- name: Australia/Victoria
+  abbrev: AEST
+  utc_offset: '10:00:00'
+  is_dst: false
+- name: Australia/Canberra
+  abbrev: AEST
+  utc_offset: '10:00:00'
+  is_dst: false
+- name: Australia/Sydney
+  abbrev: AEST
+  utc_offset: '10:00:00'
+  is_dst: false
+- name: Australia/ACT
+  abbrev: AEST
+  utc_offset: '10:00:00'
+  is_dst: false
+- name: Australia/Eucla
+  abbrev: +0845
+  utc_offset: '8:45:00'
+  is_dst: false
+- name: Australia/Brisbane
+  abbrev: AEST
+  utc_offset: '10:00:00'
+  is_dst: false
+- name: Australia/Tasmania
+  abbrev: AEST
+  utc_offset: '10:00:00'
+  is_dst: false
+- name: Australia/Hobart
+  abbrev: AEST
+  utc_offset: '10:00:00'
+  is_dst: false
+- name: Australia/Perth
+  abbrev: AWST
+  utc_offset: '8:00:00'
+  is_dst: false
+- name: Australia/South
+  abbrev: ACST
+  utc_offset: '9:30:00'
+  is_dst: false
+- name: Australia/Lindeman
+  abbrev: AEST
+  utc_offset: '10:00:00'
+  is_dst: false
+- name: Australia/Darwin
+  abbrev: ACST
+  utc_offset: '9:30:00'
+  is_dst: false
+- name: Australia/West
+  abbrev: AWST
+  utc_offset: '8:00:00'
+  is_dst: false
+- name: Australia/LHI
+  abbrev: '+1030'
+  utc_offset: '10:30:00'
+  is_dst: false
+- name: Australia/NSW
+  abbrev: AEST
+  utc_offset: '10:00:00'
+  is_dst: false
+- name: Australia/Broken_Hill
+  abbrev: ACST
+  utc_offset: '9:30:00'
+  is_dst: false
+- name: Australia/Currie
+  abbrev: AEST
+  utc_offset: '10:00:00'
+  is_dst: false
+- name: Etc/GMT-10
+  abbrev: '+10'
+  utc_offset: '10:00:00'
+  is_dst: false
+- name: Etc/GMT+12
+  abbrev: '-12'
+  utc_offset: -1 day, 12:00:00
+  is_dst: false
+- name: Etc/GMT-11
+  abbrev: '+11'
+  utc_offset: '11:00:00'
+  is_dst: false
+- name: Etc/Universal
+  abbrev: UTC
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Etc/Greenwich
+  abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Etc/GMT-6
+  abbrev: '+06'
+  utc_offset: '6:00:00'
+  is_dst: false
+- name: Etc/GMT-1
+  abbrev: '+01'
+  utc_offset: '1:00:00'
+  is_dst: false
+- name: Etc/GMT-8
+  abbrev: +08
+  utc_offset: '8:00:00'
+  is_dst: false
+- name: Etc/GMT+4
+  abbrev: '-04'
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: Etc/GMT+3
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: Etc/GMT-9
+  abbrev: +09
+  utc_offset: '9:00:00'
+  is_dst: false
+- name: Etc/GMT-0
+  abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Etc/GMT-7
+  abbrev: '+07'
+  utc_offset: '7:00:00'
+  is_dst: false
+- name: Etc/GMT+2
+  abbrev: '-02'
+  utc_offset: -1 day, 22:00:00
+  is_dst: false
+- name: Etc/GMT+5
+  abbrev: '-05'
+  utc_offset: -1 day, 19:00:00
+  is_dst: false
+- name: Etc/GMT
+  abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Etc/Zulu
+  abbrev: UTC
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Etc/GMT+11
+  abbrev: '-11'
+  utc_offset: -1 day, 13:00:00
+  is_dst: false
+- name: Etc/GMT-13
+  abbrev: '+13'
+  utc_offset: '13:00:00'
+  is_dst: false
+- name: Etc/GMT-14
+  abbrev: '+14'
+  utc_offset: '14:00:00'
+  is_dst: false
+- name: Etc/GMT+10
+  abbrev: '-10'
+  utc_offset: -1 day, 14:00:00
+  is_dst: false
+- name: Etc/GMT-12
+  abbrev: '+12'
+  utc_offset: '12:00:00'
+  is_dst: false
+- name: Etc/GMT0
+  abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Etc/UCT
+  abbrev: UTC
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Etc/GMT+0
+  abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Etc/GMT+7
+  abbrev: '-07'
+  utc_offset: -1 day, 17:00:00
+  is_dst: false
+- name: Etc/GMT+9
+  abbrev: -09
+  utc_offset: -1 day, 15:00:00
+  is_dst: false
+- name: Etc/GMT-2
+  abbrev: '+02'
+  utc_offset: '2:00:00'
+  is_dst: false
+- name: Etc/GMT-5
+  abbrev: '+05'
+  utc_offset: '5:00:00'
+  is_dst: false
+- name: Etc/GMT+8
+  abbrev: -08
+  utc_offset: -1 day, 16:00:00
+  is_dst: false
+- name: Etc/GMT+6
+  abbrev: '-06'
+  utc_offset: -1 day, 18:00:00
+  is_dst: false
+- name: Etc/GMT+1
+  abbrev: '-01'
+  utc_offset: -1 day, 23:00:00
+  is_dst: false
+- name: Etc/UTC
+  abbrev: UTC
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Etc/GMT-4
+  abbrev: '+04'
+  utc_offset: '4:00:00'
+  is_dst: false
+- name: Etc/GMT-3
+  abbrev: '+03'
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: NZ-CHAT
+  abbrev: '+1245'
+  utc_offset: '12:45:00'
+  is_dst: false
+- name: Asia/Dushanbe
+  abbrev: '+05'
+  utc_offset: '5:00:00'
+  is_dst: false
+- name: Asia/Qostanay
+  abbrev: '+05'
+  utc_offset: '5:00:00'
+  is_dst: false
+- name: Asia/Calcutta
+  abbrev: IST
+  utc_offset: '5:30:00'
+  is_dst: false
+- name: Asia/Urumqi
+  abbrev: '+06'
+  utc_offset: '6:00:00'
+  is_dst: false
+- name: Asia/Karachi
+  abbrev: PKT
+  utc_offset: '5:00:00'
+  is_dst: false
+- name: Asia/Khandyga
+  abbrev: +09
+  utc_offset: '9:00:00'
+  is_dst: false
+- name: Asia/Thimbu
+  abbrev: '+06'
+  utc_offset: '6:00:00'
+  is_dst: false
+- name: Asia/Thimphu
+  abbrev: '+06'
+  utc_offset: '6:00:00'
+  is_dst: false
+- name: Asia/Vladivostok
+  abbrev: '+10'
+  utc_offset: '10:00:00'
+  is_dst: false
+- name: Asia/Vientiane
+  abbrev: '+07'
+  utc_offset: '7:00:00'
+  is_dst: false
+- name: Asia/Shanghai
+  abbrev: CST
+  utc_offset: '8:00:00'
+  is_dst: false
+- name: Asia/Ulan_Bator
+  abbrev: +08
+  utc_offset: '8:00:00'
+  is_dst: false
+- name: Asia/Aden
+  abbrev: '+03'
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: Asia/Muscat
+  abbrev: '+04'
+  utc_offset: '4:00:00'
+  is_dst: false
+- name: Asia/Damascus
+  abbrev: '+03'
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: Asia/Jerusalem
+  abbrev: IDT
+  utc_offset: '3:00:00'
+  is_dst: true
+- name: Asia/Brunei
+  abbrev: +08
+  utc_offset: '8:00:00'
+  is_dst: false
+- name: Asia/Ulaanbaatar
+  abbrev: +08
+  utc_offset: '8:00:00'
+  is_dst: false
+- name: Asia/Amman
+  abbrev: '+03'
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: Asia/Kuching
+  abbrev: +08
+  utc_offset: '8:00:00'
+  is_dst: false
+- name: Asia/Tel_Aviv
+  abbrev: IDT
+  utc_offset: '3:00:00'
+  is_dst: true
+- name: Asia/Seoul
+  abbrev: KST
+  utc_offset: '9:00:00'
+  is_dst: false
+- name: Asia/Atyrau
+  abbrev: '+05'
+  utc_offset: '5:00:00'
+  is_dst: false
+- name: Asia/Pyongyang
+  abbrev: KST
+  utc_offset: '9:00:00'
+  is_dst: false
+- name: Asia/Hovd
+  abbrev: '+07'
+  utc_offset: '7:00:00'
+  is_dst: false
+- name: Asia/Hebron
+  abbrev: EEST
+  utc_offset: '3:00:00'
+  is_dst: true
+- name: Asia/Kuwait
+  abbrev: '+03'
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: Asia/Tomsk
+  abbrev: '+07'
+  utc_offset: '7:00:00'
+  is_dst: false
+- name: Asia/Manila
+  abbrev: PST
+  utc_offset: '8:00:00'
+  is_dst: false
+- name: Asia/Chita
+  abbrev: +09
+  utc_offset: '9:00:00'
+  is_dst: false
+- name: Asia/Katmandu
+  abbrev: '+0545'
+  utc_offset: '5:45:00'
+  is_dst: false
+- name: Asia/Gaza
+  abbrev: EEST
+  utc_offset: '3:00:00'
+  is_dst: true
+- name: Asia/Samarkand
+  abbrev: '+05'
+  utc_offset: '5:00:00'
+  is_dst: false
+- name: Asia/Taipei
+  abbrev: CST
+  utc_offset: '8:00:00'
+  is_dst: false
+- name: Asia/Tashkent
+  abbrev: '+05'
+  utc_offset: '5:00:00'
+  is_dst: false
+- name: Asia/Yekaterinburg
+  abbrev: '+05'
+  utc_offset: '5:00:00'
+  is_dst: false
+- name: Asia/Macau
+  abbrev: CST
+  utc_offset: '8:00:00'
+  is_dst: false
+- name: Asia/Qyzylorda
+  abbrev: '+05'
+  utc_offset: '5:00:00'
+  is_dst: false
+- name: Asia/Macao
+  abbrev: CST
+  utc_offset: '8:00:00'
+  is_dst: false
+- name: Asia/Tokyo
+  abbrev: JST
+  utc_offset: '9:00:00'
+  is_dst: false
+- name: Asia/Baku
+  abbrev: '+04'
+  utc_offset: '4:00:00'
+  is_dst: false
+- name: Asia/Barnaul
+  abbrev: '+07'
+  utc_offset: '7:00:00'
+  is_dst: false
+- name: Asia/Istanbul
+  abbrev: '+03'
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: Asia/Irkutsk
+  abbrev: +08
+  utc_offset: '8:00:00'
+  is_dst: false
+- name: Asia/Qatar
+  abbrev: '+03'
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: Asia/Bahrain
+  abbrev: '+03'
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: Asia/Yangon
+  abbrev: '+0630'
+  utc_offset: '6:30:00'
+  is_dst: false
+- name: Asia/Yerevan
+  abbrev: '+04'
+  utc_offset: '4:00:00'
+  is_dst: false
+- name: Asia/Almaty
+  abbrev: '+05'
+  utc_offset: '5:00:00'
+  is_dst: false
+- name: Asia/Dili
+  abbrev: +09
+  utc_offset: '9:00:00'
+  is_dst: false
+- name: Asia/Dacca
+  abbrev: '+06'
+  utc_offset: '6:00:00'
+  is_dst: false
+- name: Asia/Chongqing
+  abbrev: CST
+  utc_offset: '8:00:00'
+  is_dst: false
+- name: Asia/Ust-Nera
+  abbrev: '+10'
+  utc_offset: '10:00:00'
+  is_dst: false
+- name: Asia/Magadan
+  abbrev: '+11'
+  utc_offset: '11:00:00'
+  is_dst: false
+- name: Asia/Colombo
+  abbrev: '+0530'
+  utc_offset: '5:30:00'
+  is_dst: false
+- name: Asia/Krasnoyarsk
+  abbrev: '+07'
+  utc_offset: '7:00:00'
+  is_dst: false
+- name: Asia/Kamchatka
+  abbrev: '+12'
+  utc_offset: '12:00:00'
+  is_dst: false
+- name: Asia/Ujung_Pandang
+  abbrev: WITA
+  utc_offset: '8:00:00'
+  is_dst: false
+- name: Asia/Jakarta
+  abbrev: WIB
+  utc_offset: '7:00:00'
+  is_dst: false
+- name: Asia/Kolkata
+  abbrev: IST
+  utc_offset: '5:30:00'
+  is_dst: false
+- name: Asia/Kabul
+  abbrev: '+0430'
+  utc_offset: '4:30:00'
+  is_dst: false
+- name: Asia/Oral
+  abbrev: '+05'
+  utc_offset: '5:00:00'
+  is_dst: false
+- name: Asia/Jayapura
+  abbrev: WIT
+  utc_offset: '9:00:00'
+  is_dst: false
+- name: Asia/Pontianak
+  abbrev: WIB
+  utc_offset: '7:00:00'
+  is_dst: false
+- name: Asia/Makassar
+  abbrev: WITA
+  utc_offset: '8:00:00'
+  is_dst: false
+- name: Asia/Tbilisi
+  abbrev: '+04'
+  utc_offset: '4:00:00'
+  is_dst: false
+- name: Asia/Singapore
+  abbrev: +08
+  utc_offset: '8:00:00'
+  is_dst: false
+- name: Asia/Harbin
+  abbrev: CST
+  utc_offset: '8:00:00'
+  is_dst: false
+- name: Asia/Kashgar
+  abbrev: '+06'
+  utc_offset: '6:00:00'
+  is_dst: false
+- name: Asia/Dhaka
+  abbrev: '+06'
+  utc_offset: '6:00:00'
+  is_dst: false
+- name: Asia/Yakutsk
+  abbrev: +09
+  utc_offset: '9:00:00'
+  is_dst: false
+- name: Asia/Kuala_Lumpur
+  abbrev: +08
+  utc_offset: '8:00:00'
+  is_dst: false
+- name: Asia/Tehran
+  abbrev: '+0330'
+  utc_offset: '3:30:00'
+  is_dst: false
+- name: Asia/Beirut
+  abbrev: EEST
+  utc_offset: '3:00:00'
+  is_dst: true
+- name: Asia/Aqtobe
+  abbrev: '+05'
+  utc_offset: '5:00:00'
+  is_dst: false
+- name: Asia/Anadyr
+  abbrev: '+12'
+  utc_offset: '12:00:00'
+  is_dst: false
+- name: Asia/Bishkek
+  abbrev: '+06'
+  utc_offset: '6:00:00'
+  is_dst: false
+- name: Asia/Dubai
+  abbrev: '+04'
+  utc_offset: '4:00:00'
+  is_dst: false
+- name: Asia/Riyadh
+  abbrev: '+03'
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: Asia/Novokuznetsk
+  abbrev: '+07'
+  utc_offset: '7:00:00'
+  is_dst: false
+- name: Asia/Aqtau
+  abbrev: '+05'
+  utc_offset: '5:00:00'
+  is_dst: false
+- name: Asia/Omsk
+  abbrev: '+06'
+  utc_offset: '6:00:00'
+  is_dst: false
+- name: Asia/Ashkhabad
+  abbrev: '+05'
+  utc_offset: '5:00:00'
+  is_dst: false
+- name: Asia/Saigon
+  abbrev: '+07'
+  utc_offset: '7:00:00'
+  is_dst: false
+- name: Asia/Sakhalin
+  abbrev: '+11'
+  utc_offset: '11:00:00'
+  is_dst: false
+- name: Asia/Hong_Kong
+  abbrev: HKT
+  utc_offset: '8:00:00'
+  is_dst: false
+- name: Asia/Phnom_Penh
+  abbrev: '+07'
+  utc_offset: '7:00:00'
+  is_dst: false
+- name: Asia/Nicosia
+  abbrev: EEST
+  utc_offset: '3:00:00'
+  is_dst: true
+- name: Asia/Baghdad
+  abbrev: '+03'
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: Asia/Srednekolymsk
+  abbrev: '+11'
+  utc_offset: '11:00:00'
+  is_dst: false
+- name: Asia/Ashgabat
+  abbrev: '+05'
+  utc_offset: '5:00:00'
+  is_dst: false
+- name: Asia/Kathmandu
+  abbrev: '+0545'
+  utc_offset: '5:45:00'
+  is_dst: false
+- name: Asia/Choibalsan
+  abbrev: +08
+  utc_offset: '8:00:00'
+  is_dst: false
+- name: Asia/Bangkok
+  abbrev: '+07'
+  utc_offset: '7:00:00'
+  is_dst: false
+- name: Asia/Chungking
+  abbrev: CST
+  utc_offset: '8:00:00'
+  is_dst: false
+- name: Asia/Novosibirsk
+  abbrev: '+07'
+  utc_offset: '7:00:00'
+  is_dst: false
+- name: Asia/Famagusta
+  abbrev: EEST
+  utc_offset: '3:00:00'
+  is_dst: true
+- name: Asia/Rangoon
+  abbrev: '+0630'
+  utc_offset: '6:30:00'
+  is_dst: false
+- name: Asia/Ho_Chi_Minh
+  abbrev: '+07'
+  utc_offset: '7:00:00'
+  is_dst: false
+- name: MET
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Portugal
+  abbrev: WEST
+  utc_offset: '1:00:00'
+  is_dst: true
+- name: Antarctica/Palmer
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: Antarctica/Davis
+  abbrev: '+07'
+  utc_offset: '7:00:00'
+  is_dst: false
+- name: Antarctica/Rothera
+  abbrev: '-03'
+  utc_offset: -1 day, 21:00:00
+  is_dst: false
+- name: Antarctica/Vostok
+  abbrev: '+05'
+  utc_offset: '5:00:00'
+  is_dst: false
+- name: Antarctica/Syowa
+  abbrev: '+03'
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: Antarctica/DumontDUrville
+  abbrev: '+10'
+  utc_offset: '10:00:00'
+  is_dst: false
+- name: Antarctica/McMurdo
+  abbrev: NZST
+  utc_offset: '12:00:00'
+  is_dst: false
+- name: Antarctica/Macquarie
+  abbrev: AEST
+  utc_offset: '10:00:00'
+  is_dst: false
+- name: Antarctica/South_Pole
+  abbrev: NZST
+  utc_offset: '12:00:00'
+  is_dst: false
+- name: Antarctica/Troll
+  abbrev: '+02'
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Antarctica/Mawson
+  abbrev: '+05'
+  utc_offset: '5:00:00'
+  is_dst: false
+- name: Antarctica/Casey
+  abbrev: +08
+  utc_offset: '8:00:00'
+  is_dst: false
+- name: GMT-0
+  abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false
+- name: CET
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Eire
+  abbrev: IST
+  utc_offset: '1:00:00'
+  is_dst: true
+- name: PST8PDT
+  abbrev: PDT
+  utc_offset: -1 day, 17:00:00
+  is_dst: true
+- name: Jamaica
+  abbrev: EST
+  utc_offset: -1 day, 19:00:00
+  is_dst: false
+- name: GMT
+  abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Zulu
+  abbrev: UTC
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Japan
+  abbrev: JST
+  utc_offset: '9:00:00'
+  is_dst: false
+- name: ROC
+  abbrev: CST
+  utc_offset: '8:00:00'
+  is_dst: false
+- name: GB-Eire
+  abbrev: BST
+  utc_offset: '1:00:00'
+  is_dst: true
+- name: Europe/Zurich
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Paris
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Moscow
+  abbrev: MSK
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: Europe/Luxembourg
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Ljubljana
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Helsinki
+  abbrev: EEST
+  utc_offset: '3:00:00'
+  is_dst: true
+- name: Europe/Minsk
+  abbrev: '+03'
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: Europe/Skopje
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Dublin
+  abbrev: IST
+  utc_offset: '1:00:00'
+  is_dst: true
+- name: Europe/Jersey
+  abbrev: BST
+  utc_offset: '1:00:00'
+  is_dst: true
+- name: Europe/San_Marino
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Gibraltar
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Belgrade
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Guernsey
+  abbrev: BST
+  utc_offset: '1:00:00'
+  is_dst: true
+- name: Europe/Ulyanovsk
+  abbrev: '+04'
+  utc_offset: '4:00:00'
+  is_dst: false
+- name: Europe/Saratov
+  abbrev: '+04'
+  utc_offset: '4:00:00'
+  is_dst: false
+- name: Europe/Vaduz
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Istanbul
+  abbrev: '+03'
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: Europe/Lisbon
+  abbrev: WEST
+  utc_offset: '1:00:00'
+  is_dst: true
+- name: Europe/Uzhgorod
+  abbrev: EEST
+  utc_offset: '3:00:00'
+  is_dst: true
+- name: Europe/Kirov
+  abbrev: MSK
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: Europe/Tirane
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Tiraspol
+  abbrev: EEST
+  utc_offset: '3:00:00'
+  is_dst: true
+- name: Europe/Sarajevo
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Madrid
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Podgorica
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Busingen
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Vatican
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Belfast
+  abbrev: BST
+  utc_offset: '1:00:00'
+  is_dst: true
+- name: Europe/Bratislava
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Kiev
+  abbrev: EEST
+  utc_offset: '3:00:00'
+  is_dst: true
+- name: Europe/Kaliningrad
+  abbrev: EET
+  utc_offset: '2:00:00'
+  is_dst: false
+- name: Europe/Zaporozhye
+  abbrev: EEST
+  utc_offset: '3:00:00'
+  is_dst: true
+- name: Europe/Vienna
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Budapest
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Vilnius
+  abbrev: EEST
+  utc_offset: '3:00:00'
+  is_dst: true
+- name: Europe/Monaco
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Oslo
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Astrakhan
+  abbrev: '+04'
+  utc_offset: '4:00:00'
+  is_dst: false
+- name: Europe/Simferopol
+  abbrev: MSK
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: Europe/Volgograd
+  abbrev: MSK
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: Europe/Kyiv
+  abbrev: EEST
+  utc_offset: '3:00:00'
+  is_dst: true
+- name: Europe/Isle_of_Man
+  abbrev: BST
+  utc_offset: '1:00:00'
+  is_dst: true
+- name: Europe/London
+  abbrev: BST
+  utc_offset: '1:00:00'
+  is_dst: true
+- name: Europe/Riga
+  abbrev: EEST
+  utc_offset: '3:00:00'
+  is_dst: true
+- name: Europe/Andorra
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Prague
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Berlin
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Tallinn
+  abbrev: EEST
+  utc_offset: '3:00:00'
+  is_dst: true
+- name: Europe/Rome
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Malta
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Zagreb
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Amsterdam
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Nicosia
+  abbrev: EEST
+  utc_offset: '3:00:00'
+  is_dst: true
+- name: Europe/Bucharest
+  abbrev: EEST
+  utc_offset: '3:00:00'
+  is_dst: true
+- name: Europe/Copenhagen
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Chisinau
+  abbrev: EEST
+  utc_offset: '3:00:00'
+  is_dst: true
+- name: Europe/Mariehamn
+  abbrev: EEST
+  utc_offset: '3:00:00'
+  is_dst: true
+- name: Europe/Sofia
+  abbrev: EEST
+  utc_offset: '3:00:00'
+  is_dst: true
+- name: Europe/Athens
+  abbrev: EEST
+  utc_offset: '3:00:00'
+  is_dst: true
+- name: Europe/Stockholm
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Samara
+  abbrev: '+04'
+  utc_offset: '4:00:00'
+  is_dst: false
+- name: Europe/Brussels
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Europe/Warsaw
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: ROK
+  abbrev: KST
+  utc_offset: '9:00:00'
+  is_dst: false
+- name: Navajo
+  abbrev: MDT
+  utc_offset: -1 day, 18:00:00
+  is_dst: true
+- name: Singapore
+  abbrev: +08
+  utc_offset: '8:00:00'
+  is_dst: false
+- name: posixrules
+  abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: GB
+  abbrev: BST
+  utc_offset: '1:00:00'
+  is_dst: true
+- name: Mexico/BajaNorte
+  abbrev: PDT
+  utc_offset: -1 day, 17:00:00
+  is_dst: true
+- name: Mexico/General
+  abbrev: CST
+  utc_offset: -1 day, 18:00:00
+  is_dst: false
+- name: Mexico/BajaSur
+  abbrev: MST
+  utc_offset: -1 day, 17:00:00
+  is_dst: false
+- name: EST
+  abbrev: EST
+  utc_offset: -1 day, 19:00:00
+  is_dst: false
+- name: GMT0
+  abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Hongkong
+  abbrev: HKT
+  utc_offset: '8:00:00'
+  is_dst: false
+- name: PRC
+  abbrev: CST
+  utc_offset: '8:00:00'
+  is_dst: false
+- name: Iran
+  abbrev: '+0330'
+  utc_offset: '3:30:00'
+  is_dst: false
+- name: MST7MDT
+  abbrev: MDT
+  utc_offset: -1 day, 18:00:00
+  is_dst: true
+- name: WET
+  abbrev: WEST
+  utc_offset: '1:00:00'
+  is_dst: true
+- name: W-SU
+  abbrev: MSK
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: UCT
+  abbrev: UTC
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Cuba
+  abbrev: CDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: Egypt
+  abbrev: EEST
+  utc_offset: '3:00:00'
+  is_dst: true
+- name: GMT+0
+  abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false
+- name: EET
+  abbrev: EEST
+  utc_offset: '3:00:00'
+  is_dst: true
+- name: Israel
+  abbrev: IDT
+  utc_offset: '3:00:00'
+  is_dst: true
+- name: Africa/Sao_Tome
+  abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Africa/Conakry
+  abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Africa/Dakar
+  abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Africa/Ndjamena
+  abbrev: WAT
+  utc_offset: '1:00:00'
+  is_dst: false
+- name: Africa/Casablanca
+  abbrev: '+01'
+  utc_offset: '1:00:00'
+  is_dst: true
+- name: Africa/Lome
+  abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Africa/Algiers
+  abbrev: CET
+  utc_offset: '1:00:00'
+  is_dst: false
+- name: Africa/Mogadishu
+  abbrev: EAT
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: Africa/Lagos
+  abbrev: WAT
+  utc_offset: '1:00:00'
+  is_dst: false
+- name: Africa/Brazzaville
+  abbrev: WAT
+  utc_offset: '1:00:00'
+  is_dst: false
+- name: Africa/Timbuktu
+  abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Africa/Nouakchott
+  abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Africa/Maseru
+  abbrev: SAST
+  utc_offset: '2:00:00'
+  is_dst: false
+- name: Africa/Libreville
+  abbrev: WAT
+  utc_offset: '1:00:00'
+  is_dst: false
+- name: Africa/Harare
+  abbrev: CAT
+  utc_offset: '2:00:00'
+  is_dst: false
+- name: Africa/Malabo
+  abbrev: WAT
+  utc_offset: '1:00:00'
+  is_dst: false
+- name: Africa/Bangui
+  abbrev: WAT
+  utc_offset: '1:00:00'
+  is_dst: false
+- name: Africa/Nairobi
+  abbrev: EAT
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: Africa/Kinshasa
+  abbrev: WAT
+  utc_offset: '1:00:00'
+  is_dst: false
+- name: Africa/Porto-Novo
+  abbrev: WAT
+  utc_offset: '1:00:00'
+  is_dst: false
+- name: Africa/Cairo
+  abbrev: EEST
+  utc_offset: '3:00:00'
+  is_dst: true
+- name: Africa/Douala
+  abbrev: WAT
+  utc_offset: '1:00:00'
+  is_dst: false
+- name: Africa/Juba
+  abbrev: CAT
+  utc_offset: '2:00:00'
+  is_dst: false
+- name: Africa/Gaborone
+  abbrev: CAT
+  utc_offset: '2:00:00'
+  is_dst: false
+- name: Africa/Tunis
+  abbrev: CET
+  utc_offset: '1:00:00'
+  is_dst: false
+- name: Africa/Kampala
+  abbrev: EAT
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: Africa/Mbabane
+  abbrev: SAST
+  utc_offset: '2:00:00'
+  is_dst: false
+- name: Africa/Addis_Ababa
+  abbrev: EAT
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: Africa/Maputo
+  abbrev: CAT
+  utc_offset: '2:00:00'
+  is_dst: false
+- name: Africa/Bissau
+  abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Africa/Blantyre
+  abbrev: CAT
+  utc_offset: '2:00:00'
+  is_dst: false
+- name: Africa/Niamey
+  abbrev: WAT
+  utc_offset: '1:00:00'
+  is_dst: false
+- name: Africa/Banjul
+  abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Africa/Abidjan
+  abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Africa/Asmara
+  abbrev: EAT
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: Africa/Bamako
+  abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Africa/Ouagadougou
+  abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Africa/Lusaka
+  abbrev: CAT
+  utc_offset: '2:00:00'
+  is_dst: false
+- name: Africa/Luanda
+  abbrev: WAT
+  utc_offset: '1:00:00'
+  is_dst: false
+- name: Africa/Asmera
+  abbrev: EAT
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: Africa/Lubumbashi
+  abbrev: CAT
+  utc_offset: '2:00:00'
+  is_dst: false
+- name: Africa/Accra
+  abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Africa/Khartoum
+  abbrev: CAT
+  utc_offset: '2:00:00'
+  is_dst: false
+- name: Africa/Ceuta
+  abbrev: CEST
+  utc_offset: '2:00:00'
+  is_dst: true
+- name: Africa/Bujumbura
+  abbrev: CAT
+  utc_offset: '2:00:00'
+  is_dst: false
+- name: Africa/Windhoek
+  abbrev: CAT
+  utc_offset: '2:00:00'
+  is_dst: false
+- name: Africa/El_Aaiun
+  abbrev: '+01'
+  utc_offset: '1:00:00'
+  is_dst: true
+- name: Africa/Tripoli
+  abbrev: EET
+  utc_offset: '2:00:00'
+  is_dst: false
+- name: Africa/Monrovia
+  abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Africa/Dar_es_Salaam
+  abbrev: EAT
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: Africa/Johannesburg
+  abbrev: SAST
+  utc_offset: '2:00:00'
+  is_dst: false
+- name: Africa/Kigali
+  abbrev: CAT
+  utc_offset: '2:00:00'
+  is_dst: false
+- name: Africa/Djibouti
+  abbrev: EAT
+  utc_offset: '3:00:00'
+  is_dst: false
+- name: Africa/Freetown
+  abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Factory
+  abbrev: '-00'
+  utc_offset: 0:00:00
+  is_dst: false
+- name: UTC
+  abbrev: UTC
+  utc_offset: 0:00:00
+  is_dst: false
+- name: Chile/EasterIsland
+  abbrev: '-06'
+  utc_offset: -1 day, 18:00:00
+  is_dst: false
+- name: Chile/Continental
+  abbrev: '-04'
+  utc_offset: -1 day, 20:00:00
+  is_dst: false
+- name: HST
+  abbrev: HST
+  utc_offset: -1 day, 14:00:00
+  is_dst: false
+- name: Canada/Atlantic
+  abbrev: ADT
+  utc_offset: -1 day, 21:00:00
+  is_dst: true
+- name: Canada/Pacific
+  abbrev: PDT
+  utc_offset: -1 day, 17:00:00
+  is_dst: true
+- name: Canada/Eastern
+  abbrev: EDT
+  utc_offset: -1 day, 20:00:00
+  is_dst: true
+- name: Canada/Yukon
+  abbrev: MST
+  utc_offset: -1 day, 17:00:00
+  is_dst: false
+- name: Canada/Saskatchewan
+  abbrev: CST
+  utc_offset: -1 day, 18:00:00
+  is_dst: false
+- name: Canada/Newfoundland
+  abbrev: NDT
+  utc_offset: -1 day, 21:30:00
+  is_dst: true
+- name: Canada/Central
+  abbrev: CDT
+  utc_offset: -1 day, 19:00:00
+  is_dst: true
+- name: Canada/Mountain
+  abbrev: MDT
+  utc_offset: -1 day, 18:00:00
+  is_dst: true
+- name: Iceland
+  abbrev: GMT
+  utc_offset: 0:00:00
+  is_dst: false

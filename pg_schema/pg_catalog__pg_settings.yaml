@@ -1,0 +1,6602 @@
+type: view
+view_sql: " SELECT name,\n    setting,\n    unit,\n    category,\n    short_desc,\n\
+  \    extra_desc,\n    context,\n    vartype,\n    source,\n    min_val,\n    max_val,\n\
+  \    enumvals,\n    boot_val,\n    reset_val,\n    sourcefile,\n    sourceline,\n\
+  \    pending_restart\n   FROM pg_show_all_settings() a(name, setting, unit, category,\
+  \ short_desc, extra_desc, context, vartype, source, min_val, max_val, enumvals,\
+  \ boot_val, reset_val, sourcefile, sourceline, pending_restart);"
+schema:
+  name: varchar(256)
+  setting: varchar(256)
+  unit: varchar(256)
+  category: varchar(256)
+  short_desc: varchar(256)
+  extra_desc: varchar(256)
+  context: varchar(256)
+  vartype: varchar(256)
+  source: varchar(256)
+  min_val: varchar(256)
+  max_val: varchar(256)
+  enumvals: varchar(256)
+  boot_val: varchar(256)
+  reset_val: varchar(256)
+  sourcefile: varchar(256)
+  sourceline: int
+  pending_restart: boolean
+pg_types:
+  name: text
+  setting: text
+  unit: text
+  category: text
+  short_desc: text
+  extra_desc: text
+  context: text
+  vartype: text
+  source: text
+  min_val: text
+  max_val: text
+  enumvals: _text
+  boot_val: text
+  reset_val: text
+  sourcefile: text
+  sourceline: int4
+  pending_restart: bool
+rows:
+- name: allow_alter_system
+  setting: 'on'
+  unit: null
+  category: Version and Platform Compatibility / Other Platforms and Clients
+  short_desc: Allows running the ALTER SYSTEM command.
+  extra_desc: Can be set to off for environments where global configuration changes
+    should be made using a different method.
+  context: sighup
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: allow_in_place_tablespaces
+  setting: 'off'
+  unit: null
+  category: Developer Options
+  short_desc: Allows tablespaces directly inside pg_tblspc, for testing.
+  extra_desc: null
+  context: superuser
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: allow_system_table_mods
+  setting: 'off'
+  unit: null
+  category: Developer Options
+  short_desc: Allows modifications of the structure of system tables.
+  extra_desc: null
+  context: superuser
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: application_name
+  setting: ''
+  unit: null
+  category: Reporting and Logging / What to Log
+  short_desc: Sets the application name to be reported in statistics and logs.
+  extra_desc: null
+  context: user
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: archive_cleanup_command
+  setting: ''
+  unit: null
+  category: Write-Ahead Log / Archive Recovery
+  short_desc: Sets the shell command that will be executed at every restart point.
+  extra_desc: null
+  context: sighup
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: archive_command
+  setting: (disabled)
+  unit: null
+  category: Write-Ahead Log / Archiving
+  short_desc: Sets the shell command that will be called to archive a WAL file.
+  extra_desc: This is used only if "archive_library" is not set.
+  context: sighup
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: archive_library
+  setting: ''
+  unit: null
+  category: Write-Ahead Log / Archiving
+  short_desc: Sets the library that will be called to archive a WAL file.
+  extra_desc: An empty string indicates that "archive_command" should be used.
+  context: sighup
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: archive_mode
+  setting: 'off'
+  unit: null
+  category: Write-Ahead Log / Archiving
+  short_desc: Allows archiving of WAL files using "archive_command".
+  extra_desc: null
+  context: postmaster
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''always'', ''on'', ''off'']'
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: archive_timeout
+  setting: '0'
+  unit: s
+  category: Write-Ahead Log / Archiving
+  short_desc: Sets the amount of time to wait before forcing a switch to the next
+    WAL file.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '1073741823'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: array_nulls
+  setting: 'on'
+  unit: null
+  category: Version and Platform Compatibility / Previous PostgreSQL Versions
+  short_desc: Enable input of NULL elements in arrays.
+  extra_desc: When turned on, unquoted NULL in an array input value means a null value;
+    otherwise it is taken literally.
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: authentication_timeout
+  setting: '60'
+  unit: s
+  category: Connections and Authentication / Authentication
+  short_desc: Sets the maximum allowed time to complete client authentication.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '1'
+  max_val: '600'
+  enumvals: null
+  boot_val: '60'
+  reset_val: '60'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: autovacuum
+  setting: 'on'
+  unit: null
+  category: Autovacuum
+  short_desc: Starts the autovacuum subprocess.
+  extra_desc: null
+  context: sighup
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: autovacuum_analyze_scale_factor
+  setting: '0.1'
+  unit: null
+  category: Autovacuum
+  short_desc: Number of tuple inserts, updates, or deletes prior to analyze as a fraction
+    of reltuples.
+  extra_desc: null
+  context: sighup
+  vartype: real
+  source: default
+  min_val: '0'
+  max_val: '100'
+  enumvals: null
+  boot_val: '0.1'
+  reset_val: '0.1'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: autovacuum_analyze_threshold
+  setting: '50'
+  unit: null
+  category: Autovacuum
+  short_desc: Minimum number of tuple inserts, updates, or deletes prior to analyze.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '50'
+  reset_val: '50'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: autovacuum_freeze_max_age
+  setting: '200000000'
+  unit: null
+  category: Autovacuum
+  short_desc: Age at which to autovacuum a table to prevent transaction ID wraparound.
+  extra_desc: null
+  context: postmaster
+  vartype: integer
+  source: default
+  min_val: '100000'
+  max_val: '2000000000'
+  enumvals: null
+  boot_val: '200000000'
+  reset_val: '200000000'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: autovacuum_max_workers
+  setting: '3'
+  unit: null
+  category: Autovacuum
+  short_desc: Sets the maximum number of simultaneously running autovacuum worker
+    processes.
+  extra_desc: null
+  context: postmaster
+  vartype: integer
+  source: default
+  min_val: '1'
+  max_val: '262143'
+  enumvals: null
+  boot_val: '3'
+  reset_val: '3'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: autovacuum_multixact_freeze_max_age
+  setting: '400000000'
+  unit: null
+  category: Autovacuum
+  short_desc: Multixact age at which to autovacuum a table to prevent multixact wraparound.
+  extra_desc: null
+  context: postmaster
+  vartype: integer
+  source: default
+  min_val: '10000'
+  max_val: '2000000000'
+  enumvals: null
+  boot_val: '400000000'
+  reset_val: '400000000'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: autovacuum_naptime
+  setting: '60'
+  unit: s
+  category: Autovacuum
+  short_desc: Time to sleep between autovacuum runs.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '1'
+  max_val: '2147483'
+  enumvals: null
+  boot_val: '60'
+  reset_val: '60'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: autovacuum_vacuum_cost_delay
+  setting: '2'
+  unit: ms
+  category: Autovacuum
+  short_desc: Vacuum cost delay in milliseconds, for autovacuum.
+  extra_desc: null
+  context: sighup
+  vartype: real
+  source: default
+  min_val: '-1'
+  max_val: '100'
+  enumvals: null
+  boot_val: '2'
+  reset_val: '2'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: autovacuum_vacuum_cost_limit
+  setting: '-1'
+  unit: null
+  category: Autovacuum
+  short_desc: Vacuum cost amount available before napping, for autovacuum.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '-1'
+  max_val: '10000'
+  enumvals: null
+  boot_val: '-1'
+  reset_val: '-1'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: autovacuum_vacuum_insert_scale_factor
+  setting: '0.2'
+  unit: null
+  category: Autovacuum
+  short_desc: Number of tuple inserts prior to vacuum as a fraction of reltuples.
+  extra_desc: null
+  context: sighup
+  vartype: real
+  source: default
+  min_val: '0'
+  max_val: '100'
+  enumvals: null
+  boot_val: '0.2'
+  reset_val: '0.2'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: autovacuum_vacuum_insert_threshold
+  setting: '1000'
+  unit: null
+  category: Autovacuum
+  short_desc: Minimum number of tuple inserts prior to vacuum, or -1 to disable insert
+    vacuums.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '-1'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '1000'
+  reset_val: '1000'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: autovacuum_vacuum_scale_factor
+  setting: '0.2'
+  unit: null
+  category: Autovacuum
+  short_desc: Number of tuple updates or deletes prior to vacuum as a fraction of
+    reltuples.
+  extra_desc: null
+  context: sighup
+  vartype: real
+  source: default
+  min_val: '0'
+  max_val: '100'
+  enumvals: null
+  boot_val: '0.2'
+  reset_val: '0.2'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: autovacuum_vacuum_threshold
+  setting: '50'
+  unit: null
+  category: Autovacuum
+  short_desc: Minimum number of tuple updates or deletes prior to vacuum.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '50'
+  reset_val: '50'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: autovacuum_work_mem
+  setting: '-1'
+  unit: kB
+  category: Resource Usage / Memory
+  short_desc: Sets the maximum memory to be used by each autovacuum worker process.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '-1'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '-1'
+  reset_val: '-1'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: backend_flush_after
+  setting: '0'
+  unit: 8kB
+  category: Resource Usage / Asynchronous Behavior
+  short_desc: Number of pages after which previously performed writes are flushed
+    to disk.
+  extra_desc: null
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '256'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: backslash_quote
+  setting: safe_encoding
+  unit: null
+  category: Version and Platform Compatibility / Previous PostgreSQL Versions
+  short_desc: Sets whether "\'" is allowed in string literals.
+  extra_desc: null
+  context: user
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''safe_encoding'', ''on'', ''off'']'
+  boot_val: safe_encoding
+  reset_val: safe_encoding
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: backtrace_functions
+  setting: ''
+  unit: null
+  category: Developer Options
+  short_desc: Log backtrace for errors in these functions.
+  extra_desc: null
+  context: superuser
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: bgwriter_delay
+  setting: '200'
+  unit: ms
+  category: Resource Usage / Background Writer
+  short_desc: Background writer sleep time between rounds.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '10'
+  max_val: '10000'
+  enumvals: null
+  boot_val: '200'
+  reset_val: '200'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: bgwriter_flush_after
+  setting: '0'
+  unit: 8kB
+  category: Resource Usage / Background Writer
+  short_desc: Number of pages after which previously performed writes are flushed
+    to disk.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '256'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: bgwriter_lru_maxpages
+  setting: '100'
+  unit: null
+  category: Resource Usage / Background Writer
+  short_desc: Background writer maximum number of LRU pages to flush per round.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '1073741823'
+  enumvals: null
+  boot_val: '100'
+  reset_val: '100'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: bgwriter_lru_multiplier
+  setting: '2'
+  unit: null
+  category: Resource Usage / Background Writer
+  short_desc: Multiple of the average buffer usage to free per round.
+  extra_desc: null
+  context: sighup
+  vartype: real
+  source: default
+  min_val: '0'
+  max_val: '10'
+  enumvals: null
+  boot_val: '2'
+  reset_val: '2'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: block_size
+  setting: '8192'
+  unit: null
+  category: Preset Options
+  short_desc: Shows the size of a disk block.
+  extra_desc: null
+  context: internal
+  vartype: integer
+  source: default
+  min_val: '8192'
+  max_val: '8192'
+  enumvals: null
+  boot_val: '8192'
+  reset_val: '8192'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: bonjour
+  setting: 'off'
+  unit: null
+  category: Connections and Authentication / Connection Settings
+  short_desc: Enables advertising the server via Bonjour.
+  extra_desc: null
+  context: postmaster
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: bonjour_name
+  setting: ''
+  unit: null
+  category: Connections and Authentication / Connection Settings
+  short_desc: Sets the Bonjour service name.
+  extra_desc: null
+  context: postmaster
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: bytea_output
+  setting: hex
+  unit: null
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Sets the output format for bytea.
+  extra_desc: null
+  context: user
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''escape'', ''hex'']'
+  boot_val: hex
+  reset_val: hex
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: check_function_bodies
+  setting: 'on'
+  unit: null
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Check routine bodies during CREATE FUNCTION and CREATE PROCEDURE.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: checkpoint_completion_target
+  setting: '0.9'
+  unit: null
+  category: Write-Ahead Log / Checkpoints
+  short_desc: Time spent flushing dirty buffers during checkpoint, as fraction of
+    checkpoint interval.
+  extra_desc: null
+  context: sighup
+  vartype: real
+  source: default
+  min_val: '0'
+  max_val: '1'
+  enumvals: null
+  boot_val: '0.9'
+  reset_val: '0.9'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: checkpoint_flush_after
+  setting: '0'
+  unit: 8kB
+  category: Write-Ahead Log / Checkpoints
+  short_desc: Number of pages after which previously performed writes are flushed
+    to disk.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '256'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: checkpoint_timeout
+  setting: '300'
+  unit: s
+  category: Write-Ahead Log / Checkpoints
+  short_desc: Sets the maximum time between automatic WAL checkpoints.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '30'
+  max_val: '86400'
+  enumvals: null
+  boot_val: '300'
+  reset_val: '300'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: checkpoint_warning
+  setting: '30'
+  unit: s
+  category: Write-Ahead Log / Checkpoints
+  short_desc: Sets the maximum time before warning if checkpoints triggered by WAL
+    volume happen too frequently.
+  extra_desc: Write a message to the server log if checkpoints caused by the filling
+    of WAL segment files happen more frequently than this amount of time. Zero turns
+    off the warning.
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '30'
+  reset_val: '30'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: client_connection_check_interval
+  setting: '0'
+  unit: ms
+  category: Connections and Authentication / TCP Settings
+  short_desc: Sets the time interval between checks for disconnection while running
+    queries.
+  extra_desc: null
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: client_encoding
+  setting: UTF8
+  unit: null
+  category: Client Connection Defaults / Locale and Formatting
+  short_desc: Sets the client's character set encoding.
+  extra_desc: null
+  context: user
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: SQL_ASCII
+  reset_val: UTF8
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: client_min_messages
+  setting: notice
+  unit: null
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Sets the message levels that are sent to the client.
+  extra_desc: Each level includes all the levels that follow it. The later the level,
+    the fewer messages are sent.
+  context: user
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''debug5'', ''debug4'', ''debug3'', ''debug2'', ''debug1'', ''log'',
+    ''notice'', ''warning'', ''error'']'
+  boot_val: notice
+  reset_val: notice
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: cluster_name
+  setting: ''
+  unit: null
+  category: Reporting and Logging / Process Title
+  short_desc: Sets the name of the cluster, which is included in the process title.
+  extra_desc: null
+  context: postmaster
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: commit_delay
+  setting: '0'
+  unit: null
+  category: Write-Ahead Log / Settings
+  short_desc: Sets the delay in microseconds between transaction commit and flushing
+    WAL to disk.
+  extra_desc: null
+  context: superuser
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '100000'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: commit_siblings
+  setting: '5'
+  unit: null
+  category: Write-Ahead Log / Settings
+  short_desc: Sets the minimum number of concurrent open transactions required before
+    performing "commit_delay".
+  extra_desc: null
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '1000'
+  enumvals: null
+  boot_val: '5'
+  reset_val: '5'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: commit_timestamp_buffers
+  setting: '32'
+  unit: 8kB
+  category: Resource Usage / Memory
+  short_desc: Sets the size of the dedicated buffer pool used for the commit timestamp
+    cache.
+  extra_desc: Specify 0 to have this value determined as a fraction of shared_buffers.
+  context: postmaster
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '131072'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '32'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: compute_query_id
+  setting: auto
+  unit: null
+  category: Statistics / Monitoring
+  short_desc: Enables in-core computation of query identifiers.
+  extra_desc: null
+  context: superuser
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''auto'', ''regress'', ''on'', ''off'']'
+  boot_val: auto
+  reset_val: auto
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: config_file
+  setting: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+  unit: null
+  category: File Locations
+  short_desc: Sets the server's main configuration file.
+  extra_desc: null
+  context: postmaster
+  vartype: string
+  source: override
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: null
+  reset_val: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: constraint_exclusion
+  setting: partition
+  unit: null
+  category: Query Tuning / Other Planner Options
+  short_desc: Enables the planner to use constraints to optimize queries.
+  extra_desc: Table scans will be skipped if their constraints guarantee that no rows
+    match the query.
+  context: user
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''partition'', ''on'', ''off'']'
+  boot_val: partition
+  reset_val: partition
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: cpu_index_tuple_cost
+  setting: '0.005'
+  unit: null
+  category: Query Tuning / Planner Cost Constants
+  short_desc: Sets the planner's estimate of the cost of processing each index entry
+    during an index scan.
+  extra_desc: null
+  context: user
+  vartype: real
+  source: default
+  min_val: '0'
+  max_val: '1.79769e+308'
+  enumvals: null
+  boot_val: '0.005'
+  reset_val: '0.005'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: cpu_operator_cost
+  setting: '0.0025'
+  unit: null
+  category: Query Tuning / Planner Cost Constants
+  short_desc: Sets the planner's estimate of the cost of processing each operator
+    or function call.
+  extra_desc: null
+  context: user
+  vartype: real
+  source: default
+  min_val: '0'
+  max_val: '1.79769e+308'
+  enumvals: null
+  boot_val: '0.0025'
+  reset_val: '0.0025'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: cpu_tuple_cost
+  setting: '0.01'
+  unit: null
+  category: Query Tuning / Planner Cost Constants
+  short_desc: Sets the planner's estimate of the cost of processing each tuple (row).
+  extra_desc: null
+  context: user
+  vartype: real
+  source: default
+  min_val: '0'
+  max_val: '1.79769e+308'
+  enumvals: null
+  boot_val: '0.01'
+  reset_val: '0.01'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: createrole_self_grant
+  setting: ''
+  unit: null
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Sets whether a CREATEROLE user automatically grants the role to themselves,
+    and with which options.
+  extra_desc: null
+  context: user
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: cursor_tuple_fraction
+  setting: '0.1'
+  unit: null
+  category: Query Tuning / Other Planner Options
+  short_desc: Sets the planner's estimate of the fraction of a cursor's rows that
+    will be retrieved.
+  extra_desc: null
+  context: user
+  vartype: real
+  source: default
+  min_val: '0'
+  max_val: '1'
+  enumvals: null
+  boot_val: '0.1'
+  reset_val: '0.1'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: data_checksums
+  setting: 'off'
+  unit: null
+  category: Preset Options
+  short_desc: Shows whether data checksums are turned on for this cluster.
+  extra_desc: null
+  context: internal
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: data_directory
+  setting: /Users/aybarsb/projects/pg_catalog/postgres-data
+  unit: null
+  category: File Locations
+  short_desc: Sets the server's data directory.
+  extra_desc: null
+  context: postmaster
+  vartype: string
+  source: override
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: null
+  reset_val: /Users/aybarsb/projects/pg_catalog/postgres-data
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: data_directory_mode
+  setting: '0700'
+  unit: null
+  category: Preset Options
+  short_desc: Shows the mode of the data directory.
+  extra_desc: The parameter value is a numeric mode specification in the form accepted
+    by the chmod and umask system calls. (To use the customary octal format the number
+    must start with a 0 (zero).)
+  context: internal
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '511'
+  enumvals: null
+  boot_val: '448'
+  reset_val: '448'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: data_sync_retry
+  setting: 'off'
+  unit: null
+  category: Error Handling
+  short_desc: Whether to continue running after a failure to sync data files.
+  extra_desc: null
+  context: postmaster
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: DateStyle
+  setting: ISO, MDY
+  unit: null
+  category: Client Connection Defaults / Locale and Formatting
+  short_desc: Sets the display format for date and time values.
+  extra_desc: Also controls interpretation of ambiguous date inputs.
+  context: user
+  vartype: string
+  source: configuration file
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ISO, MDY
+  reset_val: ISO, MDY
+  sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+  sourceline: 736
+  pending_restart: false
+- name: deadlock_timeout
+  setting: '1000'
+  unit: ms
+  category: Lock Management
+  short_desc: Sets the time to wait on a lock before checking for deadlock.
+  extra_desc: null
+  context: superuser
+  vartype: integer
+  source: default
+  min_val: '1'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '1000'
+  reset_val: '1000'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: debug_assertions
+  setting: 'off'
+  unit: null
+  category: Preset Options
+  short_desc: Shows whether the running server has assertion checks enabled.
+  extra_desc: null
+  context: internal
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: debug_discard_caches
+  setting: '0'
+  unit: null
+  category: Developer Options
+  short_desc: Aggressively flush system caches for debugging purposes.
+  extra_desc: null
+  context: superuser
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '0'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: debug_io_direct
+  setting: ''
+  unit: null
+  category: Developer Options
+  short_desc: Use direct I/O for file access.
+  extra_desc: null
+  context: postmaster
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: debug_logical_replication_streaming
+  setting: buffered
+  unit: null
+  category: Developer Options
+  short_desc: Forces immediate streaming or serialization of changes in large transactions.
+  extra_desc: On the publisher, it allows streaming or serializing each change in
+    logical decoding. On the subscriber, it allows serialization of all changes to
+    files and notifies the parallel apply workers to read and apply them at the end
+    of the transaction.
+  context: user
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''buffered'', ''immediate'']'
+  boot_val: buffered
+  reset_val: buffered
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: debug_parallel_query
+  setting: 'off'
+  unit: null
+  category: Developer Options
+  short_desc: Forces the planner's use parallel query nodes.
+  extra_desc: This can be useful for testing the parallel query infrastructure by
+    forcing the planner to generate plans that contain nodes that perform tuple communication
+    between workers and the main process.
+  context: user
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''off'', ''on'', ''regress'']'
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: debug_pretty_print
+  setting: 'on'
+  unit: null
+  category: Reporting and Logging / What to Log
+  short_desc: Indents parse and plan tree displays.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: debug_print_parse
+  setting: 'off'
+  unit: null
+  category: Reporting and Logging / What to Log
+  short_desc: Logs each query's parse tree.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: debug_print_plan
+  setting: 'off'
+  unit: null
+  category: Reporting and Logging / What to Log
+  short_desc: Logs each query's execution plan.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: debug_print_rewritten
+  setting: 'off'
+  unit: null
+  category: Reporting and Logging / What to Log
+  short_desc: Logs each query's rewritten parse tree.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: default_statistics_target
+  setting: '100'
+  unit: null
+  category: Query Tuning / Other Planner Options
+  short_desc: Sets the default statistics target.
+  extra_desc: This applies to table columns that have not had a column-specific target
+    set via ALTER TABLE SET STATISTICS.
+  context: user
+  vartype: integer
+  source: default
+  min_val: '1'
+  max_val: '10000'
+  enumvals: null
+  boot_val: '100'
+  reset_val: '100'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: default_table_access_method
+  setting: heap
+  unit: null
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Sets the default table access method for new tables.
+  extra_desc: null
+  context: user
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: heap
+  reset_val: heap
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: default_tablespace
+  setting: ''
+  unit: null
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Sets the default tablespace to create tables and indexes in.
+  extra_desc: An empty string selects the database's default tablespace.
+  context: user
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: default_text_search_config
+  setting: pg_catalog.simple
+  unit: null
+  category: Client Connection Defaults / Locale and Formatting
+  short_desc: Sets default text search configuration.
+  extra_desc: null
+  context: user
+  vartype: string
+  source: configuration file
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: pg_catalog.simple
+  reset_val: pg_catalog.simple
+  sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+  sourceline: 762
+  pending_restart: false
+- name: default_toast_compression
+  setting: pglz
+  unit: null
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Sets the default compression method for compressible values.
+  extra_desc: null
+  context: user
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''pglz'']'
+  boot_val: pglz
+  reset_val: pglz
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: default_transaction_deferrable
+  setting: 'off'
+  unit: null
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Sets the default deferrable status of new transactions.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: default_transaction_isolation
+  setting: read committed
+  unit: null
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Sets the transaction isolation level of each new transaction.
+  extra_desc: null
+  context: user
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''serializable'', ''repeatable read'', ''read committed'', ''read uncommitted'']'
+  boot_val: read committed
+  reset_val: read committed
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: default_transaction_read_only
+  setting: 'off'
+  unit: null
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Sets the default read-only status of new transactions.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: dynamic_library_path
+  setting: $libdir
+  unit: null
+  category: Client Connection Defaults / Other Defaults
+  short_desc: Sets the path for dynamically loadable modules.
+  extra_desc: If a dynamically loadable module needs to be opened and the specified
+    name does not have a directory component (i.e., the name does not contain a slash),
+    the system will search this path for the specified file.
+  context: superuser
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: $libdir
+  reset_val: $libdir
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: dynamic_shared_memory_type
+  setting: posix
+  unit: null
+  category: Resource Usage / Memory
+  short_desc: Selects the dynamic shared memory implementation used.
+  extra_desc: null
+  context: postmaster
+  vartype: enum
+  source: configuration file
+  min_val: null
+  max_val: null
+  enumvals: '[''posix'', ''sysv'', ''mmap'']'
+  boot_val: posix
+  reset_val: posix
+  sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+  sourceline: 152
+  pending_restart: false
+- name: effective_cache_size
+  setting: '524288'
+  unit: 8kB
+  category: Query Tuning / Planner Cost Constants
+  short_desc: Sets the planner's assumption about the total size of the data caches.
+  extra_desc: That is, the total size of the caches (kernel cache and shared buffers)
+    used for PostgreSQL data files. This is measured in disk pages, which are normally
+    8 kB each.
+  context: user
+  vartype: integer
+  source: default
+  min_val: '1'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '524288'
+  reset_val: '524288'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: effective_io_concurrency
+  setting: '0'
+  unit: null
+  category: Resource Usage / Asynchronous Behavior
+  short_desc: Number of simultaneous requests that can be handled efficiently by the
+    disk subsystem.
+  extra_desc: null
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '1000'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: enable_async_append
+  setting: 'on'
+  unit: null
+  category: Query Tuning / Planner Method Configuration
+  short_desc: Enables the planner's use of async append plans.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: enable_bitmapscan
+  setting: 'on'
+  unit: null
+  category: Query Tuning / Planner Method Configuration
+  short_desc: Enables the planner's use of bitmap-scan plans.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: enable_gathermerge
+  setting: 'on'
+  unit: null
+  category: Query Tuning / Planner Method Configuration
+  short_desc: Enables the planner's use of gather merge plans.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: enable_group_by_reordering
+  setting: 'on'
+  unit: null
+  category: Query Tuning / Planner Method Configuration
+  short_desc: Enables reordering of GROUP BY keys.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: enable_hashagg
+  setting: 'on'
+  unit: null
+  category: Query Tuning / Planner Method Configuration
+  short_desc: Enables the planner's use of hashed aggregation plans.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: enable_hashjoin
+  setting: 'on'
+  unit: null
+  category: Query Tuning / Planner Method Configuration
+  short_desc: Enables the planner's use of hash join plans.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: enable_incremental_sort
+  setting: 'on'
+  unit: null
+  category: Query Tuning / Planner Method Configuration
+  short_desc: Enables the planner's use of incremental sort steps.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: enable_indexonlyscan
+  setting: 'on'
+  unit: null
+  category: Query Tuning / Planner Method Configuration
+  short_desc: Enables the planner's use of index-only-scan plans.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: enable_indexscan
+  setting: 'on'
+  unit: null
+  category: Query Tuning / Planner Method Configuration
+  short_desc: Enables the planner's use of index-scan plans.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: enable_material
+  setting: 'on'
+  unit: null
+  category: Query Tuning / Planner Method Configuration
+  short_desc: Enables the planner's use of materialization.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: enable_memoize
+  setting: 'on'
+  unit: null
+  category: Query Tuning / Planner Method Configuration
+  short_desc: Enables the planner's use of memoization.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: enable_mergejoin
+  setting: 'on'
+  unit: null
+  category: Query Tuning / Planner Method Configuration
+  short_desc: Enables the planner's use of merge join plans.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: enable_nestloop
+  setting: 'on'
+  unit: null
+  category: Query Tuning / Planner Method Configuration
+  short_desc: Enables the planner's use of nested-loop join plans.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: enable_parallel_append
+  setting: 'on'
+  unit: null
+  category: Query Tuning / Planner Method Configuration
+  short_desc: Enables the planner's use of parallel append plans.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: enable_parallel_hash
+  setting: 'on'
+  unit: null
+  category: Query Tuning / Planner Method Configuration
+  short_desc: Enables the planner's use of parallel hash plans.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: enable_partition_pruning
+  setting: 'on'
+  unit: null
+  category: Query Tuning / Planner Method Configuration
+  short_desc: Enables plan-time and execution-time partition pruning.
+  extra_desc: Allows the query planner and executor to compare partition bounds to
+    conditions in the query to determine which partitions must be scanned.
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: enable_partitionwise_aggregate
+  setting: 'off'
+  unit: null
+  category: Query Tuning / Planner Method Configuration
+  short_desc: Enables partitionwise aggregation and grouping.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: enable_partitionwise_join
+  setting: 'off'
+  unit: null
+  category: Query Tuning / Planner Method Configuration
+  short_desc: Enables partitionwise join.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: enable_presorted_aggregate
+  setting: 'on'
+  unit: null
+  category: Query Tuning / Planner Method Configuration
+  short_desc: Enables the planner's ability to produce plans that provide presorted
+    input for ORDER BY / DISTINCT aggregate functions.
+  extra_desc: Allows the query planner to build plans that provide presorted input
+    for aggregate functions with an ORDER BY / DISTINCT clause.  When disabled, implicit
+    sorts are always performed during execution.
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: enable_seqscan
+  setting: 'on'
+  unit: null
+  category: Query Tuning / Planner Method Configuration
+  short_desc: Enables the planner's use of sequential-scan plans.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: enable_sort
+  setting: 'on'
+  unit: null
+  category: Query Tuning / Planner Method Configuration
+  short_desc: Enables the planner's use of explicit sort steps.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: enable_tidscan
+  setting: 'on'
+  unit: null
+  category: Query Tuning / Planner Method Configuration
+  short_desc: Enables the planner's use of TID scan plans.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: escape_string_warning
+  setting: 'on'
+  unit: null
+  category: Version and Platform Compatibility / Previous PostgreSQL Versions
+  short_desc: Warn about backslash escapes in ordinary string literals.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: event_source
+  setting: PostgreSQL
+  unit: null
+  category: Reporting and Logging / Where to Log
+  short_desc: Sets the application name used to identify PostgreSQL messages in the
+    event log.
+  extra_desc: null
+  context: postmaster
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: PostgreSQL
+  reset_val: PostgreSQL
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: event_triggers
+  setting: 'on'
+  unit: null
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Enables event triggers.
+  extra_desc: When enabled, event triggers will fire for all applicable statements.
+  context: superuser
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: exit_on_error
+  setting: 'off'
+  unit: null
+  category: Error Handling
+  short_desc: Terminate session on any error.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: external_pid_file
+  setting: ''
+  unit: null
+  category: File Locations
+  short_desc: Writes the postmaster PID to the specified file.
+  extra_desc: null
+  context: postmaster
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: null
+  reset_val: null
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: extra_float_digits
+  setting: '1'
+  unit: null
+  category: Client Connection Defaults / Locale and Formatting
+  short_desc: Sets the number of digits displayed for floating-point values.
+  extra_desc: This affects real, double precision, and geometric data types. A zero
+    or negative parameter value is added to the standard number of digits (FLT_DIG
+    or DBL_DIG as appropriate). Any value greater than zero selects precise output
+    mode.
+  context: user
+  vartype: integer
+  source: default
+  min_val: '-15'
+  max_val: '3'
+  enumvals: null
+  boot_val: '1'
+  reset_val: '1'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: from_collapse_limit
+  setting: '8'
+  unit: null
+  category: Query Tuning / Other Planner Options
+  short_desc: Sets the FROM-list size beyond which subqueries are not collapsed.
+  extra_desc: The planner will merge subqueries into upper queries if the resulting
+    FROM list would have no more than this many items.
+  context: user
+  vartype: integer
+  source: default
+  min_val: '1'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '8'
+  reset_val: '8'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: fsync
+  setting: 'on'
+  unit: null
+  category: Write-Ahead Log / Settings
+  short_desc: Forces synchronization of updates to disk.
+  extra_desc: The server will use the fsync() system call in several places to make
+    sure that updates are physically written to disk. This ensures that a database
+    cluster will recover to a consistent state after an operating system or hardware
+    crash.
+  context: sighup
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: full_page_writes
+  setting: 'on'
+  unit: null
+  category: Write-Ahead Log / Settings
+  short_desc: Writes full pages to WAL when first modified after a checkpoint.
+  extra_desc: A page write in process during an operating system crash might be only
+    partially written to disk.  During recovery, the row changes stored in WAL are
+    not enough to recover.  This option writes pages when first modified after a checkpoint
+    to WAL so full recovery is possible.
+  context: sighup
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: geqo
+  setting: 'on'
+  unit: null
+  category: Query Tuning / Genetic Query Optimizer
+  short_desc: Enables genetic query optimization.
+  extra_desc: This algorithm attempts to do planning without exhaustive searching.
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: geqo_effort
+  setting: '5'
+  unit: null
+  category: Query Tuning / Genetic Query Optimizer
+  short_desc: 'GEQO: effort is used to set the default for other GEQO parameters.'
+  extra_desc: null
+  context: user
+  vartype: integer
+  source: default
+  min_val: '1'
+  max_val: '10'
+  enumvals: null
+  boot_val: '5'
+  reset_val: '5'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: geqo_generations
+  setting: '0'
+  unit: null
+  category: Query Tuning / Genetic Query Optimizer
+  short_desc: 'GEQO: number of iterations of the algorithm.'
+  extra_desc: Zero selects a suitable default value.
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: geqo_pool_size
+  setting: '0'
+  unit: null
+  category: Query Tuning / Genetic Query Optimizer
+  short_desc: 'GEQO: number of individuals in the population.'
+  extra_desc: Zero selects a suitable default value.
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: geqo_seed
+  setting: '0'
+  unit: null
+  category: Query Tuning / Genetic Query Optimizer
+  short_desc: 'GEQO: seed for random path selection.'
+  extra_desc: null
+  context: user
+  vartype: real
+  source: default
+  min_val: '0'
+  max_val: '1'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: geqo_selection_bias
+  setting: '2'
+  unit: null
+  category: Query Tuning / Genetic Query Optimizer
+  short_desc: 'GEQO: selective pressure within the population.'
+  extra_desc: null
+  context: user
+  vartype: real
+  source: default
+  min_val: '1.5'
+  max_val: '2'
+  enumvals: null
+  boot_val: '2'
+  reset_val: '2'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: geqo_threshold
+  setting: '12'
+  unit: null
+  category: Query Tuning / Genetic Query Optimizer
+  short_desc: Sets the threshold of FROM items beyond which GEQO is used.
+  extra_desc: null
+  context: user
+  vartype: integer
+  source: default
+  min_val: '2'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '12'
+  reset_val: '12'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: gin_fuzzy_search_limit
+  setting: '0'
+  unit: null
+  category: Client Connection Defaults / Other Defaults
+  short_desc: Sets the maximum allowed result for exact search by GIN.
+  extra_desc: null
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: gin_pending_list_limit
+  setting: '4096'
+  unit: kB
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Sets the maximum size of the pending list for GIN index.
+  extra_desc: null
+  context: user
+  vartype: integer
+  source: default
+  min_val: '64'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '4096'
+  reset_val: '4096'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: gss_accept_delegation
+  setting: 'off'
+  unit: null
+  category: Connections and Authentication / Authentication
+  short_desc: Sets whether GSSAPI delegation should be accepted from the client.
+  extra_desc: null
+  context: sighup
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: hash_mem_multiplier
+  setting: '2'
+  unit: null
+  category: Resource Usage / Memory
+  short_desc: Multiple of "work_mem" to use for hash tables.
+  extra_desc: null
+  context: user
+  vartype: real
+  source: default
+  min_val: '1'
+  max_val: '1000'
+  enumvals: null
+  boot_val: '2'
+  reset_val: '2'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: hba_file
+  setting: /Users/aybarsb/projects/pg_catalog/postgres-data/pg_hba.conf
+  unit: null
+  category: File Locations
+  short_desc: Sets the server's "hba" configuration file.
+  extra_desc: null
+  context: postmaster
+  vartype: string
+  source: override
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: null
+  reset_val: /Users/aybarsb/projects/pg_catalog/postgres-data/pg_hba.conf
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: hot_standby
+  setting: 'on'
+  unit: null
+  category: Replication / Standby Servers
+  short_desc: Allows connections and queries during recovery.
+  extra_desc: null
+  context: postmaster
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: hot_standby_feedback
+  setting: 'off'
+  unit: null
+  category: Replication / Standby Servers
+  short_desc: Allows feedback from a hot standby to the primary that will avoid query
+    conflicts.
+  extra_desc: null
+  context: sighup
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: huge_page_size
+  setting: '0'
+  unit: kB
+  category: Resource Usage / Memory
+  short_desc: The size of huge page that should be requested.
+  extra_desc: null
+  context: postmaster
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: huge_pages
+  setting: try
+  unit: null
+  category: Resource Usage / Memory
+  short_desc: Use of huge pages on Linux or Windows.
+  extra_desc: null
+  context: postmaster
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''off'', ''on'', ''try'']'
+  boot_val: try
+  reset_val: try
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: huge_pages_status
+  setting: 'off'
+  unit: null
+  category: Preset Options
+  short_desc: Indicates the status of huge pages.
+  extra_desc: null
+  context: internal
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''off'', ''on'', ''unknown'']'
+  boot_val: unknown
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: icu_validation_level
+  setting: warning
+  unit: null
+  category: Client Connection Defaults / Locale and Formatting
+  short_desc: Log level for reporting invalid ICU locale strings.
+  extra_desc: null
+  context: user
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''disabled'', ''debug5'', ''debug4'', ''debug3'', ''debug2'', ''debug1'',
+    ''log'', ''notice'', ''warning'', ''error'']'
+  boot_val: warning
+  reset_val: warning
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: ident_file
+  setting: /Users/aybarsb/projects/pg_catalog/postgres-data/pg_ident.conf
+  unit: null
+  category: File Locations
+  short_desc: Sets the server's "ident" configuration file.
+  extra_desc: null
+  context: postmaster
+  vartype: string
+  source: override
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: null
+  reset_val: /Users/aybarsb/projects/pg_catalog/postgres-data/pg_ident.conf
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: idle_in_transaction_session_timeout
+  setting: '0'
+  unit: ms
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Sets the maximum allowed idle time between queries, when in a transaction.
+  extra_desc: A value of 0 turns off the timeout.
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: idle_session_timeout
+  setting: '0'
+  unit: ms
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Sets the maximum allowed idle time between queries, when not in a transaction.
+  extra_desc: A value of 0 turns off the timeout.
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: ignore_checksum_failure
+  setting: 'off'
+  unit: null
+  category: Developer Options
+  short_desc: Continues processing after a checksum failure.
+  extra_desc: Detection of a checksum failure normally causes PostgreSQL to report
+    an error, aborting the current transaction. Setting ignore_checksum_failure to
+    true causes the system to ignore the failure (but still report a warning), and
+    continue processing. This behavior could cause crashes or other serious problems.
+    Only has an effect if checksums are enabled.
+  context: superuser
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: ignore_invalid_pages
+  setting: 'off'
+  unit: null
+  category: Developer Options
+  short_desc: Continues recovery after an invalid pages failure.
+  extra_desc: Detection of WAL records having references to invalid pages during recovery
+    causes PostgreSQL to raise a PANIC-level error, aborting the recovery. Setting
+    "ignore_invalid_pages" to true causes the system to ignore invalid page references
+    in WAL records (but still report a warning), and continue recovery. This behavior
+    may cause crashes, data loss, propagate or hide corruption, or other serious problems.
+    Only has an effect during recovery or in standby mode.
+  context: postmaster
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: ignore_system_indexes
+  setting: 'off'
+  unit: null
+  category: Developer Options
+  short_desc: Disables reading from system indexes.
+  extra_desc: It does not prevent updating the indexes, so it is safe to use.  The
+    worst consequence is slowness.
+  context: backend
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: in_hot_standby
+  setting: 'off'
+  unit: null
+  category: Preset Options
+  short_desc: Shows whether hot standby is currently active.
+  extra_desc: null
+  context: internal
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: integer_datetimes
+  setting: 'on'
+  unit: null
+  category: Preset Options
+  short_desc: Shows whether datetimes are integer based.
+  extra_desc: null
+  context: internal
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: IntervalStyle
+  setting: postgres
+  unit: null
+  category: Client Connection Defaults / Locale and Formatting
+  short_desc: Sets the display format for interval values.
+  extra_desc: null
+  context: user
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''postgres'', ''postgres_verbose'', ''sql_standard'', ''iso_8601'']'
+  boot_val: postgres
+  reset_val: postgres
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: io_combine_limit
+  setting: '16'
+  unit: 8kB
+  category: Resource Usage / Asynchronous Behavior
+  short_desc: Limit on the size of data reads and writes.
+  extra_desc: null
+  context: user
+  vartype: integer
+  source: default
+  min_val: '1'
+  max_val: '32'
+  enumvals: null
+  boot_val: '16'
+  reset_val: '16'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: jit
+  setting: 'on'
+  unit: null
+  category: Query Tuning / Other Planner Options
+  short_desc: Allow JIT compilation.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: jit_above_cost
+  setting: '100000'
+  unit: null
+  category: Query Tuning / Planner Cost Constants
+  short_desc: Perform JIT compilation if query is more expensive.
+  extra_desc: -1 disables JIT compilation.
+  context: user
+  vartype: real
+  source: default
+  min_val: '-1'
+  max_val: '1.79769e+308'
+  enumvals: null
+  boot_val: '100000'
+  reset_val: '100000'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: jit_debugging_support
+  setting: 'off'
+  unit: null
+  category: Developer Options
+  short_desc: Register JIT-compiled functions with debugger.
+  extra_desc: null
+  context: superuser-backend
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: jit_dump_bitcode
+  setting: 'off'
+  unit: null
+  category: Developer Options
+  short_desc: Write out LLVM bitcode to facilitate JIT debugging.
+  extra_desc: null
+  context: superuser
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: jit_expressions
+  setting: 'on'
+  unit: null
+  category: Developer Options
+  short_desc: Allow JIT compilation of expressions.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: jit_inline_above_cost
+  setting: '500000'
+  unit: null
+  category: Query Tuning / Planner Cost Constants
+  short_desc: Perform JIT inlining if query is more expensive.
+  extra_desc: -1 disables inlining.
+  context: user
+  vartype: real
+  source: default
+  min_val: '-1'
+  max_val: '1.79769e+308'
+  enumvals: null
+  boot_val: '500000'
+  reset_val: '500000'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: jit_optimize_above_cost
+  setting: '500000'
+  unit: null
+  category: Query Tuning / Planner Cost Constants
+  short_desc: Optimize JIT-compiled functions if query is more expensive.
+  extra_desc: -1 disables optimization.
+  context: user
+  vartype: real
+  source: default
+  min_val: '-1'
+  max_val: '1.79769e+308'
+  enumvals: null
+  boot_val: '500000'
+  reset_val: '500000'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: jit_profiling_support
+  setting: 'off'
+  unit: null
+  category: Developer Options
+  short_desc: Register JIT-compiled functions with perf profiler.
+  extra_desc: null
+  context: superuser-backend
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: jit_provider
+  setting: llvmjit
+  unit: null
+  category: Client Connection Defaults / Shared Library Preloading
+  short_desc: JIT provider to use.
+  extra_desc: null
+  context: postmaster
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: llvmjit
+  reset_val: llvmjit
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: jit_tuple_deforming
+  setting: 'on'
+  unit: null
+  category: Developer Options
+  short_desc: Allow JIT compilation of tuple deforming.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: join_collapse_limit
+  setting: '8'
+  unit: null
+  category: Query Tuning / Other Planner Options
+  short_desc: Sets the FROM-list size beyond which JOIN constructs are not flattened.
+  extra_desc: The planner will flatten explicit JOIN constructs into lists of FROM
+    items whenever a list of no more than this many items would result.
+  context: user
+  vartype: integer
+  source: default
+  min_val: '1'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '8'
+  reset_val: '8'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: krb_caseins_users
+  setting: 'off'
+  unit: null
+  category: Connections and Authentication / Authentication
+  short_desc: Sets whether Kerberos and GSSAPI user names should be treated as case-insensitive.
+  extra_desc: null
+  context: sighup
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: krb_server_keyfile
+  setting: ''
+  unit: null
+  category: Connections and Authentication / Authentication
+  short_desc: Sets the location of the Kerberos server key file.
+  extra_desc: null
+  context: sighup
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: lc_messages
+  setting: C
+  unit: null
+  category: Client Connection Defaults / Locale and Formatting
+  short_desc: Sets the language in which messages are displayed.
+  extra_desc: null
+  context: superuser
+  vartype: string
+  source: configuration file
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: C
+  sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+  sourceline: 752
+  pending_restart: false
+- name: lc_monetary
+  setting: C
+  unit: null
+  category: Client Connection Defaults / Locale and Formatting
+  short_desc: Sets the locale for formatting monetary amounts.
+  extra_desc: null
+  context: user
+  vartype: string
+  source: configuration file
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: C
+  reset_val: C
+  sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+  sourceline: 754
+  pending_restart: false
+- name: lc_numeric
+  setting: C
+  unit: null
+  category: Client Connection Defaults / Locale and Formatting
+  short_desc: Sets the locale for formatting numbers.
+  extra_desc: null
+  context: user
+  vartype: string
+  source: configuration file
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: C
+  reset_val: C
+  sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+  sourceline: 755
+  pending_restart: false
+- name: lc_time
+  setting: C
+  unit: null
+  category: Client Connection Defaults / Locale and Formatting
+  short_desc: Sets the locale for formatting date and time values.
+  extra_desc: null
+  context: user
+  vartype: string
+  source: configuration file
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: C
+  reset_val: C
+  sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+  sourceline: 756
+  pending_restart: false
+- name: listen_addresses
+  setting: localhost
+  unit: null
+  category: Connections and Authentication / Connection Settings
+  short_desc: Sets the host name or IP address(es) to listen to.
+  extra_desc: null
+  context: postmaster
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: localhost
+  reset_val: localhost
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: lo_compat_privileges
+  setting: 'off'
+  unit: null
+  category: Version and Platform Compatibility / Previous PostgreSQL Versions
+  short_desc: Enables backward compatibility mode for privilege checks on large objects.
+  extra_desc: Skips privilege checks when reading or modifying large objects, for
+    compatibility with PostgreSQL releases prior to 9.0.
+  context: superuser
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: local_preload_libraries
+  setting: ''
+  unit: null
+  category: Client Connection Defaults / Shared Library Preloading
+  short_desc: Lists unprivileged shared libraries to preload into each backend.
+  extra_desc: null
+  context: user
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: lock_timeout
+  setting: '0'
+  unit: ms
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Sets the maximum allowed duration of any wait for a lock.
+  extra_desc: A value of 0 turns off the timeout.
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_autovacuum_min_duration
+  setting: '600000'
+  unit: ms
+  category: Reporting and Logging / What to Log
+  short_desc: Sets the minimum execution time above which autovacuum actions will
+    be logged.
+  extra_desc: Zero prints all actions. -1 turns autovacuum logging off.
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '-1'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '600000'
+  reset_val: '600000'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_checkpoints
+  setting: 'on'
+  unit: null
+  category: Reporting and Logging / What to Log
+  short_desc: Logs each checkpoint.
+  extra_desc: null
+  context: sighup
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_connections
+  setting: 'off'
+  unit: null
+  category: Reporting and Logging / What to Log
+  short_desc: Logs each successful connection.
+  extra_desc: null
+  context: superuser-backend
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_destination
+  setting: stderr
+  unit: null
+  category: Reporting and Logging / Where to Log
+  short_desc: Sets the destination for server log output.
+  extra_desc: Valid values are combinations of "stderr", "syslog", "csvlog", "jsonlog",
+    and "eventlog", depending on the platform.
+  context: sighup
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: stderr
+  reset_val: stderr
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_directory
+  setting: log
+  unit: null
+  category: Reporting and Logging / Where to Log
+  short_desc: Sets the destination directory for log files.
+  extra_desc: Can be specified as relative to the data directory or as absolute path.
+  context: sighup
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: log
+  reset_val: log
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_disconnections
+  setting: 'off'
+  unit: null
+  category: Reporting and Logging / What to Log
+  short_desc: Logs end of a session, including duration.
+  extra_desc: null
+  context: superuser-backend
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_duration
+  setting: 'off'
+  unit: null
+  category: Reporting and Logging / What to Log
+  short_desc: Logs the duration of each completed SQL statement.
+  extra_desc: null
+  context: superuser
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_error_verbosity
+  setting: default
+  unit: null
+  category: Reporting and Logging / What to Log
+  short_desc: Sets the verbosity of logged messages.
+  extra_desc: null
+  context: superuser
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''terse'', ''default'', ''verbose'']'
+  boot_val: default
+  reset_val: default
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_executor_stats
+  setting: 'off'
+  unit: null
+  category: Statistics / Monitoring
+  short_desc: Writes executor performance statistics to the server log.
+  extra_desc: null
+  context: superuser
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_file_mode
+  setting: '0600'
+  unit: null
+  category: Reporting and Logging / Where to Log
+  short_desc: Sets the file permissions for log files.
+  extra_desc: The parameter value is expected to be a numeric mode specification in
+    the form accepted by the chmod and umask system calls. (To use the customary octal
+    format the number must start with a 0 (zero).)
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '511'
+  enumvals: null
+  boot_val: '384'
+  reset_val: '384'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_filename
+  setting: postgresql-%Y-%m-%d_%H%M%S.log
+  unit: null
+  category: Reporting and Logging / Where to Log
+  short_desc: Sets the file name pattern for log files.
+  extra_desc: null
+  context: sighup
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: postgresql-%Y-%m-%d_%H%M%S.log
+  reset_val: postgresql-%Y-%m-%d_%H%M%S.log
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_hostname
+  setting: 'off'
+  unit: null
+  category: Reporting and Logging / What to Log
+  short_desc: Logs the host name in the connection logs.
+  extra_desc: By default, connection logs only show the IP address of the connecting
+    host. If you want them to show the host name you can turn this on, but depending
+    on your host name resolution setup it might impose a non-negligible performance
+    penalty.
+  context: sighup
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_line_prefix
+  setting: '%m [%p] '
+  unit: null
+  category: Reporting and Logging / What to Log
+  short_desc: Controls information prefixed to each log line.
+  extra_desc: If blank, no prefix is used.
+  context: sighup
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: '%m [%p] '
+  reset_val: '%m [%p] '
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_lock_waits
+  setting: 'off'
+  unit: null
+  category: Reporting and Logging / What to Log
+  short_desc: Logs long lock waits.
+  extra_desc: null
+  context: superuser
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_min_duration_sample
+  setting: '-1'
+  unit: ms
+  category: Reporting and Logging / When to Log
+  short_desc: Sets the minimum execution time above which a sample of statements will
+    be logged. Sampling is determined by log_statement_sample_rate.
+  extra_desc: Zero logs a sample of all queries. -1 turns this feature off.
+  context: superuser
+  vartype: integer
+  source: default
+  min_val: '-1'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '-1'
+  reset_val: '-1'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_min_duration_statement
+  setting: '-1'
+  unit: ms
+  category: Reporting and Logging / When to Log
+  short_desc: Sets the minimum execution time above which all statements will be logged.
+  extra_desc: Zero prints all queries. -1 turns this feature off.
+  context: superuser
+  vartype: integer
+  source: default
+  min_val: '-1'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '-1'
+  reset_val: '-1'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_min_error_statement
+  setting: error
+  unit: null
+  category: Reporting and Logging / When to Log
+  short_desc: Causes all statements generating error at or above this level to be
+    logged.
+  extra_desc: Each level includes all the levels that follow it. The later the level,
+    the fewer messages are sent.
+  context: superuser
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''debug5'', ''debug4'', ''debug3'', ''debug2'', ''debug1'', ''info'',
+    ''notice'', ''warning'', ''error'', ''log'', ''fatal'', ''panic'']'
+  boot_val: error
+  reset_val: error
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_min_messages
+  setting: warning
+  unit: null
+  category: Reporting and Logging / When to Log
+  short_desc: Sets the message levels that are logged.
+  extra_desc: Each level includes all the levels that follow it. The later the level,
+    the fewer messages are sent.
+  context: superuser
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''debug5'', ''debug4'', ''debug3'', ''debug2'', ''debug1'', ''info'',
+    ''notice'', ''warning'', ''error'', ''log'', ''fatal'', ''panic'']'
+  boot_val: warning
+  reset_val: warning
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_parameter_max_length
+  setting: '-1'
+  unit: B
+  category: Reporting and Logging / What to Log
+  short_desc: Sets the maximum length in bytes of data logged for bind parameter values
+    when logging statements.
+  extra_desc: -1 to print values in full.
+  context: superuser
+  vartype: integer
+  source: default
+  min_val: '-1'
+  max_val: '1073741823'
+  enumvals: null
+  boot_val: '-1'
+  reset_val: '-1'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_parameter_max_length_on_error
+  setting: '0'
+  unit: B
+  category: Reporting and Logging / What to Log
+  short_desc: Sets the maximum length in bytes of data logged for bind parameter values
+    when logging statements, on error.
+  extra_desc: -1 to print values in full.
+  context: user
+  vartype: integer
+  source: default
+  min_val: '-1'
+  max_val: '1073741823'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_parser_stats
+  setting: 'off'
+  unit: null
+  category: Statistics / Monitoring
+  short_desc: Writes parser performance statistics to the server log.
+  extra_desc: null
+  context: superuser
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_planner_stats
+  setting: 'off'
+  unit: null
+  category: Statistics / Monitoring
+  short_desc: Writes planner performance statistics to the server log.
+  extra_desc: null
+  context: superuser
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_recovery_conflict_waits
+  setting: 'off'
+  unit: null
+  category: Reporting and Logging / What to Log
+  short_desc: Logs standby recovery conflict waits.
+  extra_desc: null
+  context: sighup
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_replication_commands
+  setting: 'off'
+  unit: null
+  category: Reporting and Logging / What to Log
+  short_desc: Logs each replication command.
+  extra_desc: null
+  context: superuser
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_rotation_age
+  setting: '1440'
+  unit: min
+  category: Reporting and Logging / Where to Log
+  short_desc: Sets the amount of time to wait before forcing log file rotation.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '35791394'
+  enumvals: null
+  boot_val: '1440'
+  reset_val: '1440'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_rotation_size
+  setting: '10240'
+  unit: kB
+  category: Reporting and Logging / Where to Log
+  short_desc: Sets the maximum size a log file can reach before being rotated.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2097151'
+  enumvals: null
+  boot_val: '10240'
+  reset_val: '10240'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_startup_progress_interval
+  setting: '10000'
+  unit: ms
+  category: Reporting and Logging / When to Log
+  short_desc: Time between progress updates for long-running startup operations.
+  extra_desc: 0 turns this feature off.
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '10000'
+  reset_val: '10000'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_statement
+  setting: none
+  unit: null
+  category: Reporting and Logging / What to Log
+  short_desc: Sets the type of statements logged.
+  extra_desc: null
+  context: superuser
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''none'', ''ddl'', ''mod'', ''all'']'
+  boot_val: none
+  reset_val: none
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_statement_sample_rate
+  setting: '1'
+  unit: null
+  category: Reporting and Logging / When to Log
+  short_desc: Fraction of statements exceeding "log_min_duration_sample" to be logged.
+  extra_desc: Use a value between 0.0 (never log) and 1.0 (always log).
+  context: superuser
+  vartype: real
+  source: default
+  min_val: '0'
+  max_val: '1'
+  enumvals: null
+  boot_val: '1'
+  reset_val: '1'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_statement_stats
+  setting: 'off'
+  unit: null
+  category: Statistics / Monitoring
+  short_desc: Writes cumulative performance statistics to the server log.
+  extra_desc: null
+  context: superuser
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_temp_files
+  setting: '-1'
+  unit: kB
+  category: Reporting and Logging / What to Log
+  short_desc: Log the use of temporary files larger than this number of kilobytes.
+  extra_desc: Zero logs all files. The default is -1 (turning this feature off).
+  context: superuser
+  vartype: integer
+  source: default
+  min_val: '-1'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '-1'
+  reset_val: '-1'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_timezone
+  setting: Europe/Amsterdam
+  unit: null
+  category: Reporting and Logging / What to Log
+  short_desc: Sets the time zone to use in log messages.
+  extra_desc: null
+  context: sighup
+  vartype: string
+  source: configuration file
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: GMT
+  reset_val: Europe/Amsterdam
+  sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+  sourceline: 622
+  pending_restart: false
+- name: log_transaction_sample_rate
+  setting: '0'
+  unit: null
+  category: Reporting and Logging / When to Log
+  short_desc: Sets the fraction of transactions from which to log all statements.
+  extra_desc: Use a value between 0.0 (never log) and 1.0 (log all statements for
+    all transactions).
+  context: superuser
+  vartype: real
+  source: default
+  min_val: '0'
+  max_val: '1'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: log_truncate_on_rotation
+  setting: 'off'
+  unit: null
+  category: Reporting and Logging / Where to Log
+  short_desc: Truncate existing log files of same name during log rotation.
+  extra_desc: null
+  context: sighup
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: logging_collector
+  setting: 'off'
+  unit: null
+  category: Reporting and Logging / Where to Log
+  short_desc: Start a subprocess to capture stderr, csvlog and/or jsonlog into log
+    files.
+  extra_desc: null
+  context: postmaster
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: logical_decoding_work_mem
+  setting: '65536'
+  unit: kB
+  category: Resource Usage / Memory
+  short_desc: Sets the maximum memory to be used for logical decoding.
+  extra_desc: This much memory can be used by each internal reorder buffer before
+    spilling to disk.
+  context: user
+  vartype: integer
+  source: default
+  min_val: '64'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '65536'
+  reset_val: '65536'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: maintenance_io_concurrency
+  setting: '0'
+  unit: null
+  category: Resource Usage / Asynchronous Behavior
+  short_desc: A variant of "effective_io_concurrency" that is used for maintenance
+    work.
+  extra_desc: null
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '1000'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: maintenance_work_mem
+  setting: '65536'
+  unit: kB
+  category: Resource Usage / Memory
+  short_desc: Sets the maximum memory to be used for maintenance operations.
+  extra_desc: This includes operations such as VACUUM and CREATE INDEX.
+  context: user
+  vartype: integer
+  source: default
+  min_val: '64'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '65536'
+  reset_val: '65536'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: max_connections
+  setting: '100'
+  unit: null
+  category: Connections and Authentication / Connection Settings
+  short_desc: Sets the maximum number of concurrent connections.
+  extra_desc: null
+  context: postmaster
+  vartype: integer
+  source: configuration file
+  min_val: '1'
+  max_val: '262143'
+  enumvals: null
+  boot_val: '100'
+  reset_val: '100'
+  sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+  sourceline: 65
+  pending_restart: false
+- name: max_files_per_process
+  setting: '1000'
+  unit: null
+  category: Resource Usage / Kernel Resources
+  short_desc: Sets the maximum number of simultaneously open files for each server
+    process.
+  extra_desc: null
+  context: postmaster
+  vartype: integer
+  source: default
+  min_val: '64'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '1000'
+  reset_val: '1000'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: max_function_args
+  setting: '100'
+  unit: null
+  category: Preset Options
+  short_desc: Shows the maximum number of function arguments.
+  extra_desc: null
+  context: internal
+  vartype: integer
+  source: default
+  min_val: '100'
+  max_val: '100'
+  enumvals: null
+  boot_val: '100'
+  reset_val: '100'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: max_identifier_length
+  setting: '63'
+  unit: null
+  category: Preset Options
+  short_desc: Shows the maximum identifier length.
+  extra_desc: null
+  context: internal
+  vartype: integer
+  source: default
+  min_val: '63'
+  max_val: '63'
+  enumvals: null
+  boot_val: '63'
+  reset_val: '63'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: max_index_keys
+  setting: '32'
+  unit: null
+  category: Preset Options
+  short_desc: Shows the maximum number of index keys.
+  extra_desc: null
+  context: internal
+  vartype: integer
+  source: default
+  min_val: '32'
+  max_val: '32'
+  enumvals: null
+  boot_val: '32'
+  reset_val: '32'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: max_locks_per_transaction
+  setting: '64'
+  unit: null
+  category: Lock Management
+  short_desc: Sets the maximum number of locks per transaction.
+  extra_desc: The shared lock table is sized on the assumption that at most "max_locks_per_transaction"
+    objects per server process or prepared transaction will need to be locked at any
+    one time.
+  context: postmaster
+  vartype: integer
+  source: default
+  min_val: '10'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '64'
+  reset_val: '64'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: max_logical_replication_workers
+  setting: '4'
+  unit: null
+  category: Replication / Subscribers
+  short_desc: Maximum number of logical replication worker processes.
+  extra_desc: null
+  context: postmaster
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '262143'
+  enumvals: null
+  boot_val: '4'
+  reset_val: '4'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: max_notify_queue_pages
+  setting: '1048576'
+  unit: null
+  category: Resource Usage / Disk
+  short_desc: Sets the maximum number of allocated pages for NOTIFY / LISTEN queue.
+  extra_desc: null
+  context: postmaster
+  vartype: integer
+  source: default
+  min_val: '64'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '1048576'
+  reset_val: '1048576'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: max_parallel_apply_workers_per_subscription
+  setting: '2'
+  unit: null
+  category: Replication / Subscribers
+  short_desc: Maximum number of parallel apply workers per subscription.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '1024'
+  enumvals: null
+  boot_val: '2'
+  reset_val: '2'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: max_parallel_maintenance_workers
+  setting: '2'
+  unit: null
+  category: Resource Usage / Asynchronous Behavior
+  short_desc: Sets the maximum number of parallel processes per maintenance operation.
+  extra_desc: null
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '1024'
+  enumvals: null
+  boot_val: '2'
+  reset_val: '2'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: max_parallel_workers
+  setting: '8'
+  unit: null
+  category: Resource Usage / Asynchronous Behavior
+  short_desc: Sets the maximum number of parallel workers that can be active at one
+    time.
+  extra_desc: null
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '1024'
+  enumvals: null
+  boot_val: '8'
+  reset_val: '8'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: max_parallel_workers_per_gather
+  setting: '2'
+  unit: null
+  category: Resource Usage / Asynchronous Behavior
+  short_desc: Sets the maximum number of parallel processes per executor node.
+  extra_desc: null
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '1024'
+  enumvals: null
+  boot_val: '2'
+  reset_val: '2'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: max_pred_locks_per_page
+  setting: '2'
+  unit: null
+  category: Lock Management
+  short_desc: Sets the maximum number of predicate-locked tuples per page.
+  extra_desc: If more than this number of tuples on the same page are locked by a
+    connection, those locks are replaced by a page-level lock.
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '2'
+  reset_val: '2'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: max_pred_locks_per_relation
+  setting: '-2'
+  unit: null
+  category: Lock Management
+  short_desc: Sets the maximum number of predicate-locked pages and tuples per relation.
+  extra_desc: If more than this total of pages and tuples in the same relation are
+    locked by a connection, those locks are replaced by a relation-level lock.
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '-2147483648'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '-2'
+  reset_val: '-2'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: max_pred_locks_per_transaction
+  setting: '64'
+  unit: null
+  category: Lock Management
+  short_desc: Sets the maximum number of predicate locks per transaction.
+  extra_desc: The shared predicate lock table is sized on the assumption that at most
+    "max_pred_locks_per_transaction" objects per server process or prepared transaction
+    will need to be locked at any one time.
+  context: postmaster
+  vartype: integer
+  source: default
+  min_val: '10'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '64'
+  reset_val: '64'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: max_prepared_transactions
+  setting: '0'
+  unit: null
+  category: Resource Usage / Memory
+  short_desc: Sets the maximum number of simultaneously prepared transactions.
+  extra_desc: null
+  context: postmaster
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '262143'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: max_replication_slots
+  setting: '10'
+  unit: null
+  category: Replication / Sending Servers
+  short_desc: Sets the maximum number of simultaneously defined replication slots.
+  extra_desc: null
+  context: postmaster
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '262143'
+  enumvals: null
+  boot_val: '10'
+  reset_val: '10'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: max_slot_wal_keep_size
+  setting: '-1'
+  unit: MB
+  category: Replication / Sending Servers
+  short_desc: Sets the maximum WAL size that can be reserved by replication slots.
+  extra_desc: Replication slots will be marked as failed, and segments released for
+    deletion or recycling, if this much space is occupied by WAL on disk.
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '-1'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '-1'
+  reset_val: '-1'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: max_stack_depth
+  setting: '2048'
+  unit: kB
+  category: Resource Usage / Memory
+  short_desc: Sets the maximum stack depth, in kilobytes.
+  extra_desc: null
+  context: superuser
+  vartype: integer
+  source: default
+  min_val: '100'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '100'
+  reset_val: '2048'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: max_standby_archive_delay
+  setting: '30000'
+  unit: ms
+  category: Replication / Standby Servers
+  short_desc: Sets the maximum delay before canceling queries when a hot standby server
+    is processing archived WAL data.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '-1'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '30000'
+  reset_val: '30000'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: max_standby_streaming_delay
+  setting: '30000'
+  unit: ms
+  category: Replication / Standby Servers
+  short_desc: Sets the maximum delay before canceling queries when a hot standby server
+    is processing streamed WAL data.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '-1'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '30000'
+  reset_val: '30000'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: max_sync_workers_per_subscription
+  setting: '2'
+  unit: null
+  category: Replication / Subscribers
+  short_desc: Maximum number of table synchronization workers per subscription.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '262143'
+  enumvals: null
+  boot_val: '2'
+  reset_val: '2'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: max_wal_senders
+  setting: '10'
+  unit: null
+  category: Replication / Sending Servers
+  short_desc: Sets the maximum number of simultaneously running WAL sender processes.
+  extra_desc: null
+  context: postmaster
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '262143'
+  enumvals: null
+  boot_val: '10'
+  reset_val: '10'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: max_wal_size
+  setting: '1024'
+  unit: MB
+  category: Write-Ahead Log / Checkpoints
+  short_desc: Sets the WAL size that triggers a checkpoint.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: configuration file
+  min_val: '2'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '1024'
+  reset_val: '1024'
+  sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+  sourceline: 257
+  pending_restart: false
+- name: max_worker_processes
+  setting: '8'
+  unit: null
+  category: Resource Usage / Asynchronous Behavior
+  short_desc: Maximum number of concurrent worker processes.
+  extra_desc: null
+  context: postmaster
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '262143'
+  enumvals: null
+  boot_val: '8'
+  reset_val: '8'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: min_dynamic_shared_memory
+  setting: '0'
+  unit: MB
+  category: Resource Usage / Memory
+  short_desc: Amount of dynamic shared memory reserved at startup.
+  extra_desc: null
+  context: postmaster
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: min_parallel_index_scan_size
+  setting: '64'
+  unit: 8kB
+  category: Query Tuning / Planner Cost Constants
+  short_desc: Sets the minimum amount of index data for a parallel scan.
+  extra_desc: If the planner estimates that it will read a number of index pages too
+    small to reach this limit, a parallel scan will not be considered.
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '715827882'
+  enumvals: null
+  boot_val: '64'
+  reset_val: '64'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: min_parallel_table_scan_size
+  setting: '1024'
+  unit: 8kB
+  category: Query Tuning / Planner Cost Constants
+  short_desc: Sets the minimum amount of table data for a parallel scan.
+  extra_desc: If the planner estimates that it will read a number of table pages too
+    small to reach this limit, a parallel scan will not be considered.
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '715827882'
+  enumvals: null
+  boot_val: '1024'
+  reset_val: '1024'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: min_wal_size
+  setting: '80'
+  unit: MB
+  category: Write-Ahead Log / Checkpoints
+  short_desc: Sets the minimum size to shrink the WAL to.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: configuration file
+  min_val: '2'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '80'
+  reset_val: '80'
+  sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+  sourceline: 258
+  pending_restart: false
+- name: multixact_member_buffers
+  setting: '32'
+  unit: 8kB
+  category: Resource Usage / Memory
+  short_desc: Sets the size of the dedicated buffer pool used for the MultiXact member
+    cache.
+  extra_desc: null
+  context: postmaster
+  vartype: integer
+  source: default
+  min_val: '16'
+  max_val: '131072'
+  enumvals: null
+  boot_val: '32'
+  reset_val: '32'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: multixact_offset_buffers
+  setting: '16'
+  unit: 8kB
+  category: Resource Usage / Memory
+  short_desc: Sets the size of the dedicated buffer pool used for the MultiXact offset
+    cache.
+  extra_desc: null
+  context: postmaster
+  vartype: integer
+  source: default
+  min_val: '16'
+  max_val: '131072'
+  enumvals: null
+  boot_val: '16'
+  reset_val: '16'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: notify_buffers
+  setting: '16'
+  unit: 8kB
+  category: Resource Usage / Memory
+  short_desc: Sets the size of the dedicated buffer pool used for the LISTEN/NOTIFY
+    message cache.
+  extra_desc: null
+  context: postmaster
+  vartype: integer
+  source: default
+  min_val: '16'
+  max_val: '131072'
+  enumvals: null
+  boot_val: '16'
+  reset_val: '16'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: parallel_leader_participation
+  setting: 'on'
+  unit: null
+  category: Resource Usage / Asynchronous Behavior
+  short_desc: Controls whether Gather and Gather Merge also run subplans.
+  extra_desc: Should gather nodes also run subplans or just gather tuples?
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: parallel_setup_cost
+  setting: '1000'
+  unit: null
+  category: Query Tuning / Planner Cost Constants
+  short_desc: Sets the planner's estimate of the cost of starting up worker processes
+    for parallel query.
+  extra_desc: null
+  context: user
+  vartype: real
+  source: default
+  min_val: '0'
+  max_val: '1.79769e+308'
+  enumvals: null
+  boot_val: '1000'
+  reset_val: '1000'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: parallel_tuple_cost
+  setting: '0.1'
+  unit: null
+  category: Query Tuning / Planner Cost Constants
+  short_desc: Sets the planner's estimate of the cost of passing each tuple (row)
+    from worker to leader backend.
+  extra_desc: null
+  context: user
+  vartype: real
+  source: default
+  min_val: '0'
+  max_val: '1.79769e+308'
+  enumvals: null
+  boot_val: '0.1'
+  reset_val: '0.1'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: password_encryption
+  setting: scram-sha-256
+  unit: null
+  category: Connections and Authentication / Authentication
+  short_desc: Chooses the algorithm for encrypting passwords.
+  extra_desc: null
+  context: user
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''md5'', ''scram-sha-256'']'
+  boot_val: scram-sha-256
+  reset_val: scram-sha-256
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: plan_cache_mode
+  setting: auto
+  unit: null
+  category: Query Tuning / Other Planner Options
+  short_desc: Controls the planner's selection of custom or generic plan.
+  extra_desc: Prepared statements can have custom and generic plans, and the planner
+    will attempt to choose which is better.  This can be set to override the default
+    behavior.
+  context: user
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''auto'', ''force_generic_plan'', ''force_custom_plan'']'
+  boot_val: auto
+  reset_val: auto
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: port
+  setting: '5434'
+  unit: null
+  category: Connections and Authentication / Connection Settings
+  short_desc: Sets the TCP port the server listens on.
+  extra_desc: null
+  context: postmaster
+  vartype: integer
+  source: command line
+  min_val: '1'
+  max_val: '65535'
+  enumvals: null
+  boot_val: '5432'
+  reset_val: '5434'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: post_auth_delay
+  setting: '0'
+  unit: s
+  category: Developer Options
+  short_desc: Sets the amount of time to wait after authentication on connection startup.
+  extra_desc: This allows attaching a debugger to the process.
+  context: backend
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: pre_auth_delay
+  setting: '0'
+  unit: s
+  category: Developer Options
+  short_desc: Sets the amount of time to wait before authentication on connection
+    startup.
+  extra_desc: This allows attaching a debugger to the process.
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '60'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: primary_conninfo
+  setting: ''
+  unit: null
+  category: Replication / Standby Servers
+  short_desc: Sets the connection string to be used to connect to the sending server.
+  extra_desc: null
+  context: sighup
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: primary_slot_name
+  setting: ''
+  unit: null
+  category: Replication / Standby Servers
+  short_desc: Sets the name of the replication slot to use on the sending server.
+  extra_desc: null
+  context: sighup
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: quote_all_identifiers
+  setting: 'off'
+  unit: null
+  category: Version and Platform Compatibility / Previous PostgreSQL Versions
+  short_desc: When generating SQL fragments, quote all identifiers.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: random_page_cost
+  setting: '4'
+  unit: null
+  category: Query Tuning / Planner Cost Constants
+  short_desc: Sets the planner's estimate of the cost of a nonsequentially fetched
+    disk page.
+  extra_desc: null
+  context: user
+  vartype: real
+  source: default
+  min_val: '0'
+  max_val: '1.79769e+308'
+  enumvals: null
+  boot_val: '4'
+  reset_val: '4'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: recovery_end_command
+  setting: ''
+  unit: null
+  category: Write-Ahead Log / Archive Recovery
+  short_desc: Sets the shell command that will be executed once at the end of recovery.
+  extra_desc: null
+  context: sighup
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: recovery_init_sync_method
+  setting: fsync
+  unit: null
+  category: Error Handling
+  short_desc: Sets the method for synchronizing the data directory before crash recovery.
+  extra_desc: null
+  context: sighup
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''fsync'']'
+  boot_val: fsync
+  reset_val: fsync
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: recovery_min_apply_delay
+  setting: '0'
+  unit: ms
+  category: Replication / Standby Servers
+  short_desc: Sets the minimum delay for applying changes during recovery.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: recovery_prefetch
+  setting: try
+  unit: null
+  category: Write-Ahead Log / Recovery
+  short_desc: Prefetch referenced blocks during recovery.
+  extra_desc: Look ahead in the WAL to find references to uncached data.
+  context: sighup
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''off'', ''on'', ''try'']'
+  boot_val: try
+  reset_val: try
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: recovery_target
+  setting: ''
+  unit: null
+  category: Write-Ahead Log / Recovery Target
+  short_desc: Set to "immediate" to end recovery as soon as a consistent state is
+    reached.
+  extra_desc: null
+  context: postmaster
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: recovery_target_action
+  setting: pause
+  unit: null
+  category: Write-Ahead Log / Recovery Target
+  short_desc: Sets the action to perform upon reaching the recovery target.
+  extra_desc: null
+  context: postmaster
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''pause'', ''promote'', ''shutdown'']'
+  boot_val: pause
+  reset_val: pause
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: recovery_target_inclusive
+  setting: 'on'
+  unit: null
+  category: Write-Ahead Log / Recovery Target
+  short_desc: Sets whether to include or exclude transaction with recovery target.
+  extra_desc: null
+  context: postmaster
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: recovery_target_lsn
+  setting: ''
+  unit: null
+  category: Write-Ahead Log / Recovery Target
+  short_desc: Sets the LSN of the write-ahead log location up to which recovery will
+    proceed.
+  extra_desc: null
+  context: postmaster
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: recovery_target_name
+  setting: ''
+  unit: null
+  category: Write-Ahead Log / Recovery Target
+  short_desc: Sets the named restore point up to which recovery will proceed.
+  extra_desc: null
+  context: postmaster
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: recovery_target_time
+  setting: ''
+  unit: null
+  category: Write-Ahead Log / Recovery Target
+  short_desc: Sets the time stamp up to which recovery will proceed.
+  extra_desc: null
+  context: postmaster
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: recovery_target_timeline
+  setting: latest
+  unit: null
+  category: Write-Ahead Log / Recovery Target
+  short_desc: Specifies the timeline to recover into.
+  extra_desc: null
+  context: postmaster
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: latest
+  reset_val: latest
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: recovery_target_xid
+  setting: ''
+  unit: null
+  category: Write-Ahead Log / Recovery Target
+  short_desc: Sets the transaction ID up to which recovery will proceed.
+  extra_desc: null
+  context: postmaster
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: recursive_worktable_factor
+  setting: '10'
+  unit: null
+  category: Query Tuning / Other Planner Options
+  short_desc: Sets the planner's estimate of the average size of a recursive query's
+    working table.
+  extra_desc: null
+  context: user
+  vartype: real
+  source: default
+  min_val: '0.001'
+  max_val: 1e+06
+  enumvals: null
+  boot_val: '10'
+  reset_val: '10'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: remove_temp_files_after_crash
+  setting: 'on'
+  unit: null
+  category: Developer Options
+  short_desc: Remove temporary files after backend crash.
+  extra_desc: null
+  context: sighup
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: reserved_connections
+  setting: '0'
+  unit: null
+  category: Connections and Authentication / Connection Settings
+  short_desc: Sets the number of connection slots reserved for roles with privileges
+    of pg_use_reserved_connections.
+  extra_desc: null
+  context: postmaster
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '262143'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: restart_after_crash
+  setting: 'on'
+  unit: null
+  category: Error Handling
+  short_desc: Reinitialize server after backend crash.
+  extra_desc: null
+  context: sighup
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: restore_command
+  setting: ''
+  unit: null
+  category: Write-Ahead Log / Archive Recovery
+  short_desc: Sets the shell command that will be called to retrieve an archived WAL
+    file.
+  extra_desc: null
+  context: sighup
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: restrict_nonsystem_relation_kind
+  setting: ''
+  unit: null
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Prohibits access to non-system relations of specified kinds.
+  extra_desc: null
+  context: user
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: row_security
+  setting: 'on'
+  unit: null
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Enable row security.
+  extra_desc: When enabled, row security will be applied to all users.
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: scram_iterations
+  setting: '4096'
+  unit: null
+  category: Connections and Authentication / Authentication
+  short_desc: Sets the iteration count for SCRAM secret generation.
+  extra_desc: null
+  context: user
+  vartype: integer
+  source: default
+  min_val: '1'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '4096'
+  reset_val: '4096'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: search_path
+  setting: '"$user", public'
+  unit: null
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Sets the schema search order for names that are not schema-qualified.
+  extra_desc: null
+  context: user
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: '"$user", public'
+  reset_val: '"$user", public'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: segment_size
+  setting: '131072'
+  unit: 8kB
+  category: Preset Options
+  short_desc: Shows the number of pages per disk file.
+  extra_desc: null
+  context: internal
+  vartype: integer
+  source: default
+  min_val: '131072'
+  max_val: '131072'
+  enumvals: null
+  boot_val: '131072'
+  reset_val: '131072'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: send_abort_for_crash
+  setting: 'off'
+  unit: null
+  category: Developer Options
+  short_desc: Send SIGABRT not SIGQUIT to child processes after backend crash.
+  extra_desc: null
+  context: sighup
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: send_abort_for_kill
+  setting: 'off'
+  unit: null
+  category: Developer Options
+  short_desc: Send SIGABRT not SIGKILL to stuck child processes.
+  extra_desc: null
+  context: sighup
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: seq_page_cost
+  setting: '1'
+  unit: null
+  category: Query Tuning / Planner Cost Constants
+  short_desc: Sets the planner's estimate of the cost of a sequentially fetched disk
+    page.
+  extra_desc: null
+  context: user
+  vartype: real
+  source: default
+  min_val: '0'
+  max_val: '1.79769e+308'
+  enumvals: null
+  boot_val: '1'
+  reset_val: '1'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: serializable_buffers
+  setting: '32'
+  unit: 8kB
+  category: Resource Usage / Memory
+  short_desc: Sets the size of the dedicated buffer pool used for the serializable
+    transaction cache.
+  extra_desc: null
+  context: postmaster
+  vartype: integer
+  source: default
+  min_val: '16'
+  max_val: '131072'
+  enumvals: null
+  boot_val: '32'
+  reset_val: '32'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: server_encoding
+  setting: UTF8
+  unit: null
+  category: Preset Options
+  short_desc: Shows the server (database) character set encoding.
+  extra_desc: null
+  context: internal
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: SQL_ASCII
+  reset_val: UTF8
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: server_version
+  setting: '17.4'
+  unit: null
+  category: Preset Options
+  short_desc: Shows the server version.
+  extra_desc: null
+  context: internal
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: '17.4'
+  reset_val: '17.4'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: server_version_num
+  setting: '170004'
+  unit: null
+  category: Preset Options
+  short_desc: Shows the server version as an integer.
+  extra_desc: null
+  context: internal
+  vartype: integer
+  source: default
+  min_val: '170004'
+  max_val: '170004'
+  enumvals: null
+  boot_val: '170004'
+  reset_val: '170004'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: session_preload_libraries
+  setting: ''
+  unit: null
+  category: Client Connection Defaults / Shared Library Preloading
+  short_desc: Lists shared libraries to preload into each backend.
+  extra_desc: null
+  context: superuser
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: session_replication_role
+  setting: origin
+  unit: null
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Sets the session's behavior for triggers and rewrite rules.
+  extra_desc: null
+  context: superuser
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''origin'', ''replica'', ''local'']'
+  boot_val: origin
+  reset_val: origin
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: shared_buffers
+  setting: '16384'
+  unit: 8kB
+  category: Resource Usage / Memory
+  short_desc: Sets the number of shared memory buffers used by the server.
+  extra_desc: null
+  context: postmaster
+  vartype: integer
+  source: configuration file
+  min_val: '16'
+  max_val: '1073741823'
+  enumvals: null
+  boot_val: '16384'
+  reset_val: '16384'
+  sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+  sourceline: 129
+  pending_restart: false
+- name: shared_memory_size
+  setting: '143'
+  unit: MB
+  category: Preset Options
+  short_desc: Shows the size of the server's main shared memory area (rounded up to
+    the nearest MB).
+  extra_desc: null
+  context: internal
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '143'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: shared_memory_size_in_huge_pages
+  setting: '-1'
+  unit: null
+  category: Preset Options
+  short_desc: Shows the number of huge pages needed for the main shared memory area.
+  extra_desc: -1 indicates that the value could not be determined.
+  context: internal
+  vartype: integer
+  source: default
+  min_val: '-1'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '-1'
+  reset_val: '-1'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: shared_memory_type
+  setting: mmap
+  unit: null
+  category: Resource Usage / Memory
+  short_desc: Selects the shared memory implementation used for the main shared memory
+    region.
+  extra_desc: null
+  context: postmaster
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''sysv'', ''mmap'']'
+  boot_val: mmap
+  reset_val: mmap
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: shared_preload_libraries
+  setting: ''
+  unit: null
+  category: Client Connection Defaults / Shared Library Preloading
+  short_desc: Lists shared libraries to preload into server.
+  extra_desc: null
+  context: postmaster
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: ssl
+  setting: 'off'
+  unit: null
+  category: Connections and Authentication / SSL
+  short_desc: Enables SSL connections.
+  extra_desc: null
+  context: sighup
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: ssl_ca_file
+  setting: ''
+  unit: null
+  category: Connections and Authentication / SSL
+  short_desc: Location of the SSL certificate authority file.
+  extra_desc: null
+  context: sighup
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: ssl_cert_file
+  setting: server.crt
+  unit: null
+  category: Connections and Authentication / SSL
+  short_desc: Location of the SSL server certificate file.
+  extra_desc: null
+  context: sighup
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: server.crt
+  reset_val: server.crt
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: ssl_ciphers
+  setting: HIGH:MEDIUM:+3DES:!aNULL
+  unit: null
+  category: Connections and Authentication / SSL
+  short_desc: Sets the list of allowed SSL ciphers.
+  extra_desc: null
+  context: sighup
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: HIGH:MEDIUM:+3DES:!aNULL
+  reset_val: HIGH:MEDIUM:+3DES:!aNULL
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: ssl_crl_dir
+  setting: ''
+  unit: null
+  category: Connections and Authentication / SSL
+  short_desc: Location of the SSL certificate revocation list directory.
+  extra_desc: null
+  context: sighup
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: ssl_crl_file
+  setting: ''
+  unit: null
+  category: Connections and Authentication / SSL
+  short_desc: Location of the SSL certificate revocation list file.
+  extra_desc: null
+  context: sighup
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: ssl_dh_params_file
+  setting: ''
+  unit: null
+  category: Connections and Authentication / SSL
+  short_desc: Location of the SSL DH parameters file.
+  extra_desc: null
+  context: sighup
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: ssl_ecdh_curve
+  setting: prime256v1
+  unit: null
+  category: Connections and Authentication / SSL
+  short_desc: Sets the curve to use for ECDH.
+  extra_desc: null
+  context: sighup
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: prime256v1
+  reset_val: prime256v1
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: ssl_key_file
+  setting: server.key
+  unit: null
+  category: Connections and Authentication / SSL
+  short_desc: Location of the SSL server private key file.
+  extra_desc: null
+  context: sighup
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: server.key
+  reset_val: server.key
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: ssl_library
+  setting: OpenSSL
+  unit: null
+  category: Preset Options
+  short_desc: Shows the name of the SSL library.
+  extra_desc: null
+  context: internal
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: OpenSSL
+  reset_val: OpenSSL
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: ssl_max_protocol_version
+  setting: ''
+  unit: null
+  category: Connections and Authentication / SSL
+  short_desc: Sets the maximum SSL/TLS protocol version to use.
+  extra_desc: null
+  context: sighup
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '['''', ''TLSv1'', ''TLSv1.1'', ''TLSv1.2'', ''TLSv1.3'']'
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: ssl_min_protocol_version
+  setting: TLSv1.2
+  unit: null
+  category: Connections and Authentication / SSL
+  short_desc: Sets the minimum SSL/TLS protocol version to use.
+  extra_desc: null
+  context: sighup
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''TLSv1'', ''TLSv1.1'', ''TLSv1.2'', ''TLSv1.3'']'
+  boot_val: TLSv1.2
+  reset_val: TLSv1.2
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: ssl_passphrase_command
+  setting: ''
+  unit: null
+  category: Connections and Authentication / SSL
+  short_desc: Command to obtain passphrases for SSL.
+  extra_desc: null
+  context: sighup
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: ssl_passphrase_command_supports_reload
+  setting: 'off'
+  unit: null
+  category: Connections and Authentication / SSL
+  short_desc: Controls whether "ssl_passphrase_command" is called during server reload.
+  extra_desc: null
+  context: sighup
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: ssl_prefer_server_ciphers
+  setting: 'on'
+  unit: null
+  category: Connections and Authentication / SSL
+  short_desc: Give priority to server ciphersuite order.
+  extra_desc: null
+  context: sighup
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: standard_conforming_strings
+  setting: 'on'
+  unit: null
+  category: Version and Platform Compatibility / Previous PostgreSQL Versions
+  short_desc: Causes '...' strings to treat backslashes literally.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: statement_timeout
+  setting: '0'
+  unit: ms
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Sets the maximum allowed duration of any statement.
+  extra_desc: A value of 0 turns off the timeout.
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: stats_fetch_consistency
+  setting: cache
+  unit: null
+  category: Statistics / Cumulative Query and Index Statistics
+  short_desc: Sets the consistency of accesses to statistics data.
+  extra_desc: null
+  context: user
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''none'', ''cache'', ''snapshot'']'
+  boot_val: cache
+  reset_val: cache
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: subtransaction_buffers
+  setting: '32'
+  unit: 8kB
+  category: Resource Usage / Memory
+  short_desc: Sets the size of the dedicated buffer pool used for the subtransaction
+    cache.
+  extra_desc: Specify 0 to have this value determined as a fraction of shared_buffers.
+  context: postmaster
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '131072'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '32'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: summarize_wal
+  setting: 'off'
+  unit: null
+  category: Write-Ahead Log / Summarization
+  short_desc: Starts the WAL summarizer process to enable incremental backup.
+  extra_desc: null
+  context: sighup
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: superuser_reserved_connections
+  setting: '3'
+  unit: null
+  category: Connections and Authentication / Connection Settings
+  short_desc: Sets the number of connection slots reserved for superusers.
+  extra_desc: null
+  context: postmaster
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '262143'
+  enumvals: null
+  boot_val: '3'
+  reset_val: '3'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: sync_replication_slots
+  setting: 'off'
+  unit: null
+  category: Replication / Standby Servers
+  short_desc: Enables a physical standby to synchronize logical failover replication
+    slots from the primary server.
+  extra_desc: null
+  context: sighup
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: synchronize_seqscans
+  setting: 'on'
+  unit: null
+  category: Version and Platform Compatibility / Previous PostgreSQL Versions
+  short_desc: Enable synchronized sequential scans.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: synchronized_standby_slots
+  setting: ''
+  unit: null
+  category: Replication / Primary Server
+  short_desc: Lists streaming replication standby server replication slot names that
+    logical WAL sender processes will wait for.
+  extra_desc: Logical WAL sender processes will send decoded changes to output plugins
+    only after the specified replication slots have confirmed receiving WAL.
+  context: sighup
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: synchronous_commit
+  setting: 'on'
+  unit: null
+  category: Write-Ahead Log / Settings
+  short_desc: Sets the current transaction's synchronization level.
+  extra_desc: null
+  context: user
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''local'', ''remote_write'', ''remote_apply'', ''on'', ''off'']'
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: synchronous_standby_names
+  setting: ''
+  unit: null
+  category: Replication / Primary Server
+  short_desc: Number of synchronous standbys and list of names of potential synchronous
+    ones.
+  extra_desc: null
+  context: sighup
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: syslog_facility
+  setting: local0
+  unit: null
+  category: Reporting and Logging / Where to Log
+  short_desc: Sets the syslog "facility" to be used when syslog enabled.
+  extra_desc: null
+  context: sighup
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''local0'', ''local1'', ''local2'', ''local3'', ''local4'', ''local5'',
+    ''local6'', ''local7'']'
+  boot_val: local0
+  reset_val: local0
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: syslog_ident
+  setting: postgres
+  unit: null
+  category: Reporting and Logging / Where to Log
+  short_desc: Sets the program name used to identify PostgreSQL messages in syslog.
+  extra_desc: null
+  context: sighup
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: postgres
+  reset_val: postgres
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: syslog_sequence_numbers
+  setting: 'on'
+  unit: null
+  category: Reporting and Logging / Where to Log
+  short_desc: Add sequence number to syslog messages to avoid duplicate suppression.
+  extra_desc: null
+  context: sighup
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: syslog_split_messages
+  setting: 'on'
+  unit: null
+  category: Reporting and Logging / Where to Log
+  short_desc: Split messages sent to syslog by lines and to fit into 1024 bytes.
+  extra_desc: null
+  context: sighup
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: tcp_keepalives_count
+  setting: '8'
+  unit: null
+  category: Connections and Authentication / TCP Settings
+  short_desc: Maximum number of TCP keepalive retransmits.
+  extra_desc: Number of consecutive keepalive retransmits that can be lost before
+    a connection is considered dead. A value of 0 uses the system default.
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: tcp_keepalives_idle
+  setting: '7200'
+  unit: s
+  category: Connections and Authentication / TCP Settings
+  short_desc: Time between issuing TCP keepalives.
+  extra_desc: A value of 0 uses the system default.
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: tcp_keepalives_interval
+  setting: '75'
+  unit: s
+  category: Connections and Authentication / TCP Settings
+  short_desc: Time between TCP keepalive retransmits.
+  extra_desc: A value of 0 uses the system default.
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: tcp_user_timeout
+  setting: '0'
+  unit: ms
+  category: Connections and Authentication / TCP Settings
+  short_desc: TCP user timeout.
+  extra_desc: A value of 0 uses the system default.
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: temp_buffers
+  setting: '1024'
+  unit: 8kB
+  category: Resource Usage / Memory
+  short_desc: Sets the maximum number of temporary buffers used by each session.
+  extra_desc: null
+  context: user
+  vartype: integer
+  source: default
+  min_val: '100'
+  max_val: '1073741823'
+  enumvals: null
+  boot_val: '1024'
+  reset_val: '1024'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: temp_file_limit
+  setting: '-1'
+  unit: kB
+  category: Resource Usage / Disk
+  short_desc: Limits the total size of all temporary files used by each process.
+  extra_desc: -1 means no limit.
+  context: superuser
+  vartype: integer
+  source: default
+  min_val: '-1'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '-1'
+  reset_val: '-1'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: temp_tablespaces
+  setting: ''
+  unit: null
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Sets the tablespace(s) to use for temporary tables and sort files.
+  extra_desc: null
+  context: user
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: TimeZone
+  setting: Europe/Amsterdam
+  unit: null
+  category: Client Connection Defaults / Locale and Formatting
+  short_desc: Sets the time zone for displaying and interpreting time stamps.
+  extra_desc: null
+  context: user
+  vartype: string
+  source: configuration file
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: GMT
+  reset_val: Europe/Amsterdam
+  sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+  sourceline: 738
+  pending_restart: false
+- name: timezone_abbreviations
+  setting: Default
+  unit: null
+  category: Client Connection Defaults / Locale and Formatting
+  short_desc: Selects a file of time zone abbreviations.
+  extra_desc: null
+  context: user
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: null
+  reset_val: Default
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: trace_connection_negotiation
+  setting: 'off'
+  unit: null
+  category: Developer Options
+  short_desc: Logs details of pre-authentication connection handshake.
+  extra_desc: null
+  context: postmaster
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: trace_notify
+  setting: 'off'
+  unit: null
+  category: Developer Options
+  short_desc: Generates debugging output for LISTEN and NOTIFY.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: trace_sort
+  setting: 'off'
+  unit: null
+  category: Developer Options
+  short_desc: Emit information about resource usage in sorting.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: track_activities
+  setting: 'on'
+  unit: null
+  category: Statistics / Cumulative Query and Index Statistics
+  short_desc: Collects information about executing commands.
+  extra_desc: Enables the collection of information on the currently executing command
+    of each session, along with the time at which that command began execution.
+  context: superuser
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: track_activity_query_size
+  setting: '1024'
+  unit: B
+  category: Statistics / Cumulative Query and Index Statistics
+  short_desc: Sets the size reserved for pg_stat_activity.query, in bytes.
+  extra_desc: null
+  context: postmaster
+  vartype: integer
+  source: default
+  min_val: '100'
+  max_val: '1048576'
+  enumvals: null
+  boot_val: '1024'
+  reset_val: '1024'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: track_commit_timestamp
+  setting: 'off'
+  unit: null
+  category: Replication / Sending Servers
+  short_desc: Collects transaction commit time.
+  extra_desc: null
+  context: postmaster
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: track_counts
+  setting: 'on'
+  unit: null
+  category: Statistics / Cumulative Query and Index Statistics
+  short_desc: Collects statistics on database activity.
+  extra_desc: null
+  context: superuser
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: track_functions
+  setting: none
+  unit: null
+  category: Statistics / Cumulative Query and Index Statistics
+  short_desc: Collects function-level statistics on database activity.
+  extra_desc: null
+  context: superuser
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''none'', ''pl'', ''all'']'
+  boot_val: none
+  reset_val: none
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: track_io_timing
+  setting: 'off'
+  unit: null
+  category: Statistics / Cumulative Query and Index Statistics
+  short_desc: Collects timing statistics for database I/O activity.
+  extra_desc: null
+  context: superuser
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: track_wal_io_timing
+  setting: 'off'
+  unit: null
+  category: Statistics / Cumulative Query and Index Statistics
+  short_desc: Collects timing statistics for WAL I/O activity.
+  extra_desc: null
+  context: superuser
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: transaction_buffers
+  setting: '32'
+  unit: 8kB
+  category: Resource Usage / Memory
+  short_desc: Sets the size of the dedicated buffer pool used for the transaction
+    status cache.
+  extra_desc: Specify 0 to have this value determined as a fraction of shared_buffers.
+  context: postmaster
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '131072'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '32'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: transaction_deferrable
+  setting: 'off'
+  unit: null
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Whether to defer a read-only serializable transaction until it can be
+    executed with no possible serialization failures.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: override
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: transaction_isolation
+  setting: read committed
+  unit: null
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Sets the current transaction's isolation level.
+  extra_desc: null
+  context: user
+  vartype: enum
+  source: override
+  min_val: null
+  max_val: null
+  enumvals: '[''serializable'', ''repeatable read'', ''read committed'', ''read uncommitted'']'
+  boot_val: read committed
+  reset_val: read committed
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: transaction_read_only
+  setting: 'off'
+  unit: null
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Sets the current transaction's read-only status.
+  extra_desc: null
+  context: user
+  vartype: bool
+  source: override
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: transaction_timeout
+  setting: '0'
+  unit: ms
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Sets the maximum allowed duration of any transaction within a session
+    (not a prepared transaction).
+  extra_desc: A value of 0 turns off the timeout.
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: transform_null_equals
+  setting: 'off'
+  unit: null
+  category: Version and Platform Compatibility / Other Platforms and Clients
+  short_desc: Treats "expr=NULL" as "expr IS NULL".
+  extra_desc: When turned on, expressions of the form expr = NULL (or NULL = expr)
+    are treated as expr IS NULL, that is, they return true if expr evaluates to the
+    null value, and false otherwise. The correct behavior of expr = NULL is to always
+    return null (unknown).
+  context: user
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: unix_socket_directories
+  setting: /tmp
+  unit: null
+  category: Connections and Authentication / Connection Settings
+  short_desc: Sets the directories where Unix-domain sockets will be created.
+  extra_desc: null
+  context: postmaster
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: /tmp
+  reset_val: /tmp
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: unix_socket_group
+  setting: ''
+  unit: null
+  category: Connections and Authentication / Connection Settings
+  short_desc: Sets the owning group of the Unix-domain socket.
+  extra_desc: The owning user of the socket is always the user that starts the server.
+  context: postmaster
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: unix_socket_permissions
+  setting: '0777'
+  unit: null
+  category: Connections and Authentication / Connection Settings
+  short_desc: Sets the access permissions of the Unix-domain socket.
+  extra_desc: Unix-domain sockets use the usual Unix file system permission set. The
+    parameter value is expected to be a numeric mode specification in the form accepted
+    by the chmod and umask system calls. (To use the customary octal format the number
+    must start with a 0 (zero).)
+  context: postmaster
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '511'
+  enumvals: null
+  boot_val: '511'
+  reset_val: '511'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: update_process_title
+  setting: 'on'
+  unit: null
+  category: Reporting and Logging / Process Title
+  short_desc: Updates the process title to show the active SQL command.
+  extra_desc: Enables updating of the process title every time a new SQL command is
+    received by the server.
+  context: superuser
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: vacuum_buffer_usage_limit
+  setting: '2048'
+  unit: kB
+  category: Resource Usage / Memory
+  short_desc: Sets the buffer pool size for VACUUM, ANALYZE, and autovacuum.
+  extra_desc: null
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '16777216'
+  enumvals: null
+  boot_val: '2048'
+  reset_val: '2048'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: vacuum_cost_delay
+  setting: '0'
+  unit: ms
+  category: Resource Usage / Cost-Based Vacuum Delay
+  short_desc: Vacuum cost delay in milliseconds.
+  extra_desc: null
+  context: user
+  vartype: real
+  source: default
+  min_val: '0'
+  max_val: '100'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: vacuum_cost_limit
+  setting: '200'
+  unit: null
+  category: Resource Usage / Cost-Based Vacuum Delay
+  short_desc: Vacuum cost amount available before napping.
+  extra_desc: null
+  context: user
+  vartype: integer
+  source: default
+  min_val: '1'
+  max_val: '10000'
+  enumvals: null
+  boot_val: '200'
+  reset_val: '200'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: vacuum_cost_page_dirty
+  setting: '20'
+  unit: null
+  category: Resource Usage / Cost-Based Vacuum Delay
+  short_desc: Vacuum cost for a page dirtied by vacuum.
+  extra_desc: null
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '10000'
+  enumvals: null
+  boot_val: '20'
+  reset_val: '20'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: vacuum_cost_page_hit
+  setting: '1'
+  unit: null
+  category: Resource Usage / Cost-Based Vacuum Delay
+  short_desc: Vacuum cost for a page found in the buffer cache.
+  extra_desc: null
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '10000'
+  enumvals: null
+  boot_val: '1'
+  reset_val: '1'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: vacuum_cost_page_miss
+  setting: '2'
+  unit: null
+  category: Resource Usage / Cost-Based Vacuum Delay
+  short_desc: Vacuum cost for a page not found in the buffer cache.
+  extra_desc: null
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '10000'
+  enumvals: null
+  boot_val: '2'
+  reset_val: '2'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: vacuum_failsafe_age
+  setting: '1600000000'
+  unit: null
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Age at which VACUUM should trigger failsafe to avoid a wraparound outage.
+  extra_desc: null
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2100000000'
+  enumvals: null
+  boot_val: '1600000000'
+  reset_val: '1600000000'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: vacuum_freeze_min_age
+  setting: '50000000'
+  unit: null
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Minimum age at which VACUUM should freeze a table row.
+  extra_desc: null
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '1000000000'
+  enumvals: null
+  boot_val: '50000000'
+  reset_val: '50000000'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: vacuum_freeze_table_age
+  setting: '150000000'
+  unit: null
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Age at which VACUUM should scan whole table to freeze tuples.
+  extra_desc: null
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2000000000'
+  enumvals: null
+  boot_val: '150000000'
+  reset_val: '150000000'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: vacuum_multixact_failsafe_age
+  setting: '1600000000'
+  unit: null
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Multixact age at which VACUUM should trigger failsafe to avoid a wraparound
+    outage.
+  extra_desc: null
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2100000000'
+  enumvals: null
+  boot_val: '1600000000'
+  reset_val: '1600000000'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: vacuum_multixact_freeze_min_age
+  setting: '5000000'
+  unit: null
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Minimum age at which VACUUM should freeze a MultiXactId in a table row.
+  extra_desc: null
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '1000000000'
+  enumvals: null
+  boot_val: '5000000'
+  reset_val: '5000000'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: vacuum_multixact_freeze_table_age
+  setting: '150000000'
+  unit: null
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Multixact age at which VACUUM should scan whole table to freeze tuples.
+  extra_desc: null
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2000000000'
+  enumvals: null
+  boot_val: '150000000'
+  reset_val: '150000000'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: wal_block_size
+  setting: '8192'
+  unit: null
+  category: Preset Options
+  short_desc: Shows the block size in the write ahead log.
+  extra_desc: null
+  context: internal
+  vartype: integer
+  source: default
+  min_val: '8192'
+  max_val: '8192'
+  enumvals: null
+  boot_val: '8192'
+  reset_val: '8192'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: wal_buffers
+  setting: '512'
+  unit: 8kB
+  category: Write-Ahead Log / Settings
+  short_desc: Sets the number of disk-page buffers in shared memory for WAL.
+  extra_desc: Specify -1 to have this value determined as a fraction of shared_buffers.
+  context: postmaster
+  vartype: integer
+  source: default
+  min_val: '-1'
+  max_val: '262143'
+  enumvals: null
+  boot_val: '-1'
+  reset_val: '512'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: wal_compression
+  setting: 'off'
+  unit: null
+  category: Write-Ahead Log / Settings
+  short_desc: Compresses full-page writes written in WAL file with specified method.
+  extra_desc: null
+  context: superuser
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''pglz'', ''on'', ''off'']'
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: wal_consistency_checking
+  setting: ''
+  unit: null
+  category: Developer Options
+  short_desc: Sets the WAL resource managers for which WAL consistency checks are
+    done.
+  extra_desc: Full-page images will be logged for all data blocks and cross-checked
+    against the results of WAL replay.
+  context: superuser
+  vartype: string
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: ''
+  reset_val: ''
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: wal_decode_buffer_size
+  setting: '524288'
+  unit: B
+  category: Write-Ahead Log / Recovery
+  short_desc: Buffer size for reading ahead in the WAL during recovery.
+  extra_desc: Maximum distance to read ahead in the WAL to prefetch referenced data
+    blocks.
+  context: postmaster
+  vartype: integer
+  source: default
+  min_val: '65536'
+  max_val: '1073741823'
+  enumvals: null
+  boot_val: '524288'
+  reset_val: '524288'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: wal_init_zero
+  setting: 'on'
+  unit: null
+  category: Write-Ahead Log / Settings
+  short_desc: Writes zeroes to new WAL files before first use.
+  extra_desc: null
+  context: superuser
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: wal_keep_size
+  setting: '0'
+  unit: MB
+  category: Replication / Sending Servers
+  short_desc: Sets the size of WAL files held for standby servers.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '0'
+  reset_val: '0'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: wal_level
+  setting: replica
+  unit: null
+  category: Write-Ahead Log / Settings
+  short_desc: Sets the level of information written to the WAL.
+  extra_desc: null
+  context: postmaster
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''minimal'', ''replica'', ''logical'']'
+  boot_val: replica
+  reset_val: replica
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: wal_log_hints
+  setting: 'off'
+  unit: null
+  category: Write-Ahead Log / Settings
+  short_desc: Writes full pages to WAL when first modified after a checkpoint, even
+    for a non-critical modification.
+  extra_desc: null
+  context: postmaster
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: wal_receiver_create_temp_slot
+  setting: 'off'
+  unit: null
+  category: Replication / Standby Servers
+  short_desc: Sets whether a WAL receiver should create a temporary replication slot
+    if no permanent slot is configured.
+  extra_desc: null
+  context: sighup
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: wal_receiver_status_interval
+  setting: '10'
+  unit: s
+  category: Replication / Standby Servers
+  short_desc: Sets the maximum interval between WAL receiver status reports to the
+    sending server.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147483'
+  enumvals: null
+  boot_val: '10'
+  reset_val: '10'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: wal_receiver_timeout
+  setting: '60000'
+  unit: ms
+  category: Replication / Standby Servers
+  short_desc: Sets the maximum wait time to receive data from the sending server.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '60000'
+  reset_val: '60000'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: wal_recycle
+  setting: 'on'
+  unit: null
+  category: Write-Ahead Log / Settings
+  short_desc: Recycles WAL files by renaming them.
+  extra_desc: null
+  context: superuser
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'on'
+  reset_val: 'on'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: wal_retrieve_retry_interval
+  setting: '5000'
+  unit: ms
+  category: Replication / Standby Servers
+  short_desc: Sets the time to wait before retrying to retrieve WAL after a failed
+    attempt.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '1'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '5000'
+  reset_val: '5000'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: wal_segment_size
+  setting: '16777216'
+  unit: B
+  category: Preset Options
+  short_desc: Shows the size of write ahead log segments.
+  extra_desc: null
+  context: internal
+  vartype: integer
+  source: default
+  min_val: '1048576'
+  max_val: '1073741824'
+  enumvals: null
+  boot_val: '16777216'
+  reset_val: '16777216'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: wal_sender_timeout
+  setting: '60000'
+  unit: ms
+  category: Replication / Sending Servers
+  short_desc: Sets the maximum time to wait for WAL replication.
+  extra_desc: null
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '60000'
+  reset_val: '60000'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: wal_skip_threshold
+  setting: '2048'
+  unit: kB
+  category: Write-Ahead Log / Settings
+  short_desc: Minimum size of new file to fsync instead of writing WAL.
+  extra_desc: null
+  context: user
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '2048'
+  reset_val: '2048'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: wal_summary_keep_time
+  setting: '14400'
+  unit: min
+  category: Write-Ahead Log / Summarization
+  short_desc: Time for which WAL summary files should be kept.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '35791394'
+  enumvals: null
+  boot_val: '14400'
+  reset_val: '14400'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: wal_sync_method
+  setting: open_datasync
+  unit: null
+  category: Write-Ahead Log / Settings
+  short_desc: Selects the method used for forcing WAL updates to disk.
+  extra_desc: null
+  context: sighup
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''fsync'', ''fsync_writethrough'', ''fdatasync'', ''open_sync'', ''open_datasync'']'
+  boot_val: open_datasync
+  reset_val: open_datasync
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: wal_writer_delay
+  setting: '200'
+  unit: ms
+  category: Write-Ahead Log / Settings
+  short_desc: Time between WAL flushes performed in the WAL writer.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '1'
+  max_val: '10000'
+  enumvals: null
+  boot_val: '200'
+  reset_val: '200'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: wal_writer_flush_after
+  setting: '128'
+  unit: 8kB
+  category: Write-Ahead Log / Settings
+  short_desc: Amount of WAL written out by WAL writer that triggers a flush.
+  extra_desc: null
+  context: sighup
+  vartype: integer
+  source: default
+  min_val: '0'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '128'
+  reset_val: '128'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: work_mem
+  setting: '4096'
+  unit: kB
+  category: Resource Usage / Memory
+  short_desc: Sets the maximum memory to be used for query workspaces.
+  extra_desc: This much memory can be used by each internal sort operation and hash
+    table before switching to temporary disk files.
+  context: user
+  vartype: integer
+  source: default
+  min_val: '64'
+  max_val: '2147483647'
+  enumvals: null
+  boot_val: '4096'
+  reset_val: '4096'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: xmlbinary
+  setting: base64
+  unit: null
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Sets how binary values are to be encoded in XML.
+  extra_desc: null
+  context: user
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''base64'', ''hex'']'
+  boot_val: base64
+  reset_val: base64
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: xmloption
+  setting: content
+  unit: null
+  category: Client Connection Defaults / Statement Behavior
+  short_desc: Sets whether XML data in implicit parsing and serialization operations
+    is to be considered as documents or content fragments.
+  extra_desc: null
+  context: user
+  vartype: enum
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: '[''content'', ''document'']'
+  boot_val: content
+  reset_val: content
+  sourcefile: null
+  sourceline: null
+  pending_restart: false
+- name: zero_damaged_pages
+  setting: 'off'
+  unit: null
+  category: Developer Options
+  short_desc: Continues processing past damaged page headers.
+  extra_desc: Detection of a damaged page header normally causes PostgreSQL to report
+    an error, aborting the current transaction. Setting "zero_damaged_pages" to true
+    causes the system to instead report a warning, zero out the damaged page, and
+    continue processing. This behavior will destroy data, namely all the rows on the
+    damaged page.
+  context: superuser
+  vartype: bool
+  source: default
+  min_val: null
+  max_val: null
+  enumvals: null
+  boot_val: 'off'
+  reset_val: 'off'
+  sourcefile: null
+  sourceline: null
+  pending_restart: false

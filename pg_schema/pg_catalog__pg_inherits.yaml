@@ -1,0 +1,12 @@
+type: system_catalog
+schema:
+  inhrelid: int
+  inhparent: int
+  inhseqno: int
+  inhdetachpending: boolean
+pg_types:
+  inhrelid: oid
+  inhparent: oid
+  inhseqno: int4
+  inhdetachpending: bool
+rows: []

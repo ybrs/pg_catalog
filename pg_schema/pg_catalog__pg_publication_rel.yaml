@@ -1,0 +1,14 @@
+type: system_catalog
+schema:
+  oid: int
+  prpubid: int
+  prrelid: int
+  prqual: varchar(256)
+  prattrs: varchar(256)
+pg_types:
+  oid: oid
+  prpubid: oid
+  prrelid: oid
+  prqual: pg_node_tree
+  prattrs: int2vector
+rows: []

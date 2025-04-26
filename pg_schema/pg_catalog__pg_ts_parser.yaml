@@ -1,0 +1,28 @@
+type: system_catalog
+schema:
+  oid: int
+  prsname: varchar(64)
+  prsnamespace: int
+  prsstart: varchar(256)
+  prstoken: varchar(256)
+  prsend: varchar(256)
+  prsheadline: varchar(256)
+  prslextype: varchar(256)
+pg_types:
+  oid: oid
+  prsname: name
+  prsnamespace: oid
+  prsstart: regproc
+  prstoken: regproc
+  prsend: regproc
+  prsheadline: regproc
+  prslextype: regproc
+rows:
+- oid: 3722
+  prsname: default
+  prsnamespace: 11
+  prsstart: prsd_start
+  prstoken: prsd_nexttoken
+  prsend: prsd_end
+  prsheadline: prsd_headline
+  prslextype: prsd_lextype

@@ -1,0 +1,112 @@
+type: view
+view_sql: " SELECT current_database()::information_schema.sql_identifier AS udt_catalog,\n\
+  \    nc.nspname::information_schema.sql_identifier AS udt_schema,\n    c.relname::information_schema.sql_identifier\
+  \ AS udt_name,\n    a.attname::information_schema.sql_identifier AS attribute_name,\n\
+  \    a.attnum::information_schema.cardinal_number AS ordinal_position,\n    pg_get_expr(ad.adbin,\
+  \ ad.adrelid)::information_schema.character_data AS attribute_default,\n       \
+  \ CASE\n            WHEN a.attnotnull OR t.typtype = 'd'::\"char\" AND t.typnotnull\
+  \ THEN 'NO'::text\n            ELSE 'YES'::text\n        END::information_schema.yes_or_no\
+  \ AS is_nullable,\n        CASE\n            WHEN t.typelem <> 0::oid AND t.typlen\
+  \ = '-1'::integer THEN 'ARRAY'::text\n            WHEN nt.nspname = 'pg_catalog'::name\
+  \ THEN format_type(a.atttypid, NULL::integer)\n            ELSE 'USER-DEFINED'::text\n\
+  \        END::information_schema.character_data AS data_type,\n    information_schema._pg_char_max_length(information_schema._pg_truetypid(a.*,\
+  \ t.*), information_schema._pg_truetypmod(a.*, t.*))::information_schema.cardinal_number\
+  \ AS character_maximum_length,\n    information_schema._pg_char_octet_length(information_schema._pg_truetypid(a.*,\
+  \ t.*), information_schema._pg_truetypmod(a.*, t.*))::information_schema.cardinal_number\
+  \ AS character_octet_length,\n    NULL::name::information_schema.sql_identifier\
+  \ AS character_set_catalog,\n    NULL::name::information_schema.sql_identifier AS\
+  \ character_set_schema,\n    NULL::name::information_schema.sql_identifier AS character_set_name,\n\
+  \        CASE\n            WHEN nco.nspname IS NOT NULL THEN current_database()\n\
+  \            ELSE NULL::name\n        END::information_schema.sql_identifier AS\
+  \ collation_catalog,\n    nco.nspname::information_schema.sql_identifier AS collation_schema,\n\
+  \    co.collname::information_schema.sql_identifier AS collation_name,\n    information_schema._pg_numeric_precision(information_schema._pg_truetypid(a.*,\
+  \ t.*), information_schema._pg_truetypmod(a.*, t.*))::information_schema.cardinal_number\
+  \ AS numeric_precision,\n    information_schema._pg_numeric_precision_radix(information_schema._pg_truetypid(a.*,\
+  \ t.*), information_schema._pg_truetypmod(a.*, t.*))::information_schema.cardinal_number\
+  \ AS numeric_precision_radix,\n    information_schema._pg_numeric_scale(information_schema._pg_truetypid(a.*,\
+  \ t.*), information_schema._pg_truetypmod(a.*, t.*))::information_schema.cardinal_number\
+  \ AS numeric_scale,\n    information_schema._pg_datetime_precision(information_schema._pg_truetypid(a.*,\
+  \ t.*), information_schema._pg_truetypmod(a.*, t.*))::information_schema.cardinal_number\
+  \ AS datetime_precision,\n    information_schema._pg_interval_type(information_schema._pg_truetypid(a.*,\
+  \ t.*), information_schema._pg_truetypmod(a.*, t.*))::information_schema.character_data\
+  \ AS interval_type,\n    NULL::integer::information_schema.cardinal_number AS interval_precision,\n\
+  \    current_database()::information_schema.sql_identifier AS attribute_udt_catalog,\n\
+  \    nt.nspname::information_schema.sql_identifier AS attribute_udt_schema,\n  \
+  \  t.typname::information_schema.sql_identifier AS attribute_udt_name,\n    NULL::name::information_schema.sql_identifier\
+  \ AS scope_catalog,\n    NULL::name::information_schema.sql_identifier AS scope_schema,\n\
+  \    NULL::name::information_schema.sql_identifier AS scope_name,\n    NULL::integer::information_schema.cardinal_number\
+  \ AS maximum_cardinality,\n    a.attnum::information_schema.sql_identifier AS dtd_identifier,\n\
+  \    'NO'::character varying::information_schema.yes_or_no AS is_derived_reference_attribute\n\
+  \   FROM pg_attribute a\n     LEFT JOIN pg_attrdef ad ON a.attrelid = ad.adrelid\
+  \ AND a.attnum = ad.adnum\n     JOIN (pg_class c\n     JOIN pg_namespace nc ON c.relnamespace\
+  \ = nc.oid) ON a.attrelid = c.oid\n     JOIN (pg_type t\n     JOIN pg_namespace\
+  \ nt ON t.typnamespace = nt.oid) ON a.atttypid = t.oid\n     LEFT JOIN (pg_collation\
+  \ co\n     JOIN pg_namespace nco ON co.collnamespace = nco.oid) ON a.attcollation\
+  \ = co.oid AND (nco.nspname <> 'pg_catalog'::name OR co.collname <> 'default'::name)\n\
+  \  WHERE a.attnum > 0 AND NOT a.attisdropped AND c.relkind = 'c'::\"char\" AND (pg_has_role(c.relowner,\
+  \ 'USAGE'::text) OR has_type_privilege(c.reltype, 'USAGE'::text));"
+schema:
+  udt_catalog: varchar(64)
+  udt_schema: varchar(64)
+  udt_name: varchar(64)
+  attribute_name: varchar(64)
+  ordinal_position: int
+  attribute_default: varchar(256)
+  is_nullable: varchar(256)
+  data_type: varchar(256)
+  character_maximum_length: int
+  character_octet_length: int
+  character_set_catalog: varchar(64)
+  character_set_schema: varchar(64)
+  character_set_name: varchar(64)
+  collation_catalog: varchar(64)
+  collation_schema: varchar(64)
+  collation_name: varchar(64)
+  numeric_precision: int
+  numeric_precision_radix: int
+  numeric_scale: int
+  datetime_precision: int
+  interval_type: varchar(256)
+  interval_precision: int
+  attribute_udt_catalog: varchar(64)
+  attribute_udt_schema: varchar(64)
+  attribute_udt_name: varchar(64)
+  scope_catalog: varchar(64)
+  scope_schema: varchar(64)
+  scope_name: varchar(64)
+  maximum_cardinality: int
+  dtd_identifier: varchar(64)
+  is_derived_reference_attribute: varchar(256)
+pg_types:
+  udt_catalog: name
+  udt_schema: name
+  udt_name: name
+  attribute_name: name
+  ordinal_position: int4
+  attribute_default: varchar
+  is_nullable: varchar
+  data_type: varchar
+  character_maximum_length: int4
+  character_octet_length: int4
+  character_set_catalog: name
+  character_set_schema: name
+  character_set_name: name
+  collation_catalog: name
+  collation_schema: name
+  collation_name: name
+  numeric_precision: int4
+  numeric_precision_radix: int4
+  numeric_scale: int4
+  datetime_precision: int4
+  interval_type: varchar
+  interval_precision: int4
+  attribute_udt_catalog: name
+  attribute_udt_schema: name
+  attribute_udt_name: name
+  scope_catalog: name
+  scope_schema: name
+  scope_name: name
+  maximum_cardinality: int4
+  dtd_identifier: name
+  is_derived_reference_attribute: varchar
+rows: []

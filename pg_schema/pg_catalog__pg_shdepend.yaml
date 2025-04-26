@@ -1,0 +1,18 @@
+type: system_catalog
+schema:
+  dbid: int
+  classid: int
+  objid: int
+  objsubid: int
+  refclassid: int
+  refobjid: int
+  deptype: varchar(256)
+pg_types:
+  dbid: oid
+  classid: oid
+  objid: oid
+  objsubid: int4
+  refclassid: oid
+  refobjid: oid
+  deptype: char
+rows: []

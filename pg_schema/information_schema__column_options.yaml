@@ -1,0 +1,22 @@
+type: view
+view_sql: " SELECT current_database()::information_schema.sql_identifier AS table_catalog,\n\
+  \    nspname::information_schema.sql_identifier AS table_schema,\n    relname::information_schema.sql_identifier\
+  \ AS table_name,\n    attname::information_schema.sql_identifier AS column_name,\n\
+  \    (pg_options_to_table(attfdwoptions)).option_name::information_schema.sql_identifier\
+  \ AS option_name,\n    (pg_options_to_table(attfdwoptions)).option_value::information_schema.character_data\
+  \ AS option_value\n   FROM information_schema._pg_foreign_table_columns c;"
+schema:
+  table_catalog: varchar(64)
+  table_schema: varchar(64)
+  table_name: varchar(64)
+  column_name: varchar(64)
+  option_name: varchar(64)
+  option_value: varchar(256)
+pg_types:
+  table_catalog: name
+  table_schema: name
+  table_name: name
+  column_name: name
+  option_name: name
+  option_value: varchar
+rows: []

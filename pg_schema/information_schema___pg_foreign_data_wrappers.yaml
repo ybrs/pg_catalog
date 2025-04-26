@@ -1,0 +1,25 @@
+type: view
+view_sql: " SELECT w.oid,\n    w.fdwowner,\n    w.fdwoptions,\n    current_database()::information_schema.sql_identifier\
+  \ AS foreign_data_wrapper_catalog,\n    w.fdwname::information_schema.sql_identifier\
+  \ AS foreign_data_wrapper_name,\n    u.rolname::information_schema.sql_identifier\
+  \ AS authorization_identifier,\n    'c'::character varying::information_schema.character_data\
+  \ AS foreign_data_wrapper_language\n   FROM pg_foreign_data_wrapper w,\n    pg_authid\
+  \ u\n  WHERE u.oid = w.fdwowner AND (pg_has_role(w.fdwowner, 'USAGE'::text) OR has_foreign_data_wrapper_privilege(w.oid,\
+  \ 'USAGE'::text));"
+schema:
+  oid: int
+  fdwowner: int
+  fdwoptions: varchar(256)
+  foreign_data_wrapper_catalog: varchar(64)
+  foreign_data_wrapper_name: varchar(64)
+  authorization_identifier: varchar(64)
+  foreign_data_wrapper_language: varchar(256)
+pg_types:
+  oid: oid
+  fdwowner: oid
+  fdwoptions: _text
+  foreign_data_wrapper_catalog: name
+  foreign_data_wrapper_name: name
+  authorization_identifier: name
+  foreign_data_wrapper_language: varchar
+rows: []

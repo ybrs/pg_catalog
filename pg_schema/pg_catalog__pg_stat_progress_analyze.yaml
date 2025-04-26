@@ -1,0 +1,41 @@
+type: view
+view_sql: " SELECT s.pid,\n    s.datid,\n    d.datname,\n    s.relid,\n        CASE\
+  \ s.param1\n            WHEN 0 THEN 'initializing'::text\n            WHEN 1 THEN\
+  \ 'acquiring sample rows'::text\n            WHEN 2 THEN 'acquiring inherited sample\
+  \ rows'::text\n            WHEN 3 THEN 'computing statistics'::text\n          \
+  \  WHEN 4 THEN 'computing extended statistics'::text\n            WHEN 5 THEN 'finalizing\
+  \ analyze'::text\n            ELSE NULL::text\n        END AS phase,\n    s.param2\
+  \ AS sample_blks_total,\n    s.param3 AS sample_blks_scanned,\n    s.param4 AS ext_stats_total,\n\
+  \    s.param5 AS ext_stats_computed,\n    s.param6 AS child_tables_total,\n    s.param7\
+  \ AS child_tables_done,\n    s.param8::oid AS current_child_table_relid\n   FROM\
+  \ pg_stat_get_progress_info('ANALYZE'::text) s(pid, datid, relid, param1, param2,\
+  \ param3, param4, param5, param6, param7, param8, param9, param10, param11, param12,\
+  \ param13, param14, param15, param16, param17, param18, param19, param20)\n    \
+  \ LEFT JOIN pg_database d ON s.datid = d.oid;"
+schema:
+  pid: int
+  datid: int
+  datname: varchar(64)
+  relid: int
+  phase: varchar(256)
+  sample_blks_total: bigint
+  sample_blks_scanned: bigint
+  ext_stats_total: bigint
+  ext_stats_computed: bigint
+  child_tables_total: bigint
+  child_tables_done: bigint
+  current_child_table_relid: int
+pg_types:
+  pid: int4
+  datid: oid
+  datname: name
+  relid: oid
+  phase: text
+  sample_blks_total: int8
+  sample_blks_scanned: int8
+  ext_stats_total: int8
+  ext_stats_computed: int8
+  child_tables_total: int8
+  child_tables_done: int8
+  current_child_table_relid: oid
+rows: []

@@ -1,0 +1,27 @@
+type: view
+view_sql: " SELECT pid,\n    gss_auth AS gss_authenticated,\n    gss_princ AS principal,\n\
+  \    gss_enc AS encrypted,\n    gss_delegation AS credentials_delegated\n   FROM\
+  \ pg_stat_get_activity(NULL::integer) s(datid, pid, usesysid, application_name,\
+  \ state, query, wait_event_type, wait_event, xact_start, query_start, backend_start,\
+  \ state_change, client_addr, client_hostname, client_port, backend_xid, backend_xmin,\
+  \ backend_type, ssl, sslversion, sslcipher, sslbits, ssl_client_dn, ssl_client_serial,\
+  \ ssl_issuer_dn, gss_auth, gss_princ, gss_enc, gss_delegation, leader_pid, query_id)\n\
+  \  WHERE client_port IS NOT NULL;"
+schema:
+  pid: int
+  gss_authenticated: boolean
+  principal: varchar(256)
+  encrypted: boolean
+  credentials_delegated: boolean
+pg_types:
+  pid: int4
+  gss_authenticated: bool
+  principal: text
+  encrypted: bool
+  credentials_delegated: bool
+rows:
+- pid: 74361
+  gss_authenticated: false
+  principal: null
+  encrypted: false
+  credentials_delegated: false

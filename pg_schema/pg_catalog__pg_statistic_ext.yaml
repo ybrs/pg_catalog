@@ -1,0 +1,22 @@
+type: system_catalog
+schema:
+  oid: int
+  stxrelid: int
+  stxname: varchar(64)
+  stxnamespace: int
+  stxowner: int
+  stxkeys: varchar(256)
+  stxstattarget: int
+  stxkind: varchar(256)
+  stxexprs: varchar(256)
+pg_types:
+  oid: oid
+  stxrelid: oid
+  stxname: name
+  stxnamespace: oid
+  stxowner: oid
+  stxkeys: int2vector
+  stxstattarget: int2
+  stxkind: _char
+  stxexprs: pg_node_tree
+rows: []

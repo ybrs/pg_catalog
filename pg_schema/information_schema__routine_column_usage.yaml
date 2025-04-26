@@ -1,0 +1,39 @@
+type: view
+view_sql: " SELECT DISTINCT current_database()::information_schema.sql_identifier\
+  \ AS specific_catalog,\n    np.nspname::information_schema.sql_identifier AS specific_schema,\n\
+  \    nameconcatoid(p.proname, p.oid)::information_schema.sql_identifier AS specific_name,\n\
+  \    current_database()::information_schema.sql_identifier AS routine_catalog,\n\
+  \    np.nspname::information_schema.sql_identifier AS routine_schema,\n    p.proname::information_schema.sql_identifier\
+  \ AS routine_name,\n    current_database()::information_schema.sql_identifier AS\
+  \ table_catalog,\n    nt.nspname::information_schema.sql_identifier AS table_schema,\n\
+  \    t.relname::information_schema.sql_identifier AS table_name,\n    a.attname::information_schema.sql_identifier\
+  \ AS column_name\n   FROM pg_namespace np,\n    pg_proc p,\n    pg_depend d,\n \
+  \   pg_class t,\n    pg_namespace nt,\n    pg_attribute a\n  WHERE np.oid = p.pronamespace\
+  \ AND p.oid = d.objid AND d.classid = 'pg_proc'::regclass::oid AND d.refobjid =\
+  \ t.oid AND d.refclassid = 'pg_class'::regclass::oid AND t.relnamespace = nt.oid\
+  \ AND (t.relkind = ANY (ARRAY['r'::\"char\", 'v'::\"char\", 'f'::\"char\", 'p'::\"\
+  char\"])) AND t.oid = a.attrelid AND d.refobjsubid = a.attnum AND pg_has_role(t.relowner,\
+  \ 'USAGE'::text);"
+schema:
+  specific_catalog: varchar(64)
+  specific_schema: varchar(64)
+  specific_name: varchar(64)
+  routine_catalog: varchar(64)
+  routine_schema: varchar(64)
+  routine_name: varchar(64)
+  table_catalog: varchar(64)
+  table_schema: varchar(64)
+  table_name: varchar(64)
+  column_name: varchar(64)
+pg_types:
+  specific_catalog: name
+  specific_schema: name
+  specific_name: name
+  routine_catalog: name
+  routine_schema: name
+  routine_name: name
+  table_catalog: name
+  table_schema: name
+  table_name: name
+  column_name: name
+rows: []

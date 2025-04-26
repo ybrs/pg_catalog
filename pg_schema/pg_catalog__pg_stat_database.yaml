@@ -1,0 +1,192 @@
+type: view
+view_sql: " SELECT oid AS datid,\n    datname,\n        CASE\n            WHEN oid\
+  \ = 0::oid THEN 0\n            ELSE pg_stat_get_db_numbackends(oid)\n        END\
+  \ AS numbackends,\n    pg_stat_get_db_xact_commit(oid) AS xact_commit,\n    pg_stat_get_db_xact_rollback(oid)\
+  \ AS xact_rollback,\n    pg_stat_get_db_blocks_fetched(oid) - pg_stat_get_db_blocks_hit(oid)\
+  \ AS blks_read,\n    pg_stat_get_db_blocks_hit(oid) AS blks_hit,\n    pg_stat_get_db_tuples_returned(oid)\
+  \ AS tup_returned,\n    pg_stat_get_db_tuples_fetched(oid) AS tup_fetched,\n   \
+  \ pg_stat_get_db_tuples_inserted(oid) AS tup_inserted,\n    pg_stat_get_db_tuples_updated(oid)\
+  \ AS tup_updated,\n    pg_stat_get_db_tuples_deleted(oid) AS tup_deleted,\n    pg_stat_get_db_conflict_all(oid)\
+  \ AS conflicts,\n    pg_stat_get_db_temp_files(oid) AS temp_files,\n    pg_stat_get_db_temp_bytes(oid)\
+  \ AS temp_bytes,\n    pg_stat_get_db_deadlocks(oid) AS deadlocks,\n    pg_stat_get_db_checksum_failures(oid)\
+  \ AS checksum_failures,\n    pg_stat_get_db_checksum_last_failure(oid) AS checksum_last_failure,\n\
+  \    pg_stat_get_db_blk_read_time(oid) AS blk_read_time,\n    pg_stat_get_db_blk_write_time(oid)\
+  \ AS blk_write_time,\n    pg_stat_get_db_session_time(oid) AS session_time,\n  \
+  \  pg_stat_get_db_active_time(oid) AS active_time,\n    pg_stat_get_db_idle_in_transaction_time(oid)\
+  \ AS idle_in_transaction_time,\n    pg_stat_get_db_sessions(oid) AS sessions,\n\
+  \    pg_stat_get_db_sessions_abandoned(oid) AS sessions_abandoned,\n    pg_stat_get_db_sessions_fatal(oid)\
+  \ AS sessions_fatal,\n    pg_stat_get_db_sessions_killed(oid) AS sessions_killed,\n\
+  \    pg_stat_get_db_stat_reset_time(oid) AS stats_reset\n   FROM ( SELECT 0 AS oid,\n\
+  \            NULL::name AS datname\n        UNION ALL\n         SELECT pg_database.oid,\n\
+  \            pg_database.datname\n           FROM pg_database) d;"
+schema:
+  datid: int
+  datname: varchar(64)
+  numbackends: int
+  xact_commit: bigint
+  xact_rollback: bigint
+  blks_read: bigint
+  blks_hit: bigint
+  tup_returned: bigint
+  tup_fetched: bigint
+  tup_inserted: bigint
+  tup_updated: bigint
+  tup_deleted: bigint
+  conflicts: bigint
+  temp_files: bigint
+  temp_bytes: bigint
+  deadlocks: bigint
+  checksum_failures: bigint
+  checksum_last_failure: varchar(256)
+  blk_read_time: float
+  blk_write_time: float
+  session_time: float
+  active_time: float
+  idle_in_transaction_time: float
+  sessions: bigint
+  sessions_abandoned: bigint
+  sessions_fatal: bigint
+  sessions_killed: bigint
+  stats_reset: varchar(256)
+pg_types:
+  datid: oid
+  datname: name
+  numbackends: int4
+  xact_commit: int8
+  xact_rollback: int8
+  blks_read: int8
+  blks_hit: int8
+  tup_returned: int8
+  tup_fetched: int8
+  tup_inserted: int8
+  tup_updated: int8
+  tup_deleted: int8
+  conflicts: int8
+  temp_files: int8
+  temp_bytes: int8
+  deadlocks: int8
+  checksum_failures: int8
+  checksum_last_failure: timestamptz
+  blk_read_time: float8
+  blk_write_time: float8
+  session_time: float8
+  active_time: float8
+  idle_in_transaction_time: float8
+  sessions: int8
+  sessions_abandoned: int8
+  sessions_fatal: int8
+  sessions_killed: int8
+  stats_reset: timestamptz
+rows:
+- datid: 0
+  datname: null
+  numbackends: 0
+  xact_commit: 0
+  xact_rollback: 0
+  blks_read: 78
+  blks_hit: 126013
+  tup_returned: 98581
+  tup_fetched: 54676
+  tup_inserted: 27
+  tup_updated: 4
+  tup_deleted: 0
+  conflicts: 0
+  temp_files: 0
+  temp_bytes: 0
+  deadlocks: 0
+  checksum_failures: null
+  checksum_last_failure: null
+  blk_read_time: 0.0
+  blk_write_time: 0.0
+  session_time: 0.0
+  active_time: 0.0
+  idle_in_transaction_time: 0.0
+  sessions: 0
+  sessions_abandoned: 0
+  sessions_fatal: 0
+  sessions_killed: 0
+  stats_reset: null
+- datid: 5
+  datname: postgres
+  numbackends: 1
+  xact_commit: 97
+  xact_rollback: 5
+  blks_read: 742
+  blks_hit: 512989
+  tup_returned: 1181436
+  tup_fetched: 320107
+  tup_inserted: 0
+  tup_updated: 0
+  tup_deleted: 0
+  conflicts: 0
+  temp_files: 0
+  temp_bytes: 0
+  deadlocks: 0
+  checksum_failures: null
+  checksum_last_failure: null
+  blk_read_time: 0.0
+  blk_write_time: 0.0
+  session_time: 125203.924
+  active_time: 1583.534
+  idle_in_transaction_time: 35648.531
+  sessions: 6
+  sessions_abandoned: 0
+  sessions_fatal: 0
+  sessions_killed: 1
+  stats_reset: null
+- datid: 1
+  datname: template1
+  numbackends: 0
+  xact_commit: 1010
+  xact_rollback: 0
+  blks_read: 804
+  blks_hit: 85407
+  tup_returned: 115709
+  tup_fetched: 28044
+  tup_inserted: 16342
+  tup_updated: 765
+  tup_deleted: 34
+  conflicts: 0
+  temp_files: 0
+  temp_bytes: 0
+  deadlocks: 0
+  checksum_failures: null
+  checksum_last_failure: null
+  blk_read_time: 0.0
+  blk_write_time: 0.0
+  session_time: 0.0
+  active_time: 0.0
+  idle_in_transaction_time: 0.0
+  sessions: 0
+  sessions_abandoned: 0
+  sessions_fatal: 0
+  sessions_killed: 0
+  stats_reset: null
+- datid: 4
+  datname: template0
+  numbackends: 0
+  xact_commit: 0
+  xact_rollback: 0
+  blks_read: 0
+  blks_hit: 0
+  tup_returned: 0
+  tup_fetched: 0
+  tup_inserted: 0
+  tup_updated: 0
+  tup_deleted: 0
+  conflicts: 0
+  temp_files: 0
+  temp_bytes: 0
+  deadlocks: 0
+  checksum_failures: null
+  checksum_last_failure: null
+  blk_read_time: 0.0
+  blk_write_time: 0.0
+  session_time: 0.0
+  active_time: 0.0
+  idle_in_transaction_time: 0.0
+  sessions: 0
+  sessions_abandoned: 0
+  sessions_fatal: 0
+  sessions_killed: 0
+  stats_reset: null

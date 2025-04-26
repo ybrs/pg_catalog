@@ -1,0 +1,41 @@
+type: view
+view_sql: " SELECT pid,\n    status,\n    receive_start_lsn,\n    receive_start_tli,\n\
+  \    written_lsn,\n    flushed_lsn,\n    received_tli,\n    last_msg_send_time,\n\
+  \    last_msg_receipt_time,\n    latest_end_lsn,\n    latest_end_time,\n    slot_name,\n\
+  \    sender_host,\n    sender_port,\n    conninfo\n   FROM pg_stat_get_wal_receiver()\
+  \ s(pid, status, receive_start_lsn, receive_start_tli, written_lsn, flushed_lsn,\
+  \ received_tli, last_msg_send_time, last_msg_receipt_time, latest_end_lsn, latest_end_time,\
+  \ slot_name, sender_host, sender_port, conninfo)\n  WHERE pid IS NOT NULL;"
+schema:
+  pid: int
+  status: varchar(256)
+  receive_start_lsn: varchar(256)
+  receive_start_tli: int
+  written_lsn: varchar(256)
+  flushed_lsn: varchar(256)
+  received_tli: int
+  last_msg_send_time: varchar(256)
+  last_msg_receipt_time: varchar(256)
+  latest_end_lsn: varchar(256)
+  latest_end_time: varchar(256)
+  slot_name: varchar(256)
+  sender_host: varchar(256)
+  sender_port: int
+  conninfo: varchar(256)
+pg_types:
+  pid: int4
+  status: text
+  receive_start_lsn: pg_lsn
+  receive_start_tli: int4
+  written_lsn: pg_lsn
+  flushed_lsn: pg_lsn
+  received_tli: int4
+  last_msg_send_time: timestamptz
+  last_msg_receipt_time: timestamptz
+  latest_end_lsn: pg_lsn
+  latest_end_time: timestamptz
+  slot_name: text
+  sender_host: text
+  sender_port: int4
+  conninfo: text
+rows: []
