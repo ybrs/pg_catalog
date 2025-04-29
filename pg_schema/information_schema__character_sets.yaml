@@ -1,41 +1,44 @@
-type: view
-view_sql: " SELECT NULL::name::information_schema.sql_identifier AS character_set_catalog,\n\
-  \    NULL::name::information_schema.sql_identifier AS character_set_schema,\n  \
-  \  getdatabaseencoding()::information_schema.sql_identifier AS character_set_name,\n\
-  \        CASE\n            WHEN getdatabaseencoding() = 'UTF8'::name THEN 'UCS'::name\n\
-  \            ELSE getdatabaseencoding()\n        END::information_schema.sql_identifier\
-  \ AS character_repertoire,\n    getdatabaseencoding()::information_schema.sql_identifier\
-  \ AS form_of_use,\n    current_database()::information_schema.sql_identifier AS\
-  \ default_collate_catalog,\n    nc.nspname::information_schema.sql_identifier AS\
-  \ default_collate_schema,\n    c.collname::information_schema.sql_identifier AS\
-  \ default_collate_name\n   FROM pg_database d\n     LEFT JOIN (pg_collation c\n\
-  \     JOIN pg_namespace nc ON c.collnamespace = nc.oid) ON d.datcollate = c.collcollate\
-  \ AND d.datctype = c.collctype\n  WHERE d.datname = current_database()\n  ORDER\
-  \ BY (char_length(c.collname::text)) DESC, c.collname\n LIMIT 1;"
-schema:
-  character_set_catalog: varchar(64)
-  character_set_schema: varchar(64)
-  character_set_name: varchar(64)
-  character_repertoire: varchar(64)
-  form_of_use: varchar(64)
-  default_collate_catalog: varchar(64)
-  default_collate_schema: varchar(64)
-  default_collate_name: varchar(64)
-pg_types:
-  character_set_catalog: name
-  character_set_schema: name
-  character_set_name: name
-  character_repertoire: name
-  form_of_use: name
-  default_collate_catalog: name
-  default_collate_schema: name
-  default_collate_name: name
-rows:
-- character_set_catalog: null
-  character_set_schema: null
-  character_set_name: UTF8
-  character_repertoire: UCS
-  form_of_use: UTF8
-  default_collate_catalog: postgres
-  default_collate_schema: null
-  default_collate_name: null
+public:
+  information_schema:
+    character_sets:
+      type: view
+      view_sql: " SELECT NULL::name::information_schema.sql_identifier AS character_set_catalog,\n\
+        \    NULL::name::information_schema.sql_identifier AS character_set_schema,\n\
+        \    getdatabaseencoding()::information_schema.sql_identifier AS character_set_name,\n\
+        \        CASE\n            WHEN getdatabaseencoding() = 'UTF8'::name THEN\
+        \ 'UCS'::name\n            ELSE getdatabaseencoding()\n        END::information_schema.sql_identifier\
+        \ AS character_repertoire,\n    getdatabaseencoding()::information_schema.sql_identifier\
+        \ AS form_of_use,\n    current_database()::information_schema.sql_identifier\
+        \ AS default_collate_catalog,\n    nc.nspname::information_schema.sql_identifier\
+        \ AS default_collate_schema,\n    c.collname::information_schema.sql_identifier\
+        \ AS default_collate_name\n   FROM pg_database d\n     LEFT JOIN (pg_collation\
+        \ c\n     JOIN pg_namespace nc ON c.collnamespace = nc.oid) ON d.datcollate\
+        \ = c.collcollate AND d.datctype = c.collctype\n  WHERE d.datname = current_database()\n\
+        \  ORDER BY (char_length(c.collname::text)) DESC, c.collname\n LIMIT 1;"
+      schema:
+        character_set_catalog: varchar(64)
+        character_set_schema: varchar(64)
+        character_set_name: varchar(64)
+        character_repertoire: varchar(64)
+        form_of_use: varchar(64)
+        default_collate_catalog: varchar(64)
+        default_collate_schema: varchar(64)
+        default_collate_name: varchar(64)
+      pg_types:
+        character_set_catalog: name
+        character_set_schema: name
+        character_set_name: name
+        character_repertoire: name
+        form_of_use: name
+        default_collate_catalog: name
+        default_collate_schema: name
+        default_collate_name: name
+      rows:
+      - character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+        character_repertoire: UCS
+        form_of_use: UTF8
+        default_collate_catalog: postgres
+        default_collate_schema: null
+        default_collate_name: null

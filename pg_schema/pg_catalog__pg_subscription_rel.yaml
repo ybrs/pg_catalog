@@ -1,12 +1,15 @@
-type: system_catalog
-schema:
-  srsubid: int
-  srrelid: int
-  srsubstate: varchar(256)
-  srsublsn: varchar(256)
-pg_types:
-  srsubid: oid
-  srrelid: oid
-  srsubstate: char
-  srsublsn: pg_lsn
-rows: []
+public:
+  pg_catalog:
+    pg_subscription_rel:
+      type: system_catalog
+      schema:
+        srsubid: int
+        srrelid: int
+        srsubstate: varchar(256)
+        srsublsn: varchar(256)
+      pg_types:
+        srsubid: oid
+        srrelid: oid
+        srsubstate: char
+        srsublsn: pg_lsn
+      rows: []

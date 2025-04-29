@@ -1,57 +1,61 @@
-type: view
-view_sql: " SELECT s.pid,\n    s.usesysid,\n    u.rolname AS usename,\n    s.application_name,\n\
-  \    s.client_addr,\n    s.client_hostname,\n    s.client_port,\n    s.backend_start,\n\
-  \    s.backend_xmin,\n    w.state,\n    w.sent_lsn,\n    w.write_lsn,\n    w.flush_lsn,\n\
-  \    w.replay_lsn,\n    w.write_lag,\n    w.flush_lag,\n    w.replay_lag,\n    w.sync_priority,\n\
-  \    w.sync_state,\n    w.reply_time\n   FROM pg_stat_get_activity(NULL::integer)\
-  \ s(datid, pid, usesysid, application_name, state, query, wait_event_type, wait_event,\
-  \ xact_start, query_start, backend_start, state_change, client_addr, client_hostname,\
-  \ client_port, backend_xid, backend_xmin, backend_type, ssl, sslversion, sslcipher,\
-  \ sslbits, ssl_client_dn, ssl_client_serial, ssl_issuer_dn, gss_auth, gss_princ,\
-  \ gss_enc, gss_delegation, leader_pid, query_id)\n     JOIN pg_stat_get_wal_senders()\
-  \ w(pid, state, sent_lsn, write_lsn, flush_lsn, replay_lsn, write_lag, flush_lag,\
-  \ replay_lag, sync_priority, sync_state, reply_time) ON s.pid = w.pid\n     LEFT\
-  \ JOIN pg_authid u ON s.usesysid = u.oid;"
-schema:
-  pid: int
-  usesysid: int
-  usename: varchar(64)
-  application_name: varchar(256)
-  client_addr: varchar(256)
-  client_hostname: varchar(256)
-  client_port: int
-  backend_start: varchar(256)
-  backend_xmin: varchar(256)
-  state: varchar(256)
-  sent_lsn: varchar(256)
-  write_lsn: varchar(256)
-  flush_lsn: varchar(256)
-  replay_lsn: varchar(256)
-  write_lag: varchar(256)
-  flush_lag: varchar(256)
-  replay_lag: varchar(256)
-  sync_priority: int
-  sync_state: varchar(256)
-  reply_time: varchar(256)
-pg_types:
-  pid: int4
-  usesysid: oid
-  usename: name
-  application_name: text
-  client_addr: inet
-  client_hostname: text
-  client_port: int4
-  backend_start: timestamptz
-  backend_xmin: xid
-  state: text
-  sent_lsn: pg_lsn
-  write_lsn: pg_lsn
-  flush_lsn: pg_lsn
-  replay_lsn: pg_lsn
-  write_lag: interval
-  flush_lag: interval
-  replay_lag: interval
-  sync_priority: int4
-  sync_state: text
-  reply_time: timestamptz
-rows: []
+public:
+  pg_catalog:
+    pg_stat_replication:
+      type: view
+      view_sql: " SELECT s.pid,\n    s.usesysid,\n    u.rolname AS usename,\n    s.application_name,\n\
+        \    s.client_addr,\n    s.client_hostname,\n    s.client_port,\n    s.backend_start,\n\
+        \    s.backend_xmin,\n    w.state,\n    w.sent_lsn,\n    w.write_lsn,\n  \
+        \  w.flush_lsn,\n    w.replay_lsn,\n    w.write_lag,\n    w.flush_lag,\n \
+        \   w.replay_lag,\n    w.sync_priority,\n    w.sync_state,\n    w.reply_time\n\
+        \   FROM pg_stat_get_activity(NULL::integer) s(datid, pid, usesysid, application_name,\
+        \ state, query, wait_event_type, wait_event, xact_start, query_start, backend_start,\
+        \ state_change, client_addr, client_hostname, client_port, backend_xid, backend_xmin,\
+        \ backend_type, ssl, sslversion, sslcipher, sslbits, ssl_client_dn, ssl_client_serial,\
+        \ ssl_issuer_dn, gss_auth, gss_princ, gss_enc, gss_delegation, leader_pid,\
+        \ query_id)\n     JOIN pg_stat_get_wal_senders() w(pid, state, sent_lsn, write_lsn,\
+        \ flush_lsn, replay_lsn, write_lag, flush_lag, replay_lag, sync_priority,\
+        \ sync_state, reply_time) ON s.pid = w.pid\n     LEFT JOIN pg_authid u ON\
+        \ s.usesysid = u.oid;"
+      schema:
+        pid: int
+        usesysid: int
+        usename: varchar(64)
+        application_name: varchar(256)
+        client_addr: varchar(256)
+        client_hostname: varchar(256)
+        client_port: int
+        backend_start: varchar(256)
+        backend_xmin: varchar(256)
+        state: varchar(256)
+        sent_lsn: varchar(256)
+        write_lsn: varchar(256)
+        flush_lsn: varchar(256)
+        replay_lsn: varchar(256)
+        write_lag: varchar(256)
+        flush_lag: varchar(256)
+        replay_lag: varchar(256)
+        sync_priority: int
+        sync_state: varchar(256)
+        reply_time: varchar(256)
+      pg_types:
+        pid: int4
+        usesysid: oid
+        usename: name
+        application_name: text
+        client_addr: inet
+        client_hostname: text
+        client_port: int4
+        backend_start: timestamptz
+        backend_xmin: xid
+        state: text
+        sent_lsn: pg_lsn
+        write_lsn: pg_lsn
+        flush_lsn: pg_lsn
+        replay_lsn: pg_lsn
+        write_lag: interval
+        flush_lag: interval
+        replay_lag: interval
+        sync_priority: int4
+        sync_state: text
+        reply_time: timestamptz
+      rows: []

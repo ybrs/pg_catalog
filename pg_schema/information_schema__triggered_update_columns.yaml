@@ -1,32 +1,36 @@
-type: view
-view_sql: " SELECT current_database()::information_schema.sql_identifier AS trigger_catalog,\n\
-  \    n.nspname::information_schema.sql_identifier AS trigger_schema,\n    t.tgname::information_schema.sql_identifier\
-  \ AS trigger_name,\n    current_database()::information_schema.sql_identifier AS\
-  \ event_object_catalog,\n    n.nspname::information_schema.sql_identifier AS event_object_schema,\n\
-  \    c.relname::information_schema.sql_identifier AS event_object_table,\n    a.attname::information_schema.sql_identifier\
-  \ AS event_object_column\n   FROM pg_namespace n,\n    pg_class c,\n    pg_trigger\
-  \ t,\n    ( SELECT ta0.tgoid,\n            (ta0.tgat).x AS tgattnum,\n         \
-  \   (ta0.tgat).n AS tgattpos\n           FROM ( SELECT pg_trigger.oid AS tgoid,\n\
-  \                    information_schema._pg_expandarray(pg_trigger.tgattr) AS tgat\n\
-  \                   FROM pg_trigger) ta0) ta,\n    pg_attribute a\n  WHERE n.oid\
-  \ = c.relnamespace AND c.oid = t.tgrelid AND t.oid = ta.tgoid AND a.attrelid = t.tgrelid\
-  \ AND a.attnum = ta.tgattnum AND NOT t.tgisinternal AND NOT pg_is_other_temp_schema(n.oid)\
-  \ AND (pg_has_role(c.relowner, 'USAGE'::text) OR has_column_privilege(c.oid, a.attnum,\
-  \ 'INSERT, UPDATE, REFERENCES'::text));"
-schema:
-  trigger_catalog: varchar(64)
-  trigger_schema: varchar(64)
-  trigger_name: varchar(64)
-  event_object_catalog: varchar(64)
-  event_object_schema: varchar(64)
-  event_object_table: varchar(64)
-  event_object_column: varchar(64)
-pg_types:
-  trigger_catalog: name
-  trigger_schema: name
-  trigger_name: name
-  event_object_catalog: name
-  event_object_schema: name
-  event_object_table: name
-  event_object_column: name
-rows: []
+public:
+  information_schema:
+    triggered_update_columns:
+      type: view
+      view_sql: " SELECT current_database()::information_schema.sql_identifier AS\
+        \ trigger_catalog,\n    n.nspname::information_schema.sql_identifier AS trigger_schema,\n\
+        \    t.tgname::information_schema.sql_identifier AS trigger_name,\n    current_database()::information_schema.sql_identifier\
+        \ AS event_object_catalog,\n    n.nspname::information_schema.sql_identifier\
+        \ AS event_object_schema,\n    c.relname::information_schema.sql_identifier\
+        \ AS event_object_table,\n    a.attname::information_schema.sql_identifier\
+        \ AS event_object_column\n   FROM pg_namespace n,\n    pg_class c,\n    pg_trigger\
+        \ t,\n    ( SELECT ta0.tgoid,\n            (ta0.tgat).x AS tgattnum,\n   \
+        \         (ta0.tgat).n AS tgattpos\n           FROM ( SELECT pg_trigger.oid\
+        \ AS tgoid,\n                    information_schema._pg_expandarray(pg_trigger.tgattr)\
+        \ AS tgat\n                   FROM pg_trigger) ta0) ta,\n    pg_attribute\
+        \ a\n  WHERE n.oid = c.relnamespace AND c.oid = t.tgrelid AND t.oid = ta.tgoid\
+        \ AND a.attrelid = t.tgrelid AND a.attnum = ta.tgattnum AND NOT t.tgisinternal\
+        \ AND NOT pg_is_other_temp_schema(n.oid) AND (pg_has_role(c.relowner, 'USAGE'::text)\
+        \ OR has_column_privilege(c.oid, a.attnum, 'INSERT, UPDATE, REFERENCES'::text));"
+      schema:
+        trigger_catalog: varchar(64)
+        trigger_schema: varchar(64)
+        trigger_name: varchar(64)
+        event_object_catalog: varchar(64)
+        event_object_schema: varchar(64)
+        event_object_table: varchar(64)
+        event_object_column: varchar(64)
+      pg_types:
+        trigger_catalog: name
+        trigger_schema: name
+        trigger_name: name
+        event_object_catalog: name
+        event_object_schema: name
+        event_object_table: name
+        event_object_column: name
+      rows: []

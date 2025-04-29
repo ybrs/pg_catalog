@@ -1,64 +1,68 @@
-type: view
-view_sql: " SELECT relid,\n    schemaname,\n    relname,\n    seq_scan,\n    last_seq_scan,\n\
-  \    seq_tup_read,\n    idx_scan,\n    last_idx_scan,\n    idx_tup_fetch,\n    n_tup_ins,\n\
-  \    n_tup_upd,\n    n_tup_del,\n    n_tup_hot_upd,\n    n_tup_newpage_upd,\n  \
-  \  n_live_tup,\n    n_dead_tup,\n    n_mod_since_analyze,\n    n_ins_since_vacuum,\n\
-  \    last_vacuum,\n    last_autovacuum,\n    last_analyze,\n    last_autoanalyze,\n\
-  \    vacuum_count,\n    autovacuum_count,\n    analyze_count,\n    autoanalyze_count\n\
-  \   FROM pg_stat_all_tables\n  WHERE (schemaname <> ALL (ARRAY['pg_catalog'::name,\
-  \ 'information_schema'::name])) AND schemaname !~ '^pg_toast'::text;"
-schema:
-  relid: int
-  schemaname: varchar(64)
-  relname: varchar(64)
-  seq_scan: bigint
-  last_seq_scan: varchar(256)
-  seq_tup_read: bigint
-  idx_scan: bigint
-  last_idx_scan: varchar(256)
-  idx_tup_fetch: bigint
-  n_tup_ins: bigint
-  n_tup_upd: bigint
-  n_tup_del: bigint
-  n_tup_hot_upd: bigint
-  n_tup_newpage_upd: bigint
-  n_live_tup: bigint
-  n_dead_tup: bigint
-  n_mod_since_analyze: bigint
-  n_ins_since_vacuum: bigint
-  last_vacuum: varchar(256)
-  last_autovacuum: varchar(256)
-  last_analyze: varchar(256)
-  last_autoanalyze: varchar(256)
-  vacuum_count: bigint
-  autovacuum_count: bigint
-  analyze_count: bigint
-  autoanalyze_count: bigint
-pg_types:
-  relid: oid
-  schemaname: name
-  relname: name
-  seq_scan: int8
-  last_seq_scan: timestamptz
-  seq_tup_read: int8
-  idx_scan: int8
-  last_idx_scan: timestamptz
-  idx_tup_fetch: int8
-  n_tup_ins: int8
-  n_tup_upd: int8
-  n_tup_del: int8
-  n_tup_hot_upd: int8
-  n_tup_newpage_upd: int8
-  n_live_tup: int8
-  n_dead_tup: int8
-  n_mod_since_analyze: int8
-  n_ins_since_vacuum: int8
-  last_vacuum: timestamptz
-  last_autovacuum: timestamptz
-  last_analyze: timestamptz
-  last_autoanalyze: timestamptz
-  vacuum_count: int8
-  autovacuum_count: int8
-  analyze_count: int8
-  autoanalyze_count: int8
-rows: []
+public:
+  pg_catalog:
+    pg_stat_user_tables:
+      type: view
+      view_sql: " SELECT relid,\n    schemaname,\n    relname,\n    seq_scan,\n  \
+        \  last_seq_scan,\n    seq_tup_read,\n    idx_scan,\n    last_idx_scan,\n\
+        \    idx_tup_fetch,\n    n_tup_ins,\n    n_tup_upd,\n    n_tup_del,\n    n_tup_hot_upd,\n\
+        \    n_tup_newpage_upd,\n    n_live_tup,\n    n_dead_tup,\n    n_mod_since_analyze,\n\
+        \    n_ins_since_vacuum,\n    last_vacuum,\n    last_autovacuum,\n    last_analyze,\n\
+        \    last_autoanalyze,\n    vacuum_count,\n    autovacuum_count,\n    analyze_count,\n\
+        \    autoanalyze_count\n   FROM pg_stat_all_tables\n  WHERE (schemaname <>\
+        \ ALL (ARRAY['pg_catalog'::name, 'information_schema'::name])) AND schemaname\
+        \ !~ '^pg_toast'::text;"
+      schema:
+        relid: int
+        schemaname: varchar(64)
+        relname: varchar(64)
+        seq_scan: bigint
+        last_seq_scan: varchar(256)
+        seq_tup_read: bigint
+        idx_scan: bigint
+        last_idx_scan: varchar(256)
+        idx_tup_fetch: bigint
+        n_tup_ins: bigint
+        n_tup_upd: bigint
+        n_tup_del: bigint
+        n_tup_hot_upd: bigint
+        n_tup_newpage_upd: bigint
+        n_live_tup: bigint
+        n_dead_tup: bigint
+        n_mod_since_analyze: bigint
+        n_ins_since_vacuum: bigint
+        last_vacuum: varchar(256)
+        last_autovacuum: varchar(256)
+        last_analyze: varchar(256)
+        last_autoanalyze: varchar(256)
+        vacuum_count: bigint
+        autovacuum_count: bigint
+        analyze_count: bigint
+        autoanalyze_count: bigint
+      pg_types:
+        relid: oid
+        schemaname: name
+        relname: name
+        seq_scan: int8
+        last_seq_scan: timestamptz
+        seq_tup_read: int8
+        idx_scan: int8
+        last_idx_scan: timestamptz
+        idx_tup_fetch: int8
+        n_tup_ins: int8
+        n_tup_upd: int8
+        n_tup_del: int8
+        n_tup_hot_upd: int8
+        n_tup_newpage_upd: int8
+        n_live_tup: int8
+        n_dead_tup: int8
+        n_mod_since_analyze: int8
+        n_ins_since_vacuum: int8
+        last_vacuum: timestamptz
+        last_autovacuum: timestamptz
+        last_analyze: timestamptz
+        last_autoanalyze: timestamptz
+        vacuum_count: int8
+        autovacuum_count: int8
+        analyze_count: int8
+        autoanalyze_count: int8
+      rows: []

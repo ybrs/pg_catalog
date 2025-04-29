@@ -1,32 +1,36 @@
-type: view
-view_sql: " SELECT a.rolname::information_schema.sql_identifier AS grantee,\n    b.rolname::information_schema.sql_identifier\
-  \ AS role_name,\n        CASE\n            WHEN m.admin_option THEN 'YES'::text\n\
-  \            ELSE 'NO'::text\n        END::information_schema.yes_or_no AS is_grantable\n\
-  \   FROM ( SELECT pg_auth_members.member,\n            pg_auth_members.roleid,\n\
-  \            pg_auth_members.admin_option\n           FROM pg_auth_members\n   \
-  \     UNION\n         SELECT pg_database.datdba,\n            pg_authid.oid,\n \
-  \           false\n           FROM pg_database,\n            pg_authid\n       \
-  \   WHERE pg_database.datname = current_database() AND pg_authid.rolname = 'pg_database_owner'::name)\
-  \ m\n     JOIN pg_authid a ON m.member = a.oid\n     JOIN pg_authid b ON m.roleid\
-  \ = b.oid\n  WHERE pg_has_role(a.oid, 'USAGE'::text);"
-schema:
-  grantee: varchar(64)
-  role_name: varchar(64)
-  is_grantable: varchar(256)
-pg_types:
-  grantee: name
-  role_name: name
-  is_grantable: varchar
-rows:
-- grantee: aybarsb
-  role_name: pg_database_owner
-  is_grantable: 'NO'
-- grantee: pg_monitor
-  role_name: pg_read_all_settings
-  is_grantable: 'NO'
-- grantee: pg_monitor
-  role_name: pg_read_all_stats
-  is_grantable: 'NO'
-- grantee: pg_monitor
-  role_name: pg_stat_scan_tables
-  is_grantable: 'NO'
+public:
+  information_schema:
+    applicable_roles:
+      type: view
+      view_sql: " SELECT a.rolname::information_schema.sql_identifier AS grantee,\n\
+        \    b.rolname::information_schema.sql_identifier AS role_name,\n        CASE\n\
+        \            WHEN m.admin_option THEN 'YES'::text\n            ELSE 'NO'::text\n\
+        \        END::information_schema.yes_or_no AS is_grantable\n   FROM ( SELECT\
+        \ pg_auth_members.member,\n            pg_auth_members.roleid,\n         \
+        \   pg_auth_members.admin_option\n           FROM pg_auth_members\n      \
+        \  UNION\n         SELECT pg_database.datdba,\n            pg_authid.oid,\n\
+        \            false\n           FROM pg_database,\n            pg_authid\n\
+        \          WHERE pg_database.datname = current_database() AND pg_authid.rolname\
+        \ = 'pg_database_owner'::name) m\n     JOIN pg_authid a ON m.member = a.oid\n\
+        \     JOIN pg_authid b ON m.roleid = b.oid\n  WHERE pg_has_role(a.oid, 'USAGE'::text);"
+      schema:
+        grantee: varchar(64)
+        role_name: varchar(64)
+        is_grantable: varchar(256)
+      pg_types:
+        grantee: name
+        role_name: name
+        is_grantable: varchar
+      rows:
+      - grantee: aybarsb
+        role_name: pg_database_owner
+        is_grantable: 'NO'
+      - grantee: pg_monitor
+        role_name: pg_read_all_settings
+        is_grantable: 'NO'
+      - grantee: pg_monitor
+        role_name: pg_read_all_stats
+        is_grantable: 'NO'
+      - grantee: pg_monitor
+        role_name: pg_stat_scan_tables
+        is_grantable: 'NO'

@@ -18,6 +18,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let schema_path = &args[1];
+
     let sql = &args[2];
     let default_catalog = args.iter()
         .position(|x| x == "--default-catalog")

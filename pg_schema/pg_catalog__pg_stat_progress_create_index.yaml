@@ -1,58 +1,62 @@
-type: view
-view_sql: " SELECT s.pid,\n    s.datid,\n    d.datname,\n    s.relid,\n    s.param7::oid\
-  \ AS index_relid,\n        CASE s.param1\n            WHEN 1 THEN 'CREATE INDEX'::text\n\
-  \            WHEN 2 THEN 'CREATE INDEX CONCURRENTLY'::text\n            WHEN 3 THEN\
-  \ 'REINDEX'::text\n            WHEN 4 THEN 'REINDEX CONCURRENTLY'::text\n      \
-  \      ELSE NULL::text\n        END AS command,\n        CASE s.param10\n      \
-  \      WHEN 0 THEN 'initializing'::text\n            WHEN 1 THEN 'waiting for writers\
-  \ before build'::text\n            WHEN 2 THEN 'building index'::text || COALESCE(':\
-  \ '::text || pg_indexam_progress_phasename(s.param9::oid, s.param11), ''::text)\n\
-  \            WHEN 3 THEN 'waiting for writers before validation'::text\n       \
-  \     WHEN 4 THEN 'index validation: scanning index'::text\n            WHEN 5 THEN\
-  \ 'index validation: sorting tuples'::text\n            WHEN 6 THEN 'index validation:\
-  \ scanning table'::text\n            WHEN 7 THEN 'waiting for old snapshots'::text\n\
-  \            WHEN 8 THEN 'waiting for readers before marking dead'::text\n     \
-  \       WHEN 9 THEN 'waiting for readers before dropping'::text\n            ELSE\
-  \ NULL::text\n        END AS phase,\n    s.param4 AS lockers_total,\n    s.param5\
-  \ AS lockers_done,\n    s.param6 AS current_locker_pid,\n    s.param16 AS blocks_total,\n\
-  \    s.param17 AS blocks_done,\n    s.param12 AS tuples_total,\n    s.param13 AS\
-  \ tuples_done,\n    s.param14 AS partitions_total,\n    s.param15 AS partitions_done\n\
-  \   FROM pg_stat_get_progress_info('CREATE INDEX'::text) s(pid, datid, relid, param1,\
-  \ param2, param3, param4, param5, param6, param7, param8, param9, param10, param11,\
-  \ param12, param13, param14, param15, param16, param17, param18, param19, param20)\n\
-  \     LEFT JOIN pg_database d ON s.datid = d.oid;"
-schema:
-  pid: int
-  datid: int
-  datname: varchar(64)
-  relid: int
-  index_relid: int
-  command: varchar(256)
-  phase: varchar(256)
-  lockers_total: bigint
-  lockers_done: bigint
-  current_locker_pid: bigint
-  blocks_total: bigint
-  blocks_done: bigint
-  tuples_total: bigint
-  tuples_done: bigint
-  partitions_total: bigint
-  partitions_done: bigint
-pg_types:
-  pid: int4
-  datid: oid
-  datname: name
-  relid: oid
-  index_relid: oid
-  command: text
-  phase: text
-  lockers_total: int8
-  lockers_done: int8
-  current_locker_pid: int8
-  blocks_total: int8
-  blocks_done: int8
-  tuples_total: int8
-  tuples_done: int8
-  partitions_total: int8
-  partitions_done: int8
-rows: []
+public:
+  pg_catalog:
+    pg_stat_progress_create_index:
+      type: view
+      view_sql: " SELECT s.pid,\n    s.datid,\n    d.datname,\n    s.relid,\n    s.param7::oid\
+        \ AS index_relid,\n        CASE s.param1\n            WHEN 1 THEN 'CREATE\
+        \ INDEX'::text\n            WHEN 2 THEN 'CREATE INDEX CONCURRENTLY'::text\n\
+        \            WHEN 3 THEN 'REINDEX'::text\n            WHEN 4 THEN 'REINDEX\
+        \ CONCURRENTLY'::text\n            ELSE NULL::text\n        END AS command,\n\
+        \        CASE s.param10\n            WHEN 0 THEN 'initializing'::text\n  \
+        \          WHEN 1 THEN 'waiting for writers before build'::text\n        \
+        \    WHEN 2 THEN 'building index'::text || COALESCE(': '::text || pg_indexam_progress_phasename(s.param9::oid,\
+        \ s.param11), ''::text)\n            WHEN 3 THEN 'waiting for writers before\
+        \ validation'::text\n            WHEN 4 THEN 'index validation: scanning index'::text\n\
+        \            WHEN 5 THEN 'index validation: sorting tuples'::text\n      \
+        \      WHEN 6 THEN 'index validation: scanning table'::text\n            WHEN\
+        \ 7 THEN 'waiting for old snapshots'::text\n            WHEN 8 THEN 'waiting\
+        \ for readers before marking dead'::text\n            WHEN 9 THEN 'waiting\
+        \ for readers before dropping'::text\n            ELSE NULL::text\n      \
+        \  END AS phase,\n    s.param4 AS lockers_total,\n    s.param5 AS lockers_done,\n\
+        \    s.param6 AS current_locker_pid,\n    s.param16 AS blocks_total,\n   \
+        \ s.param17 AS blocks_done,\n    s.param12 AS tuples_total,\n    s.param13\
+        \ AS tuples_done,\n    s.param14 AS partitions_total,\n    s.param15 AS partitions_done\n\
+        \   FROM pg_stat_get_progress_info('CREATE INDEX'::text) s(pid, datid, relid,\
+        \ param1, param2, param3, param4, param5, param6, param7, param8, param9,\
+        \ param10, param11, param12, param13, param14, param15, param16, param17,\
+        \ param18, param19, param20)\n     LEFT JOIN pg_database d ON s.datid = d.oid;"
+      schema:
+        pid: int
+        datid: int
+        datname: varchar(64)
+        relid: int
+        index_relid: int
+        command: varchar(256)
+        phase: varchar(256)
+        lockers_total: bigint
+        lockers_done: bigint
+        current_locker_pid: bigint
+        blocks_total: bigint
+        blocks_done: bigint
+        tuples_total: bigint
+        tuples_done: bigint
+        partitions_total: bigint
+        partitions_done: bigint
+      pg_types:
+        pid: int4
+        datid: oid
+        datname: name
+        relid: oid
+        index_relid: oid
+        command: text
+        phase: text
+        lockers_total: int8
+        lockers_done: int8
+        current_locker_pid: int8
+        blocks_total: int8
+        blocks_done: int8
+        tuples_total: int8
+        tuples_done: int8
+        partitions_total: int8
+        partitions_done: int8
+      rows: []

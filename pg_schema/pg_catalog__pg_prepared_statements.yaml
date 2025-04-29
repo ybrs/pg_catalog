@@ -1,42 +1,46 @@
-type: view
-view_sql: " SELECT name,\n    statement,\n    prepare_time,\n    parameter_types,\n\
-  \    result_types,\n    from_sql,\n    generic_plans,\n    custom_plans\n   FROM\
-  \ pg_prepared_statement() p(name, statement, prepare_time, parameter_types, result_types,\
-  \ from_sql, generic_plans, custom_plans);"
-schema:
-  name: varchar(256)
-  statement: varchar(256)
-  prepare_time: varchar(256)
-  parameter_types: varchar(256)
-  result_types: varchar(256)
-  from_sql: boolean
-  generic_plans: bigint
-  custom_plans: bigint
-pg_types:
-  name: text
-  statement: text
-  prepare_time: timestamptz
-  parameter_types: _regtype
-  result_types: _regtype
-  from_sql: bool
-  generic_plans: int8
-  custom_plans: int8
-rows:
-- name: _pg3_0
-  statement: "\n            SELECT column_name, udt_name\n            FROM information_schema.columns\n\
-    \            WHERE table_schema = $1 AND table_name = $2\n            ORDER BY\
-    \ ordinal_position\n        "
-  prepare_time: '2025-04-26T02:09:47.911774+02:00'
-  parameter_types: '[''name'', ''name'']'
-  result_types: '[''information_schema.sql_identifier'', ''information_schema.sql_identifier'']'
-  from_sql: false
-  generic_plans: 85
-  custom_plans: 5
-- name: _pg3_1
-  statement: "\n            SELECT pg_get_viewdef($1::regclass, true)\n        "
-  prepare_time: '2025-04-26T02:09:48.059563+02:00'
-  parameter_types: '[''regclass'']'
-  result_types: '[''text'']'
-  from_sql: false
-  generic_plans: 22
-  custom_plans: 5
+public:
+  pg_catalog:
+    pg_prepared_statements:
+      type: view
+      view_sql: " SELECT name,\n    statement,\n    prepare_time,\n    parameter_types,\n\
+        \    result_types,\n    from_sql,\n    generic_plans,\n    custom_plans\n\
+        \   FROM pg_prepared_statement() p(name, statement, prepare_time, parameter_types,\
+        \ result_types, from_sql, generic_plans, custom_plans);"
+      schema:
+        name: varchar(256)
+        statement: varchar(256)
+        prepare_time: varchar(256)
+        parameter_types: varchar(256)
+        result_types: varchar(256)
+        from_sql: boolean
+        generic_plans: bigint
+        custom_plans: bigint
+      pg_types:
+        name: text
+        statement: text
+        prepare_time: timestamptz
+        parameter_types: _regtype
+        result_types: _regtype
+        from_sql: bool
+        generic_plans: int8
+        custom_plans: int8
+      rows:
+      - name: _pg3_0
+        statement: "\n            SELECT column_name, udt_name\n            FROM information_schema.columns\n\
+          \            WHERE table_schema = $1 AND table_name = $2\n            ORDER\
+          \ BY ordinal_position\n        "
+        prepare_time: '2025-04-29T10:33:32.895859+02:00'
+        parameter_types: '[''name'', ''name'']'
+        result_types: '[''information_schema.sql_identifier'', ''information_schema.sql_identifier'']'
+        from_sql: false
+        generic_plans: 85
+        custom_plans: 5
+      - name: _pg3_1
+        statement: "\n            SELECT pg_get_viewdef($1::regclass, true)\n    \
+          \    "
+        prepare_time: '2025-04-29T10:33:33.047997+02:00'
+        parameter_types: '[''regclass'']'
+        result_types: '[''text'']'
+        from_sql: false
+        generic_plans: 22
+        custom_plans: 5

@@ -1,16 +1,19 @@
-type: system_catalog
-schema:
-  stxoid: int
-  stxdinherit: boolean
-  stxdndistinct: varchar(256)
-  stxddependencies: varchar(256)
-  stxdmcv: varchar(256)
-  stxdexpr: varchar(256)
-pg_types:
-  stxoid: oid
-  stxdinherit: bool
-  stxdndistinct: pg_ndistinct
-  stxddependencies: pg_dependencies
-  stxdmcv: pg_mcv_list
-  stxdexpr: _pg_statistic
-rows: []
+public:
+  pg_catalog:
+    pg_statistic_ext_data:
+      type: system_catalog
+      schema:
+        stxoid: int
+        stxdinherit: boolean
+        stxdndistinct: varchar(256)
+        stxddependencies: varchar(256)
+        stxdmcv: varchar(256)
+        stxdexpr: varchar(256)
+      pg_types:
+        stxoid: oid
+        stxdinherit: bool
+        stxdndistinct: pg_ndistinct
+        stxddependencies: pg_dependencies
+        stxdmcv: pg_mcv_list
+        stxdexpr: _pg_statistic
+      rows: []

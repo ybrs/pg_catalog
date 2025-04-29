@@ -1,96 +1,100 @@
-type: view
-view_sql: " SELECT rule_number,\n    file_name,\n    line_number,\n    type,\n   \
-  \ database,\n    user_name,\n    address,\n    netmask,\n    auth_method,\n    options,\n\
-  \    error\n   FROM pg_hba_file_rules() a(rule_number, file_name, line_number, type,\
-  \ database, user_name, address, netmask, auth_method, options, error);"
-schema:
-  rule_number: int
-  file_name: varchar(256)
-  line_number: int
-  type: varchar(256)
-  database: varchar(256)
-  user_name: varchar(256)
-  address: varchar(256)
-  netmask: varchar(256)
-  auth_method: varchar(256)
-  options: varchar(256)
-  error: varchar(256)
-pg_types:
-  rule_number: int4
-  file_name: text
-  line_number: int4
-  type: text
-  database: _text
-  user_name: _text
-  address: text
-  netmask: text
-  auth_method: text
-  options: _text
-  error: text
-rows:
-- rule_number: 1
-  file_name: /Users/aybarsb/projects/pg_catalog/postgres-data/pg_hba.conf
-  line_number: 117
-  type: local
-  database: '[''all'']'
-  user_name: '[''all'']'
-  address: null
-  netmask: null
-  auth_method: trust
-  options: null
-  error: null
-- rule_number: 2
-  file_name: /Users/aybarsb/projects/pg_catalog/postgres-data/pg_hba.conf
-  line_number: 119
-  type: host
-  database: '[''all'']'
-  user_name: '[''all'']'
-  address: 127.0.0.1
-  netmask: 255.255.255.255
-  auth_method: trust
-  options: null
-  error: null
-- rule_number: 3
-  file_name: /Users/aybarsb/projects/pg_catalog/postgres-data/pg_hba.conf
-  line_number: 121
-  type: host
-  database: '[''all'']'
-  user_name: '[''all'']'
-  address: ::1
-  netmask: ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff
-  auth_method: trust
-  options: null
-  error: null
-- rule_number: 4
-  file_name: /Users/aybarsb/projects/pg_catalog/postgres-data/pg_hba.conf
-  line_number: 124
-  type: local
-  database: '[''replication'']'
-  user_name: '[''all'']'
-  address: null
-  netmask: null
-  auth_method: trust
-  options: null
-  error: null
-- rule_number: 5
-  file_name: /Users/aybarsb/projects/pg_catalog/postgres-data/pg_hba.conf
-  line_number: 125
-  type: host
-  database: '[''replication'']'
-  user_name: '[''all'']'
-  address: 127.0.0.1
-  netmask: 255.255.255.255
-  auth_method: trust
-  options: null
-  error: null
-- rule_number: 6
-  file_name: /Users/aybarsb/projects/pg_catalog/postgres-data/pg_hba.conf
-  line_number: 126
-  type: host
-  database: '[''replication'']'
-  user_name: '[''all'']'
-  address: ::1
-  netmask: ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff
-  auth_method: trust
-  options: null
-  error: null
+public:
+  pg_catalog:
+    pg_hba_file_rules:
+      type: view
+      view_sql: " SELECT rule_number,\n    file_name,\n    line_number,\n    type,\n\
+        \    database,\n    user_name,\n    address,\n    netmask,\n    auth_method,\n\
+        \    options,\n    error\n   FROM pg_hba_file_rules() a(rule_number, file_name,\
+        \ line_number, type, database, user_name, address, netmask, auth_method, options,\
+        \ error);"
+      schema:
+        rule_number: int
+        file_name: varchar(256)
+        line_number: int
+        type: varchar(256)
+        database: varchar(256)
+        user_name: varchar(256)
+        address: varchar(256)
+        netmask: varchar(256)
+        auth_method: varchar(256)
+        options: varchar(256)
+        error: varchar(256)
+      pg_types:
+        rule_number: int4
+        file_name: text
+        line_number: int4
+        type: text
+        database: _text
+        user_name: _text
+        address: text
+        netmask: text
+        auth_method: text
+        options: _text
+        error: text
+      rows:
+      - rule_number: 1
+        file_name: /Users/aybarsb/projects/pg_catalog/postgres-data/pg_hba.conf
+        line_number: 117
+        type: local
+        database: '[''all'']'
+        user_name: '[''all'']'
+        address: null
+        netmask: null
+        auth_method: trust
+        options: null
+        error: null
+      - rule_number: 2
+        file_name: /Users/aybarsb/projects/pg_catalog/postgres-data/pg_hba.conf
+        line_number: 119
+        type: host
+        database: '[''all'']'
+        user_name: '[''all'']'
+        address: 127.0.0.1
+        netmask: 255.255.255.255
+        auth_method: trust
+        options: null
+        error: null
+      - rule_number: 3
+        file_name: /Users/aybarsb/projects/pg_catalog/postgres-data/pg_hba.conf
+        line_number: 121
+        type: host
+        database: '[''all'']'
+        user_name: '[''all'']'
+        address: ::1
+        netmask: ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+        auth_method: trust
+        options: null
+        error: null
+      - rule_number: 4
+        file_name: /Users/aybarsb/projects/pg_catalog/postgres-data/pg_hba.conf
+        line_number: 124
+        type: local
+        database: '[''replication'']'
+        user_name: '[''all'']'
+        address: null
+        netmask: null
+        auth_method: trust
+        options: null
+        error: null
+      - rule_number: 5
+        file_name: /Users/aybarsb/projects/pg_catalog/postgres-data/pg_hba.conf
+        line_number: 125
+        type: host
+        database: '[''replication'']'
+        user_name: '[''all'']'
+        address: 127.0.0.1
+        netmask: 255.255.255.255
+        auth_method: trust
+        options: null
+        error: null
+      - rule_number: 6
+        file_name: /Users/aybarsb/projects/pg_catalog/postgres-data/pg_hba.conf
+        line_number: 126
+        type: host
+        database: '[''replication'']'
+        user_name: '[''all'']'
+        address: ::1
+        netmask: ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff
+        auth_method: trust
+        options: null
+        error: null

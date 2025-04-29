@@ -1,21 +1,24 @@
-type: view
-view_sql: " SELECT map_number,\n    file_name,\n    line_number,\n    map_name,\n\
-  \    sys_name,\n    pg_username,\n    error\n   FROM pg_ident_file_mappings() a(map_number,\
-  \ file_name, line_number, map_name, sys_name, pg_username, error);"
-schema:
-  map_number: int
-  file_name: varchar(256)
-  line_number: int
-  map_name: varchar(256)
-  sys_name: varchar(256)
-  pg_username: varchar(256)
-  error: varchar(256)
-pg_types:
-  map_number: int4
-  file_name: text
-  line_number: int4
-  map_name: text
-  sys_name: text
-  pg_username: text
-  error: text
-rows: []
+public:
+  pg_catalog:
+    pg_ident_file_mappings:
+      type: view
+      view_sql: " SELECT map_number,\n    file_name,\n    line_number,\n    map_name,\n\
+        \    sys_name,\n    pg_username,\n    error\n   FROM pg_ident_file_mappings()\
+        \ a(map_number, file_name, line_number, map_name, sys_name, pg_username, error);"
+      schema:
+        map_number: int
+        file_name: varchar(256)
+        line_number: int
+        map_name: varchar(256)
+        sys_name: varchar(256)
+        pg_username: varchar(256)
+        error: varchar(256)
+      pg_types:
+        map_number: int4
+        file_name: text
+        line_number: int4
+        map_name: text
+        sys_name: text
+        pg_username: text
+        error: text
+      rows: []

@@ -1,16 +1,19 @@
-type: view
-view_sql: " SELECT foreign_data_wrapper_catalog,\n    foreign_data_wrapper_name,\n\
-  \    (pg_options_to_table(fdwoptions)).option_name::information_schema.sql_identifier\
-  \ AS option_name,\n    (pg_options_to_table(fdwoptions)).option_value::information_schema.character_data\
-  \ AS option_value\n   FROM information_schema._pg_foreign_data_wrappers w;"
-schema:
-  foreign_data_wrapper_catalog: varchar(64)
-  foreign_data_wrapper_name: varchar(64)
-  option_name: varchar(64)
-  option_value: varchar(256)
-pg_types:
-  foreign_data_wrapper_catalog: name
-  foreign_data_wrapper_name: name
-  option_name: name
-  option_value: varchar
-rows: []
+public:
+  information_schema:
+    foreign_data_wrapper_options:
+      type: view
+      view_sql: " SELECT foreign_data_wrapper_catalog,\n    foreign_data_wrapper_name,\n\
+        \    (pg_options_to_table(fdwoptions)).option_name::information_schema.sql_identifier\
+        \ AS option_name,\n    (pg_options_to_table(fdwoptions)).option_value::information_schema.character_data\
+        \ AS option_value\n   FROM information_schema._pg_foreign_data_wrappers w;"
+      schema:
+        foreign_data_wrapper_catalog: varchar(64)
+        foreign_data_wrapper_name: varchar(64)
+        option_name: varchar(64)
+        option_value: varchar(256)
+      pg_types:
+        foreign_data_wrapper_catalog: name
+        foreign_data_wrapper_name: name
+        option_name: name
+        option_value: varchar
+      rows: []

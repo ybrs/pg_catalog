@@ -1,21 +1,24 @@
-type: view
-view_sql: " SELECT p.pubname,\n    n.nspname AS schemaname,\n    c.relname AS tablename,\n\
-  \    ( SELECT array_agg(a.attname ORDER BY a.attnum) AS array_agg\n           FROM\
-  \ pg_attribute a\n          WHERE a.attrelid = gpt.relid AND (a.attnum = ANY (gpt.attrs::smallint[])))\
-  \ AS attnames,\n    pg_get_expr(gpt.qual, gpt.relid) AS rowfilter\n   FROM pg_publication\
-  \ p,\n    LATERAL pg_get_publication_tables(VARIADIC ARRAY[p.pubname::text]) gpt(pubid,\
-  \ relid, attrs, qual),\n    pg_class c\n     JOIN pg_namespace n ON n.oid = c.relnamespace\n\
-  \  WHERE c.oid = gpt.relid;"
-schema:
-  pubname: varchar(64)
-  schemaname: varchar(64)
-  tablename: varchar(64)
-  attnames: varchar(256)
-  rowfilter: varchar(256)
-pg_types:
-  pubname: name
-  schemaname: name
-  tablename: name
-  attnames: _name
-  rowfilter: text
-rows: []
+public:
+  pg_catalog:
+    pg_publication_tables:
+      type: view
+      view_sql: " SELECT p.pubname,\n    n.nspname AS schemaname,\n    c.relname AS\
+        \ tablename,\n    ( SELECT array_agg(a.attname ORDER BY a.attnum) AS array_agg\n\
+        \           FROM pg_attribute a\n          WHERE a.attrelid = gpt.relid AND\
+        \ (a.attnum = ANY (gpt.attrs::smallint[]))) AS attnames,\n    pg_get_expr(gpt.qual,\
+        \ gpt.relid) AS rowfilter\n   FROM pg_publication p,\n    LATERAL pg_get_publication_tables(VARIADIC\
+        \ ARRAY[p.pubname::text]) gpt(pubid, relid, attrs, qual),\n    pg_class c\n\
+        \     JOIN pg_namespace n ON n.oid = c.relnamespace\n  WHERE c.oid = gpt.relid;"
+      schema:
+        pubname: varchar(64)
+        schemaname: varchar(64)
+        tablename: varchar(64)
+        attnames: varchar(256)
+        rowfilter: varchar(256)
+      pg_types:
+        pubname: name
+        schemaname: name
+        tablename: name
+        attnames: _name
+        rowfilter: text
+      rows: []

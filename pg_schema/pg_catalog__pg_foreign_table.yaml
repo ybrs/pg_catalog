@@ -1,10 +1,13 @@
-type: system_catalog
-schema:
-  ftrelid: int
-  ftserver: int
-  ftoptions: varchar(256)
-pg_types:
-  ftrelid: oid
-  ftserver: oid
-  ftoptions: _text
-rows: []
+public:
+  pg_catalog:
+    pg_foreign_table:
+      type: system_catalog
+      schema:
+        ftrelid: int
+        ftserver: int
+        ftoptions: varchar(256)
+      pg_types:
+        ftrelid: oid
+        ftserver: oid
+        ftoptions: _text
+      rows: []

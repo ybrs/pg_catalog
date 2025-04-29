@@ -1,104 +1,107 @@
-type: table
-schema:
-  sizing_id: int
-  sizing_name: varchar(256)
-  supported_value: int
-  comments: varchar(256)
-pg_types:
-  sizing_id: int4
-  sizing_name: varchar
-  supported_value: int4
-  comments: varchar
-rows:
-- sizing_id: 97
-  sizing_name: MAXIMUM COLUMNS IN GROUP BY
-  supported_value: 0
-  comments: null
-- sizing_id: 99
-  sizing_name: MAXIMUM COLUMNS IN ORDER BY
-  supported_value: 0
-  comments: null
-- sizing_id: 100
-  sizing_name: MAXIMUM COLUMNS IN SELECT
-  supported_value: 1664
-  comments: null
-- sizing_id: 101
-  sizing_name: MAXIMUM COLUMNS IN TABLE
-  supported_value: 1600
-  comments: null
-- sizing_id: 1
-  sizing_name: MAXIMUM CONCURRENT ACTIVITIES
-  supported_value: 0
-  comments: null
-- sizing_id: 0
-  sizing_name: MAXIMUM DRIVER CONNECTIONS
-  supported_value: null
-  comments: null
-- sizing_id: 20000
-  sizing_name: MAXIMUM STATEMENT OCTETS
-  supported_value: 0
-  comments: null
-- sizing_id: 20001
-  sizing_name: MAXIMUM STATEMENT OCTETS DATA
-  supported_value: 0
-  comments: null
-- sizing_id: 20002
-  sizing_name: MAXIMUM STATEMENT OCTETS SCHEMA
-  supported_value: 0
-  comments: null
-- sizing_id: 106
-  sizing_name: MAXIMUM TABLES IN SELECT
-  supported_value: 0
-  comments: null
-- sizing_id: 25000
-  sizing_name: MAXIMUM CURRENT DEFAULT TRANSFORM GROUP LENGTH
-  supported_value: null
-  comments: null
-- sizing_id: 25001
-  sizing_name: MAXIMUM CURRENT TRANSFORM GROUP LENGTH
-  supported_value: null
-  comments: null
-- sizing_id: 25002
-  sizing_name: MAXIMUM CURRENT PATH LENGTH
-  supported_value: 0
-  comments: null
-- sizing_id: 25003
-  sizing_name: MAXIMUM CURRENT ROLE LENGTH
-  supported_value: null
-  comments: null
-- sizing_id: 34
-  sizing_name: MAXIMUM CATALOG NAME LENGTH
-  supported_value: 63
-  comments: Might be less, depending on character set.
-- sizing_id: 30
-  sizing_name: MAXIMUM COLUMN NAME LENGTH
-  supported_value: 63
-  comments: Might be less, depending on character set.
-- sizing_id: 31
-  sizing_name: MAXIMUM CURSOR NAME LENGTH
-  supported_value: 63
-  comments: Might be less, depending on character set.
-- sizing_id: 10005
-  sizing_name: MAXIMUM IDENTIFIER LENGTH
-  supported_value: 63
-  comments: Might be less, depending on character set.
-- sizing_id: 32
-  sizing_name: MAXIMUM SCHEMA NAME LENGTH
-  supported_value: 63
-  comments: Might be less, depending on character set.
-- sizing_id: 35
-  sizing_name: MAXIMUM TABLE NAME LENGTH
-  supported_value: 63
-  comments: Might be less, depending on character set.
-- sizing_id: 107
-  sizing_name: MAXIMUM USER NAME LENGTH
-  supported_value: 63
-  comments: Might be less, depending on character set.
-- sizing_id: 25004
-  sizing_name: MAXIMUM SESSION USER LENGTH
-  supported_value: 63
-  comments: Might be less, depending on character set.
-- sizing_id: 25005
-  sizing_name: MAXIMUM SYSTEM USER LENGTH
-  supported_value: 63
-  comments: Might be less, depending on character set.
+public:
+  information_schema:
+    sql_sizing:
+      type: table
+      schema:
+        sizing_id: int
+        sizing_name: varchar(256)
+        supported_value: int
+        comments: varchar(256)
+      pg_types:
+        sizing_id: int4
+        sizing_name: varchar
+        supported_value: int4
+        comments: varchar
+      rows:
+      - sizing_id: 97
+        sizing_name: MAXIMUM COLUMNS IN GROUP BY
+        supported_value: 0
+        comments: null
+      - sizing_id: 99
+        sizing_name: MAXIMUM COLUMNS IN ORDER BY
+        supported_value: 0
+        comments: null
+      - sizing_id: 100
+        sizing_name: MAXIMUM COLUMNS IN SELECT
+        supported_value: 1664
+        comments: null
+      - sizing_id: 101
+        sizing_name: MAXIMUM COLUMNS IN TABLE
+        supported_value: 1600
+        comments: null
+      - sizing_id: 1
+        sizing_name: MAXIMUM CONCURRENT ACTIVITIES
+        supported_value: 0
+        comments: null
+      - sizing_id: 0
+        sizing_name: MAXIMUM DRIVER CONNECTIONS
+        supported_value: null
+        comments: null
+      - sizing_id: 20000
+        sizing_name: MAXIMUM STATEMENT OCTETS
+        supported_value: 0
+        comments: null
+      - sizing_id: 20001
+        sizing_name: MAXIMUM STATEMENT OCTETS DATA
+        supported_value: 0
+        comments: null
+      - sizing_id: 20002
+        sizing_name: MAXIMUM STATEMENT OCTETS SCHEMA
+        supported_value: 0
+        comments: null
+      - sizing_id: 106
+        sizing_name: MAXIMUM TABLES IN SELECT
+        supported_value: 0
+        comments: null
+      - sizing_id: 25000
+        sizing_name: MAXIMUM CURRENT DEFAULT TRANSFORM GROUP LENGTH
+        supported_value: null
+        comments: null
+      - sizing_id: 25001
+        sizing_name: MAXIMUM CURRENT TRANSFORM GROUP LENGTH
+        supported_value: null
+        comments: null
+      - sizing_id: 25002
+        sizing_name: MAXIMUM CURRENT PATH LENGTH
+        supported_value: 0
+        comments: null
+      - sizing_id: 25003
+        sizing_name: MAXIMUM CURRENT ROLE LENGTH
+        supported_value: null
+        comments: null
+      - sizing_id: 34
+        sizing_name: MAXIMUM CATALOG NAME LENGTH
+        supported_value: 63
+        comments: Might be less, depending on character set.
+      - sizing_id: 30
+        sizing_name: MAXIMUM COLUMN NAME LENGTH
+        supported_value: 63
+        comments: Might be less, depending on character set.
+      - sizing_id: 31
+        sizing_name: MAXIMUM CURSOR NAME LENGTH
+        supported_value: 63
+        comments: Might be less, depending on character set.
+      - sizing_id: 10005
+        sizing_name: MAXIMUM IDENTIFIER LENGTH
+        supported_value: 63
+        comments: Might be less, depending on character set.
+      - sizing_id: 32
+        sizing_name: MAXIMUM SCHEMA NAME LENGTH
+        supported_value: 63
+        comments: Might be less, depending on character set.
+      - sizing_id: 35
+        sizing_name: MAXIMUM TABLE NAME LENGTH
+        supported_value: 63
+        comments: Might be less, depending on character set.
+      - sizing_id: 107
+        sizing_name: MAXIMUM USER NAME LENGTH
+        supported_value: 63
+        comments: Might be less, depending on character set.
+      - sizing_id: 25004
+        sizing_name: MAXIMUM SESSION USER LENGTH
+        supported_value: 63
+        comments: Might be less, depending on character set.
+      - sizing_id: 25005
+        sizing_name: MAXIMUM SYSTEM USER LENGTH
+        supported_value: 63
+        comments: Might be less, depending on character set.

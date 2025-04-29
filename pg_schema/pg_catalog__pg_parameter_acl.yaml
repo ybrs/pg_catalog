@@ -1,10 +1,13 @@
-type: system_catalog
-schema:
-  oid: int
-  parname: varchar(256)
-  paracl: varchar(256)
-pg_types:
-  oid: oid
-  parname: text
-  paracl: _aclitem
-rows: []
+public:
+  pg_catalog:
+    pg_parameter_acl:
+      type: system_catalog
+      schema:
+        oid: int
+        parname: varchar(256)
+        paracl: varchar(256)
+      pg_types:
+        oid: oid
+        parname: text
+        paracl: _aclitem
+      rows: []

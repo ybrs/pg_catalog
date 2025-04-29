@@ -1,58 +1,61 @@
-type: system_catalog
-schema:
-  oid: int
-  lanname: varchar(64)
-  lanowner: int
-  lanispl: boolean
-  lanpltrusted: boolean
-  lanplcallfoid: int
-  laninline: int
-  lanvalidator: int
-  lanacl: varchar(256)
-pg_types:
-  oid: oid
-  lanname: name
-  lanowner: oid
-  lanispl: bool
-  lanpltrusted: bool
-  lanplcallfoid: oid
-  laninline: oid
-  lanvalidator: oid
-  lanacl: _aclitem
-rows:
-- oid: 12
-  lanname: internal
-  lanowner: 10
-  lanispl: false
-  lanpltrusted: false
-  lanplcallfoid: 0
-  laninline: 0
-  lanvalidator: 2246
-  lanacl: null
-- oid: 13
-  lanname: c
-  lanowner: 10
-  lanispl: false
-  lanpltrusted: false
-  lanplcallfoid: 0
-  laninline: 0
-  lanvalidator: 2247
-  lanacl: null
-- oid: 14
-  lanname: sql
-  lanowner: 10
-  lanispl: false
-  lanpltrusted: true
-  lanplcallfoid: 0
-  laninline: 0
-  lanvalidator: 2248
-  lanacl: null
-- oid: 13029
-  lanname: plpgsql
-  lanowner: 10
-  lanispl: true
-  lanpltrusted: true
-  lanplcallfoid: 13026
-  laninline: 13027
-  lanvalidator: 13028
-  lanacl: null
+public:
+  pg_catalog:
+    pg_language:
+      type: system_catalog
+      schema:
+        oid: int
+        lanname: varchar(64)
+        lanowner: int
+        lanispl: boolean
+        lanpltrusted: boolean
+        lanplcallfoid: int
+        laninline: int
+        lanvalidator: int
+        lanacl: varchar(256)
+      pg_types:
+        oid: oid
+        lanname: name
+        lanowner: oid
+        lanispl: bool
+        lanpltrusted: bool
+        lanplcallfoid: oid
+        laninline: oid
+        lanvalidator: oid
+        lanacl: _aclitem
+      rows:
+      - oid: 12
+        lanname: internal
+        lanowner: 10
+        lanispl: false
+        lanpltrusted: false
+        lanplcallfoid: 0
+        laninline: 0
+        lanvalidator: 2246
+        lanacl: null
+      - oid: 13
+        lanname: c
+        lanowner: 10
+        lanispl: false
+        lanpltrusted: false
+        lanplcallfoid: 0
+        laninline: 0
+        lanvalidator: 2247
+        lanacl: null
+      - oid: 14
+        lanname: sql
+        lanowner: 10
+        lanispl: false
+        lanpltrusted: true
+        lanplcallfoid: 0
+        laninline: 0
+        lanvalidator: 2248
+        lanacl: null
+      - oid: 13029
+        lanname: plpgsql
+        lanowner: 10
+        lanispl: true
+        lanpltrusted: true
+        lanplcallfoid: 13026
+        laninline: 13027
+        lanvalidator: 13028
+        lanacl: null

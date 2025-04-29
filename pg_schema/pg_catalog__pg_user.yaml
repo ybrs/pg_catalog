@@ -1,34 +1,37 @@
-type: view
-view_sql: " SELECT usename,\n    usesysid,\n    usecreatedb,\n    usesuper,\n    userepl,\n\
-  \    usebypassrls,\n    '********'::text AS passwd,\n    valuntil,\n    useconfig\n\
-  \   FROM pg_shadow;"
-schema:
-  usename: varchar(64)
-  usesysid: int
-  usecreatedb: boolean
-  usesuper: boolean
-  userepl: boolean
-  usebypassrls: boolean
-  passwd: varchar(256)
-  valuntil: varchar(256)
-  useconfig: varchar(256)
-pg_types:
-  usename: name
-  usesysid: oid
-  usecreatedb: bool
-  usesuper: bool
-  userepl: bool
-  usebypassrls: bool
-  passwd: text
-  valuntil: timestamptz
-  useconfig: _text
-rows:
-- usename: aybarsb
-  usesysid: 10
-  usecreatedb: true
-  usesuper: true
-  userepl: true
-  usebypassrls: true
-  passwd: '********'
-  valuntil: null
-  useconfig: null
+public:
+  pg_catalog:
+    pg_user:
+      type: view
+      view_sql: " SELECT usename,\n    usesysid,\n    usecreatedb,\n    usesuper,\n\
+        \    userepl,\n    usebypassrls,\n    '********'::text AS passwd,\n    valuntil,\n\
+        \    useconfig\n   FROM pg_shadow;"
+      schema:
+        usename: varchar(64)
+        usesysid: int
+        usecreatedb: boolean
+        usesuper: boolean
+        userepl: boolean
+        usebypassrls: boolean
+        passwd: varchar(256)
+        valuntil: varchar(256)
+        useconfig: varchar(256)
+      pg_types:
+        usename: name
+        usesysid: oid
+        usecreatedb: bool
+        usesuper: bool
+        userepl: bool
+        usebypassrls: bool
+        passwd: text
+        valuntil: timestamptz
+        useconfig: _text
+      rows:
+      - usename: aybarsb
+        usesysid: 10
+        usecreatedb: true
+        usesuper: true
+        userepl: true
+        usebypassrls: true
+        passwd: '********'
+        valuntil: null
+        useconfig: null

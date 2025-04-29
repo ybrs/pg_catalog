@@ -1,26 +1,30 @@
-type: view
-view_sql: " SELECT relid,\n    indexrelid,\n    schemaname,\n    relname,\n    indexrelname,\n\
-  \    idx_scan,\n    last_idx_scan,\n    idx_tup_read,\n    idx_tup_fetch\n   FROM\
-  \ pg_stat_all_indexes\n  WHERE (schemaname <> ALL (ARRAY['pg_catalog'::name, 'information_schema'::name]))\
-  \ AND schemaname !~ '^pg_toast'::text;"
-schema:
-  relid: int
-  indexrelid: int
-  schemaname: varchar(64)
-  relname: varchar(64)
-  indexrelname: varchar(64)
-  idx_scan: bigint
-  last_idx_scan: varchar(256)
-  idx_tup_read: bigint
-  idx_tup_fetch: bigint
-pg_types:
-  relid: oid
-  indexrelid: oid
-  schemaname: name
-  relname: name
-  indexrelname: name
-  idx_scan: int8
-  last_idx_scan: timestamptz
-  idx_tup_read: int8
-  idx_tup_fetch: int8
-rows: []
+public:
+  pg_catalog:
+    pg_stat_user_indexes:
+      type: view
+      view_sql: " SELECT relid,\n    indexrelid,\n    schemaname,\n    relname,\n\
+        \    indexrelname,\n    idx_scan,\n    last_idx_scan,\n    idx_tup_read,\n\
+        \    idx_tup_fetch\n   FROM pg_stat_all_indexes\n  WHERE (schemaname <> ALL\
+        \ (ARRAY['pg_catalog'::name, 'information_schema'::name])) AND schemaname\
+        \ !~ '^pg_toast'::text;"
+      schema:
+        relid: int
+        indexrelid: int
+        schemaname: varchar(64)
+        relname: varchar(64)
+        indexrelname: varchar(64)
+        idx_scan: bigint
+        last_idx_scan: varchar(256)
+        idx_tup_read: bigint
+        idx_tup_fetch: bigint
+      pg_types:
+        relid: oid
+        indexrelid: oid
+        schemaname: name
+        relname: name
+        indexrelname: name
+        idx_scan: int8
+        last_idx_scan: timestamptz
+        idx_tup_read: int8
+        idx_tup_fetch: int8
+      rows: []

@@ -1,33 +1,36 @@
-type: view
-view_sql: " SELECT relid,\n    schemaname,\n    relname,\n    seq_scan,\n    seq_tup_read,\n\
-  \    idx_scan,\n    idx_tup_fetch,\n    n_tup_ins,\n    n_tup_upd,\n    n_tup_del,\n\
-  \    n_tup_hot_upd,\n    n_tup_newpage_upd\n   FROM pg_stat_xact_all_tables\n  WHERE\
-  \ (schemaname <> ALL (ARRAY['pg_catalog'::name, 'information_schema'::name])) AND\
-  \ schemaname !~ '^pg_toast'::text;"
-schema:
-  relid: int
-  schemaname: varchar(64)
-  relname: varchar(64)
-  seq_scan: bigint
-  seq_tup_read: bigint
-  idx_scan: bigint
-  idx_tup_fetch: bigint
-  n_tup_ins: bigint
-  n_tup_upd: bigint
-  n_tup_del: bigint
-  n_tup_hot_upd: bigint
-  n_tup_newpage_upd: bigint
-pg_types:
-  relid: oid
-  schemaname: name
-  relname: name
-  seq_scan: int8
-  seq_tup_read: int8
-  idx_scan: int8
-  idx_tup_fetch: int8
-  n_tup_ins: int8
-  n_tup_upd: int8
-  n_tup_del: int8
-  n_tup_hot_upd: int8
-  n_tup_newpage_upd: int8
-rows: []
+public:
+  pg_catalog:
+    pg_stat_xact_user_tables:
+      type: view
+      view_sql: " SELECT relid,\n    schemaname,\n    relname,\n    seq_scan,\n  \
+        \  seq_tup_read,\n    idx_scan,\n    idx_tup_fetch,\n    n_tup_ins,\n    n_tup_upd,\n\
+        \    n_tup_del,\n    n_tup_hot_upd,\n    n_tup_newpage_upd\n   FROM pg_stat_xact_all_tables\n\
+        \  WHERE (schemaname <> ALL (ARRAY['pg_catalog'::name, 'information_schema'::name]))\
+        \ AND schemaname !~ '^pg_toast'::text;"
+      schema:
+        relid: int
+        schemaname: varchar(64)
+        relname: varchar(64)
+        seq_scan: bigint
+        seq_tup_read: bigint
+        idx_scan: bigint
+        idx_tup_fetch: bigint
+        n_tup_ins: bigint
+        n_tup_upd: bigint
+        n_tup_del: bigint
+        n_tup_hot_upd: bigint
+        n_tup_newpage_upd: bigint
+      pg_types:
+        relid: oid
+        schemaname: name
+        relname: name
+        seq_scan: int8
+        seq_tup_read: int8
+        idx_scan: int8
+        idx_tup_fetch: int8
+        n_tup_ins: int8
+        n_tup_upd: int8
+        n_tup_del: int8
+        n_tup_hot_upd: int8
+        n_tup_newpage_upd: int8
+      rows: []

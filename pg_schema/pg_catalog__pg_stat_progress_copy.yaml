@@ -1,37 +1,42 @@
-type: view
-view_sql: " SELECT s.pid,\n    s.datid,\n    d.datname,\n    s.relid,\n        CASE\
-  \ s.param5\n            WHEN 1 THEN 'COPY FROM'::text\n            WHEN 2 THEN 'COPY\
-  \ TO'::text\n            ELSE NULL::text\n        END AS command,\n        CASE\
-  \ s.param6\n            WHEN 1 THEN 'FILE'::text\n            WHEN 2 THEN 'PROGRAM'::text\n\
-  \            WHEN 3 THEN 'PIPE'::text\n            WHEN 4 THEN 'CALLBACK'::text\n\
-  \            ELSE NULL::text\n        END AS type,\n    s.param1 AS bytes_processed,\n\
-  \    s.param2 AS bytes_total,\n    s.param3 AS tuples_processed,\n    s.param4 AS\
-  \ tuples_excluded,\n    s.param7 AS tuples_skipped\n   FROM pg_stat_get_progress_info('COPY'::text)\
-  \ s(pid, datid, relid, param1, param2, param3, param4, param5, param6, param7, param8,\
-  \ param9, param10, param11, param12, param13, param14, param15, param16, param17,\
-  \ param18, param19, param20)\n     LEFT JOIN pg_database d ON s.datid = d.oid;"
-schema:
-  pid: int
-  datid: int
-  datname: varchar(64)
-  relid: int
-  command: varchar(256)
-  type: varchar(256)
-  bytes_processed: bigint
-  bytes_total: bigint
-  tuples_processed: bigint
-  tuples_excluded: bigint
-  tuples_skipped: bigint
-pg_types:
-  pid: int4
-  datid: oid
-  datname: name
-  relid: oid
-  command: text
-  type: text
-  bytes_processed: int8
-  bytes_total: int8
-  tuples_processed: int8
-  tuples_excluded: int8
-  tuples_skipped: int8
-rows: []
+public:
+  pg_catalog:
+    pg_stat_progress_copy:
+      type: view
+      view_sql: " SELECT s.pid,\n    s.datid,\n    d.datname,\n    s.relid,\n    \
+        \    CASE s.param5\n            WHEN 1 THEN 'COPY FROM'::text\n          \
+        \  WHEN 2 THEN 'COPY TO'::text\n            ELSE NULL::text\n        END AS\
+        \ command,\n        CASE s.param6\n            WHEN 1 THEN 'FILE'::text\n\
+        \            WHEN 2 THEN 'PROGRAM'::text\n            WHEN 3 THEN 'PIPE'::text\n\
+        \            WHEN 4 THEN 'CALLBACK'::text\n            ELSE NULL::text\n \
+        \       END AS type,\n    s.param1 AS bytes_processed,\n    s.param2 AS bytes_total,\n\
+        \    s.param3 AS tuples_processed,\n    s.param4 AS tuples_excluded,\n   \
+        \ s.param7 AS tuples_skipped\n   FROM pg_stat_get_progress_info('COPY'::text)\
+        \ s(pid, datid, relid, param1, param2, param3, param4, param5, param6, param7,\
+        \ param8, param9, param10, param11, param12, param13, param14, param15, param16,\
+        \ param17, param18, param19, param20)\n     LEFT JOIN pg_database d ON s.datid\
+        \ = d.oid;"
+      schema:
+        pid: int
+        datid: int
+        datname: varchar(64)
+        relid: int
+        command: varchar(256)
+        type: varchar(256)
+        bytes_processed: bigint
+        bytes_total: bigint
+        tuples_processed: bigint
+        tuples_excluded: bigint
+        tuples_skipped: bigint
+      pg_types:
+        pid: int4
+        datid: oid
+        datname: name
+        relid: oid
+        command: text
+        type: text
+        bytes_processed: int8
+        bytes_total: int8
+        tuples_processed: int8
+        tuples_excluded: int8
+        tuples_skipped: int8
+      rows: []

@@ -1,43 +1,48 @@
-type: view
-view_sql: " SELECT s.pid,\n    s.datid,\n    d.datname,\n    s.relid,\n        CASE\
-  \ s.param1\n            WHEN 1 THEN 'CLUSTER'::text\n            WHEN 2 THEN 'VACUUM\
-  \ FULL'::text\n            ELSE NULL::text\n        END AS command,\n        CASE\
-  \ s.param2\n            WHEN 0 THEN 'initializing'::text\n            WHEN 1 THEN\
-  \ 'seq scanning heap'::text\n            WHEN 2 THEN 'index scanning heap'::text\n\
-  \            WHEN 3 THEN 'sorting tuples'::text\n            WHEN 4 THEN 'writing\
-  \ new heap'::text\n            WHEN 5 THEN 'swapping relation files'::text\n   \
-  \         WHEN 6 THEN 'rebuilding index'::text\n            WHEN 7 THEN 'performing\
-  \ final cleanup'::text\n            ELSE NULL::text\n        END AS phase,\n   \
-  \ s.param3::oid AS cluster_index_relid,\n    s.param4 AS heap_tuples_scanned,\n\
-  \    s.param5 AS heap_tuples_written,\n    s.param6 AS heap_blks_total,\n    s.param7\
-  \ AS heap_blks_scanned,\n    s.param8 AS index_rebuild_count\n   FROM pg_stat_get_progress_info('CLUSTER'::text)\
-  \ s(pid, datid, relid, param1, param2, param3, param4, param5, param6, param7, param8,\
-  \ param9, param10, param11, param12, param13, param14, param15, param16, param17,\
-  \ param18, param19, param20)\n     LEFT JOIN pg_database d ON s.datid = d.oid;"
-schema:
-  pid: int
-  datid: int
-  datname: varchar(64)
-  relid: int
-  command: varchar(256)
-  phase: varchar(256)
-  cluster_index_relid: int
-  heap_tuples_scanned: bigint
-  heap_tuples_written: bigint
-  heap_blks_total: bigint
-  heap_blks_scanned: bigint
-  index_rebuild_count: bigint
-pg_types:
-  pid: int4
-  datid: oid
-  datname: name
-  relid: oid
-  command: text
-  phase: text
-  cluster_index_relid: oid
-  heap_tuples_scanned: int8
-  heap_tuples_written: int8
-  heap_blks_total: int8
-  heap_blks_scanned: int8
-  index_rebuild_count: int8
-rows: []
+public:
+  pg_catalog:
+    pg_stat_progress_cluster:
+      type: view
+      view_sql: " SELECT s.pid,\n    s.datid,\n    d.datname,\n    s.relid,\n    \
+        \    CASE s.param1\n            WHEN 1 THEN 'CLUSTER'::text\n            WHEN\
+        \ 2 THEN 'VACUUM FULL'::text\n            ELSE NULL::text\n        END AS\
+        \ command,\n        CASE s.param2\n            WHEN 0 THEN 'initializing'::text\n\
+        \            WHEN 1 THEN 'seq scanning heap'::text\n            WHEN 2 THEN\
+        \ 'index scanning heap'::text\n            WHEN 3 THEN 'sorting tuples'::text\n\
+        \            WHEN 4 THEN 'writing new heap'::text\n            WHEN 5 THEN\
+        \ 'swapping relation files'::text\n            WHEN 6 THEN 'rebuilding index'::text\n\
+        \            WHEN 7 THEN 'performing final cleanup'::text\n            ELSE\
+        \ NULL::text\n        END AS phase,\n    s.param3::oid AS cluster_index_relid,\n\
+        \    s.param4 AS heap_tuples_scanned,\n    s.param5 AS heap_tuples_written,\n\
+        \    s.param6 AS heap_blks_total,\n    s.param7 AS heap_blks_scanned,\n  \
+        \  s.param8 AS index_rebuild_count\n   FROM pg_stat_get_progress_info('CLUSTER'::text)\
+        \ s(pid, datid, relid, param1, param2, param3, param4, param5, param6, param7,\
+        \ param8, param9, param10, param11, param12, param13, param14, param15, param16,\
+        \ param17, param18, param19, param20)\n     LEFT JOIN pg_database d ON s.datid\
+        \ = d.oid;"
+      schema:
+        pid: int
+        datid: int
+        datname: varchar(64)
+        relid: int
+        command: varchar(256)
+        phase: varchar(256)
+        cluster_index_relid: int
+        heap_tuples_scanned: bigint
+        heap_tuples_written: bigint
+        heap_blks_total: bigint
+        heap_blks_scanned: bigint
+        index_rebuild_count: bigint
+      pg_types:
+        pid: int4
+        datid: oid
+        datname: name
+        relid: oid
+        command: text
+        phase: text
+        cluster_index_relid: oid
+        heap_tuples_scanned: int8
+        heap_tuples_written: int8
+        heap_blks_total: int8
+        heap_blks_scanned: int8
+        index_rebuild_count: int8
+      rows: []

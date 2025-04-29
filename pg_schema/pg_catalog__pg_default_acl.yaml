@@ -1,14 +1,17 @@
-type: system_catalog
-schema:
-  oid: int
-  defaclrole: int
-  defaclnamespace: int
-  defaclobjtype: varchar(256)
-  defaclacl: varchar(256)
-pg_types:
-  oid: oid
-  defaclrole: oid
-  defaclnamespace: oid
-  defaclobjtype: char
-  defaclacl: _aclitem
-rows: []
+public:
+  pg_catalog:
+    pg_default_acl:
+      type: system_catalog
+      schema:
+        oid: int
+        defaclrole: int
+        defaclnamespace: int
+        defaclobjtype: varchar(256)
+        defaclacl: varchar(256)
+      pg_types:
+        oid: oid
+        defaclrole: oid
+        defaclnamespace: oid
+        defaclobjtype: char
+        defaclacl: _aclitem
+      rows: []

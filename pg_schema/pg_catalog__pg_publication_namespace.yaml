@@ -1,10 +1,13 @@
-type: system_catalog
-schema:
-  oid: int
-  pnpubid: int
-  pnnspid: int
-pg_types:
-  oid: oid
-  pnpubid: oid
-  pnnspid: oid
-rows: []
+public:
+  pg_catalog:
+    pg_publication_namespace:
+      type: system_catalog
+      schema:
+        oid: int
+        pnpubid: int
+        pnnspid: int
+      pg_types:
+        oid: oid
+        pnpubid: oid
+        pnnspid: oid
+      rows: []

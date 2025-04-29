@@ -1,227 +1,235 @@
-type: view
-view_sql: " SELECT current_database()::information_schema.sql_identifier AS domain_catalog,\n\
-  \    nt.nspname::information_schema.sql_identifier AS domain_schema,\n    t.typname::information_schema.sql_identifier\
-  \ AS domain_name,\n        CASE\n            WHEN t.typelem <> 0::oid AND t.typlen\
-  \ = '-1'::integer THEN 'ARRAY'::text\n            WHEN nbt.nspname = 'pg_catalog'::name\
-  \ THEN format_type(t.typbasetype, NULL::integer)\n            ELSE 'USER-DEFINED'::text\n\
-  \        END::information_schema.character_data AS data_type,\n    information_schema._pg_char_max_length(t.typbasetype,\
-  \ t.typtypmod)::information_schema.cardinal_number AS character_maximum_length,\n\
-  \    information_schema._pg_char_octet_length(t.typbasetype, t.typtypmod)::information_schema.cardinal_number\
-  \ AS character_octet_length,\n    NULL::name::information_schema.sql_identifier\
-  \ AS character_set_catalog,\n    NULL::name::information_schema.sql_identifier AS\
-  \ character_set_schema,\n    NULL::name::information_schema.sql_identifier AS character_set_name,\n\
-  \        CASE\n            WHEN nco.nspname IS NOT NULL THEN current_database()\n\
-  \            ELSE NULL::name\n        END::information_schema.sql_identifier AS\
-  \ collation_catalog,\n    nco.nspname::information_schema.sql_identifier AS collation_schema,\n\
-  \    co.collname::information_schema.sql_identifier AS collation_name,\n    information_schema._pg_numeric_precision(t.typbasetype,\
-  \ t.typtypmod)::information_schema.cardinal_number AS numeric_precision,\n    information_schema._pg_numeric_precision_radix(t.typbasetype,\
-  \ t.typtypmod)::information_schema.cardinal_number AS numeric_precision_radix,\n\
-  \    information_schema._pg_numeric_scale(t.typbasetype, t.typtypmod)::information_schema.cardinal_number\
-  \ AS numeric_scale,\n    information_schema._pg_datetime_precision(t.typbasetype,\
-  \ t.typtypmod)::information_schema.cardinal_number AS datetime_precision,\n    information_schema._pg_interval_type(t.typbasetype,\
-  \ t.typtypmod)::information_schema.character_data AS interval_type,\n    NULL::integer::information_schema.cardinal_number\
-  \ AS interval_precision,\n    t.typdefault::information_schema.character_data AS\
-  \ domain_default,\n    current_database()::information_schema.sql_identifier AS\
-  \ udt_catalog,\n    nbt.nspname::information_schema.sql_identifier AS udt_schema,\n\
-  \    bt.typname::information_schema.sql_identifier AS udt_name,\n    NULL::name::information_schema.sql_identifier\
-  \ AS scope_catalog,\n    NULL::name::information_schema.sql_identifier AS scope_schema,\n\
-  \    NULL::name::information_schema.sql_identifier AS scope_name,\n    NULL::integer::information_schema.cardinal_number\
-  \ AS maximum_cardinality,\n    1::information_schema.sql_identifier AS dtd_identifier\n\
-  \   FROM pg_type t\n     JOIN pg_namespace nt ON t.typnamespace = nt.oid\n     JOIN\
-  \ (pg_type bt\n     JOIN pg_namespace nbt ON bt.typnamespace = nbt.oid) ON t.typbasetype\
-  \ = bt.oid AND t.typtype = 'd'::\"char\"\n     LEFT JOIN (pg_collation co\n    \
-  \ JOIN pg_namespace nco ON co.collnamespace = nco.oid) ON t.typcollation = co.oid\
-  \ AND (nco.nspname <> 'pg_catalog'::name OR co.collname <> 'default'::name)\n  WHERE\
-  \ pg_has_role(t.typowner, 'USAGE'::text) OR has_type_privilege(t.oid, 'USAGE'::text);"
-schema:
-  domain_catalog: varchar(64)
-  domain_schema: varchar(64)
-  domain_name: varchar(64)
-  data_type: varchar(256)
-  character_maximum_length: int
-  character_octet_length: int
-  character_set_catalog: varchar(64)
-  character_set_schema: varchar(64)
-  character_set_name: varchar(64)
-  collation_catalog: varchar(64)
-  collation_schema: varchar(64)
-  collation_name: varchar(64)
-  numeric_precision: int
-  numeric_precision_radix: int
-  numeric_scale: int
-  datetime_precision: int
-  interval_type: varchar(256)
-  interval_precision: int
-  domain_default: varchar(256)
-  udt_catalog: varchar(64)
-  udt_schema: varchar(64)
-  udt_name: varchar(64)
-  scope_catalog: varchar(64)
-  scope_schema: varchar(64)
-  scope_name: varchar(64)
-  maximum_cardinality: int
-  dtd_identifier: varchar(64)
-pg_types:
-  domain_catalog: name
-  domain_schema: name
-  domain_name: name
-  data_type: varchar
-  character_maximum_length: int4
-  character_octet_length: int4
-  character_set_catalog: name
-  character_set_schema: name
-  character_set_name: name
-  collation_catalog: name
-  collation_schema: name
-  collation_name: name
-  numeric_precision: int4
-  numeric_precision_radix: int4
-  numeric_scale: int4
-  datetime_precision: int4
-  interval_type: varchar
-  interval_precision: int4
-  domain_default: varchar
-  udt_catalog: name
-  udt_schema: name
-  udt_name: name
-  scope_catalog: name
-  scope_schema: name
-  scope_name: name
-  maximum_cardinality: int4
-  dtd_identifier: name
-rows:
-- domain_catalog: postgres
-  domain_schema: information_schema
-  domain_name: sql_identifier
-  data_type: name
-  character_maximum_length: null
-  character_octet_length: null
-  character_set_catalog: null
-  character_set_schema: null
-  character_set_name: null
-  collation_catalog: postgres
-  collation_schema: pg_catalog
-  collation_name: C
-  numeric_precision: null
-  numeric_precision_radix: null
-  numeric_scale: null
-  datetime_precision: null
-  interval_type: null
-  interval_precision: null
-  domain_default: null
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: name
-  scope_catalog: null
-  scope_schema: null
-  scope_name: null
-  maximum_cardinality: null
-  dtd_identifier: '1'
-- domain_catalog: postgres
-  domain_schema: information_schema
-  domain_name: cardinal_number
-  data_type: integer
-  character_maximum_length: null
-  character_octet_length: null
-  character_set_catalog: null
-  character_set_schema: null
-  character_set_name: null
-  collation_catalog: null
-  collation_schema: null
-  collation_name: null
-  numeric_precision: 32
-  numeric_precision_radix: 2
-  numeric_scale: 0
-  datetime_precision: null
-  interval_type: null
-  interval_precision: null
-  domain_default: null
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: int4
-  scope_catalog: null
-  scope_schema: null
-  scope_name: null
-  maximum_cardinality: null
-  dtd_identifier: '1'
-- domain_catalog: postgres
-  domain_schema: information_schema
-  domain_name: character_data
-  data_type: character varying
-  character_maximum_length: null
-  character_octet_length: 1073741824
-  character_set_catalog: null
-  character_set_schema: null
-  character_set_name: null
-  collation_catalog: postgres
-  collation_schema: pg_catalog
-  collation_name: C
-  numeric_precision: null
-  numeric_precision_radix: null
-  numeric_scale: null
-  datetime_precision: null
-  interval_type: null
-  interval_precision: null
-  domain_default: null
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: varchar
-  scope_catalog: null
-  scope_schema: null
-  scope_name: null
-  maximum_cardinality: null
-  dtd_identifier: '1'
-- domain_catalog: postgres
-  domain_schema: information_schema
-  domain_name: yes_or_no
-  data_type: character varying
-  character_maximum_length: 3
-  character_octet_length: 12
-  character_set_catalog: null
-  character_set_schema: null
-  character_set_name: null
-  collation_catalog: postgres
-  collation_schema: pg_catalog
-  collation_name: C
-  numeric_precision: null
-  numeric_precision_radix: null
-  numeric_scale: null
-  datetime_precision: null
-  interval_type: null
-  interval_precision: null
-  domain_default: null
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: varchar
-  scope_catalog: null
-  scope_schema: null
-  scope_name: null
-  maximum_cardinality: null
-  dtd_identifier: '1'
-- domain_catalog: postgres
-  domain_schema: information_schema
-  domain_name: time_stamp
-  data_type: timestamp with time zone
-  character_maximum_length: null
-  character_octet_length: null
-  character_set_catalog: null
-  character_set_schema: null
-  character_set_name: null
-  collation_catalog: null
-  collation_schema: null
-  collation_name: null
-  numeric_precision: null
-  numeric_precision_radix: null
-  numeric_scale: null
-  datetime_precision: 2
-  interval_type: null
-  interval_precision: null
-  domain_default: CURRENT_TIMESTAMP(2)
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: timestamptz
-  scope_catalog: null
-  scope_schema: null
-  scope_name: null
-  maximum_cardinality: null
-  dtd_identifier: '1'
+public:
+  information_schema:
+    domains:
+      type: view
+      view_sql: " SELECT current_database()::information_schema.sql_identifier AS\
+        \ domain_catalog,\n    nt.nspname::information_schema.sql_identifier AS domain_schema,\n\
+        \    t.typname::information_schema.sql_identifier AS domain_name,\n      \
+        \  CASE\n            WHEN t.typelem <> 0::oid AND t.typlen = '-1'::integer\
+        \ THEN 'ARRAY'::text\n            WHEN nbt.nspname = 'pg_catalog'::name THEN\
+        \ format_type(t.typbasetype, NULL::integer)\n            ELSE 'USER-DEFINED'::text\n\
+        \        END::information_schema.character_data AS data_type,\n    information_schema._pg_char_max_length(t.typbasetype,\
+        \ t.typtypmod)::information_schema.cardinal_number AS character_maximum_length,\n\
+        \    information_schema._pg_char_octet_length(t.typbasetype, t.typtypmod)::information_schema.cardinal_number\
+        \ AS character_octet_length,\n    NULL::name::information_schema.sql_identifier\
+        \ AS character_set_catalog,\n    NULL::name::information_schema.sql_identifier\
+        \ AS character_set_schema,\n    NULL::name::information_schema.sql_identifier\
+        \ AS character_set_name,\n        CASE\n            WHEN nco.nspname IS NOT\
+        \ NULL THEN current_database()\n            ELSE NULL::name\n        END::information_schema.sql_identifier\
+        \ AS collation_catalog,\n    nco.nspname::information_schema.sql_identifier\
+        \ AS collation_schema,\n    co.collname::information_schema.sql_identifier\
+        \ AS collation_name,\n    information_schema._pg_numeric_precision(t.typbasetype,\
+        \ t.typtypmod)::information_schema.cardinal_number AS numeric_precision,\n\
+        \    information_schema._pg_numeric_precision_radix(t.typbasetype, t.typtypmod)::information_schema.cardinal_number\
+        \ AS numeric_precision_radix,\n    information_schema._pg_numeric_scale(t.typbasetype,\
+        \ t.typtypmod)::information_schema.cardinal_number AS numeric_scale,\n   \
+        \ information_schema._pg_datetime_precision(t.typbasetype, t.typtypmod)::information_schema.cardinal_number\
+        \ AS datetime_precision,\n    information_schema._pg_interval_type(t.typbasetype,\
+        \ t.typtypmod)::information_schema.character_data AS interval_type,\n    NULL::integer::information_schema.cardinal_number\
+        \ AS interval_precision,\n    t.typdefault::information_schema.character_data\
+        \ AS domain_default,\n    current_database()::information_schema.sql_identifier\
+        \ AS udt_catalog,\n    nbt.nspname::information_schema.sql_identifier AS udt_schema,\n\
+        \    bt.typname::information_schema.sql_identifier AS udt_name,\n    NULL::name::information_schema.sql_identifier\
+        \ AS scope_catalog,\n    NULL::name::information_schema.sql_identifier AS\
+        \ scope_schema,\n    NULL::name::information_schema.sql_identifier AS scope_name,\n\
+        \    NULL::integer::information_schema.cardinal_number AS maximum_cardinality,\n\
+        \    1::information_schema.sql_identifier AS dtd_identifier\n   FROM pg_type\
+        \ t\n     JOIN pg_namespace nt ON t.typnamespace = nt.oid\n     JOIN (pg_type\
+        \ bt\n     JOIN pg_namespace nbt ON bt.typnamespace = nbt.oid) ON t.typbasetype\
+        \ = bt.oid AND t.typtype = 'd'::\"char\"\n     LEFT JOIN (pg_collation co\n\
+        \     JOIN pg_namespace nco ON co.collnamespace = nco.oid) ON t.typcollation\
+        \ = co.oid AND (nco.nspname <> 'pg_catalog'::name OR co.collname <> 'default'::name)\n\
+        \  WHERE pg_has_role(t.typowner, 'USAGE'::text) OR has_type_privilege(t.oid,\
+        \ 'USAGE'::text);"
+      schema:
+        domain_catalog: varchar(64)
+        domain_schema: varchar(64)
+        domain_name: varchar(64)
+        data_type: varchar(256)
+        character_maximum_length: int
+        character_octet_length: int
+        character_set_catalog: varchar(64)
+        character_set_schema: varchar(64)
+        character_set_name: varchar(64)
+        collation_catalog: varchar(64)
+        collation_schema: varchar(64)
+        collation_name: varchar(64)
+        numeric_precision: int
+        numeric_precision_radix: int
+        numeric_scale: int
+        datetime_precision: int
+        interval_type: varchar(256)
+        interval_precision: int
+        domain_default: varchar(256)
+        udt_catalog: varchar(64)
+        udt_schema: varchar(64)
+        udt_name: varchar(64)
+        scope_catalog: varchar(64)
+        scope_schema: varchar(64)
+        scope_name: varchar(64)
+        maximum_cardinality: int
+        dtd_identifier: varchar(64)
+      pg_types:
+        domain_catalog: name
+        domain_schema: name
+        domain_name: name
+        data_type: varchar
+        character_maximum_length: int4
+        character_octet_length: int4
+        character_set_catalog: name
+        character_set_schema: name
+        character_set_name: name
+        collation_catalog: name
+        collation_schema: name
+        collation_name: name
+        numeric_precision: int4
+        numeric_precision_radix: int4
+        numeric_scale: int4
+        datetime_precision: int4
+        interval_type: varchar
+        interval_precision: int4
+        domain_default: varchar
+        udt_catalog: name
+        udt_schema: name
+        udt_name: name
+        scope_catalog: name
+        scope_schema: name
+        scope_name: name
+        maximum_cardinality: int4
+        dtd_identifier: name
+      rows:
+      - domain_catalog: postgres
+        domain_schema: information_schema
+        domain_name: sql_identifier
+        data_type: name
+        character_maximum_length: null
+        character_octet_length: null
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: null
+        collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: C
+        numeric_precision: null
+        numeric_precision_radix: null
+        numeric_scale: null
+        datetime_precision: null
+        interval_type: null
+        interval_precision: null
+        domain_default: null
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: name
+        scope_catalog: null
+        scope_schema: null
+        scope_name: null
+        maximum_cardinality: null
+        dtd_identifier: '1'
+      - domain_catalog: postgres
+        domain_schema: information_schema
+        domain_name: cardinal_number
+        data_type: integer
+        character_maximum_length: null
+        character_octet_length: null
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: null
+        collation_catalog: null
+        collation_schema: null
+        collation_name: null
+        numeric_precision: 32
+        numeric_precision_radix: 2
+        numeric_scale: 0
+        datetime_precision: null
+        interval_type: null
+        interval_precision: null
+        domain_default: null
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: int4
+        scope_catalog: null
+        scope_schema: null
+        scope_name: null
+        maximum_cardinality: null
+        dtd_identifier: '1'
+      - domain_catalog: postgres
+        domain_schema: information_schema
+        domain_name: character_data
+        data_type: character varying
+        character_maximum_length: null
+        character_octet_length: 1073741824
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: null
+        collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: C
+        numeric_precision: null
+        numeric_precision_radix: null
+        numeric_scale: null
+        datetime_precision: null
+        interval_type: null
+        interval_precision: null
+        domain_default: null
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: varchar
+        scope_catalog: null
+        scope_schema: null
+        scope_name: null
+        maximum_cardinality: null
+        dtd_identifier: '1'
+      - domain_catalog: postgres
+        domain_schema: information_schema
+        domain_name: yes_or_no
+        data_type: character varying
+        character_maximum_length: 3
+        character_octet_length: 12
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: null
+        collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: C
+        numeric_precision: null
+        numeric_precision_radix: null
+        numeric_scale: null
+        datetime_precision: null
+        interval_type: null
+        interval_precision: null
+        domain_default: null
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: varchar
+        scope_catalog: null
+        scope_schema: null
+        scope_name: null
+        maximum_cardinality: null
+        dtd_identifier: '1'
+      - domain_catalog: postgres
+        domain_schema: information_schema
+        domain_name: time_stamp
+        data_type: timestamp with time zone
+        character_maximum_length: null
+        character_octet_length: null
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: null
+        collation_catalog: null
+        collation_schema: null
+        collation_name: null
+        numeric_precision: null
+        numeric_precision_radix: null
+        numeric_scale: null
+        datetime_precision: 2
+        interval_type: null
+        interval_precision: null
+        domain_default: CURRENT_TIMESTAMP(2)
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: timestamptz
+        scope_catalog: null
+        scope_schema: null
+        scope_name: null
+        maximum_cardinality: null
+        dtd_identifier: '1'

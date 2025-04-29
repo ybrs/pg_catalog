@@ -1,10 +1,13 @@
-type: system_catalog
-schema:
-  setdatabase: int
-  setrole: int
-  setconfig: varchar(256)
-pg_types:
-  setdatabase: oid
-  setrole: oid
-  setconfig: _text
-rows: []
+public:
+  pg_catalog:
+    pg_db_role_setting:
+      type: system_catalog
+      schema:
+        setdatabase: int
+        setrole: int
+        setconfig: varchar(256)
+      pg_types:
+        setdatabase: oid
+        setrole: oid
+        setconfig: _text
+      rows: []

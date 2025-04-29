@@ -1,17 +1,21 @@
-type: view
-view_sql: " SELECT ss.subid,\n    s.subname,\n    ss.apply_error_count,\n    ss.sync_error_count,\n\
-  \    ss.stats_reset\n   FROM pg_subscription s,\n    LATERAL pg_stat_get_subscription_stats(s.oid)\
-  \ ss(subid, apply_error_count, sync_error_count, stats_reset);"
-schema:
-  subid: int
-  subname: varchar(64)
-  apply_error_count: bigint
-  sync_error_count: bigint
-  stats_reset: varchar(256)
-pg_types:
-  subid: oid
-  subname: name
-  apply_error_count: int8
-  sync_error_count: int8
-  stats_reset: timestamptz
-rows: []
+public:
+  pg_catalog:
+    pg_stat_subscription_stats:
+      type: view
+      view_sql: " SELECT ss.subid,\n    s.subname,\n    ss.apply_error_count,\n  \
+        \  ss.sync_error_count,\n    ss.stats_reset\n   FROM pg_subscription s,\n\
+        \    LATERAL pg_stat_get_subscription_stats(s.oid) ss(subid, apply_error_count,\
+        \ sync_error_count, stats_reset);"
+      schema:
+        subid: int
+        subname: varchar(64)
+        apply_error_count: bigint
+        sync_error_count: bigint
+        stats_reset: varchar(256)
+      pg_types:
+        subid: oid
+        subname: name
+        apply_error_count: int8
+        sync_error_count: int8
+        stats_reset: timestamptz
+      rows: []

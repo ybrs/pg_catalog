@@ -1,30 +1,33 @@
-type: view
-view_sql: " SELECT s.slot_name,\n    s.spill_txns,\n    s.spill_count,\n    s.spill_bytes,\n\
-  \    s.stream_txns,\n    s.stream_count,\n    s.stream_bytes,\n    s.total_txns,\n\
-  \    s.total_bytes,\n    s.stats_reset\n   FROM pg_replication_slots r,\n    LATERAL\
-  \ pg_stat_get_replication_slot(r.slot_name::text) s(slot_name, spill_txns, spill_count,\
-  \ spill_bytes, stream_txns, stream_count, stream_bytes, total_txns, total_bytes,\
-  \ stats_reset)\n  WHERE r.datoid IS NOT NULL;"
-schema:
-  slot_name: varchar(256)
-  spill_txns: bigint
-  spill_count: bigint
-  spill_bytes: bigint
-  stream_txns: bigint
-  stream_count: bigint
-  stream_bytes: bigint
-  total_txns: bigint
-  total_bytes: bigint
-  stats_reset: varchar(256)
-pg_types:
-  slot_name: text
-  spill_txns: int8
-  spill_count: int8
-  spill_bytes: int8
-  stream_txns: int8
-  stream_count: int8
-  stream_bytes: int8
-  total_txns: int8
-  total_bytes: int8
-  stats_reset: timestamptz
-rows: []
+public:
+  pg_catalog:
+    pg_stat_replication_slots:
+      type: view
+      view_sql: " SELECT s.slot_name,\n    s.spill_txns,\n    s.spill_count,\n   \
+        \ s.spill_bytes,\n    s.stream_txns,\n    s.stream_count,\n    s.stream_bytes,\n\
+        \    s.total_txns,\n    s.total_bytes,\n    s.stats_reset\n   FROM pg_replication_slots\
+        \ r,\n    LATERAL pg_stat_get_replication_slot(r.slot_name::text) s(slot_name,\
+        \ spill_txns, spill_count, spill_bytes, stream_txns, stream_count, stream_bytes,\
+        \ total_txns, total_bytes, stats_reset)\n  WHERE r.datoid IS NOT NULL;"
+      schema:
+        slot_name: varchar(256)
+        spill_txns: bigint
+        spill_count: bigint
+        spill_bytes: bigint
+        stream_txns: bigint
+        stream_count: bigint
+        stream_bytes: bigint
+        total_txns: bigint
+        total_bytes: bigint
+        stats_reset: varchar(256)
+      pg_types:
+        slot_name: text
+        spill_txns: int8
+        spill_count: int8
+        spill_bytes: int8
+        stream_txns: int8
+        stream_count: int8
+        stream_bytes: int8
+        total_txns: int8
+        total_bytes: int8
+        stats_reset: timestamptz
+      rows: []

@@ -1,7 +1,7 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc};
 
 use async_trait::async_trait;
-use futures::stream;
+use futures::{stream};
 use futures::Stream;
 
 use pgwire::api::auth::{AuthSource, DefaultServerParameterProvider, LoginInfo, Password};
@@ -12,14 +12,21 @@ use pgwire::api::query::{ExtendedQueryHandler, SimpleQueryHandler};
 use pgwire::api::results::{DataRowEncoder, DescribePortalResponse, DescribeStatementResponse, FieldInfo, QueryResponse, Response, Tag};
 use pgwire::api::stmt::{NoopQueryParser, StoredStatement};
 use pgwire::api::{ClientInfo, PgWireServerHandlers, Type};
-use pgwire::error::{ErrorInfo, PgWireError, PgWireResult};
+use pgwire::error::{PgWireError, PgWireResult};
 use pgwire::messages::data::DataRow;
 use pgwire::tokio::process_socket;
-use tokio::net::TcpListener;
+use tokio::net::{TcpListener};
 
-use arrow::array::{ArrayRef, BooleanArray, Int32Array, Int64Array, StringArray};
+use arrow::array::{BooleanArray, Int32Array, Int64Array, StringArray};
 use arrow::record_batch::RecordBatch;
 use datafusion::execution::context::SessionContext;
+
+use arrow::datatypes::{DataType, SchemaRef};
+
+use datafusion::{
+    logical_expr::{create_udf, Volatility, ColumnarValue},
+    common::ScalarValue,
+};
 
 use crate::session::{execute_sql};
 
@@ -28,6 +35,7 @@ pub struct DatafusionBackend {
     query_parser: Arc<NoopQueryParser>,
 }
 
+
 impl DatafusionBackend {
     pub fn new(ctx: Arc<SessionContext>) -> Self {
         Self {
@@ -35,6 +43,48 @@ impl DatafusionBackend {
             query_parser: Arc::new(NoopQueryParser::new()),
         }
     }
+
+    fn register_current_database<C>(&self, client: &C) -> datafusion::error::Result<()>
+    where
+        C: ClientInfo + ?Sized,
+    {
+        static KEY: &str = "current_database";
+
+        if self.ctx.state().scalar_functions().contains_key(KEY){
+            return Ok(());
+        }
+
+        if let Some(db) = client.metadata().get(pgwire::api::METADATA_DATABASE).cloned() {
+            let fun = Arc::new(move |_args: &[ColumnarValue]| {
+                Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(db.clone()))))
+            });
+            let udf = create_udf(KEY, vec![], DataType::Utf8, Volatility::Stable, fun);
+            self.ctx.register_udf(udf);
+        }
+
+        Ok(())
+    }
+
+    fn register_session_user<C>(&self, client: &C) -> datafusion::error::Result<()>
+    where
+        C: ClientInfo + ?Sized,
+    {
+        static KEY: &str = "session_user";
+        if self.ctx.state().scalar_functions().contains_key(KEY){
+            return Ok(());
+        }
+
+        if let Some(user) = client.metadata().get(pgwire::api::METADATA_USER).cloned() {
+            let fun = Arc::new(move |_args: &[ColumnarValue]| {
+                Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(user.clone()))))
+            });
+            let udf = create_udf(KEY, vec![], DataType::Utf8, Volatility::Stable, fun);
+            self.ctx.register_udf(udf);
+        }
+
+        Ok(())
+    }
+
 }
 
 pub struct DummyAuthSource;
@@ -107,20 +157,54 @@ fn batch_to_row_stream(batch: &RecordBatch, schema: Arc<Vec<FieldInfo>>) -> impl
 impl SimpleQueryHandler for DatafusionBackend {
     async fn do_query<'a, C>(
         &self,
-        _client: &mut C,
+        client: &mut C,
         query: &'a str,
     ) -> PgWireResult<Vec<Response<'a>>>
     where
         C: ClientInfo + Unpin + Send + Sync,
     {
-        let results = execute_sql(&self.ctx, query).await.map_err(|e| PgWireError::ApiError(Box::new(e)))?;
+
+
+        let lowercase = query.trim().to_lowercase();
+        if lowercase.starts_with("begin") {
+            return Ok(vec![Response::Execution(Tag::new("BEGIN"))]);
+        } else if lowercase.starts_with("commit") {
+            return Ok(vec![Response::Execution(Tag::new("COMMIT"))]);
+        } else if lowercase.starts_with("rollback") {
+            return Ok(vec![Response::Execution(Tag::new("ROLLBACK"))]);
+        }
+
+
+        let user = client.metadata().get(pgwire::api::METADATA_USER).cloned();
+        let database = client.metadata().get(pgwire::api::METADATA_DATABASE).cloned();
+        println!("database: {:?} {:?}", database, user);
+
+        self.register_current_database(client);
+        self.register_session_user(client);
+        let (results, schema) = execute_sql(&self.ctx, query, None, None).await.map_err(|e| PgWireError::ApiError(Box::new(e)))?;
 
         let mut responses = Vec::new();
-        for batch in results {
+
+        if results.is_empty() {
+            // TODO:
+            // zero-row result, but still need schema
+            let df = self.ctx.sql(query).await.map_err(|e| PgWireError::ApiError(Box::new(e)))?;
+            let schema = df.schema();
+
+            let batch = RecordBatch::new_empty(SchemaRef::from(schema.clone()));
             let schema = Arc::new(batch_to_field_info(&batch, &Format::UnifiedText)?);
             let rows = batch_to_row_stream(&batch, schema.clone());
+
             responses.push(Response::Query(QueryResponse::new(schema, rows)));
+        } else {
+            for batch in results {
+                let schema = Arc::new(batch_to_field_info(&batch, &Format::UnifiedText)?);
+                let rows = batch_to_row_stream(&batch, schema.clone());
+                responses.push(Response::Query(QueryResponse::new(schema, rows)));
+            }
         }
+
+
         Ok(responses)
     }
 }
@@ -136,25 +220,35 @@ impl ExtendedQueryHandler for DatafusionBackend {
 
     async fn do_query<'a, C>(
         &self,
-        _client: &mut C,
+        client: &mut C,
         portal: &'a Portal<Self::Statement>,
         _max_rows: usize,
     ) -> PgWireResult<Response<'a>>
     where
         C: ClientInfo + Unpin + Send + Sync,
     {
-        let results = execute_sql(&self.ctx, portal.statement.statement.as_str())
-            .await
-            .map_err(|e| PgWireError::ApiError(Box::new(e)))?;
 
-        if results.is_empty() {
-            return Ok(Response::Execution(Tag::new("OK").into()));
-        }
+        println!("query start extended {:?} {:?}", portal.statement.statement.as_str(), portal.parameters);
 
-        let batch = &results[0];
-        let schema = Arc::new(batch_to_field_info(batch, &portal.result_column_format)?);
-        let rows = batch_to_row_stream(batch, schema.clone());
-        Ok(Response::Query(QueryResponse::new(schema, rows)))
+        self.register_current_database(client);
+        self.register_session_user(client);
+
+        let (results, schema) = execute_sql(&self.ctx, portal.statement.statement.as_str(),
+                                  Some(portal.parameters.clone()),
+                                  Some(portal.statement.parameter_types.clone()),
+        ).await.map_err(|e| PgWireError::ApiError(Box::new(e)))?;
+
+
+        let batch = if results.is_empty() {
+            RecordBatch::new_empty(schema.clone())
+        } else {
+            results[0].clone()
+        };
+
+        let field_infos = Arc::new(batch_to_field_info(&batch, &portal.result_column_format)?);
+        let rows = batch_to_row_stream(&batch, field_infos.clone());
+        println!("return from do_query {:?}", field_infos);
+        Ok(Response::Query(QueryResponse::new(field_infos, rows)))
     }
 
     async fn do_describe_statement<C>(
@@ -165,9 +259,12 @@ impl ExtendedQueryHandler for DatafusionBackend {
     where
         C: ClientInfo + Unpin + Send + Sync,
     {
-        let results = execute_sql(&self.ctx, stmt.statement.as_str())
+        let (results, schema) = execute_sql(&self.ctx, stmt.statement.as_str(), None, None)
             .await
             .map_err(|e| PgWireError::ApiError(Box::new(e)))?;
+
+        println!("do_describe_statement {:?}", schema);
+
 
         if results.is_empty() {
             return Ok(DescribeStatementResponse::new(vec![], vec![]));
@@ -176,7 +273,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
         let batch = &results[0];
         let param_types = stmt.parameter_types.clone();
         let fields = batch_to_field_info(batch, &Format::UnifiedBinary)?;
-
+        println!("return from do_describe {:?}", fields);
         Ok(DescribeStatementResponse::new(param_types, fields))
     }
 
@@ -188,16 +285,19 @@ impl ExtendedQueryHandler for DatafusionBackend {
     where
         C: ClientInfo + Unpin + Send + Sync,
     {
-        let results = execute_sql(&self.ctx, portal.statement.statement.as_str())
+        let (results, schema) = execute_sql(&self.ctx, portal.statement.statement.as_str(), None, None)
             .await
             .map_err(|e| PgWireError::ApiError(Box::new(e)))?;
 
-        if results.is_empty() {
-            return Ok(DescribePortalResponse::new(vec![]));
-        }
+        println!("do_describe_portal {:?}", schema);
 
-        let batch = &results[0];
-        let fields = batch_to_field_info(batch, &portal.result_column_format)?;
+        let batch = if results.is_empty() {
+            RecordBatch::new_empty(schema.clone())
+        } else {
+            results[0].clone()
+        };
+
+        let fields = batch_to_field_info(&batch, &portal.result_column_format)?;
         Ok(DescribePortalResponse::new(fields))
     }
 }
@@ -240,16 +340,21 @@ impl PgWireServerHandlers for DatafusionBackendFactory {
     }
 }
 
+
 pub async fn start_server(ctx: Arc<SessionContext>, addr: &str) -> anyhow::Result<()> {
-    let factory = Arc::new(DatafusionBackendFactory {
-        handler: Arc::new(DatafusionBackend::new(ctx)),
-    });
 
     let listener = TcpListener::bind(addr).await?;
     println!("Listening on {}", addr);
 
     loop {
         let (socket, _) = listener.accept().await?;
+
+
+        let factory = Arc::new(DatafusionBackendFactory {
+            handler: Arc::new(DatafusionBackend::new(Arc::clone(&ctx))),
+        });
+
+
         let factory = factory.clone();
         tokio::spawn(async move {
             if let Err(e) = process_socket(socket, None, factory).await {

@@ -1,27 +1,30 @@
-type: view
-view_sql: " SELECT n.nspname AS schemaname,\n    c.relname AS tablename,\n    r.rulename,\n\
-  \    pg_get_ruledef(r.oid) AS definition\n   FROM pg_rewrite r\n     JOIN pg_class\
-  \ c ON c.oid = r.ev_class\n     LEFT JOIN pg_namespace n ON n.oid = c.relnamespace\n\
-  \  WHERE r.rulename <> '_RETURN'::name;"
-schema:
-  schemaname: varchar(64)
-  tablename: varchar(64)
-  rulename: varchar(64)
-  definition: varchar(256)
-pg_types:
-  schemaname: name
-  tablename: name
-  rulename: name
-  definition: text
-rows:
-- schemaname: pg_catalog
-  tablename: pg_settings
-  rulename: pg_settings_u
-  definition: "CREATE RULE pg_settings_u AS\n    ON UPDATE TO pg_catalog.pg_settings\n\
-    \   WHERE (new.name = old.name) DO  SELECT set_config(old.name, new.setting, false)\
-    \ AS set_config;"
-- schemaname: pg_catalog
-  tablename: pg_settings
-  rulename: pg_settings_n
-  definition: "CREATE RULE pg_settings_n AS\n    ON UPDATE TO pg_catalog.pg_settings\
-    \ DO INSTEAD NOTHING;"
+public:
+  pg_catalog:
+    pg_rules:
+      type: view
+      view_sql: " SELECT n.nspname AS schemaname,\n    c.relname AS tablename,\n \
+        \   r.rulename,\n    pg_get_ruledef(r.oid) AS definition\n   FROM pg_rewrite\
+        \ r\n     JOIN pg_class c ON c.oid = r.ev_class\n     LEFT JOIN pg_namespace\
+        \ n ON n.oid = c.relnamespace\n  WHERE r.rulename <> '_RETURN'::name;"
+      schema:
+        schemaname: varchar(64)
+        tablename: varchar(64)
+        rulename: varchar(64)
+        definition: varchar(256)
+      pg_types:
+        schemaname: name
+        tablename: name
+        rulename: name
+        definition: text
+      rows:
+      - schemaname: pg_catalog
+        tablename: pg_settings
+        rulename: pg_settings_u
+        definition: "CREATE RULE pg_settings_u AS\n    ON UPDATE TO pg_catalog.pg_settings\n\
+          \   WHERE (new.name = old.name) DO  SELECT set_config(old.name, new.setting,\
+          \ false) AS set_config;"
+      - schemaname: pg_catalog
+        tablename: pg_settings
+        rulename: pg_settings_n
+        definition: "CREATE RULE pg_settings_n AS\n    ON UPDATE TO pg_catalog.pg_settings\
+          \ DO INSTEAD NOTHING;"

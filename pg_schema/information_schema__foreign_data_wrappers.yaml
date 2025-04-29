@@ -1,18 +1,21 @@
-type: view
-view_sql: " SELECT foreign_data_wrapper_catalog,\n    foreign_data_wrapper_name,\n\
-  \    authorization_identifier,\n    NULL::character varying::information_schema.character_data\
-  \ AS library_name,\n    foreign_data_wrapper_language\n   FROM information_schema._pg_foreign_data_wrappers\
-  \ w;"
-schema:
-  foreign_data_wrapper_catalog: varchar(64)
-  foreign_data_wrapper_name: varchar(64)
-  authorization_identifier: varchar(64)
-  library_name: varchar(256)
-  foreign_data_wrapper_language: varchar(256)
-pg_types:
-  foreign_data_wrapper_catalog: name
-  foreign_data_wrapper_name: name
-  authorization_identifier: name
-  library_name: varchar
-  foreign_data_wrapper_language: varchar
-rows: []
+public:
+  information_schema:
+    foreign_data_wrappers:
+      type: view
+      view_sql: " SELECT foreign_data_wrapper_catalog,\n    foreign_data_wrapper_name,\n\
+        \    authorization_identifier,\n    NULL::character varying::information_schema.character_data\
+        \ AS library_name,\n    foreign_data_wrapper_language\n   FROM information_schema._pg_foreign_data_wrappers\
+        \ w;"
+      schema:
+        foreign_data_wrapper_catalog: varchar(64)
+        foreign_data_wrapper_name: varchar(64)
+        authorization_identifier: varchar(64)
+        library_name: varchar(256)
+        foreign_data_wrapper_language: varchar(256)
+      pg_types:
+        foreign_data_wrapper_catalog: name
+        foreign_data_wrapper_name: name
+        authorization_identifier: name
+        library_name: varchar
+        foreign_data_wrapper_language: varchar
+      rows: []

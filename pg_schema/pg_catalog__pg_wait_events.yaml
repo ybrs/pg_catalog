@@ -1,858 +1,892 @@
-type: view
-view_sql: " SELECT type,\n    name,\n    description\n   FROM pg_get_wait_events()\
-  \ pg_get_wait_events(type, name, description);"
-schema:
-  type: varchar(256)
-  name: varchar(256)
-  description: varchar(256)
-pg_types:
-  type: text
-  name: text
-  description: text
-rows:
-- type: Activity
-  name: ArchiverMain
-  description: Waiting in main loop of archiver process
-- type: Activity
-  name: AutovacuumMain
-  description: Waiting in main loop of autovacuum launcher process
-- type: Activity
-  name: BgwriterHibernate
-  description: Waiting in background writer process, hibernating
-- type: Activity
-  name: BgwriterMain
-  description: Waiting in main loop of background writer process
-- type: Activity
-  name: CheckpointerMain
-  description: Waiting in main loop of checkpointer process
-- type: Activity
-  name: LogicalApplyMain
-  description: Waiting in main loop of logical replication apply process
-- type: Activity
-  name: LogicalLauncherMain
-  description: Waiting in main loop of logical replication launcher process
-- type: Activity
-  name: LogicalParallelApplyMain
-  description: Waiting in main loop of logical replication parallel apply process
-- type: Activity
-  name: RecoveryWalStream
-  description: Waiting in main loop of startup process for WAL to arrive, during streaming
-    recovery
-- type: Activity
-  name: ReplicationSlotsyncMain
-  description: Waiting in main loop of slot sync worker
-- type: Activity
-  name: ReplicationSlotsyncShutdown
-  description: Waiting for slot sync worker to shut down
-- type: Activity
-  name: SysloggerMain
-  description: Waiting in main loop of syslogger process
-- type: Activity
-  name: WalReceiverMain
-  description: Waiting in main loop of WAL receiver process
-- type: Activity
-  name: WalSenderMain
-  description: Waiting in main loop of WAL sender process
-- type: Activity
-  name: WalSummarizerWal
-  description: Waiting in WAL summarizer for more WAL to be generated
-- type: Activity
-  name: WalWriterMain
-  description: Waiting in main loop of WAL writer process
-- type: BufferPin
-  name: BufferPin
-  description: Waiting to acquire an exclusive pin on a buffer
-- type: Client
-  name: ClientRead
-  description: Waiting to read data from the client
-- type: Client
-  name: ClientWrite
-  description: Waiting to write data to the client
-- type: Client
-  name: GssOpenServer
-  description: Waiting to read data from the client while establishing a GSSAPI session
-- type: Client
-  name: LibpqwalreceiverConnect
-  description: Waiting in WAL receiver to establish connection to remote server
-- type: Client
-  name: LibpqwalreceiverReceive
-  description: Waiting in WAL receiver to receive data from remote server
-- type: Client
-  name: SslOpenServer
-  description: Waiting for SSL while attempting connection
-- type: Client
-  name: WaitForStandbyConfirmation
-  description: Waiting for WAL to be received and flushed by the physical standby
-- type: Client
-  name: WalSenderWaitForWal
-  description: Waiting for WAL to be flushed in WAL sender process
-- type: Client
-  name: WalSenderWriteData
-  description: Waiting for any activity when processing replies from WAL receiver
-    in WAL sender process
-- type: Extension
-  name: Extension
-  description: Waiting in an extension
-- type: IO
-  name: BasebackupRead
-  description: Waiting for base backup to read from a file
-- type: IO
-  name: BasebackupSync
-  description: Waiting for data written by a base backup to reach durable storage
-- type: IO
-  name: BasebackupWrite
-  description: Waiting for base backup to write to a file
-- type: IO
-  name: BuffileRead
-  description: Waiting for a read from a buffered file
-- type: IO
-  name: BuffileTruncate
-  description: Waiting for a buffered file to be truncated
-- type: IO
-  name: BuffileWrite
-  description: Waiting for a write to a buffered file
-- type: IO
-  name: ControlFileRead
-  description: Waiting for a read from the pg_control file
-- type: IO
-  name: ControlFileSync
-  description: Waiting for the pg_control file to reach durable storage
-- type: IO
-  name: ControlFileSyncUpdate
-  description: Waiting for an update to the pg_control file to reach durable storage
-- type: IO
-  name: ControlFileWrite
-  description: Waiting for a write to the pg_control file
-- type: IO
-  name: ControlFileWriteUpdate
-  description: Waiting for a write to update the pg_control file
-- type: IO
-  name: CopyFileRead
-  description: Waiting for a read during a file copy operation
-- type: IO
-  name: CopyFileWrite
-  description: Waiting for a write during a file copy operation
-- type: IO
-  name: DataFileExtend
-  description: Waiting for a relation data file to be extended
-- type: IO
-  name: DataFileFlush
-  description: Waiting for a relation data file to reach durable storage
-- type: IO
-  name: DataFileImmediateSync
-  description: Waiting for an immediate synchronization of a relation data file to
-    durable storage
-- type: IO
-  name: DataFilePrefetch
-  description: Waiting for an asynchronous prefetch from a relation data file
-- type: IO
-  name: DataFileRead
-  description: Waiting for a read from a relation data file
-- type: IO
-  name: DataFileSync
-  description: Waiting for changes to a relation data file to reach durable storage
-- type: IO
-  name: DataFileTruncate
-  description: Waiting for a relation data file to be truncated
-- type: IO
-  name: DataFileWrite
-  description: Waiting for a write to a relation data file
-- type: IO
-  name: DsmAllocate
-  description: Waiting for a dynamic shared memory segment to be allocated
-- type: IO
-  name: DsmFillZeroWrite
-  description: Waiting to fill a dynamic shared memory backing file with zeroes
-- type: IO
-  name: LockFileAddtodatadirRead
-  description: Waiting for a read while adding a line to the data directory lock file
-- type: IO
-  name: LockFileAddtodatadirSync
-  description: Waiting for data to reach durable storage while adding a line to the
-    data directory lock file
-- type: IO
-  name: LockFileAddtodatadirWrite
-  description: Waiting for a write while adding a line to the data directory lock
-    file
-- type: IO
-  name: LockFileCreateRead
-  description: Waiting to read while creating the data directory lock file
-- type: IO
-  name: LockFileCreateSync
-  description: Waiting for data to reach durable storage while creating the data directory
-    lock file
-- type: IO
-  name: LockFileCreateWrite
-  description: Waiting for a write while creating the data directory lock file
-- type: IO
-  name: LockFileRecheckdatadirRead
-  description: Waiting for a read during recheck of the data directory lock file
-- type: IO
-  name: LogicalRewriteCheckpointSync
-  description: Waiting for logical rewrite mappings to reach durable storage during
-    a checkpoint
-- type: IO
-  name: LogicalRewriteMappingSync
-  description: Waiting for mapping data to reach durable storage during a logical
-    rewrite
-- type: IO
-  name: LogicalRewriteMappingWrite
-  description: Waiting for a write of mapping data during a logical rewrite
-- type: IO
-  name: LogicalRewriteSync
-  description: Waiting for logical rewrite mappings to reach durable storage
-- type: IO
-  name: LogicalRewriteTruncate
-  description: Waiting for truncate of mapping data during a logical rewrite
-- type: IO
-  name: LogicalRewriteWrite
-  description: Waiting for a write of logical rewrite mappings
-- type: IO
-  name: RelationMapRead
-  description: Waiting for a read of the relation map file
-- type: IO
-  name: RelationMapReplace
-  description: Waiting for durable replacement of a relation map file
-- type: IO
-  name: RelationMapWrite
-  description: Waiting for a write to the relation map file
-- type: IO
-  name: ReorderBufferRead
-  description: Waiting for a read during reorder buffer management
-- type: IO
-  name: ReorderBufferWrite
-  description: Waiting for a write during reorder buffer management
-- type: IO
-  name: ReorderLogicalMappingRead
-  description: Waiting for a read of a logical mapping during reorder buffer management
-- type: IO
-  name: ReplicationSlotRead
-  description: Waiting for a read from a replication slot control file
-- type: IO
-  name: ReplicationSlotRestoreSync
-  description: Waiting for a replication slot control file to reach durable storage
-    while restoring it to memory
-- type: IO
-  name: ReplicationSlotSync
-  description: Waiting for a replication slot control file to reach durable storage
-- type: IO
-  name: ReplicationSlotWrite
-  description: Waiting for a write to a replication slot control file
-- type: IO
-  name: SlruFlushSync
-  description: Waiting for SLRU data to reach durable storage during a checkpoint
-    or database shutdown
-- type: IO
-  name: SlruRead
-  description: Waiting for a read of an SLRU page
-- type: IO
-  name: SlruSync
-  description: Waiting for SLRU data to reach durable storage following a page write
-- type: IO
-  name: SlruWrite
-  description: Waiting for a write of an SLRU page
-- type: IO
-  name: SnapbuildRead
-  description: Waiting for a read of a serialized historical catalog snapshot
-- type: IO
-  name: SnapbuildSync
-  description: Waiting for a serialized historical catalog snapshot to reach durable
-    storage
-- type: IO
-  name: SnapbuildWrite
-  description: Waiting for a write of a serialized historical catalog snapshot
-- type: IO
-  name: TimelineHistoryFileSync
-  description: Waiting for a timeline history file received via streaming replication
-    to reach durable storage
-- type: IO
-  name: TimelineHistoryFileWrite
-  description: Waiting for a write of a timeline history file received via streaming
-    replication
-- type: IO
-  name: TimelineHistoryRead
-  description: Waiting for a read of a timeline history file
-- type: IO
-  name: TimelineHistorySync
-  description: Waiting for a newly created timeline history file to reach durable
-    storage
-- type: IO
-  name: TimelineHistoryWrite
-  description: Waiting for a write of a newly created timeline history file
-- type: IO
-  name: TwophaseFileRead
-  description: Waiting for a read of a two phase state file
-- type: IO
-  name: TwophaseFileSync
-  description: Waiting for a two phase state file to reach durable storage
-- type: IO
-  name: TwophaseFileWrite
-  description: Waiting for a write of a two phase state file
-- type: IO
-  name: VersionFileSync
-  description: Waiting for the version file to reach durable storage while creating
-    a database
-- type: IO
-  name: VersionFileWrite
-  description: Waiting for the version file to be written while creating a database
-- type: IO
-  name: WalsenderTimelineHistoryRead
-  description: Waiting for a read from a timeline history file during a walsender
-    timeline command
-- type: IO
-  name: WalBootstrapSync
-  description: Waiting for WAL to reach durable storage during bootstrapping
-- type: IO
-  name: WalBootstrapWrite
-  description: Waiting for a write of a WAL page during bootstrapping
-- type: IO
-  name: WalCopyRead
-  description: Waiting for a read when creating a new WAL segment by copying an existing
-    one
-- type: IO
-  name: WalCopySync
-  description: Waiting for a new WAL segment created by copying an existing one to
-    reach durable storage
-- type: IO
-  name: WalCopyWrite
-  description: Waiting for a write when creating a new WAL segment by copying an existing
-    one
-- type: IO
-  name: WalInitSync
-  description: Waiting for a newly initialized WAL file to reach durable storage
-- type: IO
-  name: WalInitWrite
-  description: Waiting for a write while initializing a new WAL file
-- type: IO
-  name: WalRead
-  description: Waiting for a read from a WAL file
-- type: IO
-  name: WalSummaryRead
-  description: Waiting for a read from a WAL summary file
-- type: IO
-  name: WalSummaryWrite
-  description: Waiting for a write to a WAL summary file
-- type: IO
-  name: WalSync
-  description: Waiting for a WAL file to reach durable storage
-- type: IO
-  name: WalSyncMethodAssign
-  description: Waiting for data to reach durable storage while assigning a new WAL
-    sync method
-- type: IO
-  name: WalWrite
-  description: Waiting for a write to a WAL file
-- type: IPC
-  name: AppendReady
-  description: Waiting for subplan nodes of an Append plan node to be ready
-- type: IPC
-  name: ArchiveCleanupCommand
-  description: Waiting for archive_cleanup_command to complete
-- type: IPC
-  name: ArchiveCommand
-  description: Waiting for archive_command to complete
-- type: IPC
-  name: BackendTermination
-  description: Waiting for the termination of another backend
-- type: IPC
-  name: BackupWaitWalArchive
-  description: Waiting for WAL files required for a backup to be successfully archived
-- type: IPC
-  name: BgworkerShutdown
-  description: Waiting for background worker to shut down
-- type: IPC
-  name: BgworkerStartup
-  description: Waiting for background worker to start up
-- type: IPC
-  name: BtreePage
-  description: Waiting for the page number needed to continue a parallel B-tree scan
-    to become available
-- type: IPC
-  name: BufferIo
-  description: Waiting for buffer I/O to complete
-- type: IPC
-  name: CheckpointDelayComplete
-  description: Waiting for a backend that blocks a checkpoint from completing
-- type: IPC
-  name: CheckpointDelayStart
-  description: Waiting for a backend that blocks a checkpoint from starting
-- type: IPC
-  name: CheckpointDone
-  description: Waiting for a checkpoint to complete
-- type: IPC
-  name: CheckpointStart
-  description: Waiting for a checkpoint to start
-- type: IPC
-  name: ExecuteGather
-  description: Waiting for activity from a child process while executing a Gather
-    plan node
-- type: IPC
-  name: HashBatchAllocate
-  description: Waiting for an elected Parallel Hash participant to allocate a hash
-    table
-- type: IPC
-  name: HashBatchElect
-  description: Waiting to elect a Parallel Hash participant to allocate a hash table
-- type: IPC
-  name: HashBatchLoad
-  description: Waiting for other Parallel Hash participants to finish loading a hash
-    table
-- type: IPC
-  name: HashBuildAllocate
-  description: Waiting for an elected Parallel Hash participant to allocate the initial
-    hash table
-- type: IPC
-  name: HashBuildElect
-  description: Waiting to elect a Parallel Hash participant to allocate the initial
-    hash table
-- type: IPC
-  name: HashBuildHashInner
-  description: Waiting for other Parallel Hash participants to finish hashing the
-    inner relation
-- type: IPC
-  name: HashBuildHashOuter
-  description: Waiting for other Parallel Hash participants to finish partitioning
-    the outer relation
-- type: IPC
-  name: HashGrowBatchesDecide
-  description: Waiting to elect a Parallel Hash participant to decide on future batch
-    growth
-- type: IPC
-  name: HashGrowBatchesElect
-  description: Waiting to elect a Parallel Hash participant to allocate more batches
-- type: IPC
-  name: HashGrowBatchesFinish
-  description: Waiting for an elected Parallel Hash participant to decide on future
-    batch growth
-- type: IPC
-  name: HashGrowBatchesReallocate
-  description: Waiting for an elected Parallel Hash participant to allocate more batches
-- type: IPC
-  name: HashGrowBatchesRepartition
-  description: Waiting for other Parallel Hash participants to finish repartitioning
-- type: IPC
-  name: HashGrowBucketsElect
-  description: Waiting to elect a Parallel Hash participant to allocate more buckets
-- type: IPC
-  name: HashGrowBucketsReallocate
-  description: Waiting for an elected Parallel Hash participant to finish allocating
-    more buckets
-- type: IPC
-  name: HashGrowBucketsReinsert
-  description: Waiting for other Parallel Hash participants to finish inserting tuples
-    into new buckets
-- type: IPC
-  name: LogicalApplySendData
-  description: Waiting for a logical replication leader apply process to send data
-    to a parallel apply process
-- type: IPC
-  name: LogicalParallelApplyStateChange
-  description: Waiting for a logical replication parallel apply process to change
-    state
-- type: IPC
-  name: LogicalSyncData
-  description: Waiting for a logical replication remote server to send data for initial
-    table synchronization
-- type: IPC
-  name: LogicalSyncStateChange
-  description: Waiting for a logical replication remote server to change state
-- type: IPC
-  name: MessageQueueInternal
-  description: Waiting for another process to be attached to a shared message queue
-- type: IPC
-  name: MessageQueuePutMessage
-  description: Waiting to write a protocol message to a shared message queue
-- type: IPC
-  name: MessageQueueReceive
-  description: Waiting to receive bytes from a shared message queue
-- type: IPC
-  name: MessageQueueSend
-  description: Waiting to send bytes to a shared message queue
-- type: IPC
-  name: MultixactCreation
-  description: Waiting for a multixact creation to complete
-- type: IPC
-  name: ParallelBitmapScan
-  description: Waiting for parallel bitmap scan to become initialized
-- type: IPC
-  name: ParallelCreateIndexScan
-  description: Waiting for parallel CREATE INDEX workers to finish heap scan
-- type: IPC
-  name: ParallelFinish
-  description: Waiting for parallel workers to finish computing
-- type: IPC
-  name: ProcarrayGroupUpdate
-  description: Waiting for the group leader to clear the transaction ID at transaction
-    end
-- type: IPC
-  name: ProcSignalBarrier
-  description: Waiting for a barrier event to be processed by all backends
-- type: IPC
-  name: Promote
-  description: Waiting for standby promotion
-- type: IPC
-  name: RecoveryConflictSnapshot
-  description: Waiting for recovery conflict resolution for a vacuum cleanup
-- type: IPC
-  name: RecoveryConflictTablespace
-  description: Waiting for recovery conflict resolution for dropping a tablespace
-- type: IPC
-  name: RecoveryEndCommand
-  description: Waiting for recovery_end_command to complete
-- type: IPC
-  name: RecoveryPause
-  description: Waiting for recovery to be resumed
-- type: IPC
-  name: ReplicationOriginDrop
-  description: Waiting for a replication origin to become inactive so it can be dropped
-- type: IPC
-  name: ReplicationSlotDrop
-  description: Waiting for a replication slot to become inactive so it can be dropped
-- type: IPC
-  name: RestoreCommand
-  description: Waiting for restore_command to complete
-- type: IPC
-  name: SafeSnapshot
-  description: Waiting to obtain a valid snapshot for a READ ONLY DEFERRABLE transaction
-- type: IPC
-  name: SyncRep
-  description: Waiting for confirmation from a remote server during synchronous replication
-- type: IPC
-  name: WalReceiverExit
-  description: Waiting for the WAL receiver to exit
-- type: IPC
-  name: WalReceiverWaitStart
-  description: Waiting for startup process to send initial data for streaming replication
-- type: IPC
-  name: WalSummaryReady
-  description: Waiting for a new WAL summary to be generated
-- type: IPC
-  name: XactGroupUpdate
-  description: Waiting for the group leader to update transaction status at transaction
-    end
-- type: Lock
-  name: advisory
-  description: Waiting to acquire an advisory user lock
-- type: Lock
-  name: applytransaction
-  description: Waiting to acquire a lock on a remote transaction being applied by
-    a logical replication subscriber
-- type: Lock
-  name: extend
-  description: Waiting to extend a relation
-- type: Lock
-  name: frozenid
-  description: Waiting to update pg_database.datfrozenxid and pg_database.datminmxid
-- type: Lock
-  name: object
-  description: Waiting to acquire a lock on a non-relation database object
-- type: Lock
-  name: page
-  description: Waiting to acquire a lock on a page of a relation
-- type: Lock
-  name: relation
-  description: Waiting to acquire a lock on a relation
-- type: Lock
-  name: spectoken
-  description: Waiting to acquire a speculative insertion lock
-- type: Lock
-  name: transactionid
-  description: Waiting for a transaction to finish
-- type: Lock
-  name: tuple
-  description: Waiting to acquire a lock on a tuple
-- type: Lock
-  name: userlock
-  description: Waiting to acquire a user lock
-- type: Lock
-  name: virtualxid
-  description: Waiting to acquire a virtual transaction ID lock
-- type: LWLock
-  name: AddinShmemInit
-  description: Waiting to manage an extension's space allocation in shared memory
-- type: LWLock
-  name: AutoFile
-  description: Waiting to update the postgresql.auto.conf file
-- type: LWLock
-  name: Autovacuum
-  description: Waiting to read or update the current state of autovacuum workers
-- type: LWLock
-  name: AutovacuumSchedule
-  description: Waiting to ensure that a table selected for autovacuum still needs
-    vacuuming
-- type: LWLock
-  name: BackgroundWorker
-  description: Waiting to read or update background worker state
-- type: LWLock
-  name: BtreeVacuum
-  description: Waiting to read or update vacuum-related information for a B-tree index
-- type: LWLock
-  name: BufferContent
-  description: Waiting to access a data page in memory
-- type: LWLock
-  name: BufferMapping
-  description: Waiting to associate a data block with a buffer in the buffer pool
-- type: LWLock
-  name: CheckpointerComm
-  description: Waiting to manage fsync requests
-- type: LWLock
-  name: CommitTs
-  description: Waiting to read or update the last value set for a transaction commit
-    timestamp
-- type: LWLock
-  name: CommitTsBuffer
-  description: Waiting for I/O on a commit timestamp SLRU buffer
-- type: LWLock
-  name: CommitTsSLRU
-  description: Waiting to access the commit timestamp SLRU cache
-- type: LWLock
-  name: ControlFile
-  description: Waiting to read or update the pg_control file or create a new WAL file
-- type: LWLock
-  name: DSMRegistry
-  description: Waiting to read or update the dynamic shared memory registry
-- type: LWLock
-  name: DSMRegistryDSA
-  description: Waiting to access dynamic shared memory registry's dynamic shared memory
-    allocator
-- type: LWLock
-  name: DSMRegistryHash
-  description: Waiting to access dynamic shared memory registry's shared hash table
-- type: LWLock
-  name: DynamicSharedMemoryControl
-  description: Waiting to read or update dynamic shared memory allocation information
-- type: LWLock
-  name: InjectionPoint
-  description: Waiting to read or update information related to injection points
-- type: LWLock
-  name: LockFastPath
-  description: Waiting to read or update a process' fast-path lock information
-- type: LWLock
-  name: LockManager
-  description: Waiting to read or update information about "heavyweight" locks
-- type: LWLock
-  name: LogicalRepLauncherDSA
-  description: Waiting to access logical replication launcher's dynamic shared memory
-    allocator
-- type: LWLock
-  name: LogicalRepLauncherHash
-  description: Waiting to access logical replication launcher's shared hash table
-- type: LWLock
-  name: LogicalRepWorker
-  description: Waiting to read or update the state of logical replication workers
-- type: LWLock
-  name: MultiXactGen
-  description: Waiting to read or update shared multixact state
-- type: LWLock
-  name: MultiXactMemberBuffer
-  description: Waiting for I/O on a multixact member SLRU buffer
-- type: LWLock
-  name: MultiXactMemberSLRU
-  description: Waiting to access the multixact member SLRU cache
-- type: LWLock
-  name: MultiXactOffsetBuffer
-  description: Waiting for I/O on a multixact offset SLRU buffer
-- type: LWLock
-  name: MultiXactOffsetSLRU
-  description: Waiting to access the multixact offset SLRU cache
-- type: LWLock
-  name: MultiXactTruncation
-  description: Waiting to read or truncate multixact information
-- type: LWLock
-  name: NotifyBuffer
-  description: Waiting for I/O on a NOTIFY message SLRU buffer
-- type: LWLock
-  name: NotifyQueue
-  description: Waiting to read or update NOTIFY messages
-- type: LWLock
-  name: NotifyQueueTail
-  description: Waiting to update limit on NOTIFY message storage
-- type: LWLock
-  name: NotifySLRU
-  description: Waiting to access the NOTIFY message SLRU cache
-- type: LWLock
-  name: OidGen
-  description: Waiting to allocate a new OID
-- type: LWLock
-  name: ParallelAppend
-  description: Waiting to choose the next subplan during Parallel Append plan execution
-- type: LWLock
-  name: ParallelHashJoin
-  description: Waiting to synchronize workers during Parallel Hash Join plan execution
-- type: LWLock
-  name: ParallelQueryDSA
-  description: Waiting for parallel query dynamic shared memory allocation
-- type: LWLock
-  name: ParallelVacuumDSA
-  description: Waiting for parallel vacuum dynamic shared memory allocation
-- type: LWLock
-  name: PerSessionDSA
-  description: Waiting for parallel query dynamic shared memory allocation
-- type: LWLock
-  name: PerSessionRecordType
-  description: Waiting to access a parallel query's information about composite types
-- type: LWLock
-  name: PerSessionRecordTypmod
-  description: Waiting to access a parallel query's information about type modifiers
-    that identify anonymous record types
-- type: LWLock
-  name: PerXactPredicateList
-  description: Waiting to access the list of predicate locks held by the current serializable
-    transaction during a parallel query
-- type: LWLock
-  name: PgStatsData
-  description: Waiting for shared memory stats data access
-- type: LWLock
-  name: PgStatsDSA
-  description: Waiting for stats dynamic shared memory allocator access
-- type: LWLock
-  name: PgStatsHash
-  description: Waiting for stats shared memory hash table access
-- type: LWLock
-  name: PredicateLockManager
-  description: Waiting to access predicate lock information used by serializable transactions
-- type: LWLock
-  name: ProcArray
-  description: Waiting to access the shared per-process data structures (typically,
-    to get a snapshot or report a session's transaction ID)
-- type: LWLock
-  name: RelationMapping
-  description: Waiting to read or update a pg_filenode.map file (used to track the
-    filenode assignments of certain system catalogs)
-- type: LWLock
-  name: RelCacheInit
-  description: Waiting to read or update a pg_internal.init relation cache initialization
-    file
-- type: LWLock
-  name: ReplicationOrigin
-  description: Waiting to create, drop or use a replication origin
-- type: LWLock
-  name: ReplicationOriginState
-  description: Waiting to read or update the progress of one replication origin
-- type: LWLock
-  name: ReplicationSlotAllocation
-  description: Waiting to allocate or free a replication slot
-- type: LWLock
-  name: ReplicationSlotControl
-  description: Waiting to read or update replication slot state
-- type: LWLock
-  name: ReplicationSlotIO
-  description: Waiting for I/O on a replication slot
-- type: LWLock
-  name: SerialBuffer
-  description: Waiting for I/O on a serializable transaction conflict SLRU buffer
-- type: LWLock
-  name: SerialControl
-  description: Waiting to read or update shared pg_serial state
-- type: LWLock
-  name: SerializableFinishedList
-  description: Waiting to access the list of finished serializable transactions
-- type: LWLock
-  name: SerializablePredicateList
-  description: Waiting to access the list of predicate locks held by serializable
-    transactions
-- type: LWLock
-  name: SerializableXactHash
-  description: Waiting to read or update information about serializable transactions
-- type: LWLock
-  name: SerialSLRU
-  description: Waiting to access the serializable transaction conflict SLRU cache
-- type: LWLock
-  name: SharedTidBitmap
-  description: Waiting to access a shared TID bitmap during a parallel bitmap index
-    scan
-- type: LWLock
-  name: SharedTupleStore
-  description: Waiting to access a shared tuple store during parallel query
-- type: LWLock
-  name: ShmemIndex
-  description: Waiting to find or allocate space in shared memory
-- type: LWLock
-  name: SInvalRead
-  description: Waiting to retrieve messages from the shared catalog invalidation queue
-- type: LWLock
-  name: SInvalWrite
-  description: Waiting to add a message to the shared catalog invalidation queue
-- type: LWLock
-  name: SubtransBuffer
-  description: Waiting for I/O on a sub-transaction SLRU buffer
-- type: LWLock
-  name: SubtransSLRU
-  description: Waiting to access the sub-transaction SLRU cache
-- type: LWLock
-  name: SyncRep
-  description: Waiting to read or update information about the state of synchronous
-    replication
-- type: LWLock
-  name: SyncScan
-  description: Waiting to select the starting location of a synchronized table scan
-- type: LWLock
-  name: TablespaceCreate
-  description: Waiting to create or drop a tablespace
-- type: LWLock
-  name: TwoPhaseState
-  description: Waiting to read or update the state of prepared transactions
-- type: LWLock
-  name: WaitEventCustom
-  description: Waiting to read or update custom wait events information
-- type: LWLock
-  name: WALBufMapping
-  description: Waiting to replace a page in WAL buffers
-- type: LWLock
-  name: WALInsert
-  description: Waiting to insert WAL data into a memory buffer
-- type: LWLock
-  name: WALSummarizer
-  description: Waiting to read or update WAL summarization state
-- type: LWLock
-  name: WALWrite
-  description: Waiting for WAL buffers to be written to disk
-- type: LWLock
-  name: WrapLimitsVacuum
-  description: Waiting to update limits on transaction id and multixact consumption
-- type: LWLock
-  name: XactBuffer
-  description: Waiting for I/O on a transaction status SLRU buffer
-- type: LWLock
-  name: XactSLRU
-  description: Waiting to access the transaction status SLRU cache
-- type: LWLock
-  name: XactTruncation
-  description: Waiting to execute pg_xact_status or update the oldest transaction
-    ID available to it
-- type: LWLock
-  name: XidGen
-  description: Waiting to allocate a new transaction ID
-- type: Timeout
-  name: BaseBackupThrottle
-  description: Waiting during base backup when throttling activity
-- type: Timeout
-  name: CheckpointWriteDelay
-  description: Waiting between writes while performing a checkpoint
-- type: Timeout
-  name: PgSleep
-  description: Waiting due to a call to pg_sleep or a sibling function
-- type: Timeout
-  name: RecoveryApplyDelay
-  description: Waiting to apply WAL during recovery because of a delay setting
-- type: Timeout
-  name: RecoveryRetrieveRetryInterval
-  description: Waiting during recovery when WAL data is not available from any source
-    (pg_wal, archive or stream)
-- type: Timeout
-  name: RegisterSyncRequest
-  description: Waiting while sending synchronization requests to the checkpointer,
-    because the request queue is full
-- type: Timeout
-  name: SpinDelay
-  description: Waiting while acquiring a contended spinlock
-- type: Timeout
-  name: VacuumDelay
-  description: Waiting in a cost-based vacuum delay point
-- type: Timeout
-  name: VacuumTruncate
-  description: Waiting to acquire an exclusive lock to truncate off any empty pages
-    at the end of a table vacuumed
-- type: Timeout
-  name: WalSummarizerError
-  description: Waiting after a WAL summarizer error
+public:
+  pg_catalog:
+    pg_wait_events:
+      type: view
+      view_sql: " SELECT type,\n    name,\n    description\n   FROM pg_get_wait_events()\
+        \ pg_get_wait_events(type, name, description);"
+      schema:
+        type: varchar(256)
+        name: varchar(256)
+        description: varchar(256)
+      pg_types:
+        type: text
+        name: text
+        description: text
+      rows:
+      - type: Activity
+        name: ArchiverMain
+        description: Waiting in main loop of archiver process
+      - type: Activity
+        name: AutovacuumMain
+        description: Waiting in main loop of autovacuum launcher process
+      - type: Activity
+        name: BgwriterHibernate
+        description: Waiting in background writer process, hibernating
+      - type: Activity
+        name: BgwriterMain
+        description: Waiting in main loop of background writer process
+      - type: Activity
+        name: CheckpointerMain
+        description: Waiting in main loop of checkpointer process
+      - type: Activity
+        name: LogicalApplyMain
+        description: Waiting in main loop of logical replication apply process
+      - type: Activity
+        name: LogicalLauncherMain
+        description: Waiting in main loop of logical replication launcher process
+      - type: Activity
+        name: LogicalParallelApplyMain
+        description: Waiting in main loop of logical replication parallel apply process
+      - type: Activity
+        name: RecoveryWalStream
+        description: Waiting in main loop of startup process for WAL to arrive, during
+          streaming recovery
+      - type: Activity
+        name: ReplicationSlotsyncMain
+        description: Waiting in main loop of slot sync worker
+      - type: Activity
+        name: ReplicationSlotsyncShutdown
+        description: Waiting for slot sync worker to shut down
+      - type: Activity
+        name: SysloggerMain
+        description: Waiting in main loop of syslogger process
+      - type: Activity
+        name: WalReceiverMain
+        description: Waiting in main loop of WAL receiver process
+      - type: Activity
+        name: WalSenderMain
+        description: Waiting in main loop of WAL sender process
+      - type: Activity
+        name: WalSummarizerWal
+        description: Waiting in WAL summarizer for more WAL to be generated
+      - type: Activity
+        name: WalWriterMain
+        description: Waiting in main loop of WAL writer process
+      - type: BufferPin
+        name: BufferPin
+        description: Waiting to acquire an exclusive pin on a buffer
+      - type: Client
+        name: ClientRead
+        description: Waiting to read data from the client
+      - type: Client
+        name: ClientWrite
+        description: Waiting to write data to the client
+      - type: Client
+        name: GssOpenServer
+        description: Waiting to read data from the client while establishing a GSSAPI
+          session
+      - type: Client
+        name: LibpqwalreceiverConnect
+        description: Waiting in WAL receiver to establish connection to remote server
+      - type: Client
+        name: LibpqwalreceiverReceive
+        description: Waiting in WAL receiver to receive data from remote server
+      - type: Client
+        name: SslOpenServer
+        description: Waiting for SSL while attempting connection
+      - type: Client
+        name: WaitForStandbyConfirmation
+        description: Waiting for WAL to be received and flushed by the physical standby
+      - type: Client
+        name: WalSenderWaitForWal
+        description: Waiting for WAL to be flushed in WAL sender process
+      - type: Client
+        name: WalSenderWriteData
+        description: Waiting for any activity when processing replies from WAL receiver
+          in WAL sender process
+      - type: Extension
+        name: Extension
+        description: Waiting in an extension
+      - type: IO
+        name: BasebackupRead
+        description: Waiting for base backup to read from a file
+      - type: IO
+        name: BasebackupSync
+        description: Waiting for data written by a base backup to reach durable storage
+      - type: IO
+        name: BasebackupWrite
+        description: Waiting for base backup to write to a file
+      - type: IO
+        name: BuffileRead
+        description: Waiting for a read from a buffered file
+      - type: IO
+        name: BuffileTruncate
+        description: Waiting for a buffered file to be truncated
+      - type: IO
+        name: BuffileWrite
+        description: Waiting for a write to a buffered file
+      - type: IO
+        name: ControlFileRead
+        description: Waiting for a read from the pg_control file
+      - type: IO
+        name: ControlFileSync
+        description: Waiting for the pg_control file to reach durable storage
+      - type: IO
+        name: ControlFileSyncUpdate
+        description: Waiting for an update to the pg_control file to reach durable
+          storage
+      - type: IO
+        name: ControlFileWrite
+        description: Waiting for a write to the pg_control file
+      - type: IO
+        name: ControlFileWriteUpdate
+        description: Waiting for a write to update the pg_control file
+      - type: IO
+        name: CopyFileRead
+        description: Waiting for a read during a file copy operation
+      - type: IO
+        name: CopyFileWrite
+        description: Waiting for a write during a file copy operation
+      - type: IO
+        name: DataFileExtend
+        description: Waiting for a relation data file to be extended
+      - type: IO
+        name: DataFileFlush
+        description: Waiting for a relation data file to reach durable storage
+      - type: IO
+        name: DataFileImmediateSync
+        description: Waiting for an immediate synchronization of a relation data file
+          to durable storage
+      - type: IO
+        name: DataFilePrefetch
+        description: Waiting for an asynchronous prefetch from a relation data file
+      - type: IO
+        name: DataFileRead
+        description: Waiting for a read from a relation data file
+      - type: IO
+        name: DataFileSync
+        description: Waiting for changes to a relation data file to reach durable
+          storage
+      - type: IO
+        name: DataFileTruncate
+        description: Waiting for a relation data file to be truncated
+      - type: IO
+        name: DataFileWrite
+        description: Waiting for a write to a relation data file
+      - type: IO
+        name: DsmAllocate
+        description: Waiting for a dynamic shared memory segment to be allocated
+      - type: IO
+        name: DsmFillZeroWrite
+        description: Waiting to fill a dynamic shared memory backing file with zeroes
+      - type: IO
+        name: LockFileAddtodatadirRead
+        description: Waiting for a read while adding a line to the data directory
+          lock file
+      - type: IO
+        name: LockFileAddtodatadirSync
+        description: Waiting for data to reach durable storage while adding a line
+          to the data directory lock file
+      - type: IO
+        name: LockFileAddtodatadirWrite
+        description: Waiting for a write while adding a line to the data directory
+          lock file
+      - type: IO
+        name: LockFileCreateRead
+        description: Waiting to read while creating the data directory lock file
+      - type: IO
+        name: LockFileCreateSync
+        description: Waiting for data to reach durable storage while creating the
+          data directory lock file
+      - type: IO
+        name: LockFileCreateWrite
+        description: Waiting for a write while creating the data directory lock file
+      - type: IO
+        name: LockFileRecheckdatadirRead
+        description: Waiting for a read during recheck of the data directory lock
+          file
+      - type: IO
+        name: LogicalRewriteCheckpointSync
+        description: Waiting for logical rewrite mappings to reach durable storage
+          during a checkpoint
+      - type: IO
+        name: LogicalRewriteMappingSync
+        description: Waiting for mapping data to reach durable storage during a logical
+          rewrite
+      - type: IO
+        name: LogicalRewriteMappingWrite
+        description: Waiting for a write of mapping data during a logical rewrite
+      - type: IO
+        name: LogicalRewriteSync
+        description: Waiting for logical rewrite mappings to reach durable storage
+      - type: IO
+        name: LogicalRewriteTruncate
+        description: Waiting for truncate of mapping data during a logical rewrite
+      - type: IO
+        name: LogicalRewriteWrite
+        description: Waiting for a write of logical rewrite mappings
+      - type: IO
+        name: RelationMapRead
+        description: Waiting for a read of the relation map file
+      - type: IO
+        name: RelationMapReplace
+        description: Waiting for durable replacement of a relation map file
+      - type: IO
+        name: RelationMapWrite
+        description: Waiting for a write to the relation map file
+      - type: IO
+        name: ReorderBufferRead
+        description: Waiting for a read during reorder buffer management
+      - type: IO
+        name: ReorderBufferWrite
+        description: Waiting for a write during reorder buffer management
+      - type: IO
+        name: ReorderLogicalMappingRead
+        description: Waiting for a read of a logical mapping during reorder buffer
+          management
+      - type: IO
+        name: ReplicationSlotRead
+        description: Waiting for a read from a replication slot control file
+      - type: IO
+        name: ReplicationSlotRestoreSync
+        description: Waiting for a replication slot control file to reach durable
+          storage while restoring it to memory
+      - type: IO
+        name: ReplicationSlotSync
+        description: Waiting for a replication slot control file to reach durable
+          storage
+      - type: IO
+        name: ReplicationSlotWrite
+        description: Waiting for a write to a replication slot control file
+      - type: IO
+        name: SlruFlushSync
+        description: Waiting for SLRU data to reach durable storage during a checkpoint
+          or database shutdown
+      - type: IO
+        name: SlruRead
+        description: Waiting for a read of an SLRU page
+      - type: IO
+        name: SlruSync
+        description: Waiting for SLRU data to reach durable storage following a page
+          write
+      - type: IO
+        name: SlruWrite
+        description: Waiting for a write of an SLRU page
+      - type: IO
+        name: SnapbuildRead
+        description: Waiting for a read of a serialized historical catalog snapshot
+      - type: IO
+        name: SnapbuildSync
+        description: Waiting for a serialized historical catalog snapshot to reach
+          durable storage
+      - type: IO
+        name: SnapbuildWrite
+        description: Waiting for a write of a serialized historical catalog snapshot
+      - type: IO
+        name: TimelineHistoryFileSync
+        description: Waiting for a timeline history file received via streaming replication
+          to reach durable storage
+      - type: IO
+        name: TimelineHistoryFileWrite
+        description: Waiting for a write of a timeline history file received via streaming
+          replication
+      - type: IO
+        name: TimelineHistoryRead
+        description: Waiting for a read of a timeline history file
+      - type: IO
+        name: TimelineHistorySync
+        description: Waiting for a newly created timeline history file to reach durable
+          storage
+      - type: IO
+        name: TimelineHistoryWrite
+        description: Waiting for a write of a newly created timeline history file
+      - type: IO
+        name: TwophaseFileRead
+        description: Waiting for a read of a two phase state file
+      - type: IO
+        name: TwophaseFileSync
+        description: Waiting for a two phase state file to reach durable storage
+      - type: IO
+        name: TwophaseFileWrite
+        description: Waiting for a write of a two phase state file
+      - type: IO
+        name: VersionFileSync
+        description: Waiting for the version file to reach durable storage while creating
+          a database
+      - type: IO
+        name: VersionFileWrite
+        description: Waiting for the version file to be written while creating a database
+      - type: IO
+        name: WalsenderTimelineHistoryRead
+        description: Waiting for a read from a timeline history file during a walsender
+          timeline command
+      - type: IO
+        name: WalBootstrapSync
+        description: Waiting for WAL to reach durable storage during bootstrapping
+      - type: IO
+        name: WalBootstrapWrite
+        description: Waiting for a write of a WAL page during bootstrapping
+      - type: IO
+        name: WalCopyRead
+        description: Waiting for a read when creating a new WAL segment by copying
+          an existing one
+      - type: IO
+        name: WalCopySync
+        description: Waiting for a new WAL segment created by copying an existing
+          one to reach durable storage
+      - type: IO
+        name: WalCopyWrite
+        description: Waiting for a write when creating a new WAL segment by copying
+          an existing one
+      - type: IO
+        name: WalInitSync
+        description: Waiting for a newly initialized WAL file to reach durable storage
+      - type: IO
+        name: WalInitWrite
+        description: Waiting for a write while initializing a new WAL file
+      - type: IO
+        name: WalRead
+        description: Waiting for a read from a WAL file
+      - type: IO
+        name: WalSummaryRead
+        description: Waiting for a read from a WAL summary file
+      - type: IO
+        name: WalSummaryWrite
+        description: Waiting for a write to a WAL summary file
+      - type: IO
+        name: WalSync
+        description: Waiting for a WAL file to reach durable storage
+      - type: IO
+        name: WalSyncMethodAssign
+        description: Waiting for data to reach durable storage while assigning a new
+          WAL sync method
+      - type: IO
+        name: WalWrite
+        description: Waiting for a write to a WAL file
+      - type: IPC
+        name: AppendReady
+        description: Waiting for subplan nodes of an Append plan node to be ready
+      - type: IPC
+        name: ArchiveCleanupCommand
+        description: Waiting for archive_cleanup_command to complete
+      - type: IPC
+        name: ArchiveCommand
+        description: Waiting for archive_command to complete
+      - type: IPC
+        name: BackendTermination
+        description: Waiting for the termination of another backend
+      - type: IPC
+        name: BackupWaitWalArchive
+        description: Waiting for WAL files required for a backup to be successfully
+          archived
+      - type: IPC
+        name: BgworkerShutdown
+        description: Waiting for background worker to shut down
+      - type: IPC
+        name: BgworkerStartup
+        description: Waiting for background worker to start up
+      - type: IPC
+        name: BtreePage
+        description: Waiting for the page number needed to continue a parallel B-tree
+          scan to become available
+      - type: IPC
+        name: BufferIo
+        description: Waiting for buffer I/O to complete
+      - type: IPC
+        name: CheckpointDelayComplete
+        description: Waiting for a backend that blocks a checkpoint from completing
+      - type: IPC
+        name: CheckpointDelayStart
+        description: Waiting for a backend that blocks a checkpoint from starting
+      - type: IPC
+        name: CheckpointDone
+        description: Waiting for a checkpoint to complete
+      - type: IPC
+        name: CheckpointStart
+        description: Waiting for a checkpoint to start
+      - type: IPC
+        name: ExecuteGather
+        description: Waiting for activity from a child process while executing a Gather
+          plan node
+      - type: IPC
+        name: HashBatchAllocate
+        description: Waiting for an elected Parallel Hash participant to allocate
+          a hash table
+      - type: IPC
+        name: HashBatchElect
+        description: Waiting to elect a Parallel Hash participant to allocate a hash
+          table
+      - type: IPC
+        name: HashBatchLoad
+        description: Waiting for other Parallel Hash participants to finish loading
+          a hash table
+      - type: IPC
+        name: HashBuildAllocate
+        description: Waiting for an elected Parallel Hash participant to allocate
+          the initial hash table
+      - type: IPC
+        name: HashBuildElect
+        description: Waiting to elect a Parallel Hash participant to allocate the
+          initial hash table
+      - type: IPC
+        name: HashBuildHashInner
+        description: Waiting for other Parallel Hash participants to finish hashing
+          the inner relation
+      - type: IPC
+        name: HashBuildHashOuter
+        description: Waiting for other Parallel Hash participants to finish partitioning
+          the outer relation
+      - type: IPC
+        name: HashGrowBatchesDecide
+        description: Waiting to elect a Parallel Hash participant to decide on future
+          batch growth
+      - type: IPC
+        name: HashGrowBatchesElect
+        description: Waiting to elect a Parallel Hash participant to allocate more
+          batches
+      - type: IPC
+        name: HashGrowBatchesFinish
+        description: Waiting for an elected Parallel Hash participant to decide on
+          future batch growth
+      - type: IPC
+        name: HashGrowBatchesReallocate
+        description: Waiting for an elected Parallel Hash participant to allocate
+          more batches
+      - type: IPC
+        name: HashGrowBatchesRepartition
+        description: Waiting for other Parallel Hash participants to finish repartitioning
+      - type: IPC
+        name: HashGrowBucketsElect
+        description: Waiting to elect a Parallel Hash participant to allocate more
+          buckets
+      - type: IPC
+        name: HashGrowBucketsReallocate
+        description: Waiting for an elected Parallel Hash participant to finish allocating
+          more buckets
+      - type: IPC
+        name: HashGrowBucketsReinsert
+        description: Waiting for other Parallel Hash participants to finish inserting
+          tuples into new buckets
+      - type: IPC
+        name: LogicalApplySendData
+        description: Waiting for a logical replication leader apply process to send
+          data to a parallel apply process
+      - type: IPC
+        name: LogicalParallelApplyStateChange
+        description: Waiting for a logical replication parallel apply process to change
+          state
+      - type: IPC
+        name: LogicalSyncData
+        description: Waiting for a logical replication remote server to send data
+          for initial table synchronization
+      - type: IPC
+        name: LogicalSyncStateChange
+        description: Waiting for a logical replication remote server to change state
+      - type: IPC
+        name: MessageQueueInternal
+        description: Waiting for another process to be attached to a shared message
+          queue
+      - type: IPC
+        name: MessageQueuePutMessage
+        description: Waiting to write a protocol message to a shared message queue
+      - type: IPC
+        name: MessageQueueReceive
+        description: Waiting to receive bytes from a shared message queue
+      - type: IPC
+        name: MessageQueueSend
+        description: Waiting to send bytes to a shared message queue
+      - type: IPC
+        name: MultixactCreation
+        description: Waiting for a multixact creation to complete
+      - type: IPC
+        name: ParallelBitmapScan
+        description: Waiting for parallel bitmap scan to become initialized
+      - type: IPC
+        name: ParallelCreateIndexScan
+        description: Waiting for parallel CREATE INDEX workers to finish heap scan
+      - type: IPC
+        name: ParallelFinish
+        description: Waiting for parallel workers to finish computing
+      - type: IPC
+        name: ProcarrayGroupUpdate
+        description: Waiting for the group leader to clear the transaction ID at transaction
+          end
+      - type: IPC
+        name: ProcSignalBarrier
+        description: Waiting for a barrier event to be processed by all backends
+      - type: IPC
+        name: Promote
+        description: Waiting for standby promotion
+      - type: IPC
+        name: RecoveryConflictSnapshot
+        description: Waiting for recovery conflict resolution for a vacuum cleanup
+      - type: IPC
+        name: RecoveryConflictTablespace
+        description: Waiting for recovery conflict resolution for dropping a tablespace
+      - type: IPC
+        name: RecoveryEndCommand
+        description: Waiting for recovery_end_command to complete
+      - type: IPC
+        name: RecoveryPause
+        description: Waiting for recovery to be resumed
+      - type: IPC
+        name: ReplicationOriginDrop
+        description: Waiting for a replication origin to become inactive so it can
+          be dropped
+      - type: IPC
+        name: ReplicationSlotDrop
+        description: Waiting for a replication slot to become inactive so it can be
+          dropped
+      - type: IPC
+        name: RestoreCommand
+        description: Waiting for restore_command to complete
+      - type: IPC
+        name: SafeSnapshot
+        description: Waiting to obtain a valid snapshot for a READ ONLY DEFERRABLE
+          transaction
+      - type: IPC
+        name: SyncRep
+        description: Waiting for confirmation from a remote server during synchronous
+          replication
+      - type: IPC
+        name: WalReceiverExit
+        description: Waiting for the WAL receiver to exit
+      - type: IPC
+        name: WalReceiverWaitStart
+        description: Waiting for startup process to send initial data for streaming
+          replication
+      - type: IPC
+        name: WalSummaryReady
+        description: Waiting for a new WAL summary to be generated
+      - type: IPC
+        name: XactGroupUpdate
+        description: Waiting for the group leader to update transaction status at
+          transaction end
+      - type: Lock
+        name: advisory
+        description: Waiting to acquire an advisory user lock
+      - type: Lock
+        name: applytransaction
+        description: Waiting to acquire a lock on a remote transaction being applied
+          by a logical replication subscriber
+      - type: Lock
+        name: extend
+        description: Waiting to extend a relation
+      - type: Lock
+        name: frozenid
+        description: Waiting to update pg_database.datfrozenxid and pg_database.datminmxid
+      - type: Lock
+        name: object
+        description: Waiting to acquire a lock on a non-relation database object
+      - type: Lock
+        name: page
+        description: Waiting to acquire a lock on a page of a relation
+      - type: Lock
+        name: relation
+        description: Waiting to acquire a lock on a relation
+      - type: Lock
+        name: spectoken
+        description: Waiting to acquire a speculative insertion lock
+      - type: Lock
+        name: transactionid
+        description: Waiting for a transaction to finish
+      - type: Lock
+        name: tuple
+        description: Waiting to acquire a lock on a tuple
+      - type: Lock
+        name: userlock
+        description: Waiting to acquire a user lock
+      - type: Lock
+        name: virtualxid
+        description: Waiting to acquire a virtual transaction ID lock
+      - type: LWLock
+        name: AddinShmemInit
+        description: Waiting to manage an extension's space allocation in shared memory
+      - type: LWLock
+        name: AutoFile
+        description: Waiting to update the postgresql.auto.conf file
+      - type: LWLock
+        name: Autovacuum
+        description: Waiting to read or update the current state of autovacuum workers
+      - type: LWLock
+        name: AutovacuumSchedule
+        description: Waiting to ensure that a table selected for autovacuum still
+          needs vacuuming
+      - type: LWLock
+        name: BackgroundWorker
+        description: Waiting to read or update background worker state
+      - type: LWLock
+        name: BtreeVacuum
+        description: Waiting to read or update vacuum-related information for a B-tree
+          index
+      - type: LWLock
+        name: BufferContent
+        description: Waiting to access a data page in memory
+      - type: LWLock
+        name: BufferMapping
+        description: Waiting to associate a data block with a buffer in the buffer
+          pool
+      - type: LWLock
+        name: CheckpointerComm
+        description: Waiting to manage fsync requests
+      - type: LWLock
+        name: CommitTs
+        description: Waiting to read or update the last value set for a transaction
+          commit timestamp
+      - type: LWLock
+        name: CommitTsBuffer
+        description: Waiting for I/O on a commit timestamp SLRU buffer
+      - type: LWLock
+        name: CommitTsSLRU
+        description: Waiting to access the commit timestamp SLRU cache
+      - type: LWLock
+        name: ControlFile
+        description: Waiting to read or update the pg_control file or create a new
+          WAL file
+      - type: LWLock
+        name: DSMRegistry
+        description: Waiting to read or update the dynamic shared memory registry
+      - type: LWLock
+        name: DSMRegistryDSA
+        description: Waiting to access dynamic shared memory registry's dynamic shared
+          memory allocator
+      - type: LWLock
+        name: DSMRegistryHash
+        description: Waiting to access dynamic shared memory registry's shared hash
+          table
+      - type: LWLock
+        name: DynamicSharedMemoryControl
+        description: Waiting to read or update dynamic shared memory allocation information
+      - type: LWLock
+        name: InjectionPoint
+        description: Waiting to read or update information related to injection points
+      - type: LWLock
+        name: LockFastPath
+        description: Waiting to read or update a process' fast-path lock information
+      - type: LWLock
+        name: LockManager
+        description: Waiting to read or update information about "heavyweight" locks
+      - type: LWLock
+        name: LogicalRepLauncherDSA
+        description: Waiting to access logical replication launcher's dynamic shared
+          memory allocator
+      - type: LWLock
+        name: LogicalRepLauncherHash
+        description: Waiting to access logical replication launcher's shared hash
+          table
+      - type: LWLock
+        name: LogicalRepWorker
+        description: Waiting to read or update the state of logical replication workers
+      - type: LWLock
+        name: MultiXactGen
+        description: Waiting to read or update shared multixact state
+      - type: LWLock
+        name: MultiXactMemberBuffer
+        description: Waiting for I/O on a multixact member SLRU buffer
+      - type: LWLock
+        name: MultiXactMemberSLRU
+        description: Waiting to access the multixact member SLRU cache
+      - type: LWLock
+        name: MultiXactOffsetBuffer
+        description: Waiting for I/O on a multixact offset SLRU buffer
+      - type: LWLock
+        name: MultiXactOffsetSLRU
+        description: Waiting to access the multixact offset SLRU cache
+      - type: LWLock
+        name: MultiXactTruncation
+        description: Waiting to read or truncate multixact information
+      - type: LWLock
+        name: NotifyBuffer
+        description: Waiting for I/O on a NOTIFY message SLRU buffer
+      - type: LWLock
+        name: NotifyQueue
+        description: Waiting to read or update NOTIFY messages
+      - type: LWLock
+        name: NotifyQueueTail
+        description: Waiting to update limit on NOTIFY message storage
+      - type: LWLock
+        name: NotifySLRU
+        description: Waiting to access the NOTIFY message SLRU cache
+      - type: LWLock
+        name: OidGen
+        description: Waiting to allocate a new OID
+      - type: LWLock
+        name: ParallelAppend
+        description: Waiting to choose the next subplan during Parallel Append plan
+          execution
+      - type: LWLock
+        name: ParallelHashJoin
+        description: Waiting to synchronize workers during Parallel Hash Join plan
+          execution
+      - type: LWLock
+        name: ParallelQueryDSA
+        description: Waiting for parallel query dynamic shared memory allocation
+      - type: LWLock
+        name: ParallelVacuumDSA
+        description: Waiting for parallel vacuum dynamic shared memory allocation
+      - type: LWLock
+        name: PerSessionDSA
+        description: Waiting for parallel query dynamic shared memory allocation
+      - type: LWLock
+        name: PerSessionRecordType
+        description: Waiting to access a parallel query's information about composite
+          types
+      - type: LWLock
+        name: PerSessionRecordTypmod
+        description: Waiting to access a parallel query's information about type modifiers
+          that identify anonymous record types
+      - type: LWLock
+        name: PerXactPredicateList
+        description: Waiting to access the list of predicate locks held by the current
+          serializable transaction during a parallel query
+      - type: LWLock
+        name: PgStatsData
+        description: Waiting for shared memory stats data access
+      - type: LWLock
+        name: PgStatsDSA
+        description: Waiting for stats dynamic shared memory allocator access
+      - type: LWLock
+        name: PgStatsHash
+        description: Waiting for stats shared memory hash table access
+      - type: LWLock
+        name: PredicateLockManager
+        description: Waiting to access predicate lock information used by serializable
+          transactions
+      - type: LWLock
+        name: ProcArray
+        description: Waiting to access the shared per-process data structures (typically,
+          to get a snapshot or report a session's transaction ID)
+      - type: LWLock
+        name: RelationMapping
+        description: Waiting to read or update a pg_filenode.map file (used to track
+          the filenode assignments of certain system catalogs)
+      - type: LWLock
+        name: RelCacheInit
+        description: Waiting to read or update a pg_internal.init relation cache initialization
+          file
+      - type: LWLock
+        name: ReplicationOrigin
+        description: Waiting to create, drop or use a replication origin
+      - type: LWLock
+        name: ReplicationOriginState
+        description: Waiting to read or update the progress of one replication origin
+      - type: LWLock
+        name: ReplicationSlotAllocation
+        description: Waiting to allocate or free a replication slot
+      - type: LWLock
+        name: ReplicationSlotControl
+        description: Waiting to read or update replication slot state
+      - type: LWLock
+        name: ReplicationSlotIO
+        description: Waiting for I/O on a replication slot
+      - type: LWLock
+        name: SerialBuffer
+        description: Waiting for I/O on a serializable transaction conflict SLRU buffer
+      - type: LWLock
+        name: SerialControl
+        description: Waiting to read or update shared pg_serial state
+      - type: LWLock
+        name: SerializableFinishedList
+        description: Waiting to access the list of finished serializable transactions
+      - type: LWLock
+        name: SerializablePredicateList
+        description: Waiting to access the list of predicate locks held by serializable
+          transactions
+      - type: LWLock
+        name: SerializableXactHash
+        description: Waiting to read or update information about serializable transactions
+      - type: LWLock
+        name: SerialSLRU
+        description: Waiting to access the serializable transaction conflict SLRU
+          cache
+      - type: LWLock
+        name: SharedTidBitmap
+        description: Waiting to access a shared TID bitmap during a parallel bitmap
+          index scan
+      - type: LWLock
+        name: SharedTupleStore
+        description: Waiting to access a shared tuple store during parallel query
+      - type: LWLock
+        name: ShmemIndex
+        description: Waiting to find or allocate space in shared memory
+      - type: LWLock
+        name: SInvalRead
+        description: Waiting to retrieve messages from the shared catalog invalidation
+          queue
+      - type: LWLock
+        name: SInvalWrite
+        description: Waiting to add a message to the shared catalog invalidation queue
+      - type: LWLock
+        name: SubtransBuffer
+        description: Waiting for I/O on a sub-transaction SLRU buffer
+      - type: LWLock
+        name: SubtransSLRU
+        description: Waiting to access the sub-transaction SLRU cache
+      - type: LWLock
+        name: SyncRep
+        description: Waiting to read or update information about the state of synchronous
+          replication
+      - type: LWLock
+        name: SyncScan
+        description: Waiting to select the starting location of a synchronized table
+          scan
+      - type: LWLock
+        name: TablespaceCreate
+        description: Waiting to create or drop a tablespace
+      - type: LWLock
+        name: TwoPhaseState
+        description: Waiting to read or update the state of prepared transactions
+      - type: LWLock
+        name: WaitEventCustom
+        description: Waiting to read or update custom wait events information
+      - type: LWLock
+        name: WALBufMapping
+        description: Waiting to replace a page in WAL buffers
+      - type: LWLock
+        name: WALInsert
+        description: Waiting to insert WAL data into a memory buffer
+      - type: LWLock
+        name: WALSummarizer
+        description: Waiting to read or update WAL summarization state
+      - type: LWLock
+        name: WALWrite
+        description: Waiting for WAL buffers to be written to disk
+      - type: LWLock
+        name: WrapLimitsVacuum
+        description: Waiting to update limits on transaction id and multixact consumption
+      - type: LWLock
+        name: XactBuffer
+        description: Waiting for I/O on a transaction status SLRU buffer
+      - type: LWLock
+        name: XactSLRU
+        description: Waiting to access the transaction status SLRU cache
+      - type: LWLock
+        name: XactTruncation
+        description: Waiting to execute pg_xact_status or update the oldest transaction
+          ID available to it
+      - type: LWLock
+        name: XidGen
+        description: Waiting to allocate a new transaction ID
+      - type: Timeout
+        name: BaseBackupThrottle
+        description: Waiting during base backup when throttling activity
+      - type: Timeout
+        name: CheckpointWriteDelay
+        description: Waiting between writes while performing a checkpoint
+      - type: Timeout
+        name: PgSleep
+        description: Waiting due to a call to pg_sleep or a sibling function
+      - type: Timeout
+        name: RecoveryApplyDelay
+        description: Waiting to apply WAL during recovery because of a delay setting
+      - type: Timeout
+        name: RecoveryRetrieveRetryInterval
+        description: Waiting during recovery when WAL data is not available from any
+          source (pg_wal, archive or stream)
+      - type: Timeout
+        name: RegisterSyncRequest
+        description: Waiting while sending synchronization requests to the checkpointer,
+          because the request queue is full
+      - type: Timeout
+        name: SpinDelay
+        description: Waiting while acquiring a contended spinlock
+      - type: Timeout
+        name: VacuumDelay
+        description: Waiting in a cost-based vacuum delay point
+      - type: Timeout
+        name: VacuumTruncate
+        description: Waiting to acquire an exclusive lock to truncate off any empty
+          pages at the end of a table vacuumed
+      - type: Timeout
+        name: WalSummarizerError
+        description: Waiting after a WAL summarizer error

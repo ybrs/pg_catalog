@@ -1,25 +1,28 @@
-type: view
-view_sql: " SELECT DISTINCT current_database()::information_schema.sql_identifier\
-  \ AS table_catalog,\n    n.nspname::information_schema.sql_identifier AS table_schema,\n\
-  \    c.relname::information_schema.sql_identifier AS table_name,\n    ac.attname::information_schema.sql_identifier\
-  \ AS column_name,\n    ad.attname::information_schema.sql_identifier AS dependent_column\n\
-  \   FROM pg_namespace n,\n    pg_class c,\n    pg_depend d,\n    pg_attribute ac,\n\
-  \    pg_attribute ad,\n    pg_attrdef atd\n  WHERE n.oid = c.relnamespace AND c.oid\
-  \ = ac.attrelid AND c.oid = ad.attrelid AND ac.attnum <> ad.attnum AND ad.attrelid\
-  \ = atd.adrelid AND ad.attnum = atd.adnum AND d.classid = 'pg_attrdef'::regclass::oid\
-  \ AND d.refclassid = 'pg_class'::regclass::oid AND d.objid = atd.oid AND d.refobjid\
-  \ = ac.attrelid AND d.refobjsubid = ac.attnum AND ad.attgenerated <> ''::\"char\"\
-  \ AND pg_has_role(c.relowner, 'USAGE'::text);"
-schema:
-  table_catalog: varchar(64)
-  table_schema: varchar(64)
-  table_name: varchar(64)
-  column_name: varchar(64)
-  dependent_column: varchar(64)
-pg_types:
-  table_catalog: name
-  table_schema: name
-  table_name: name
-  column_name: name
-  dependent_column: name
-rows: []
+public:
+  information_schema:
+    column_column_usage:
+      type: view
+      view_sql: " SELECT DISTINCT current_database()::information_schema.sql_identifier\
+        \ AS table_catalog,\n    n.nspname::information_schema.sql_identifier AS table_schema,\n\
+        \    c.relname::information_schema.sql_identifier AS table_name,\n    ac.attname::information_schema.sql_identifier\
+        \ AS column_name,\n    ad.attname::information_schema.sql_identifier AS dependent_column\n\
+        \   FROM pg_namespace n,\n    pg_class c,\n    pg_depend d,\n    pg_attribute\
+        \ ac,\n    pg_attribute ad,\n    pg_attrdef atd\n  WHERE n.oid = c.relnamespace\
+        \ AND c.oid = ac.attrelid AND c.oid = ad.attrelid AND ac.attnum <> ad.attnum\
+        \ AND ad.attrelid = atd.adrelid AND ad.attnum = atd.adnum AND d.classid =\
+        \ 'pg_attrdef'::regclass::oid AND d.refclassid = 'pg_class'::regclass::oid\
+        \ AND d.objid = atd.oid AND d.refobjid = ac.attrelid AND d.refobjsubid = ac.attnum\
+        \ AND ad.attgenerated <> ''::\"char\" AND pg_has_role(c.relowner, 'USAGE'::text);"
+      schema:
+        table_catalog: varchar(64)
+        table_schema: varchar(64)
+        table_name: varchar(64)
+        column_name: varchar(64)
+        dependent_column: varchar(64)
+      pg_types:
+        table_catalog: name
+        table_schema: name
+        table_name: name
+        column_name: name
+        dependent_column: name
+      rows: []

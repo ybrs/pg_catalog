@@ -1,12 +1,15 @@
-type: view
-view_sql: " SELECT authorization_identifier,\n    foreign_server_catalog,\n    foreign_server_name\n\
-  \   FROM information_schema._pg_user_mappings;"
-schema:
-  authorization_identifier: varchar(64)
-  foreign_server_catalog: varchar(64)
-  foreign_server_name: varchar(64)
-pg_types:
-  authorization_identifier: name
-  foreign_server_catalog: name
-  foreign_server_name: name
-rows: []
+public:
+  information_schema:
+    user_mappings:
+      type: view
+      view_sql: " SELECT authorization_identifier,\n    foreign_server_catalog,\n\
+        \    foreign_server_name\n   FROM information_schema._pg_user_mappings;"
+      schema:
+        authorization_identifier: varchar(64)
+        foreign_server_catalog: varchar(64)
+        foreign_server_name: varchar(64)
+      pg_types:
+        authorization_identifier: name
+        foreign_server_catalog: name
+        foreign_server_name: name
+      rows: []

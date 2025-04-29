@@ -82,8 +82,6 @@ def ensure_dir(path):
         os.makedirs(path)
 
 def generate(output_dir):
-    conn = psycopg.connect("host=localhost port=5434 dbname=postgres")
-
     ensure_dir(output_dir)
 
     for schema_name in ["pg_catalog", "information_schema"]:
@@ -110,12 +108,19 @@ def generate(output_dir):
                 entry["rows"] = table_rows
 
             if description:
+                # TODO: description is not working
                 entry["description"] = description
-                import ipdb; ipdb.set_trace()
 
+            wrapped = {
+                "public": {
+                    schema_name: {
+                        objname: entry
+                    }
+                }
+            }
             out_file = os.path.join(output_dir, f"{schema_name}__{objname}.yaml")
             with open(out_file, "w") as f:
-                yaml.dump(entry, f, sort_keys=False, allow_unicode=True)
+                yaml.dump(wrapped, f, sort_keys=False, allow_unicode=True)
 
     print(f"Saved schemas to {output_dir}")
 
@@ -171,6 +176,10 @@ if __name__ == "__main__":
         sys.exit(1)
 
     cmd = sys.argv[1]
+
+    conn = psycopg.connect("host=localhost port=5434 dbname=postgres")
+
+
     if cmd == "generate":
         output_dir = sys.argv[2]
         generate(output_dir)

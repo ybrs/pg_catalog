@@ -1,10 +1,13 @@
-type: system_catalog
-schema:
-  loid: int
-  pageno: int
-  data: varchar(256)
-pg_types:
-  loid: oid
-  pageno: int4
-  data: bytea
-rows: []
+public:
+  pg_catalog:
+    pg_largeobject:
+      type: system_catalog
+      schema:
+        loid: int
+        pageno: int
+        data: varchar(256)
+      pg_types:
+        loid: oid
+        pageno: int4
+        data: bytea
+      rows: []

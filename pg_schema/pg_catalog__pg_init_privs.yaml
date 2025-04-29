@@ -1,1129 +1,1132 @@
-type: system_catalog
-schema:
-  objoid: int
-  classoid: int
-  objsubid: int
-  privtype: varchar(256)
-  initprivs: varchar(256)
-pg_types:
-  objoid: oid
-  classoid: oid
-  objsubid: int4
-  privtype: char
-  initprivs: _aclitem
-rows:
-- objoid: 2619
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
-- objoid: 1247
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 3118
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 1260
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
-- objoid: 12005
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
-- objoid: 12000
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 3429
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
-- objoid: 12114
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
-- objoid: 12104
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=rw/aybarsb'']'
-- objoid: 12110
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
-- objoid: 12138
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''pg_read_all_stats=r/aybarsb'']'
-- objoid: 12118
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
-- objoid: 12130
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
-- objoid: 12134
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''pg_read_all_stats=r/aybarsb'']'
-- objoid: 12033
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 1418
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
-- objoid: 12209
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12339
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
-- objoid: 6100
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
-- objoid: 1249
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 1255
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 1259
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 2604
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12214
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12218
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 2606
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 2611
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 2610
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 2617
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 2753
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 2616
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 2601
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 2602
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 2603
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 2612
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 2995
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 2600
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 3381
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 2618
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 2620
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 3466
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 2609
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 2605
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 3501
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 2615
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 2607
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 2608
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 1262
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 2964
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 1213
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 1261
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 1214
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 2396
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 3602
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 3603
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 3600
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 3601
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 3764
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 3079
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 2328
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 1417
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 3256
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 6000
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 826
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 3394
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 3596
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 3592
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 3456
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 6243
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 3350
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 3541
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 3576
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 2224
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 6104
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 6237
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 6106
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 6102
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12010
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12014
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12018
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12023
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12028
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12038
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12043
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12048
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12053
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12058
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12063
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12068
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12073
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12077
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12081
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12085
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12090
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12095
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12099
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12122
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12126
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12142
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12147
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12166
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12152
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12157
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12161
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12170
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12175
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12179
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12183
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12188
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12192
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12196
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12201
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12205
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12222
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12227
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12232
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12236
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12240
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12244
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12249
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12253
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12257
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12262
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12266
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12271
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12275
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12280
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12285
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12289
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12293
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12297
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12301
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12305
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12310
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12315
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12320
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12325
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12329
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12334
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12343
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 12347
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
-- objoid: 2613
-  classoid: 1259
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
-- objoid: 6100
-  classoid: 1259
-  objsubid: 1
-  privtype: i
-  initprivs: '[''=r/aybarsb'']'
-- objoid: 6100
-  classoid: 1259
-  objsubid: 2
-  privtype: i
-  initprivs: '[''=r/aybarsb'']'
-- objoid: 6100
-  classoid: 1259
-  objsubid: 3
-  privtype: i
-  initprivs: '[''=r/aybarsb'']'
-- objoid: 6100
-  classoid: 1259
-  objsubid: 4
-  privtype: i
-  initprivs: '[''=r/aybarsb'']'
-- objoid: 6100
-  classoid: 1259
-  objsubid: 5
-  privtype: i
-  initprivs: '[''=r/aybarsb'']'
-- objoid: 6100
-  classoid: 1259
-  objsubid: 6
-  privtype: i
-  initprivs: '[''=r/aybarsb'']'
-- objoid: 6100
-  classoid: 1259
-  objsubid: 7
-  privtype: i
-  initprivs: '[''=r/aybarsb'']'
-- objoid: 6100
-  classoid: 1259
-  objsubid: 8
-  privtype: i
-  initprivs: '[''=r/aybarsb'']'
-- objoid: 6100
-  classoid: 1259
-  objsubid: 9
-  privtype: i
-  initprivs: '[''=r/aybarsb'']'
-- objoid: 6100
-  classoid: 1259
-  objsubid: 10
-  privtype: i
-  initprivs: '[''=r/aybarsb'']'
-- objoid: 6100
-  classoid: 1259
-  objsubid: 11
-  privtype: i
-  initprivs: '[''=r/aybarsb'']'
-- objoid: 6100
-  classoid: 1259
-  objsubid: 12
-  privtype: i
-  initprivs: '[''=r/aybarsb'']'
-- objoid: 6100
-  classoid: 1259
-  objsubid: 13
-  privtype: i
-  initprivs: '[''=r/aybarsb'']'
-- objoid: 6100
-  classoid: 1259
-  objsubid: 15
-  privtype: i
-  initprivs: '[''=r/aybarsb'']'
-- objoid: 6100
-  classoid: 1259
-  objsubid: 16
-  privtype: i
-  initprivs: '[''=r/aybarsb'']'
-- objoid: 6100
-  classoid: 1259
-  objsubid: 17
-  privtype: i
-  initprivs: '[''=r/aybarsb'']'
-- objoid: 6100
-  classoid: 1259
-  objsubid: 18
-  privtype: i
-  initprivs: '[''=r/aybarsb'']'
-- objoid: 767
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 765
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 2274
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 3776
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 3777
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 6170
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 6232
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 3401
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 6250
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 3098
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 2848
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 6305
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 3071
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 3072
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 2622
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 2621
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 3801
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
-- objoid: 3826
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 6208
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 3293
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 3828
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 6209
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 3827
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 3295
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 3307
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 2625
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 3297
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 3800
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
-- objoid: 3400
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 6012
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 6003
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 6004
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 6013
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 6008
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 6009
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 6007
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 6006
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 6010
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 6014
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 3354
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
-- objoid: 5029
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
-- objoid: 5030
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
-- objoid: 6270
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
-- objoid: 6272
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
-- objoid: 5031
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
-- objoid: 2623
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 4543
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 3436
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 3775
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 6230
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 764
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 2624
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 6005
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 6011
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 2172
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 2739
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 2307
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 3353
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
-- objoid: 6271
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
-- objoid: 3329
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'']'
-- objoid: 5052
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'', ''pg_read_all_stats=X/aybarsb'']'
-- objoid: 2282
-  classoid: 1255
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=X/aybarsb'', ''pg_read_all_stats=X/aybarsb'']'
-- objoid: 11
-  classoid: 2615
-  objsubid: 0
-  privtype: i
-  initprivs: '[''aybarsb=UC/aybarsb'', ''=U/aybarsb'']'
-- objoid: 2200
-  classoid: 2615
-  objsubid: 0
-  privtype: i
-  initprivs: '[''pg_database_owner=UC/pg_database_owner'', ''=U/pg_database_owner'']'
+public:
+  pg_catalog:
+    pg_init_privs:
+      type: system_catalog
+      schema:
+        objoid: int
+        classoid: int
+        objsubid: int
+        privtype: varchar(256)
+        initprivs: varchar(256)
+      pg_types:
+        objoid: oid
+        classoid: oid
+        objsubid: int4
+        privtype: char
+        initprivs: _aclitem
+      rows:
+      - objoid: 2619
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
+      - objoid: 1247
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 3118
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 1260
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
+      - objoid: 12005
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
+      - objoid: 12000
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 3429
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
+      - objoid: 12114
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
+      - objoid: 12104
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=rw/aybarsb'']'
+      - objoid: 12110
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
+      - objoid: 12138
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''pg_read_all_stats=r/aybarsb'']'
+      - objoid: 12118
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
+      - objoid: 12130
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
+      - objoid: 12134
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''pg_read_all_stats=r/aybarsb'']'
+      - objoid: 12033
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 1418
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
+      - objoid: 12209
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12339
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
+      - objoid: 6100
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
+      - objoid: 1249
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 1255
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 1259
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 2604
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12214
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12218
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 2606
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 2611
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 2610
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 2617
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 2753
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 2616
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 2601
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 2602
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 2603
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 2612
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 2995
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 2600
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 3381
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 2618
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 2620
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 3466
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 2609
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 2605
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 3501
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 2615
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 2607
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 2608
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 1262
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 2964
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 1213
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 1261
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 1214
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 2396
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 3602
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 3603
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 3600
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 3601
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 3764
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 3079
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 2328
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 1417
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 3256
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 6000
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 826
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 3394
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 3596
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 3592
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 3456
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 6243
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 3350
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 3541
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 3576
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 2224
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 6104
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 6237
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 6106
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 6102
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12010
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12014
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12018
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12023
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12028
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12038
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12043
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12048
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12053
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12058
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12063
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12068
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12073
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12077
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12081
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12085
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12090
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12095
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12099
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12122
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12126
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12142
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12147
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12166
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12152
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12157
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12161
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12170
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12175
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12179
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12183
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12188
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12192
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12196
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12201
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12205
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12222
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12227
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12232
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12236
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12240
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12244
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12249
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12253
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12257
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12262
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12266
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12271
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12275
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12280
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12285
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12289
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12293
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12297
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12301
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12305
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12310
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12315
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12320
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12325
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12329
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12334
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12343
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 12347
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+      - objoid: 2613
+        classoid: 1259
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
+      - objoid: 6100
+        classoid: 1259
+        objsubid: 1
+        privtype: i
+        initprivs: '[''=r/aybarsb'']'
+      - objoid: 6100
+        classoid: 1259
+        objsubid: 2
+        privtype: i
+        initprivs: '[''=r/aybarsb'']'
+      - objoid: 6100
+        classoid: 1259
+        objsubid: 3
+        privtype: i
+        initprivs: '[''=r/aybarsb'']'
+      - objoid: 6100
+        classoid: 1259
+        objsubid: 4
+        privtype: i
+        initprivs: '[''=r/aybarsb'']'
+      - objoid: 6100
+        classoid: 1259
+        objsubid: 5
+        privtype: i
+        initprivs: '[''=r/aybarsb'']'
+      - objoid: 6100
+        classoid: 1259
+        objsubid: 6
+        privtype: i
+        initprivs: '[''=r/aybarsb'']'
+      - objoid: 6100
+        classoid: 1259
+        objsubid: 7
+        privtype: i
+        initprivs: '[''=r/aybarsb'']'
+      - objoid: 6100
+        classoid: 1259
+        objsubid: 8
+        privtype: i
+        initprivs: '[''=r/aybarsb'']'
+      - objoid: 6100
+        classoid: 1259
+        objsubid: 9
+        privtype: i
+        initprivs: '[''=r/aybarsb'']'
+      - objoid: 6100
+        classoid: 1259
+        objsubid: 10
+        privtype: i
+        initprivs: '[''=r/aybarsb'']'
+      - objoid: 6100
+        classoid: 1259
+        objsubid: 11
+        privtype: i
+        initprivs: '[''=r/aybarsb'']'
+      - objoid: 6100
+        classoid: 1259
+        objsubid: 12
+        privtype: i
+        initprivs: '[''=r/aybarsb'']'
+      - objoid: 6100
+        classoid: 1259
+        objsubid: 13
+        privtype: i
+        initprivs: '[''=r/aybarsb'']'
+      - objoid: 6100
+        classoid: 1259
+        objsubid: 15
+        privtype: i
+        initprivs: '[''=r/aybarsb'']'
+      - objoid: 6100
+        classoid: 1259
+        objsubid: 16
+        privtype: i
+        initprivs: '[''=r/aybarsb'']'
+      - objoid: 6100
+        classoid: 1259
+        objsubid: 17
+        privtype: i
+        initprivs: '[''=r/aybarsb'']'
+      - objoid: 6100
+        classoid: 1259
+        objsubid: 18
+        privtype: i
+        initprivs: '[''=r/aybarsb'']'
+      - objoid: 767
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 765
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 2274
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 3776
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 3777
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 6170
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 6232
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 3401
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 6250
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 3098
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 2848
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 6305
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 3071
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 3072
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 2622
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 2621
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 3801
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
+      - objoid: 3826
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 6208
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 3293
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 3828
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 6209
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 3827
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 3295
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 3307
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 2625
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 3297
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 3800
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
+      - objoid: 3400
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 6012
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 6003
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 6004
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 6013
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 6008
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 6009
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 6007
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 6006
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 6010
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 6014
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 3354
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
+      - objoid: 5029
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
+      - objoid: 5030
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
+      - objoid: 6270
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
+      - objoid: 6272
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
+      - objoid: 5031
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
+      - objoid: 2623
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 4543
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 3436
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 3775
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 6230
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 764
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 2624
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 6005
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 6011
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 2172
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 2739
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 2307
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 3353
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
+      - objoid: 6271
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
+      - objoid: 3329
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'']'
+      - objoid: 5052
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'', ''pg_read_all_stats=X/aybarsb'']'
+      - objoid: 2282
+        classoid: 1255
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=X/aybarsb'', ''pg_read_all_stats=X/aybarsb'']'
+      - objoid: 11
+        classoid: 2615
+        objsubid: 0
+        privtype: i
+        initprivs: '[''aybarsb=UC/aybarsb'', ''=U/aybarsb'']'
+      - objoid: 2200
+        classoid: 2615
+        objsubid: 0
+        privtype: i
+        initprivs: '[''pg_database_owner=UC/pg_database_owner'', ''=U/pg_database_owner'']'

@@ -1,74 +1,77 @@
-type: table
-schema:
-  implementation_info_id: varchar(256)
-  implementation_info_name: varchar(256)
-  integer_value: int
-  character_value: varchar(256)
-  comments: varchar(256)
-pg_types:
-  implementation_info_id: varchar
-  implementation_info_name: varchar
-  integer_value: int4
-  character_value: varchar
-  comments: varchar
-rows:
-- implementation_info_id: '10003'
-  implementation_info_name: CATALOG NAME
-  integer_value: null
-  character_value: Y
-  comments: null
-- implementation_info_id: '10004'
-  implementation_info_name: COLLATING SEQUENCE
-  integer_value: null
-  character_value: null
-  comments: null
-- implementation_info_id: '23'
-  implementation_info_name: CURSOR COMMIT BEHAVIOR
-  integer_value: 1
-  character_value: null
-  comments: close cursors and retain prepared statements
-- implementation_info_id: '2'
-  implementation_info_name: DATA SOURCE NAME
-  integer_value: null
-  character_value: ''
-  comments: null
-- implementation_info_id: '17'
-  implementation_info_name: DBMS NAME
-  integer_value: null
-  character_value: PostgreSQL
-  comments: null
-- implementation_info_id: '26'
-  implementation_info_name: DEFAULT TRANSACTION ISOLATION
-  integer_value: 2
-  character_value: null
-  comments: READ COMMITTED; user-settable
-- implementation_info_id: '28'
-  implementation_info_name: IDENTIFIER CASE
-  integer_value: 3
-  character_value: null
-  comments: stored in mixed case - case sensitive
-- implementation_info_id: '85'
-  implementation_info_name: NULL COLLATION
-  integer_value: 0
-  character_value: null
-  comments: nulls higher than non-nulls
-- implementation_info_id: '13'
-  implementation_info_name: SERVER NAME
-  integer_value: null
-  character_value: ''
-  comments: null
-- implementation_info_id: '94'
-  implementation_info_name: SPECIAL CHARACTERS
-  integer_value: null
-  character_value: ''
-  comments: all non-ASCII characters allowed
-- implementation_info_id: '46'
-  implementation_info_name: TRANSACTION CAPABLE
-  integer_value: 2
-  character_value: null
-  comments: both DML and DDL
-- implementation_info_id: '18'
-  implementation_info_name: DBMS VERSION
-  integer_value: null
-  character_value: 17.04.0000
-  comments: null
+public:
+  information_schema:
+    sql_implementation_info:
+      type: table
+      schema:
+        implementation_info_id: varchar(256)
+        implementation_info_name: varchar(256)
+        integer_value: int
+        character_value: varchar(256)
+        comments: varchar(256)
+      pg_types:
+        implementation_info_id: varchar
+        implementation_info_name: varchar
+        integer_value: int4
+        character_value: varchar
+        comments: varchar
+      rows:
+      - implementation_info_id: '10003'
+        implementation_info_name: CATALOG NAME
+        integer_value: null
+        character_value: Y
+        comments: null
+      - implementation_info_id: '10004'
+        implementation_info_name: COLLATING SEQUENCE
+        integer_value: null
+        character_value: null
+        comments: null
+      - implementation_info_id: '23'
+        implementation_info_name: CURSOR COMMIT BEHAVIOR
+        integer_value: 1
+        character_value: null
+        comments: close cursors and retain prepared statements
+      - implementation_info_id: '2'
+        implementation_info_name: DATA SOURCE NAME
+        integer_value: null
+        character_value: ''
+        comments: null
+      - implementation_info_id: '17'
+        implementation_info_name: DBMS NAME
+        integer_value: null
+        character_value: PostgreSQL
+        comments: null
+      - implementation_info_id: '26'
+        implementation_info_name: DEFAULT TRANSACTION ISOLATION
+        integer_value: 2
+        character_value: null
+        comments: READ COMMITTED; user-settable
+      - implementation_info_id: '28'
+        implementation_info_name: IDENTIFIER CASE
+        integer_value: 3
+        character_value: null
+        comments: stored in mixed case - case sensitive
+      - implementation_info_id: '85'
+        implementation_info_name: NULL COLLATION
+        integer_value: 0
+        character_value: null
+        comments: nulls higher than non-nulls
+      - implementation_info_id: '13'
+        implementation_info_name: SERVER NAME
+        integer_value: null
+        character_value: ''
+        comments: null
+      - implementation_info_id: '94'
+        implementation_info_name: SPECIAL CHARACTERS
+        integer_value: null
+        character_value: ''
+        comments: all non-ASCII characters allowed
+      - implementation_info_id: '46'
+        implementation_info_name: TRANSACTION CAPABLE
+        integer_value: 2
+        character_value: null
+        comments: both DML and DDL
+      - implementation_info_id: '18'
+        implementation_info_name: DBMS VERSION
+        integer_value: null
+        character_value: 17.04.0000
+        comments: null

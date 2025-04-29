@@ -1,763 +1,768 @@
-type: view
-view_sql: " SELECT n.nspname AS schemaname,\n    c.relname AS tablename,\n    i.relname\
-  \ AS indexname,\n    t.spcname AS tablespace,\n    pg_get_indexdef(i.oid) AS indexdef\n\
-  \   FROM pg_index x\n     JOIN pg_class c ON c.oid = x.indrelid\n     JOIN pg_class\
-  \ i ON i.oid = x.indexrelid\n     LEFT JOIN pg_namespace n ON n.oid = c.relnamespace\n\
-  \     LEFT JOIN pg_tablespace t ON t.oid = i.reltablespace\n  WHERE (c.relkind =\
-  \ ANY (ARRAY['r'::\"char\", 'm'::\"char\", 'p'::\"char\"])) AND (i.relkind = ANY\
-  \ (ARRAY['i'::\"char\", 'I'::\"char\"]));"
-schema:
-  schemaname: varchar(64)
-  tablename: varchar(64)
-  indexname: varchar(64)
-  tablespace: varchar(64)
-  indexdef: varchar(256)
-pg_types:
-  schemaname: name
-  tablename: name
-  indexname: name
-  tablespace: name
-  indexdef: text
-rows:
-- schemaname: pg_catalog
-  tablename: pg_proc
-  indexname: pg_proc_proname_args_nsp_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_proc_proname_args_nsp_index ON pg_catalog.pg_proc
-    USING btree (proname, proargtypes, pronamespace)
-- schemaname: pg_catalog
-  tablename: pg_type
-  indexname: pg_type_typname_nsp_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_type_typname_nsp_index ON pg_catalog.pg_type USING
-    btree (typname, typnamespace)
-- schemaname: pg_catalog
-  tablename: pg_attribute
-  indexname: pg_attribute_relid_attnam_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_attribute_relid_attnam_index ON pg_catalog.pg_attribute
-    USING btree (attrelid, attname)
-- schemaname: pg_catalog
-  tablename: pg_class
-  indexname: pg_class_relname_nsp_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_class_relname_nsp_index ON pg_catalog.pg_class
-    USING btree (relname, relnamespace)
-- schemaname: pg_catalog
-  tablename: pg_class
-  indexname: pg_class_tblspc_relfilenode_index
-  tablespace: null
-  indexdef: CREATE INDEX pg_class_tblspc_relfilenode_index ON pg_catalog.pg_class
-    USING btree (reltablespace, relfilenode)
-- schemaname: pg_catalog
-  tablename: pg_type
-  indexname: pg_type_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_type_oid_index ON pg_catalog.pg_type USING btree
-    (oid)
-- schemaname: pg_catalog
-  tablename: pg_attribute
-  indexname: pg_attribute_relid_attnum_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_attribute_relid_attnum_index ON pg_catalog.pg_attribute
-    USING btree (attrelid, attnum)
-- schemaname: pg_catalog
-  tablename: pg_attrdef
-  indexname: pg_attrdef_adrelid_adnum_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_attrdef_adrelid_adnum_index ON pg_catalog.pg_attrdef
-    USING btree (adrelid, adnum)
-- schemaname: pg_catalog
-  tablename: pg_constraint
-  indexname: pg_constraint_conname_nsp_index
-  tablespace: null
-  indexdef: CREATE INDEX pg_constraint_conname_nsp_index ON pg_catalog.pg_constraint
-    USING btree (conname, connamespace)
-- schemaname: pg_catalog
-  tablename: pg_constraint
-  indexname: pg_constraint_conrelid_contypid_conname_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_constraint_conrelid_contypid_conname_index ON pg_catalog.pg_constraint
-    USING btree (conrelid, contypid, conname)
-- schemaname: pg_catalog
-  tablename: pg_constraint
-  indexname: pg_constraint_contypid_index
-  tablespace: null
-  indexdef: CREATE INDEX pg_constraint_contypid_index ON pg_catalog.pg_constraint
-    USING btree (contypid)
-- schemaname: pg_catalog
-  tablename: pg_constraint
-  indexname: pg_constraint_conparentid_index
-  tablespace: null
-  indexdef: CREATE INDEX pg_constraint_conparentid_index ON pg_catalog.pg_constraint
-    USING btree (conparentid)
-- schemaname: pg_catalog
-  tablename: pg_inherits
-  indexname: pg_inherits_parent_index
-  tablespace: null
-  indexdef: CREATE INDEX pg_inherits_parent_index ON pg_catalog.pg_inherits USING
-    btree (inhparent)
-- schemaname: pg_catalog
-  tablename: pg_index
-  indexname: pg_index_indrelid_index
-  tablespace: null
-  indexdef: CREATE INDEX pg_index_indrelid_index ON pg_catalog.pg_index USING btree
-    (indrelid)
-- schemaname: pg_catalog
-  tablename: pg_operator
-  indexname: pg_operator_oprname_l_r_n_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_operator_oprname_l_r_n_index ON pg_catalog.pg_operator
-    USING btree (oprname, oprleft, oprright, oprnamespace)
-- schemaname: pg_catalog
-  tablename: pg_opfamily
-  indexname: pg_opfamily_am_name_nsp_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_opfamily_am_name_nsp_index ON pg_catalog.pg_opfamily
-    USING btree (opfmethod, opfname, opfnamespace)
-- schemaname: pg_catalog
-  tablename: pg_opclass
-  indexname: pg_opclass_am_name_nsp_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_opclass_am_name_nsp_index ON pg_catalog.pg_opclass
-    USING btree (opcmethod, opcname, opcnamespace)
-- schemaname: pg_catalog
-  tablename: pg_am
-  indexname: pg_am_name_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_am_name_index ON pg_catalog.pg_am USING btree (amname)
-- schemaname: pg_catalog
-  tablename: pg_amop
-  indexname: pg_amop_fam_strat_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_amop_fam_strat_index ON pg_catalog.pg_amop USING
-    btree (amopfamily, amoplefttype, amoprighttype, amopstrategy)
-- schemaname: pg_catalog
-  tablename: pg_amop
-  indexname: pg_amop_opr_fam_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_amop_opr_fam_index ON pg_catalog.pg_amop USING
-    btree (amopopr, amoppurpose, amopfamily)
-- schemaname: pg_catalog
-  tablename: pg_amproc
-  indexname: pg_amproc_fam_proc_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_amproc_fam_proc_index ON pg_catalog.pg_amproc USING
-    btree (amprocfamily, amproclefttype, amprocrighttype, amprocnum)
-- schemaname: pg_catalog
-  tablename: pg_language
-  indexname: pg_language_name_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_language_name_index ON pg_catalog.pg_language USING
-    btree (lanname)
-- schemaname: pg_catalog
-  tablename: pg_statistic_ext
-  indexname: pg_statistic_ext_name_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_statistic_ext_name_index ON pg_catalog.pg_statistic_ext
-    USING btree (stxname, stxnamespace)
-- schemaname: pg_catalog
-  tablename: pg_statistic_ext
-  indexname: pg_statistic_ext_relid_index
-  tablespace: null
-  indexdef: CREATE INDEX pg_statistic_ext_relid_index ON pg_catalog.pg_statistic_ext
-    USING btree (stxrelid)
-- schemaname: pg_catalog
-  tablename: pg_rewrite
-  indexname: pg_rewrite_rel_rulename_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_rewrite_rel_rulename_index ON pg_catalog.pg_rewrite
-    USING btree (ev_class, rulename)
-- schemaname: pg_catalog
-  tablename: pg_trigger
-  indexname: pg_trigger_tgconstraint_index
-  tablespace: null
-  indexdef: CREATE INDEX pg_trigger_tgconstraint_index ON pg_catalog.pg_trigger USING
-    btree (tgconstraint)
-- schemaname: pg_catalog
-  tablename: pg_trigger
-  indexname: pg_trigger_tgrelid_tgname_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_trigger_tgrelid_tgname_index ON pg_catalog.pg_trigger
-    USING btree (tgrelid, tgname)
-- schemaname: pg_catalog
-  tablename: pg_event_trigger
-  indexname: pg_event_trigger_evtname_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_event_trigger_evtname_index ON pg_catalog.pg_event_trigger
-    USING btree (evtname)
-- schemaname: pg_catalog
-  tablename: pg_cast
-  indexname: pg_cast_source_target_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_cast_source_target_index ON pg_catalog.pg_cast
-    USING btree (castsource, casttarget)
-- schemaname: pg_catalog
-  tablename: pg_inherits
-  indexname: pg_inherits_relid_seqno_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_inherits_relid_seqno_index ON pg_catalog.pg_inherits
-    USING btree (inhrelid, inhseqno)
-- schemaname: pg_catalog
-  tablename: pg_index
-  indexname: pg_index_indexrelid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_index_indexrelid_index ON pg_catalog.pg_index USING
-    btree (indexrelid)
-- schemaname: pg_catalog
-  tablename: pg_operator
-  indexname: pg_operator_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_operator_oid_index ON pg_catalog.pg_operator USING
-    btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_opfamily
-  indexname: pg_opfamily_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_opfamily_oid_index ON pg_catalog.pg_opfamily USING
-    btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_opclass
-  indexname: pg_opclass_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_opclass_oid_index ON pg_catalog.pg_opclass USING
-    btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_am
-  indexname: pg_am_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_am_oid_index ON pg_catalog.pg_am USING btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_amop
-  indexname: pg_amop_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_amop_oid_index ON pg_catalog.pg_amop USING btree
-    (oid)
-- schemaname: pg_catalog
-  tablename: pg_amproc
-  indexname: pg_amproc_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_amproc_oid_index ON pg_catalog.pg_amproc USING
-    btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_language
-  indexname: pg_language_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_language_oid_index ON pg_catalog.pg_language USING
-    btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_largeobject_metadata
-  indexname: pg_largeobject_metadata_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_largeobject_metadata_oid_index ON pg_catalog.pg_largeobject_metadata
-    USING btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_largeobject
-  indexname: pg_largeobject_loid_pn_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_largeobject_loid_pn_index ON pg_catalog.pg_largeobject
-    USING btree (loid, pageno)
-- schemaname: pg_catalog
-  tablename: pg_aggregate
-  indexname: pg_aggregate_fnoid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_aggregate_fnoid_index ON pg_catalog.pg_aggregate
-    USING btree (aggfnoid)
-- schemaname: pg_catalog
-  tablename: pg_statistic
-  indexname: pg_statistic_relid_att_inh_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_statistic_relid_att_inh_index ON pg_catalog.pg_statistic
-    USING btree (starelid, staattnum, stainherit)
-- schemaname: pg_catalog
-  tablename: pg_statistic_ext
-  indexname: pg_statistic_ext_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_statistic_ext_oid_index ON pg_catalog.pg_statistic_ext
-    USING btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_statistic_ext_data
-  indexname: pg_statistic_ext_data_stxoid_inh_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_statistic_ext_data_stxoid_inh_index ON pg_catalog.pg_statistic_ext_data
-    USING btree (stxoid, stxdinherit)
-- schemaname: pg_catalog
-  tablename: pg_rewrite
-  indexname: pg_rewrite_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_rewrite_oid_index ON pg_catalog.pg_rewrite USING
-    btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_trigger
-  indexname: pg_trigger_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_trigger_oid_index ON pg_catalog.pg_trigger USING
-    btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_event_trigger
-  indexname: pg_event_trigger_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_event_trigger_oid_index ON pg_catalog.pg_event_trigger
-    USING btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_description
-  indexname: pg_description_o_c_o_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_description_o_c_o_index ON pg_catalog.pg_description
-    USING btree (objoid, classoid, objsubid)
-- schemaname: pg_catalog
-  tablename: pg_cast
-  indexname: pg_cast_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_cast_oid_index ON pg_catalog.pg_cast USING btree
-    (oid)
-- schemaname: pg_catalog
-  tablename: pg_enum
-  indexname: pg_enum_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_enum_oid_index ON pg_catalog.pg_enum USING btree
-    (oid)
-- schemaname: pg_catalog
-  tablename: pg_enum
-  indexname: pg_enum_typid_label_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_enum_typid_label_index ON pg_catalog.pg_enum USING
-    btree (enumtypid, enumlabel)
-- schemaname: pg_catalog
-  tablename: pg_enum
-  indexname: pg_enum_typid_sortorder_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_enum_typid_sortorder_index ON pg_catalog.pg_enum
-    USING btree (enumtypid, enumsortorder)
-- schemaname: pg_catalog
-  tablename: pg_namespace
-  indexname: pg_namespace_nspname_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_namespace_nspname_index ON pg_catalog.pg_namespace
-    USING btree (nspname)
-- schemaname: pg_catalog
-  tablename: pg_conversion
-  indexname: pg_conversion_default_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_conversion_default_index ON pg_catalog.pg_conversion
-    USING btree (connamespace, conforencoding, contoencoding, oid)
-- schemaname: pg_catalog
-  tablename: pg_conversion
-  indexname: pg_conversion_name_nsp_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_conversion_name_nsp_index ON pg_catalog.pg_conversion
-    USING btree (conname, connamespace)
-- schemaname: pg_catalog
-  tablename: pg_depend
-  indexname: pg_depend_depender_index
-  tablespace: null
-  indexdef: CREATE INDEX pg_depend_depender_index ON pg_catalog.pg_depend USING btree
-    (classid, objid, objsubid)
-- schemaname: pg_catalog
-  tablename: pg_depend
-  indexname: pg_depend_reference_index
-  tablespace: null
-  indexdef: CREATE INDEX pg_depend_reference_index ON pg_catalog.pg_depend USING btree
-    (refclassid, refobjid, refobjsubid)
-- schemaname: pg_catalog
-  tablename: pg_database
-  indexname: pg_database_datname_index
-  tablespace: pg_global
-  indexdef: CREATE UNIQUE INDEX pg_database_datname_index ON pg_catalog.pg_database
-    USING btree (datname)
-- schemaname: pg_catalog
-  tablename: pg_tablespace
-  indexname: pg_tablespace_spcname_index
-  tablespace: pg_global
-  indexdef: CREATE UNIQUE INDEX pg_tablespace_spcname_index ON pg_catalog.pg_tablespace
-    USING btree (spcname)
-- schemaname: pg_catalog
-  tablename: pg_authid
-  indexname: pg_authid_rolname_index
-  tablespace: pg_global
-  indexdef: CREATE UNIQUE INDEX pg_authid_rolname_index ON pg_catalog.pg_authid USING
-    btree (rolname)
-- schemaname: pg_catalog
-  tablename: pg_auth_members
-  indexname: pg_auth_members_role_member_index
-  tablespace: pg_global
-  indexdef: CREATE UNIQUE INDEX pg_auth_members_role_member_index ON pg_catalog.pg_auth_members
-    USING btree (roleid, member, grantor)
-- schemaname: pg_catalog
-  tablename: pg_auth_members
-  indexname: pg_auth_members_member_role_index
-  tablespace: pg_global
-  indexdef: CREATE UNIQUE INDEX pg_auth_members_member_role_index ON pg_catalog.pg_auth_members
-    USING btree (member, roleid, grantor)
-- schemaname: pg_catalog
-  tablename: pg_auth_members
-  indexname: pg_auth_members_grantor_index
-  tablespace: pg_global
-  indexdef: CREATE INDEX pg_auth_members_grantor_index ON pg_catalog.pg_auth_members
-    USING btree (grantor)
-- schemaname: pg_catalog
-  tablename: pg_shdepend
-  indexname: pg_shdepend_depender_index
-  tablespace: pg_global
-  indexdef: CREATE INDEX pg_shdepend_depender_index ON pg_catalog.pg_shdepend USING
-    btree (dbid, classid, objid, objsubid)
-- schemaname: pg_catalog
-  tablename: pg_shdepend
-  indexname: pg_shdepend_reference_index
-  tablespace: pg_global
-  indexdef: CREATE INDEX pg_shdepend_reference_index ON pg_catalog.pg_shdepend USING
-    btree (refclassid, refobjid)
-- schemaname: pg_catalog
-  tablename: pg_ts_config
-  indexname: pg_ts_config_cfgname_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_ts_config_cfgname_index ON pg_catalog.pg_ts_config
-    USING btree (cfgname, cfgnamespace)
-- schemaname: pg_catalog
-  tablename: pg_ts_dict
-  indexname: pg_ts_dict_dictname_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_ts_dict_dictname_index ON pg_catalog.pg_ts_dict
-    USING btree (dictname, dictnamespace)
-- schemaname: pg_catalog
-  tablename: pg_ts_parser
-  indexname: pg_ts_parser_prsname_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_ts_parser_prsname_index ON pg_catalog.pg_ts_parser
-    USING btree (prsname, prsnamespace)
-- schemaname: pg_catalog
-  tablename: pg_ts_template
-  indexname: pg_ts_template_tmplname_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_ts_template_tmplname_index ON pg_catalog.pg_ts_template
-    USING btree (tmplname, tmplnamespace)
-- schemaname: pg_catalog
-  tablename: pg_extension
-  indexname: pg_extension_name_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_extension_name_index ON pg_catalog.pg_extension
-    USING btree (extname)
-- schemaname: pg_catalog
-  tablename: pg_foreign_data_wrapper
-  indexname: pg_foreign_data_wrapper_name_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_foreign_data_wrapper_name_index ON pg_catalog.pg_foreign_data_wrapper
-    USING btree (fdwname)
-- schemaname: pg_catalog
-  tablename: pg_foreign_server
-  indexname: pg_foreign_server_name_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_foreign_server_name_index ON pg_catalog.pg_foreign_server
-    USING btree (srvname)
-- schemaname: pg_catalog
-  tablename: pg_user_mapping
-  indexname: pg_user_mapping_user_server_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_user_mapping_user_server_index ON pg_catalog.pg_user_mapping
-    USING btree (umuser, umserver)
-- schemaname: pg_catalog
-  tablename: pg_policy
-  indexname: pg_policy_polrelid_polname_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_policy_polrelid_polname_index ON pg_catalog.pg_policy
-    USING btree (polrelid, polname)
-- schemaname: pg_catalog
-  tablename: pg_replication_origin
-  indexname: pg_replication_origin_roname_index
-  tablespace: pg_global
-  indexdef: CREATE UNIQUE INDEX pg_replication_origin_roname_index ON pg_catalog.pg_replication_origin
-    USING btree (roname)
-- schemaname: pg_catalog
-  tablename: pg_conversion
-  indexname: pg_conversion_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_conversion_oid_index ON pg_catalog.pg_conversion
-    USING btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_database
-  indexname: pg_database_oid_index
-  tablespace: pg_global
-  indexdef: CREATE UNIQUE INDEX pg_database_oid_index ON pg_catalog.pg_database USING
-    btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_db_role_setting
-  indexname: pg_db_role_setting_databaseid_rol_index
-  tablespace: pg_global
-  indexdef: CREATE UNIQUE INDEX pg_db_role_setting_databaseid_rol_index ON pg_catalog.pg_db_role_setting
-    USING btree (setdatabase, setrole)
-- schemaname: pg_catalog
-  tablename: pg_tablespace
-  indexname: pg_tablespace_oid_index
-  tablespace: pg_global
-  indexdef: CREATE UNIQUE INDEX pg_tablespace_oid_index ON pg_catalog.pg_tablespace
-    USING btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_authid
-  indexname: pg_authid_oid_index
-  tablespace: pg_global
-  indexdef: CREATE UNIQUE INDEX pg_authid_oid_index ON pg_catalog.pg_authid USING
-    btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_auth_members
-  indexname: pg_auth_members_oid_index
-  tablespace: pg_global
-  indexdef: CREATE UNIQUE INDEX pg_auth_members_oid_index ON pg_catalog.pg_auth_members
-    USING btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_shdescription
-  indexname: pg_shdescription_o_c_index
-  tablespace: pg_global
-  indexdef: CREATE UNIQUE INDEX pg_shdescription_o_c_index ON pg_catalog.pg_shdescription
-    USING btree (objoid, classoid)
-- schemaname: pg_catalog
-  tablename: pg_ts_config
-  indexname: pg_ts_config_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_ts_config_oid_index ON pg_catalog.pg_ts_config
-    USING btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_ts_config_map
-  indexname: pg_ts_config_map_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_ts_config_map_index ON pg_catalog.pg_ts_config_map
-    USING btree (mapcfg, maptokentype, mapseqno)
-- schemaname: pg_catalog
-  tablename: pg_ts_dict
-  indexname: pg_ts_dict_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_ts_dict_oid_index ON pg_catalog.pg_ts_dict USING
-    btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_ts_parser
-  indexname: pg_ts_parser_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_ts_parser_oid_index ON pg_catalog.pg_ts_parser
-    USING btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_ts_template
-  indexname: pg_ts_template_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_ts_template_oid_index ON pg_catalog.pg_ts_template
-    USING btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_extension
-  indexname: pg_extension_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_extension_oid_index ON pg_catalog.pg_extension
-    USING btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_foreign_data_wrapper
-  indexname: pg_foreign_data_wrapper_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_foreign_data_wrapper_oid_index ON pg_catalog.pg_foreign_data_wrapper
-    USING btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_foreign_server
-  indexname: pg_foreign_server_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_foreign_server_oid_index ON pg_catalog.pg_foreign_server
-    USING btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_user_mapping
-  indexname: pg_user_mapping_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_user_mapping_oid_index ON pg_catalog.pg_user_mapping
-    USING btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_foreign_table
-  indexname: pg_foreign_table_relid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_foreign_table_relid_index ON pg_catalog.pg_foreign_table
-    USING btree (ftrelid)
-- schemaname: pg_catalog
-  tablename: pg_policy
-  indexname: pg_policy_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_policy_oid_index ON pg_catalog.pg_policy USING
-    btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_replication_origin
-  indexname: pg_replication_origin_roiident_index
-  tablespace: pg_global
-  indexdef: CREATE UNIQUE INDEX pg_replication_origin_roiident_index ON pg_catalog.pg_replication_origin
-    USING btree (roident)
-- schemaname: pg_catalog
-  tablename: pg_default_acl
-  indexname: pg_default_acl_role_nsp_obj_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_default_acl_role_nsp_obj_index ON pg_catalog.pg_default_acl
-    USING btree (defaclrole, defaclnamespace, defaclobjtype)
-- schemaname: pg_catalog
-  tablename: pg_collation
-  indexname: pg_collation_name_enc_nsp_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_collation_name_enc_nsp_index ON pg_catalog.pg_collation
-    USING btree (collname, collencoding, collnamespace)
-- schemaname: pg_catalog
-  tablename: pg_parameter_acl
-  indexname: pg_parameter_acl_parname_index
-  tablespace: pg_global
-  indexdef: CREATE UNIQUE INDEX pg_parameter_acl_parname_index ON pg_catalog.pg_parameter_acl
-    USING btree (parname)
-- schemaname: pg_catalog
-  tablename: pg_range
-  indexname: pg_range_rngmultitypid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_range_rngmultitypid_index ON pg_catalog.pg_range
-    USING btree (rngmultitypid)
-- schemaname: pg_catalog
-  tablename: pg_transform
-  indexname: pg_transform_type_lang_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_transform_type_lang_index ON pg_catalog.pg_transform
-    USING btree (trftype, trflang)
-- schemaname: pg_catalog
-  tablename: pg_publication
-  indexname: pg_publication_pubname_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_publication_pubname_index ON pg_catalog.pg_publication
-    USING btree (pubname)
-- schemaname: pg_catalog
-  tablename: pg_publication_namespace
-  indexname: pg_publication_namespace_pnnspid_pnpubid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_publication_namespace_pnnspid_pnpubid_index ON
-    pg_catalog.pg_publication_namespace USING btree (pnnspid, pnpubid)
-- schemaname: pg_catalog
-  tablename: pg_publication_rel
-  indexname: pg_publication_rel_prrelid_prpubid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_publication_rel_prrelid_prpubid_index ON pg_catalog.pg_publication_rel
-    USING btree (prrelid, prpubid)
-- schemaname: pg_catalog
-  tablename: pg_publication_rel
-  indexname: pg_publication_rel_prpubid_index
-  tablespace: null
-  indexdef: CREATE INDEX pg_publication_rel_prpubid_index ON pg_catalog.pg_publication_rel
-    USING btree (prpubid)
-- schemaname: pg_catalog
-  tablename: pg_subscription
-  indexname: pg_subscription_subname_index
-  tablespace: pg_global
-  indexdef: CREATE UNIQUE INDEX pg_subscription_subname_index ON pg_catalog.pg_subscription
-    USING btree (subdbid, subname)
-- schemaname: pg_catalog
-  tablename: pg_proc
-  indexname: pg_proc_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_proc_oid_index ON pg_catalog.pg_proc USING btree
-    (oid)
-- schemaname: pg_catalog
-  tablename: pg_class
-  indexname: pg_class_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_class_oid_index ON pg_catalog.pg_class USING btree
-    (oid)
-- schemaname: pg_catalog
-  tablename: pg_attrdef
-  indexname: pg_attrdef_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_attrdef_oid_index ON pg_catalog.pg_attrdef USING
-    btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_constraint
-  indexname: pg_constraint_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_constraint_oid_index ON pg_catalog.pg_constraint
-    USING btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_namespace
-  indexname: pg_namespace_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_namespace_oid_index ON pg_catalog.pg_namespace
-    USING btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_default_acl
-  indexname: pg_default_acl_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_default_acl_oid_index ON pg_catalog.pg_default_acl
-    USING btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_init_privs
-  indexname: pg_init_privs_o_c_o_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_init_privs_o_c_o_index ON pg_catalog.pg_init_privs
-    USING btree (objoid, classoid, objsubid)
-- schemaname: pg_catalog
-  tablename: pg_seclabel
-  indexname: pg_seclabel_object_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_seclabel_object_index ON pg_catalog.pg_seclabel
-    USING btree (objoid, classoid, objsubid, provider)
-- schemaname: pg_catalog
-  tablename: pg_shseclabel
-  indexname: pg_shseclabel_object_index
-  tablespace: pg_global
-  indexdef: CREATE UNIQUE INDEX pg_shseclabel_object_index ON pg_catalog.pg_shseclabel
-    USING btree (objoid, classoid, provider)
-- schemaname: pg_catalog
-  tablename: pg_collation
-  indexname: pg_collation_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_collation_oid_index ON pg_catalog.pg_collation
-    USING btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_parameter_acl
-  indexname: pg_parameter_acl_oid_index
-  tablespace: pg_global
-  indexdef: CREATE UNIQUE INDEX pg_parameter_acl_oid_index ON pg_catalog.pg_parameter_acl
-    USING btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_partitioned_table
-  indexname: pg_partitioned_table_partrelid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_partitioned_table_partrelid_index ON pg_catalog.pg_partitioned_table
-    USING btree (partrelid)
-- schemaname: pg_catalog
-  tablename: pg_range
-  indexname: pg_range_rngtypid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_range_rngtypid_index ON pg_catalog.pg_range USING
-    btree (rngtypid)
-- schemaname: pg_catalog
-  tablename: pg_transform
-  indexname: pg_transform_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_transform_oid_index ON pg_catalog.pg_transform
-    USING btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_sequence
-  indexname: pg_sequence_seqrelid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_sequence_seqrelid_index ON pg_catalog.pg_sequence
-    USING btree (seqrelid)
-- schemaname: pg_catalog
-  tablename: pg_publication
-  indexname: pg_publication_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_publication_oid_index ON pg_catalog.pg_publication
-    USING btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_publication_namespace
-  indexname: pg_publication_namespace_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_publication_namespace_oid_index ON pg_catalog.pg_publication_namespace
-    USING btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_publication_rel
-  indexname: pg_publication_rel_oid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_publication_rel_oid_index ON pg_catalog.pg_publication_rel
-    USING btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_subscription
-  indexname: pg_subscription_oid_index
-  tablespace: pg_global
-  indexdef: CREATE UNIQUE INDEX pg_subscription_oid_index ON pg_catalog.pg_subscription
-    USING btree (oid)
-- schemaname: pg_catalog
-  tablename: pg_subscription_rel
-  indexname: pg_subscription_rel_srrelid_srsubid_index
-  tablespace: null
-  indexdef: CREATE UNIQUE INDEX pg_subscription_rel_srrelid_srsubid_index ON pg_catalog.pg_subscription_rel
-    USING btree (srrelid, srsubid)
+public:
+  pg_catalog:
+    pg_indexes:
+      type: view
+      view_sql: " SELECT n.nspname AS schemaname,\n    c.relname AS tablename,\n \
+        \   i.relname AS indexname,\n    t.spcname AS tablespace,\n    pg_get_indexdef(i.oid)\
+        \ AS indexdef\n   FROM pg_index x\n     JOIN pg_class c ON c.oid = x.indrelid\n\
+        \     JOIN pg_class i ON i.oid = x.indexrelid\n     LEFT JOIN pg_namespace\
+        \ n ON n.oid = c.relnamespace\n     LEFT JOIN pg_tablespace t ON t.oid = i.reltablespace\n\
+        \  WHERE (c.relkind = ANY (ARRAY['r'::\"char\", 'm'::\"char\", 'p'::\"char\"\
+        ])) AND (i.relkind = ANY (ARRAY['i'::\"char\", 'I'::\"char\"]));"
+      schema:
+        schemaname: varchar(64)
+        tablename: varchar(64)
+        indexname: varchar(64)
+        tablespace: varchar(64)
+        indexdef: varchar(256)
+      pg_types:
+        schemaname: name
+        tablename: name
+        indexname: name
+        tablespace: name
+        indexdef: text
+      rows:
+      - schemaname: pg_catalog
+        tablename: pg_proc
+        indexname: pg_proc_proname_args_nsp_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_proc_proname_args_nsp_index ON pg_catalog.pg_proc
+          USING btree (proname, proargtypes, pronamespace)
+      - schemaname: pg_catalog
+        tablename: pg_type
+        indexname: pg_type_typname_nsp_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_type_typname_nsp_index ON pg_catalog.pg_type
+          USING btree (typname, typnamespace)
+      - schemaname: pg_catalog
+        tablename: pg_attribute
+        indexname: pg_attribute_relid_attnam_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_attribute_relid_attnam_index ON pg_catalog.pg_attribute
+          USING btree (attrelid, attname)
+      - schemaname: pg_catalog
+        tablename: pg_class
+        indexname: pg_class_relname_nsp_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_class_relname_nsp_index ON pg_catalog.pg_class
+          USING btree (relname, relnamespace)
+      - schemaname: pg_catalog
+        tablename: pg_class
+        indexname: pg_class_tblspc_relfilenode_index
+        tablespace: null
+        indexdef: CREATE INDEX pg_class_tblspc_relfilenode_index ON pg_catalog.pg_class
+          USING btree (reltablespace, relfilenode)
+      - schemaname: pg_catalog
+        tablename: pg_type
+        indexname: pg_type_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_type_oid_index ON pg_catalog.pg_type USING
+          btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_attribute
+        indexname: pg_attribute_relid_attnum_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_attribute_relid_attnum_index ON pg_catalog.pg_attribute
+          USING btree (attrelid, attnum)
+      - schemaname: pg_catalog
+        tablename: pg_attrdef
+        indexname: pg_attrdef_adrelid_adnum_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_attrdef_adrelid_adnum_index ON pg_catalog.pg_attrdef
+          USING btree (adrelid, adnum)
+      - schemaname: pg_catalog
+        tablename: pg_constraint
+        indexname: pg_constraint_conname_nsp_index
+        tablespace: null
+        indexdef: CREATE INDEX pg_constraint_conname_nsp_index ON pg_catalog.pg_constraint
+          USING btree (conname, connamespace)
+      - schemaname: pg_catalog
+        tablename: pg_constraint
+        indexname: pg_constraint_conrelid_contypid_conname_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_constraint_conrelid_contypid_conname_index
+          ON pg_catalog.pg_constraint USING btree (conrelid, contypid, conname)
+      - schemaname: pg_catalog
+        tablename: pg_constraint
+        indexname: pg_constraint_contypid_index
+        tablespace: null
+        indexdef: CREATE INDEX pg_constraint_contypid_index ON pg_catalog.pg_constraint
+          USING btree (contypid)
+      - schemaname: pg_catalog
+        tablename: pg_constraint
+        indexname: pg_constraint_conparentid_index
+        tablespace: null
+        indexdef: CREATE INDEX pg_constraint_conparentid_index ON pg_catalog.pg_constraint
+          USING btree (conparentid)
+      - schemaname: pg_catalog
+        tablename: pg_inherits
+        indexname: pg_inherits_parent_index
+        tablespace: null
+        indexdef: CREATE INDEX pg_inherits_parent_index ON pg_catalog.pg_inherits
+          USING btree (inhparent)
+      - schemaname: pg_catalog
+        tablename: pg_index
+        indexname: pg_index_indrelid_index
+        tablespace: null
+        indexdef: CREATE INDEX pg_index_indrelid_index ON pg_catalog.pg_index USING
+          btree (indrelid)
+      - schemaname: pg_catalog
+        tablename: pg_operator
+        indexname: pg_operator_oprname_l_r_n_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_operator_oprname_l_r_n_index ON pg_catalog.pg_operator
+          USING btree (oprname, oprleft, oprright, oprnamespace)
+      - schemaname: pg_catalog
+        tablename: pg_opfamily
+        indexname: pg_opfamily_am_name_nsp_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_opfamily_am_name_nsp_index ON pg_catalog.pg_opfamily
+          USING btree (opfmethod, opfname, opfnamespace)
+      - schemaname: pg_catalog
+        tablename: pg_opclass
+        indexname: pg_opclass_am_name_nsp_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_opclass_am_name_nsp_index ON pg_catalog.pg_opclass
+          USING btree (opcmethod, opcname, opcnamespace)
+      - schemaname: pg_catalog
+        tablename: pg_am
+        indexname: pg_am_name_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_am_name_index ON pg_catalog.pg_am USING btree
+          (amname)
+      - schemaname: pg_catalog
+        tablename: pg_amop
+        indexname: pg_amop_fam_strat_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_amop_fam_strat_index ON pg_catalog.pg_amop
+          USING btree (amopfamily, amoplefttype, amoprighttype, amopstrategy)
+      - schemaname: pg_catalog
+        tablename: pg_amop
+        indexname: pg_amop_opr_fam_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_amop_opr_fam_index ON pg_catalog.pg_amop
+          USING btree (amopopr, amoppurpose, amopfamily)
+      - schemaname: pg_catalog
+        tablename: pg_amproc
+        indexname: pg_amproc_fam_proc_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_amproc_fam_proc_index ON pg_catalog.pg_amproc
+          USING btree (amprocfamily, amproclefttype, amprocrighttype, amprocnum)
+      - schemaname: pg_catalog
+        tablename: pg_language
+        indexname: pg_language_name_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_language_name_index ON pg_catalog.pg_language
+          USING btree (lanname)
+      - schemaname: pg_catalog
+        tablename: pg_statistic_ext
+        indexname: pg_statistic_ext_name_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_statistic_ext_name_index ON pg_catalog.pg_statistic_ext
+          USING btree (stxname, stxnamespace)
+      - schemaname: pg_catalog
+        tablename: pg_statistic_ext
+        indexname: pg_statistic_ext_relid_index
+        tablespace: null
+        indexdef: CREATE INDEX pg_statistic_ext_relid_index ON pg_catalog.pg_statistic_ext
+          USING btree (stxrelid)
+      - schemaname: pg_catalog
+        tablename: pg_rewrite
+        indexname: pg_rewrite_rel_rulename_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_rewrite_rel_rulename_index ON pg_catalog.pg_rewrite
+          USING btree (ev_class, rulename)
+      - schemaname: pg_catalog
+        tablename: pg_trigger
+        indexname: pg_trigger_tgconstraint_index
+        tablespace: null
+        indexdef: CREATE INDEX pg_trigger_tgconstraint_index ON pg_catalog.pg_trigger
+          USING btree (tgconstraint)
+      - schemaname: pg_catalog
+        tablename: pg_trigger
+        indexname: pg_trigger_tgrelid_tgname_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_trigger_tgrelid_tgname_index ON pg_catalog.pg_trigger
+          USING btree (tgrelid, tgname)
+      - schemaname: pg_catalog
+        tablename: pg_event_trigger
+        indexname: pg_event_trigger_evtname_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_event_trigger_evtname_index ON pg_catalog.pg_event_trigger
+          USING btree (evtname)
+      - schemaname: pg_catalog
+        tablename: pg_cast
+        indexname: pg_cast_source_target_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_cast_source_target_index ON pg_catalog.pg_cast
+          USING btree (castsource, casttarget)
+      - schemaname: pg_catalog
+        tablename: pg_inherits
+        indexname: pg_inherits_relid_seqno_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_inherits_relid_seqno_index ON pg_catalog.pg_inherits
+          USING btree (inhrelid, inhseqno)
+      - schemaname: pg_catalog
+        tablename: pg_index
+        indexname: pg_index_indexrelid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_index_indexrelid_index ON pg_catalog.pg_index
+          USING btree (indexrelid)
+      - schemaname: pg_catalog
+        tablename: pg_operator
+        indexname: pg_operator_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_operator_oid_index ON pg_catalog.pg_operator
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_opfamily
+        indexname: pg_opfamily_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_opfamily_oid_index ON pg_catalog.pg_opfamily
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_opclass
+        indexname: pg_opclass_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_opclass_oid_index ON pg_catalog.pg_opclass
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_am
+        indexname: pg_am_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_am_oid_index ON pg_catalog.pg_am USING btree
+          (oid)
+      - schemaname: pg_catalog
+        tablename: pg_amop
+        indexname: pg_amop_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_amop_oid_index ON pg_catalog.pg_amop USING
+          btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_amproc
+        indexname: pg_amproc_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_amproc_oid_index ON pg_catalog.pg_amproc
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_language
+        indexname: pg_language_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_language_oid_index ON pg_catalog.pg_language
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_largeobject_metadata
+        indexname: pg_largeobject_metadata_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_largeobject_metadata_oid_index ON pg_catalog.pg_largeobject_metadata
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_largeobject
+        indexname: pg_largeobject_loid_pn_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_largeobject_loid_pn_index ON pg_catalog.pg_largeobject
+          USING btree (loid, pageno)
+      - schemaname: pg_catalog
+        tablename: pg_aggregate
+        indexname: pg_aggregate_fnoid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_aggregate_fnoid_index ON pg_catalog.pg_aggregate
+          USING btree (aggfnoid)
+      - schemaname: pg_catalog
+        tablename: pg_statistic
+        indexname: pg_statistic_relid_att_inh_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_statistic_relid_att_inh_index ON pg_catalog.pg_statistic
+          USING btree (starelid, staattnum, stainherit)
+      - schemaname: pg_catalog
+        tablename: pg_statistic_ext
+        indexname: pg_statistic_ext_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_statistic_ext_oid_index ON pg_catalog.pg_statistic_ext
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_statistic_ext_data
+        indexname: pg_statistic_ext_data_stxoid_inh_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_statistic_ext_data_stxoid_inh_index ON pg_catalog.pg_statistic_ext_data
+          USING btree (stxoid, stxdinherit)
+      - schemaname: pg_catalog
+        tablename: pg_rewrite
+        indexname: pg_rewrite_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_rewrite_oid_index ON pg_catalog.pg_rewrite
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_trigger
+        indexname: pg_trigger_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_trigger_oid_index ON pg_catalog.pg_trigger
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_event_trigger
+        indexname: pg_event_trigger_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_event_trigger_oid_index ON pg_catalog.pg_event_trigger
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_description
+        indexname: pg_description_o_c_o_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_description_o_c_o_index ON pg_catalog.pg_description
+          USING btree (objoid, classoid, objsubid)
+      - schemaname: pg_catalog
+        tablename: pg_cast
+        indexname: pg_cast_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_cast_oid_index ON pg_catalog.pg_cast USING
+          btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_enum
+        indexname: pg_enum_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_enum_oid_index ON pg_catalog.pg_enum USING
+          btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_enum
+        indexname: pg_enum_typid_label_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_enum_typid_label_index ON pg_catalog.pg_enum
+          USING btree (enumtypid, enumlabel)
+      - schemaname: pg_catalog
+        tablename: pg_enum
+        indexname: pg_enum_typid_sortorder_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_enum_typid_sortorder_index ON pg_catalog.pg_enum
+          USING btree (enumtypid, enumsortorder)
+      - schemaname: pg_catalog
+        tablename: pg_namespace
+        indexname: pg_namespace_nspname_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_namespace_nspname_index ON pg_catalog.pg_namespace
+          USING btree (nspname)
+      - schemaname: pg_catalog
+        tablename: pg_conversion
+        indexname: pg_conversion_default_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_conversion_default_index ON pg_catalog.pg_conversion
+          USING btree (connamespace, conforencoding, contoencoding, oid)
+      - schemaname: pg_catalog
+        tablename: pg_conversion
+        indexname: pg_conversion_name_nsp_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_conversion_name_nsp_index ON pg_catalog.pg_conversion
+          USING btree (conname, connamespace)
+      - schemaname: pg_catalog
+        tablename: pg_depend
+        indexname: pg_depend_depender_index
+        tablespace: null
+        indexdef: CREATE INDEX pg_depend_depender_index ON pg_catalog.pg_depend USING
+          btree (classid, objid, objsubid)
+      - schemaname: pg_catalog
+        tablename: pg_depend
+        indexname: pg_depend_reference_index
+        tablespace: null
+        indexdef: CREATE INDEX pg_depend_reference_index ON pg_catalog.pg_depend USING
+          btree (refclassid, refobjid, refobjsubid)
+      - schemaname: pg_catalog
+        tablename: pg_database
+        indexname: pg_database_datname_index
+        tablespace: pg_global
+        indexdef: CREATE UNIQUE INDEX pg_database_datname_index ON pg_catalog.pg_database
+          USING btree (datname)
+      - schemaname: pg_catalog
+        tablename: pg_tablespace
+        indexname: pg_tablespace_spcname_index
+        tablespace: pg_global
+        indexdef: CREATE UNIQUE INDEX pg_tablespace_spcname_index ON pg_catalog.pg_tablespace
+          USING btree (spcname)
+      - schemaname: pg_catalog
+        tablename: pg_authid
+        indexname: pg_authid_rolname_index
+        tablespace: pg_global
+        indexdef: CREATE UNIQUE INDEX pg_authid_rolname_index ON pg_catalog.pg_authid
+          USING btree (rolname)
+      - schemaname: pg_catalog
+        tablename: pg_auth_members
+        indexname: pg_auth_members_role_member_index
+        tablespace: pg_global
+        indexdef: CREATE UNIQUE INDEX pg_auth_members_role_member_index ON pg_catalog.pg_auth_members
+          USING btree (roleid, member, grantor)
+      - schemaname: pg_catalog
+        tablename: pg_auth_members
+        indexname: pg_auth_members_member_role_index
+        tablespace: pg_global
+        indexdef: CREATE UNIQUE INDEX pg_auth_members_member_role_index ON pg_catalog.pg_auth_members
+          USING btree (member, roleid, grantor)
+      - schemaname: pg_catalog
+        tablename: pg_auth_members
+        indexname: pg_auth_members_grantor_index
+        tablespace: pg_global
+        indexdef: CREATE INDEX pg_auth_members_grantor_index ON pg_catalog.pg_auth_members
+          USING btree (grantor)
+      - schemaname: pg_catalog
+        tablename: pg_shdepend
+        indexname: pg_shdepend_depender_index
+        tablespace: pg_global
+        indexdef: CREATE INDEX pg_shdepend_depender_index ON pg_catalog.pg_shdepend
+          USING btree (dbid, classid, objid, objsubid)
+      - schemaname: pg_catalog
+        tablename: pg_shdepend
+        indexname: pg_shdepend_reference_index
+        tablespace: pg_global
+        indexdef: CREATE INDEX pg_shdepend_reference_index ON pg_catalog.pg_shdepend
+          USING btree (refclassid, refobjid)
+      - schemaname: pg_catalog
+        tablename: pg_ts_config
+        indexname: pg_ts_config_cfgname_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_ts_config_cfgname_index ON pg_catalog.pg_ts_config
+          USING btree (cfgname, cfgnamespace)
+      - schemaname: pg_catalog
+        tablename: pg_ts_dict
+        indexname: pg_ts_dict_dictname_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_ts_dict_dictname_index ON pg_catalog.pg_ts_dict
+          USING btree (dictname, dictnamespace)
+      - schemaname: pg_catalog
+        tablename: pg_ts_parser
+        indexname: pg_ts_parser_prsname_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_ts_parser_prsname_index ON pg_catalog.pg_ts_parser
+          USING btree (prsname, prsnamespace)
+      - schemaname: pg_catalog
+        tablename: pg_ts_template
+        indexname: pg_ts_template_tmplname_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_ts_template_tmplname_index ON pg_catalog.pg_ts_template
+          USING btree (tmplname, tmplnamespace)
+      - schemaname: pg_catalog
+        tablename: pg_extension
+        indexname: pg_extension_name_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_extension_name_index ON pg_catalog.pg_extension
+          USING btree (extname)
+      - schemaname: pg_catalog
+        tablename: pg_foreign_data_wrapper
+        indexname: pg_foreign_data_wrapper_name_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_foreign_data_wrapper_name_index ON pg_catalog.pg_foreign_data_wrapper
+          USING btree (fdwname)
+      - schemaname: pg_catalog
+        tablename: pg_foreign_server
+        indexname: pg_foreign_server_name_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_foreign_server_name_index ON pg_catalog.pg_foreign_server
+          USING btree (srvname)
+      - schemaname: pg_catalog
+        tablename: pg_user_mapping
+        indexname: pg_user_mapping_user_server_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_user_mapping_user_server_index ON pg_catalog.pg_user_mapping
+          USING btree (umuser, umserver)
+      - schemaname: pg_catalog
+        tablename: pg_policy
+        indexname: pg_policy_polrelid_polname_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_policy_polrelid_polname_index ON pg_catalog.pg_policy
+          USING btree (polrelid, polname)
+      - schemaname: pg_catalog
+        tablename: pg_replication_origin
+        indexname: pg_replication_origin_roname_index
+        tablespace: pg_global
+        indexdef: CREATE UNIQUE INDEX pg_replication_origin_roname_index ON pg_catalog.pg_replication_origin
+          USING btree (roname)
+      - schemaname: pg_catalog
+        tablename: pg_conversion
+        indexname: pg_conversion_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_conversion_oid_index ON pg_catalog.pg_conversion
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_database
+        indexname: pg_database_oid_index
+        tablespace: pg_global
+        indexdef: CREATE UNIQUE INDEX pg_database_oid_index ON pg_catalog.pg_database
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_db_role_setting
+        indexname: pg_db_role_setting_databaseid_rol_index
+        tablespace: pg_global
+        indexdef: CREATE UNIQUE INDEX pg_db_role_setting_databaseid_rol_index ON pg_catalog.pg_db_role_setting
+          USING btree (setdatabase, setrole)
+      - schemaname: pg_catalog
+        tablename: pg_tablespace
+        indexname: pg_tablespace_oid_index
+        tablespace: pg_global
+        indexdef: CREATE UNIQUE INDEX pg_tablespace_oid_index ON pg_catalog.pg_tablespace
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_authid
+        indexname: pg_authid_oid_index
+        tablespace: pg_global
+        indexdef: CREATE UNIQUE INDEX pg_authid_oid_index ON pg_catalog.pg_authid
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_auth_members
+        indexname: pg_auth_members_oid_index
+        tablespace: pg_global
+        indexdef: CREATE UNIQUE INDEX pg_auth_members_oid_index ON pg_catalog.pg_auth_members
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_shdescription
+        indexname: pg_shdescription_o_c_index
+        tablespace: pg_global
+        indexdef: CREATE UNIQUE INDEX pg_shdescription_o_c_index ON pg_catalog.pg_shdescription
+          USING btree (objoid, classoid)
+      - schemaname: pg_catalog
+        tablename: pg_ts_config
+        indexname: pg_ts_config_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_ts_config_oid_index ON pg_catalog.pg_ts_config
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_ts_config_map
+        indexname: pg_ts_config_map_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_ts_config_map_index ON pg_catalog.pg_ts_config_map
+          USING btree (mapcfg, maptokentype, mapseqno)
+      - schemaname: pg_catalog
+        tablename: pg_ts_dict
+        indexname: pg_ts_dict_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_ts_dict_oid_index ON pg_catalog.pg_ts_dict
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_ts_parser
+        indexname: pg_ts_parser_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_ts_parser_oid_index ON pg_catalog.pg_ts_parser
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_ts_template
+        indexname: pg_ts_template_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_ts_template_oid_index ON pg_catalog.pg_ts_template
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_extension
+        indexname: pg_extension_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_extension_oid_index ON pg_catalog.pg_extension
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_foreign_data_wrapper
+        indexname: pg_foreign_data_wrapper_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_foreign_data_wrapper_oid_index ON pg_catalog.pg_foreign_data_wrapper
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_foreign_server
+        indexname: pg_foreign_server_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_foreign_server_oid_index ON pg_catalog.pg_foreign_server
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_user_mapping
+        indexname: pg_user_mapping_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_user_mapping_oid_index ON pg_catalog.pg_user_mapping
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_foreign_table
+        indexname: pg_foreign_table_relid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_foreign_table_relid_index ON pg_catalog.pg_foreign_table
+          USING btree (ftrelid)
+      - schemaname: pg_catalog
+        tablename: pg_policy
+        indexname: pg_policy_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_policy_oid_index ON pg_catalog.pg_policy
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_replication_origin
+        indexname: pg_replication_origin_roiident_index
+        tablespace: pg_global
+        indexdef: CREATE UNIQUE INDEX pg_replication_origin_roiident_index ON pg_catalog.pg_replication_origin
+          USING btree (roident)
+      - schemaname: pg_catalog
+        tablename: pg_default_acl
+        indexname: pg_default_acl_role_nsp_obj_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_default_acl_role_nsp_obj_index ON pg_catalog.pg_default_acl
+          USING btree (defaclrole, defaclnamespace, defaclobjtype)
+      - schemaname: pg_catalog
+        tablename: pg_collation
+        indexname: pg_collation_name_enc_nsp_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_collation_name_enc_nsp_index ON pg_catalog.pg_collation
+          USING btree (collname, collencoding, collnamespace)
+      - schemaname: pg_catalog
+        tablename: pg_parameter_acl
+        indexname: pg_parameter_acl_parname_index
+        tablespace: pg_global
+        indexdef: CREATE UNIQUE INDEX pg_parameter_acl_parname_index ON pg_catalog.pg_parameter_acl
+          USING btree (parname)
+      - schemaname: pg_catalog
+        tablename: pg_range
+        indexname: pg_range_rngmultitypid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_range_rngmultitypid_index ON pg_catalog.pg_range
+          USING btree (rngmultitypid)
+      - schemaname: pg_catalog
+        tablename: pg_transform
+        indexname: pg_transform_type_lang_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_transform_type_lang_index ON pg_catalog.pg_transform
+          USING btree (trftype, trflang)
+      - schemaname: pg_catalog
+        tablename: pg_publication
+        indexname: pg_publication_pubname_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_publication_pubname_index ON pg_catalog.pg_publication
+          USING btree (pubname)
+      - schemaname: pg_catalog
+        tablename: pg_publication_namespace
+        indexname: pg_publication_namespace_pnnspid_pnpubid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_publication_namespace_pnnspid_pnpubid_index
+          ON pg_catalog.pg_publication_namespace USING btree (pnnspid, pnpubid)
+      - schemaname: pg_catalog
+        tablename: pg_publication_rel
+        indexname: pg_publication_rel_prrelid_prpubid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_publication_rel_prrelid_prpubid_index ON
+          pg_catalog.pg_publication_rel USING btree (prrelid, prpubid)
+      - schemaname: pg_catalog
+        tablename: pg_publication_rel
+        indexname: pg_publication_rel_prpubid_index
+        tablespace: null
+        indexdef: CREATE INDEX pg_publication_rel_prpubid_index ON pg_catalog.pg_publication_rel
+          USING btree (prpubid)
+      - schemaname: pg_catalog
+        tablename: pg_subscription
+        indexname: pg_subscription_subname_index
+        tablespace: pg_global
+        indexdef: CREATE UNIQUE INDEX pg_subscription_subname_index ON pg_catalog.pg_subscription
+          USING btree (subdbid, subname)
+      - schemaname: pg_catalog
+        tablename: pg_proc
+        indexname: pg_proc_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_proc_oid_index ON pg_catalog.pg_proc USING
+          btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_class
+        indexname: pg_class_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_class_oid_index ON pg_catalog.pg_class USING
+          btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_attrdef
+        indexname: pg_attrdef_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_attrdef_oid_index ON pg_catalog.pg_attrdef
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_constraint
+        indexname: pg_constraint_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_constraint_oid_index ON pg_catalog.pg_constraint
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_namespace
+        indexname: pg_namespace_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_namespace_oid_index ON pg_catalog.pg_namespace
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_default_acl
+        indexname: pg_default_acl_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_default_acl_oid_index ON pg_catalog.pg_default_acl
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_init_privs
+        indexname: pg_init_privs_o_c_o_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_init_privs_o_c_o_index ON pg_catalog.pg_init_privs
+          USING btree (objoid, classoid, objsubid)
+      - schemaname: pg_catalog
+        tablename: pg_seclabel
+        indexname: pg_seclabel_object_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_seclabel_object_index ON pg_catalog.pg_seclabel
+          USING btree (objoid, classoid, objsubid, provider)
+      - schemaname: pg_catalog
+        tablename: pg_shseclabel
+        indexname: pg_shseclabel_object_index
+        tablespace: pg_global
+        indexdef: CREATE UNIQUE INDEX pg_shseclabel_object_index ON pg_catalog.pg_shseclabel
+          USING btree (objoid, classoid, provider)
+      - schemaname: pg_catalog
+        tablename: pg_collation
+        indexname: pg_collation_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_collation_oid_index ON pg_catalog.pg_collation
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_parameter_acl
+        indexname: pg_parameter_acl_oid_index
+        tablespace: pg_global
+        indexdef: CREATE UNIQUE INDEX pg_parameter_acl_oid_index ON pg_catalog.pg_parameter_acl
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_partitioned_table
+        indexname: pg_partitioned_table_partrelid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_partitioned_table_partrelid_index ON pg_catalog.pg_partitioned_table
+          USING btree (partrelid)
+      - schemaname: pg_catalog
+        tablename: pg_range
+        indexname: pg_range_rngtypid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_range_rngtypid_index ON pg_catalog.pg_range
+          USING btree (rngtypid)
+      - schemaname: pg_catalog
+        tablename: pg_transform
+        indexname: pg_transform_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_transform_oid_index ON pg_catalog.pg_transform
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_sequence
+        indexname: pg_sequence_seqrelid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_sequence_seqrelid_index ON pg_catalog.pg_sequence
+          USING btree (seqrelid)
+      - schemaname: pg_catalog
+        tablename: pg_publication
+        indexname: pg_publication_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_publication_oid_index ON pg_catalog.pg_publication
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_publication_namespace
+        indexname: pg_publication_namespace_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_publication_namespace_oid_index ON pg_catalog.pg_publication_namespace
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_publication_rel
+        indexname: pg_publication_rel_oid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_publication_rel_oid_index ON pg_catalog.pg_publication_rel
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_subscription
+        indexname: pg_subscription_oid_index
+        tablespace: pg_global
+        indexdef: CREATE UNIQUE INDEX pg_subscription_oid_index ON pg_catalog.pg_subscription
+          USING btree (oid)
+      - schemaname: pg_catalog
+        tablename: pg_subscription_rel
+        indexname: pg_subscription_rel_srrelid_srsubid_index
+        tablespace: null
+        indexdef: CREATE UNIQUE INDEX pg_subscription_rel_srrelid_srsubid_index ON
+          pg_catalog.pg_subscription_rel USING btree (srrelid, srsubid)

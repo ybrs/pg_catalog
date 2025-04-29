@@ -1,20 +1,23 @@
-type: system_catalog
-schema:
-  seqrelid: int
-  seqtypid: int
-  seqstart: bigint
-  seqincrement: bigint
-  seqmax: bigint
-  seqmin: bigint
-  seqcache: bigint
-  seqcycle: boolean
-pg_types:
-  seqrelid: oid
-  seqtypid: oid
-  seqstart: int8
-  seqincrement: int8
-  seqmax: int8
-  seqmin: int8
-  seqcache: int8
-  seqcycle: bool
-rows: []
+public:
+  pg_catalog:
+    pg_sequence:
+      type: system_catalog
+      schema:
+        seqrelid: int
+        seqtypid: int
+        seqstart: bigint
+        seqincrement: bigint
+        seqmax: bigint
+        seqmin: bigint
+        seqcache: bigint
+        seqcycle: boolean
+      pg_types:
+        seqrelid: oid
+        seqtypid: oid
+        seqstart: int8
+        seqincrement: int8
+        seqmax: int8
+        seqmin: int8
+        seqcache: int8
+        seqcycle: bool
+      rows: []

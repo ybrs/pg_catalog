@@ -1,214 +1,219 @@
-type: view
-view_sql: " SELECT DISTINCT current_database()::information_schema.sql_identifier\
-  \ AS table_catalog,\n    nv.nspname::information_schema.sql_identifier AS table_schema,\n\
-  \    v.relname::information_schema.sql_identifier AS table_name,\n    current_database()::information_schema.sql_identifier\
-  \ AS specific_catalog,\n    np.nspname::information_schema.sql_identifier AS specific_schema,\n\
-  \    nameconcatoid(p.proname, p.oid)::information_schema.sql_identifier AS specific_name\n\
-  \   FROM pg_namespace nv,\n    pg_class v,\n    pg_depend dv,\n    pg_depend dp,\n\
-  \    pg_proc p,\n    pg_namespace np\n  WHERE nv.oid = v.relnamespace AND v.relkind\
-  \ = 'v'::\"char\" AND v.oid = dv.refobjid AND dv.refclassid = 'pg_class'::regclass::oid\
-  \ AND dv.classid = 'pg_rewrite'::regclass::oid AND dv.deptype = 'i'::\"char\" AND\
-  \ dv.objid = dp.objid AND dp.classid = 'pg_rewrite'::regclass::oid AND dp.refclassid\
-  \ = 'pg_proc'::regclass::oid AND dp.refobjid = p.oid AND p.pronamespace = np.oid\
-  \ AND pg_has_role(p.proowner, 'USAGE'::text);"
-schema:
-  table_catalog: varchar(64)
-  table_schema: varchar(64)
-  table_name: varchar(64)
-  specific_catalog: varchar(64)
-  specific_schema: varchar(64)
-  specific_name: varchar(64)
-pg_types:
-  table_catalog: name
-  table_schema: name
-  table_name: name
-  specific_catalog: name
-  specific_schema: name
-  specific_name: name
-rows:
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: attributes
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_char_max_length_12680
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: attributes
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_char_octet_length_12681
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: attributes
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_datetime_precision_12686
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: attributes
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_interval_type_12687
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: attributes
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_numeric_precision_12683
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: attributes
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_numeric_precision_radix_12684
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: attributes
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_numeric_scale_12685
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: attributes
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_truetypid_12678
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: attributes
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_truetypmod_12679
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: columns
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_char_max_length_12680
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: columns
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_char_octet_length_12681
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: columns
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_datetime_precision_12686
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: columns
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_interval_type_12687
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: columns
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_numeric_precision_12683
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: columns
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_numeric_precision_radix_12684
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: columns
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_numeric_scale_12685
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: columns
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_truetypid_12678
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: columns
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_truetypmod_12679
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: domains
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_char_max_length_12680
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: domains
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_char_octet_length_12681
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: domains
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_datetime_precision_12686
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: domains
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_interval_type_12687
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: domains
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_numeric_precision_12683
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: domains
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_numeric_precision_radix_12684
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: domains
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_numeric_scale_12685
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: element_types
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_expandarray_12676
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: key_column_usage
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_expandarray_12676
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: key_column_usage
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_index_position_12677
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: parameters
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_expandarray_12676
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: sequences
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_numeric_precision_12683
-- table_catalog: postgres
-  table_schema: information_schema
-  table_name: triggered_update_columns
-  specific_catalog: postgres
-  specific_schema: information_schema
-  specific_name: _pg_expandarray_12676
+public:
+  information_schema:
+    view_routine_usage:
+      type: view
+      view_sql: " SELECT DISTINCT current_database()::information_schema.sql_identifier\
+        \ AS table_catalog,\n    nv.nspname::information_schema.sql_identifier AS\
+        \ table_schema,\n    v.relname::information_schema.sql_identifier AS table_name,\n\
+        \    current_database()::information_schema.sql_identifier AS specific_catalog,\n\
+        \    np.nspname::information_schema.sql_identifier AS specific_schema,\n \
+        \   nameconcatoid(p.proname, p.oid)::information_schema.sql_identifier AS\
+        \ specific_name\n   FROM pg_namespace nv,\n    pg_class v,\n    pg_depend\
+        \ dv,\n    pg_depend dp,\n    pg_proc p,\n    pg_namespace np\n  WHERE nv.oid\
+        \ = v.relnamespace AND v.relkind = 'v'::\"char\" AND v.oid = dv.refobjid AND\
+        \ dv.refclassid = 'pg_class'::regclass::oid AND dv.classid = 'pg_rewrite'::regclass::oid\
+        \ AND dv.deptype = 'i'::\"char\" AND dv.objid = dp.objid AND dp.classid =\
+        \ 'pg_rewrite'::regclass::oid AND dp.refclassid = 'pg_proc'::regclass::oid\
+        \ AND dp.refobjid = p.oid AND p.pronamespace = np.oid AND pg_has_role(p.proowner,\
+        \ 'USAGE'::text);"
+      schema:
+        table_catalog: varchar(64)
+        table_schema: varchar(64)
+        table_name: varchar(64)
+        specific_catalog: varchar(64)
+        specific_schema: varchar(64)
+        specific_name: varchar(64)
+      pg_types:
+        table_catalog: name
+        table_schema: name
+        table_name: name
+        specific_catalog: name
+        specific_schema: name
+        specific_name: name
+      rows:
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: attributes
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_char_max_length_12680
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: attributes
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_char_octet_length_12681
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: attributes
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_datetime_precision_12686
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: attributes
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_interval_type_12687
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: attributes
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_numeric_precision_12683
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: attributes
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_numeric_precision_radix_12684
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: attributes
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_numeric_scale_12685
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: attributes
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_truetypid_12678
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: attributes
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_truetypmod_12679
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: columns
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_char_max_length_12680
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: columns
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_char_octet_length_12681
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: columns
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_datetime_precision_12686
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: columns
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_interval_type_12687
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: columns
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_numeric_precision_12683
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: columns
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_numeric_precision_radix_12684
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: columns
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_numeric_scale_12685
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: columns
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_truetypid_12678
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: columns
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_truetypmod_12679
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: domains
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_char_max_length_12680
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: domains
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_char_octet_length_12681
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: domains
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_datetime_precision_12686
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: domains
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_interval_type_12687
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: domains
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_numeric_precision_12683
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: domains
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_numeric_precision_radix_12684
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: domains
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_numeric_scale_12685
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: element_types
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_expandarray_12676
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: key_column_usage
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_expandarray_12676
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: key_column_usage
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_index_position_12677
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: parameters
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_expandarray_12676
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: sequences
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_numeric_precision_12683
+      - table_catalog: postgres
+        table_schema: information_schema
+        table_name: triggered_update_columns
+        specific_catalog: postgres
+        specific_schema: information_schema
+        specific_name: _pg_expandarray_12676

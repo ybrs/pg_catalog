@@ -1,24 +1,27 @@
-type: view
-view_sql: " SELECT n.nspname AS schemaname,\n    c.relname AS matviewname,\n    pg_get_userbyid(c.relowner)\
-  \ AS matviewowner,\n    t.spcname AS tablespace,\n    c.relhasindex AS hasindexes,\n\
-  \    c.relispopulated AS ispopulated,\n    pg_get_viewdef(c.oid) AS definition\n\
-  \   FROM pg_class c\n     LEFT JOIN pg_namespace n ON n.oid = c.relnamespace\n \
-  \    LEFT JOIN pg_tablespace t ON t.oid = c.reltablespace\n  WHERE c.relkind = 'm'::\"\
-  char\";"
-schema:
-  schemaname: varchar(64)
-  matviewname: varchar(64)
-  matviewowner: varchar(64)
-  tablespace: varchar(64)
-  hasindexes: boolean
-  ispopulated: boolean
-  definition: varchar(256)
-pg_types:
-  schemaname: name
-  matviewname: name
-  matviewowner: name
-  tablespace: name
-  hasindexes: bool
-  ispopulated: bool
-  definition: text
-rows: []
+public:
+  pg_catalog:
+    pg_matviews:
+      type: view
+      view_sql: " SELECT n.nspname AS schemaname,\n    c.relname AS matviewname,\n\
+        \    pg_get_userbyid(c.relowner) AS matviewowner,\n    t.spcname AS tablespace,\n\
+        \    c.relhasindex AS hasindexes,\n    c.relispopulated AS ispopulated,\n\
+        \    pg_get_viewdef(c.oid) AS definition\n   FROM pg_class c\n     LEFT JOIN\
+        \ pg_namespace n ON n.oid = c.relnamespace\n     LEFT JOIN pg_tablespace t\
+        \ ON t.oid = c.reltablespace\n  WHERE c.relkind = 'm'::\"char\";"
+      schema:
+        schemaname: varchar(64)
+        matviewname: varchar(64)
+        matviewowner: varchar(64)
+        tablespace: varchar(64)
+        hasindexes: boolean
+        ispopulated: boolean
+        definition: varchar(256)
+      pg_types:
+        schemaname: name
+        matviewname: name
+        matviewowner: name
+        tablespace: name
+        hasindexes: bool
+        ispopulated: bool
+        definition: text
+      rows: []

@@ -1,98 +1,101 @@
-type: view
-view_sql: " SELECT name,\n    blks_zeroed,\n    blks_hit,\n    blks_read,\n    blks_written,\n\
-  \    blks_exists,\n    flushes,\n    truncates,\n    stats_reset\n   FROM pg_stat_get_slru()\
-  \ s(name, blks_zeroed, blks_hit, blks_read, blks_written, blks_exists, flushes,\
-  \ truncates, stats_reset);"
-schema:
-  name: varchar(256)
-  blks_zeroed: bigint
-  blks_hit: bigint
-  blks_read: bigint
-  blks_written: bigint
-  blks_exists: bigint
-  flushes: bigint
-  truncates: bigint
-  stats_reset: varchar(256)
-pg_types:
-  name: text
-  blks_zeroed: int8
-  blks_hit: int8
-  blks_read: int8
-  blks_written: int8
-  blks_exists: int8
-  flushes: int8
-  truncates: int8
-  stats_reset: timestamptz
-rows:
-- name: commit_timestamp
-  blks_zeroed: 0
-  blks_hit: 0
-  blks_read: 0
-  blks_written: 0
-  blks_exists: 0
-  flushes: 7
-  truncates: 0
-  stats_reset: '2025-04-26T01:03:02.788083+02:00'
-- name: multixact_member
-  blks_zeroed: 1
-  blks_hit: 0
-  blks_read: 0
-  blks_written: 1
-  blks_exists: 0
-  flushes: 7
-  truncates: 0
-  stats_reset: '2025-04-26T01:03:02.788083+02:00'
-- name: multixact_offset
-  blks_zeroed: 1
-  blks_hit: 1
-  blks_read: 3
-  blks_written: 4
-  blks_exists: 0
-  flushes: 7
-  truncates: 0
-  stats_reset: '2025-04-26T01:03:02.788083+02:00'
-- name: notify
-  blks_zeroed: 0
-  blks_hit: 0
-  blks_read: 0
-  blks_written: 0
-  blks_exists: 0
-  flushes: 0
-  truncates: 0
-  stats_reset: '2025-04-26T01:03:02.788083+02:00'
-- name: serializable
-  blks_zeroed: 0
-  blks_hit: 0
-  blks_read: 0
-  blks_written: 0
-  blks_exists: 0
-  flushes: 0
-  truncates: 0
-  stats_reset: '2025-04-26T01:03:02.788083+02:00'
-- name: subtransaction
-  blks_zeroed: 6
-  blks_hit: 0
-  blks_read: 0
-  blks_written: 4
-  blks_exists: 0
-  flushes: 7
-  truncates: 7
-  stats_reset: '2025-04-26T01:03:02.788083+02:00'
-- name: transaction
-  blks_zeroed: 2
-  blks_hit: 3884
-  blks_read: 3
-  blks_written: 6
-  blks_exists: 0
-  flushes: 7
-  truncates: 0
-  stats_reset: '2025-04-26T01:03:02.788083+02:00'
-- name: other
-  blks_zeroed: 0
-  blks_hit: 0
-  blks_read: 0
-  blks_written: 0
-  blks_exists: 0
-  flushes: 0
-  truncates: 0
-  stats_reset: '2025-04-26T01:03:02.788083+02:00'
+public:
+  pg_catalog:
+    pg_stat_slru:
+      type: view
+      view_sql: " SELECT name,\n    blks_zeroed,\n    blks_hit,\n    blks_read,\n\
+        \    blks_written,\n    blks_exists,\n    flushes,\n    truncates,\n    stats_reset\n\
+        \   FROM pg_stat_get_slru() s(name, blks_zeroed, blks_hit, blks_read, blks_written,\
+        \ blks_exists, flushes, truncates, stats_reset);"
+      schema:
+        name: varchar(256)
+        blks_zeroed: bigint
+        blks_hit: bigint
+        blks_read: bigint
+        blks_written: bigint
+        blks_exists: bigint
+        flushes: bigint
+        truncates: bigint
+        stats_reset: varchar(256)
+      pg_types:
+        name: text
+        blks_zeroed: int8
+        blks_hit: int8
+        blks_read: int8
+        blks_written: int8
+        blks_exists: int8
+        flushes: int8
+        truncates: int8
+        stats_reset: timestamptz
+      rows:
+      - name: commit_timestamp
+        blks_zeroed: 0
+        blks_hit: 0
+        blks_read: 0
+        blks_written: 0
+        blks_exists: 0
+        flushes: 7
+        truncates: 0
+        stats_reset: '2025-04-26T01:03:02.788083+02:00'
+      - name: multixact_member
+        blks_zeroed: 1
+        blks_hit: 0
+        blks_read: 0
+        blks_written: 1
+        blks_exists: 0
+        flushes: 7
+        truncates: 0
+        stats_reset: '2025-04-26T01:03:02.788083+02:00'
+      - name: multixact_offset
+        blks_zeroed: 1
+        blks_hit: 1
+        blks_read: 3
+        blks_written: 4
+        blks_exists: 0
+        flushes: 7
+        truncates: 0
+        stats_reset: '2025-04-26T01:03:02.788083+02:00'
+      - name: notify
+        blks_zeroed: 0
+        blks_hit: 0
+        blks_read: 0
+        blks_written: 0
+        blks_exists: 0
+        flushes: 0
+        truncates: 0
+        stats_reset: '2025-04-26T01:03:02.788083+02:00'
+      - name: serializable
+        blks_zeroed: 0
+        blks_hit: 0
+        blks_read: 0
+        blks_written: 0
+        blks_exists: 0
+        flushes: 0
+        truncates: 0
+        stats_reset: '2025-04-26T01:03:02.788083+02:00'
+      - name: subtransaction
+        blks_zeroed: 6
+        blks_hit: 0
+        blks_read: 0
+        blks_written: 4
+        blks_exists: 0
+        flushes: 7
+        truncates: 7
+        stats_reset: '2025-04-26T01:03:02.788083+02:00'
+      - name: transaction
+        blks_zeroed: 2
+        blks_hit: 3884
+        blks_read: 3
+        blks_written: 6
+        blks_exists: 0
+        flushes: 7
+        truncates: 0
+        stats_reset: '2025-04-26T01:03:02.788083+02:00'
+      - name: other
+        blks_zeroed: 0
+        blks_hit: 0
+        blks_read: 0
+        blks_written: 0
+        blks_exists: 0
+        flushes: 0
+        truncates: 0
+        stats_reset: '2025-04-26T01:03:02.788083+02:00'

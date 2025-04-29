@@ -4,6 +4,10 @@ tests:
     SELECT 1;
   query_hash: b1698e52a0f16203489454196a0c6307
   expected: ''
+
+- query: SELECT 5 = ANY(ARRAY[1, 5, 7, 9]);
+
+
 - query: SELECT d.datname as "Name", pg_catalog.pg_get_userbyid(d.datdba) as "Owner",
     pg_catalog.pg_encoding_to_char(d.encoding) as "Encoding", d.datcollate as "Collate",
     d.datctype as "Ctype", pg_catalog.array_to_string(d.datacl, E'\n') AS "Access

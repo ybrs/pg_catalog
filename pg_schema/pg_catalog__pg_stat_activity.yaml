@@ -1,214 +1,196 @@
-type: view
-view_sql: " SELECT s.datid,\n    d.datname,\n    s.pid,\n    s.leader_pid,\n    s.usesysid,\n\
-  \    u.rolname AS usename,\n    s.application_name,\n    s.client_addr,\n    s.client_hostname,\n\
-  \    s.client_port,\n    s.backend_start,\n    s.xact_start,\n    s.query_start,\n\
-  \    s.state_change,\n    s.wait_event_type,\n    s.wait_event,\n    s.state,\n\
-  \    s.backend_xid,\n    s.backend_xmin,\n    s.query_id,\n    s.query,\n    s.backend_type\n\
-  \   FROM pg_stat_get_activity(NULL::integer) s(datid, pid, usesysid, application_name,\
-  \ state, query, wait_event_type, wait_event, xact_start, query_start, backend_start,\
-  \ state_change, client_addr, client_hostname, client_port, backend_xid, backend_xmin,\
-  \ backend_type, ssl, sslversion, sslcipher, sslbits, ssl_client_dn, ssl_client_serial,\
-  \ ssl_issuer_dn, gss_auth, gss_princ, gss_enc, gss_delegation, leader_pid, query_id)\n\
-  \     LEFT JOIN pg_database d ON s.datid = d.oid\n     LEFT JOIN pg_authid u ON\
-  \ s.usesysid = u.oid;"
-schema:
-  datid: int
-  datname: varchar(64)
-  pid: int
-  leader_pid: int
-  usesysid: int
-  usename: varchar(64)
-  application_name: varchar(256)
-  client_addr: varchar(256)
-  client_hostname: varchar(256)
-  client_port: int
-  backend_start: varchar(256)
-  xact_start: varchar(256)
-  query_start: varchar(256)
-  state_change: varchar(256)
-  wait_event_type: varchar(256)
-  wait_event: varchar(256)
-  state: varchar(256)
-  backend_xid: varchar(256)
-  backend_xmin: varchar(256)
-  query_id: bigint
-  query: varchar(256)
-  backend_type: varchar(256)
-pg_types:
-  datid: oid
-  datname: name
-  pid: int4
-  leader_pid: int4
-  usesysid: oid
-  usename: name
-  application_name: text
-  client_addr: inet
-  client_hostname: text
-  client_port: int4
-  backend_start: timestamptz
-  xact_start: timestamptz
-  query_start: timestamptz
-  state_change: timestamptz
-  wait_event_type: text
-  wait_event: text
-  state: text
-  backend_xid: xid
-  backend_xmin: xid
-  query_id: int8
-  query: text
-  backend_type: text
-rows:
-- datid: 5
-  datname: postgres
-  pid: 74459
-  leader_pid: null
-  usesysid: 10
-  usename: aybarsb
-  application_name: psql
-  client_addr: null
-  client_hostname: null
-  client_port: -1
-  backend_start: '2025-04-26T01:56:15.546678+02:00'
-  xact_start: null
-  query_start: '2025-04-26T02:09:11.691931+02:00'
-  state_change: '2025-04-26T02:09:11.693112+02:00'
-  wait_event_type: Client
-  wait_event: ClientRead
-  state: idle
-  backend_xid: null
-  backend_xmin: null
-  query_id: null
-  query: select * from pg_catalog.pg_description where classoid=1247;
-  backend_type: client backend
-- datid: 5
-  datname: postgres
-  pid: 74844
-  leader_pid: null
-  usesysid: 10
-  usename: aybarsb
-  application_name: ''
-  client_addr: ::1
-  client_hostname: null
-  client_port: 63382
-  backend_start: '2025-04-26T02:09:47.244232+02:00'
-  xact_start: '2025-04-26T02:09:47.255983+02:00'
-  query_start: '2025-04-26T02:09:55.373701+02:00'
-  state_change: '2025-04-26T02:09:55.373701+02:00'
-  wait_event_type: null
-  wait_event: null
-  state: active
-  backend_xid: null
-  backend_xmin: '749'
-  query_id: null
-  query: SELECT * FROM "pg_catalog"."pg_stat_activity"
-  backend_type: client backend
-- datid: null
-  datname: null
-  pid: 73057
-  leader_pid: null
-  usesysid: null
-  usename: null
-  application_name: ''
-  client_addr: null
-  client_hostname: null
-  client_port: null
-  backend_start: '2025-04-26T01:05:37.191222+02:00'
-  xact_start: null
-  query_start: null
-  state_change: null
-  wait_event_type: Activity
-  wait_event: AutovacuumMain
-  state: null
-  backend_xid: null
-  backend_xmin: null
-  query_id: null
-  query: ''
-  backend_type: autovacuum launcher
-- datid: null
-  datname: null
-  pid: 73058
-  leader_pid: null
-  usesysid: 10
-  usename: aybarsb
-  application_name: ''
-  client_addr: null
-  client_hostname: null
-  client_port: null
-  backend_start: '2025-04-26T01:05:37.191925+02:00'
-  xact_start: null
-  query_start: null
-  state_change: null
-  wait_event_type: Activity
-  wait_event: LogicalLauncherMain
-  state: null
-  backend_xid: null
-  backend_xmin: null
-  query_id: null
-  query: ''
-  backend_type: logical replication launcher
-- datid: null
-  datname: null
-  pid: 73053
-  leader_pid: null
-  usesysid: null
-  usename: null
-  application_name: ''
-  client_addr: null
-  client_hostname: null
-  client_port: null
-  backend_start: '2025-04-26T01:05:37.185199+02:00'
-  xact_start: null
-  query_start: null
-  state_change: null
-  wait_event_type: Activity
-  wait_event: CheckpointerMain
-  state: null
-  backend_xid: null
-  backend_xmin: null
-  query_id: null
-  query: ''
-  backend_type: checkpointer
-- datid: null
-  datname: null
-  pid: 73054
-  leader_pid: null
-  usesysid: null
-  usename: null
-  application_name: ''
-  client_addr: null
-  client_hostname: null
-  client_port: null
-  backend_start: '2025-04-26T01:05:37.185311+02:00'
-  xact_start: null
-  query_start: null
-  state_change: null
-  wait_event_type: Activity
-  wait_event: BgwriterHibernate
-  state: null
-  backend_xid: null
-  backend_xmin: null
-  query_id: null
-  query: ''
-  backend_type: background writer
-- datid: null
-  datname: null
-  pid: 73056
-  leader_pid: null
-  usesysid: null
-  usename: null
-  application_name: ''
-  client_addr: null
-  client_hostname: null
-  client_port: null
-  backend_start: '2025-04-26T01:05:37.191129+02:00'
-  xact_start: null
-  query_start: null
-  state_change: null
-  wait_event_type: Activity
-  wait_event: WalWriterMain
-  state: null
-  backend_xid: null
-  backend_xmin: null
-  query_id: null
-  query: ''
-  backend_type: walwriter
+public:
+  pg_catalog:
+    pg_stat_activity:
+      type: view
+      view_sql: " SELECT s.datid,\n    d.datname,\n    s.pid,\n    s.leader_pid,\n\
+        \    s.usesysid,\n    u.rolname AS usename,\n    s.application_name,\n   \
+        \ s.client_addr,\n    s.client_hostname,\n    s.client_port,\n    s.backend_start,\n\
+        \    s.xact_start,\n    s.query_start,\n    s.state_change,\n    s.wait_event_type,\n\
+        \    s.wait_event,\n    s.state,\n    s.backend_xid,\n    s.backend_xmin,\n\
+        \    s.query_id,\n    s.query,\n    s.backend_type\n   FROM pg_stat_get_activity(NULL::integer)\
+        \ s(datid, pid, usesysid, application_name, state, query, wait_event_type,\
+        \ wait_event, xact_start, query_start, backend_start, state_change, client_addr,\
+        \ client_hostname, client_port, backend_xid, backend_xmin, backend_type, ssl,\
+        \ sslversion, sslcipher, sslbits, ssl_client_dn, ssl_client_serial, ssl_issuer_dn,\
+        \ gss_auth, gss_princ, gss_enc, gss_delegation, leader_pid, query_id)\n  \
+        \   LEFT JOIN pg_database d ON s.datid = d.oid\n     LEFT JOIN pg_authid u\
+        \ ON s.usesysid = u.oid;"
+      schema:
+        datid: int
+        datname: varchar(64)
+        pid: int
+        leader_pid: int
+        usesysid: int
+        usename: varchar(64)
+        application_name: varchar(256)
+        client_addr: varchar(256)
+        client_hostname: varchar(256)
+        client_port: int
+        backend_start: varchar(256)
+        xact_start: varchar(256)
+        query_start: varchar(256)
+        state_change: varchar(256)
+        wait_event_type: varchar(256)
+        wait_event: varchar(256)
+        state: varchar(256)
+        backend_xid: varchar(256)
+        backend_xmin: varchar(256)
+        query_id: bigint
+        query: varchar(256)
+        backend_type: varchar(256)
+      pg_types:
+        datid: oid
+        datname: name
+        pid: int4
+        leader_pid: int4
+        usesysid: oid
+        usename: name
+        application_name: text
+        client_addr: inet
+        client_hostname: text
+        client_port: int4
+        backend_start: timestamptz
+        xact_start: timestamptz
+        query_start: timestamptz
+        state_change: timestamptz
+        wait_event_type: text
+        wait_event: text
+        state: text
+        backend_xid: xid
+        backend_xmin: xid
+        query_id: int8
+        query: text
+        backend_type: text
+      rows:
+      - datid: 5
+        datname: postgres
+        pid: 15906
+        leader_pid: null
+        usesysid: 10
+        usename: aybarsb
+        application_name: ''
+        client_addr: ::1
+        client_hostname: null
+        client_port: 63089
+        backend_start: '2025-04-29T10:33:32.144060+02:00'
+        xact_start: '2025-04-29T10:33:32.153520+02:00'
+        query_start: '2025-04-29T10:33:40.952831+02:00'
+        state_change: '2025-04-29T10:33:40.952831+02:00'
+        wait_event_type: null
+        wait_event: null
+        state: active
+        backend_xid: null
+        backend_xmin: '749'
+        query_id: null
+        query: SELECT * FROM "pg_catalog"."pg_stat_activity"
+        backend_type: client backend
+      - datid: null
+        datname: null
+        pid: 73057
+        leader_pid: null
+        usesysid: null
+        usename: null
+        application_name: ''
+        client_addr: null
+        client_hostname: null
+        client_port: null
+        backend_start: '2025-04-26T01:05:37.191222+02:00'
+        xact_start: null
+        query_start: null
+        state_change: null
+        wait_event_type: Activity
+        wait_event: AutovacuumMain
+        state: null
+        backend_xid: null
+        backend_xmin: null
+        query_id: null
+        query: ''
+        backend_type: autovacuum launcher
+      - datid: null
+        datname: null
+        pid: 73058
+        leader_pid: null
+        usesysid: 10
+        usename: aybarsb
+        application_name: ''
+        client_addr: null
+        client_hostname: null
+        client_port: null
+        backend_start: '2025-04-26T01:05:37.191925+02:00'
+        xact_start: null
+        query_start: null
+        state_change: null
+        wait_event_type: Activity
+        wait_event: LogicalLauncherMain
+        state: null
+        backend_xid: null
+        backend_xmin: null
+        query_id: null
+        query: ''
+        backend_type: logical replication launcher
+      - datid: null
+        datname: null
+        pid: 73053
+        leader_pid: null
+        usesysid: null
+        usename: null
+        application_name: ''
+        client_addr: null
+        client_hostname: null
+        client_port: null
+        backend_start: '2025-04-26T01:05:37.185199+02:00'
+        xact_start: null
+        query_start: null
+        state_change: null
+        wait_event_type: Activity
+        wait_event: CheckpointerMain
+        state: null
+        backend_xid: null
+        backend_xmin: null
+        query_id: null
+        query: ''
+        backend_type: checkpointer
+      - datid: null
+        datname: null
+        pid: 73054
+        leader_pid: null
+        usesysid: null
+        usename: null
+        application_name: ''
+        client_addr: null
+        client_hostname: null
+        client_port: null
+        backend_start: '2025-04-26T01:05:37.185311+02:00'
+        xact_start: null
+        query_start: null
+        state_change: null
+        wait_event_type: Activity
+        wait_event: BgwriterHibernate
+        state: null
+        backend_xid: null
+        backend_xmin: null
+        query_id: null
+        query: ''
+        backend_type: background writer
+      - datid: null
+        datname: null
+        pid: 73056
+        leader_pid: null
+        usesysid: null
+        usename: null
+        application_name: ''
+        client_addr: null
+        client_hostname: null
+        client_port: null
+        backend_start: '2025-04-26T01:05:37.191129+02:00'
+        xact_start: null
+        query_start: null
+        state_change: null
+        wait_event_type: Activity
+        wait_event: WalWriterMain
+        state: null
+        backend_xid: null
+        backend_xmin: null
+        query_id: null
+        query: ''
+        backend_type: walwriter

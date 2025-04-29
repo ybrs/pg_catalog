@@ -1,40 +1,43 @@
-type: system_catalog
-schema:
-  oid: int
-  subdbid: int
-  subskiplsn: varchar(256)
-  subname: varchar(64)
-  subowner: int
-  subenabled: boolean
-  subbinary: boolean
-  substream: varchar(256)
-  subtwophasestate: varchar(256)
-  subdisableonerr: boolean
-  subpasswordrequired: boolean
-  subrunasowner: boolean
-  subfailover: boolean
-  subconninfo: varchar(256)
-  subslotname: varchar(64)
-  subsynccommit: varchar(256)
-  subpublications: varchar(256)
-  suborigin: varchar(256)
-pg_types:
-  oid: oid
-  subdbid: oid
-  subskiplsn: pg_lsn
-  subname: name
-  subowner: oid
-  subenabled: bool
-  subbinary: bool
-  substream: char
-  subtwophasestate: char
-  subdisableonerr: bool
-  subpasswordrequired: bool
-  subrunasowner: bool
-  subfailover: bool
-  subconninfo: text
-  subslotname: name
-  subsynccommit: text
-  subpublications: _text
-  suborigin: text
-rows: []
+public:
+  pg_catalog:
+    pg_subscription:
+      type: system_catalog
+      schema:
+        oid: int
+        subdbid: int
+        subskiplsn: varchar(256)
+        subname: varchar(64)
+        subowner: int
+        subenabled: boolean
+        subbinary: boolean
+        substream: varchar(256)
+        subtwophasestate: varchar(256)
+        subdisableonerr: boolean
+        subpasswordrequired: boolean
+        subrunasowner: boolean
+        subfailover: boolean
+        subconninfo: varchar(256)
+        subslotname: varchar(64)
+        subsynccommit: varchar(256)
+        subpublications: varchar(256)
+        suborigin: varchar(256)
+      pg_types:
+        oid: oid
+        subdbid: oid
+        subskiplsn: pg_lsn
+        subname: name
+        subowner: oid
+        subenabled: bool
+        subbinary: bool
+        substream: char
+        subtwophasestate: char
+        subdisableonerr: bool
+        subpasswordrequired: bool
+        subrunasowner: bool
+        subfailover: bool
+        subconninfo: text
+        subslotname: name
+        subsynccommit: text
+        subpublications: _text
+        suborigin: text
+      rows: []

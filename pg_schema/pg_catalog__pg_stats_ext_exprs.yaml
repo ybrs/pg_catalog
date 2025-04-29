@@ -1,82 +1,91 @@
-type: view
-view_sql: " SELECT cn.nspname AS schemaname,\n    c.relname AS tablename,\n    sn.nspname\
-  \ AS statistics_schemaname,\n    s.stxname AS statistics_name,\n    pg_get_userbyid(s.stxowner)\
-  \ AS statistics_owner,\n    stat.expr,\n    sd.stxdinherit AS inherited,\n    (stat.a).stanullfrac\
-  \ AS null_frac,\n    (stat.a).stawidth AS avg_width,\n    (stat.a).stadistinct AS\
-  \ n_distinct,\n        CASE\n            WHEN (stat.a).stakind1 = 1 THEN (stat.a).stavalues1\n\
-  \            WHEN (stat.a).stakind2 = 1 THEN (stat.a).stavalues2\n            WHEN\
-  \ (stat.a).stakind3 = 1 THEN (stat.a).stavalues3\n            WHEN (stat.a).stakind4\
-  \ = 1 THEN (stat.a).stavalues4\n            WHEN (stat.a).stakind5 = 1 THEN (stat.a).stavalues5\n\
-  \            ELSE NULL::anyarray\n        END AS most_common_vals,\n        CASE\n\
-  \            WHEN (stat.a).stakind1 = 1 THEN (stat.a).stanumbers1\n            WHEN\
-  \ (stat.a).stakind2 = 1 THEN (stat.a).stanumbers2\n            WHEN (stat.a).stakind3\
-  \ = 1 THEN (stat.a).stanumbers3\n            WHEN (stat.a).stakind4 = 1 THEN (stat.a).stanumbers4\n\
-  \            WHEN (stat.a).stakind5 = 1 THEN (stat.a).stanumbers5\n            ELSE\
-  \ NULL::real[]\n        END AS most_common_freqs,\n        CASE\n            WHEN\
-  \ (stat.a).stakind1 = 2 THEN (stat.a).stavalues1\n            WHEN (stat.a).stakind2\
-  \ = 2 THEN (stat.a).stavalues2\n            WHEN (stat.a).stakind3 = 2 THEN (stat.a).stavalues3\n\
-  \            WHEN (stat.a).stakind4 = 2 THEN (stat.a).stavalues4\n            WHEN\
-  \ (stat.a).stakind5 = 2 THEN (stat.a).stavalues5\n            ELSE NULL::anyarray\n\
-  \        END AS histogram_bounds,\n        CASE\n            WHEN (stat.a).stakind1\
-  \ = 3 THEN (stat.a).stanumbers1[1]\n            WHEN (stat.a).stakind2 = 3 THEN\
-  \ (stat.a).stanumbers2[1]\n            WHEN (stat.a).stakind3 = 3 THEN (stat.a).stanumbers3[1]\n\
-  \            WHEN (stat.a).stakind4 = 3 THEN (stat.a).stanumbers4[1]\n         \
-  \   WHEN (stat.a).stakind5 = 3 THEN (stat.a).stanumbers5[1]\n            ELSE NULL::real\n\
-  \        END AS correlation,\n        CASE\n            WHEN (stat.a).stakind1 =\
-  \ 4 THEN (stat.a).stavalues1\n            WHEN (stat.a).stakind2 = 4 THEN (stat.a).stavalues2\n\
-  \            WHEN (stat.a).stakind3 = 4 THEN (stat.a).stavalues3\n            WHEN\
-  \ (stat.a).stakind4 = 4 THEN (stat.a).stavalues4\n            WHEN (stat.a).stakind5\
-  \ = 4 THEN (stat.a).stavalues5\n            ELSE NULL::anyarray\n        END AS\
-  \ most_common_elems,\n        CASE\n            WHEN (stat.a).stakind1 = 4 THEN\
-  \ (stat.a).stanumbers1\n            WHEN (stat.a).stakind2 = 4 THEN (stat.a).stanumbers2\n\
-  \            WHEN (stat.a).stakind3 = 4 THEN (stat.a).stanumbers3\n            WHEN\
-  \ (stat.a).stakind4 = 4 THEN (stat.a).stanumbers4\n            WHEN (stat.a).stakind5\
-  \ = 4 THEN (stat.a).stanumbers5\n            ELSE NULL::real[]\n        END AS most_common_elem_freqs,\n\
-  \        CASE\n            WHEN (stat.a).stakind1 = 5 THEN (stat.a).stanumbers1\n\
-  \            WHEN (stat.a).stakind2 = 5 THEN (stat.a).stanumbers2\n            WHEN\
-  \ (stat.a).stakind3 = 5 THEN (stat.a).stanumbers3\n            WHEN (stat.a).stakind4\
-  \ = 5 THEN (stat.a).stanumbers4\n            WHEN (stat.a).stakind5 = 5 THEN (stat.a).stanumbers5\n\
-  \            ELSE NULL::real[]\n        END AS elem_count_histogram\n   FROM pg_statistic_ext\
-  \ s\n     JOIN pg_class c ON c.oid = s.stxrelid\n     LEFT JOIN pg_statistic_ext_data\
-  \ sd ON s.oid = sd.stxoid\n     LEFT JOIN pg_namespace cn ON cn.oid = c.relnamespace\n\
-  \     LEFT JOIN pg_namespace sn ON sn.oid = s.stxnamespace\n     JOIN LATERAL (\
-  \ SELECT unnest(pg_get_statisticsobjdef_expressions(s.oid)) AS expr,\n         \
-  \   unnest(sd.stxdexpr) AS a) stat ON stat.expr IS NOT NULL\n  WHERE pg_has_role(c.relowner,\
-  \ 'USAGE'::text) AND (c.relrowsecurity = false OR NOT row_security_active(c.oid));"
-schema:
-  schemaname: varchar(64)
-  tablename: varchar(64)
-  statistics_schemaname: varchar(64)
-  statistics_name: varchar(64)
-  statistics_owner: varchar(64)
-  expr: varchar(256)
-  inherited: boolean
-  null_frac: float
-  avg_width: int
-  n_distinct: float
-  most_common_vals: varchar(256)
-  most_common_freqs: varchar(256)
-  histogram_bounds: varchar(256)
-  correlation: float
-  most_common_elems: varchar(256)
-  most_common_elem_freqs: varchar(256)
-  elem_count_histogram: varchar(256)
-pg_types:
-  schemaname: name
-  tablename: name
-  statistics_schemaname: name
-  statistics_name: name
-  statistics_owner: name
-  expr: text
-  inherited: bool
-  null_frac: float4
-  avg_width: int4
-  n_distinct: float4
-  most_common_vals: anyarray
-  most_common_freqs: _float4
-  histogram_bounds: anyarray
-  correlation: float4
-  most_common_elems: anyarray
-  most_common_elem_freqs: _float4
-  elem_count_histogram: _float4
-rows: []
+public:
+  pg_catalog:
+    pg_stats_ext_exprs:
+      type: view
+      view_sql: " SELECT cn.nspname AS schemaname,\n    c.relname AS tablename,\n\
+        \    sn.nspname AS statistics_schemaname,\n    s.stxname AS statistics_name,\n\
+        \    pg_get_userbyid(s.stxowner) AS statistics_owner,\n    stat.expr,\n  \
+        \  sd.stxdinherit AS inherited,\n    (stat.a).stanullfrac AS null_frac,\n\
+        \    (stat.a).stawidth AS avg_width,\n    (stat.a).stadistinct AS n_distinct,\n\
+        \        CASE\n            WHEN (stat.a).stakind1 = 1 THEN (stat.a).stavalues1\n\
+        \            WHEN (stat.a).stakind2 = 1 THEN (stat.a).stavalues2\n       \
+        \     WHEN (stat.a).stakind3 = 1 THEN (stat.a).stavalues3\n            WHEN\
+        \ (stat.a).stakind4 = 1 THEN (stat.a).stavalues4\n            WHEN (stat.a).stakind5\
+        \ = 1 THEN (stat.a).stavalues5\n            ELSE NULL::anyarray\n        END\
+        \ AS most_common_vals,\n        CASE\n            WHEN (stat.a).stakind1 =\
+        \ 1 THEN (stat.a).stanumbers1\n            WHEN (stat.a).stakind2 = 1 THEN\
+        \ (stat.a).stanumbers2\n            WHEN (stat.a).stakind3 = 1 THEN (stat.a).stanumbers3\n\
+        \            WHEN (stat.a).stakind4 = 1 THEN (stat.a).stanumbers4\n      \
+        \      WHEN (stat.a).stakind5 = 1 THEN (stat.a).stanumbers5\n            ELSE\
+        \ NULL::real[]\n        END AS most_common_freqs,\n        CASE\n        \
+        \    WHEN (stat.a).stakind1 = 2 THEN (stat.a).stavalues1\n            WHEN\
+        \ (stat.a).stakind2 = 2 THEN (stat.a).stavalues2\n            WHEN (stat.a).stakind3\
+        \ = 2 THEN (stat.a).stavalues3\n            WHEN (stat.a).stakind4 = 2 THEN\
+        \ (stat.a).stavalues4\n            WHEN (stat.a).stakind5 = 2 THEN (stat.a).stavalues5\n\
+        \            ELSE NULL::anyarray\n        END AS histogram_bounds,\n     \
+        \   CASE\n            WHEN (stat.a).stakind1 = 3 THEN (stat.a).stanumbers1[1]\n\
+        \            WHEN (stat.a).stakind2 = 3 THEN (stat.a).stanumbers2[1]\n   \
+        \         WHEN (stat.a).stakind3 = 3 THEN (stat.a).stanumbers3[1]\n      \
+        \      WHEN (stat.a).stakind4 = 3 THEN (stat.a).stanumbers4[1]\n         \
+        \   WHEN (stat.a).stakind5 = 3 THEN (stat.a).stanumbers5[1]\n            ELSE\
+        \ NULL::real\n        END AS correlation,\n        CASE\n            WHEN\
+        \ (stat.a).stakind1 = 4 THEN (stat.a).stavalues1\n            WHEN (stat.a).stakind2\
+        \ = 4 THEN (stat.a).stavalues2\n            WHEN (stat.a).stakind3 = 4 THEN\
+        \ (stat.a).stavalues3\n            WHEN (stat.a).stakind4 = 4 THEN (stat.a).stavalues4\n\
+        \            WHEN (stat.a).stakind5 = 4 THEN (stat.a).stavalues5\n       \
+        \     ELSE NULL::anyarray\n        END AS most_common_elems,\n        CASE\n\
+        \            WHEN (stat.a).stakind1 = 4 THEN (stat.a).stanumbers1\n      \
+        \      WHEN (stat.a).stakind2 = 4 THEN (stat.a).stanumbers2\n            WHEN\
+        \ (stat.a).stakind3 = 4 THEN (stat.a).stanumbers3\n            WHEN (stat.a).stakind4\
+        \ = 4 THEN (stat.a).stanumbers4\n            WHEN (stat.a).stakind5 = 4 THEN\
+        \ (stat.a).stanumbers5\n            ELSE NULL::real[]\n        END AS most_common_elem_freqs,\n\
+        \        CASE\n            WHEN (stat.a).stakind1 = 5 THEN (stat.a).stanumbers1\n\
+        \            WHEN (stat.a).stakind2 = 5 THEN (stat.a).stanumbers2\n      \
+        \      WHEN (stat.a).stakind3 = 5 THEN (stat.a).stanumbers3\n            WHEN\
+        \ (stat.a).stakind4 = 5 THEN (stat.a).stanumbers4\n            WHEN (stat.a).stakind5\
+        \ = 5 THEN (stat.a).stanumbers5\n            ELSE NULL::real[]\n        END\
+        \ AS elem_count_histogram\n   FROM pg_statistic_ext s\n     JOIN pg_class\
+        \ c ON c.oid = s.stxrelid\n     LEFT JOIN pg_statistic_ext_data sd ON s.oid\
+        \ = sd.stxoid\n     LEFT JOIN pg_namespace cn ON cn.oid = c.relnamespace\n\
+        \     LEFT JOIN pg_namespace sn ON sn.oid = s.stxnamespace\n     JOIN LATERAL\
+        \ ( SELECT unnest(pg_get_statisticsobjdef_expressions(s.oid)) AS expr,\n \
+        \           unnest(sd.stxdexpr) AS a) stat ON stat.expr IS NOT NULL\n  WHERE\
+        \ pg_has_role(c.relowner, 'USAGE'::text) AND (c.relrowsecurity = false OR\
+        \ NOT row_security_active(c.oid));"
+      schema:
+        schemaname: varchar(64)
+        tablename: varchar(64)
+        statistics_schemaname: varchar(64)
+        statistics_name: varchar(64)
+        statistics_owner: varchar(64)
+        expr: varchar(256)
+        inherited: boolean
+        null_frac: float
+        avg_width: int
+        n_distinct: float
+        most_common_vals: varchar(256)
+        most_common_freqs: varchar(256)
+        histogram_bounds: varchar(256)
+        correlation: float
+        most_common_elems: varchar(256)
+        most_common_elem_freqs: varchar(256)
+        elem_count_histogram: varchar(256)
+      pg_types:
+        schemaname: name
+        tablename: name
+        statistics_schemaname: name
+        statistics_name: name
+        statistics_owner: name
+        expr: text
+        inherited: bool
+        null_frac: float4
+        avg_width: int4
+        n_distinct: float4
+        most_common_vals: anyarray
+        most_common_freqs: _float4
+        histogram_bounds: anyarray
+        correlation: float4
+        most_common_elems: anyarray
+        most_common_elem_freqs: _float4
+        elem_count_histogram: _float4
+      rows: []

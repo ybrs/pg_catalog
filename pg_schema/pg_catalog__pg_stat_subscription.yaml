@@ -1,32 +1,35 @@
-type: view
-view_sql: " SELECT su.oid AS subid,\n    su.subname,\n    st.worker_type,\n    st.pid,\n\
-  \    st.leader_pid,\n    st.relid,\n    st.received_lsn,\n    st.last_msg_send_time,\n\
-  \    st.last_msg_receipt_time,\n    st.latest_end_lsn,\n    st.latest_end_time\n\
-  \   FROM pg_subscription su\n     LEFT JOIN pg_stat_get_subscription(NULL::oid)\
-  \ st(subid, relid, pid, leader_pid, received_lsn, last_msg_send_time, last_msg_receipt_time,\
-  \ latest_end_lsn, latest_end_time, worker_type) ON st.subid = su.oid;"
-schema:
-  subid: int
-  subname: varchar(64)
-  worker_type: varchar(256)
-  pid: int
-  leader_pid: int
-  relid: int
-  received_lsn: varchar(256)
-  last_msg_send_time: varchar(256)
-  last_msg_receipt_time: varchar(256)
-  latest_end_lsn: varchar(256)
-  latest_end_time: varchar(256)
-pg_types:
-  subid: oid
-  subname: name
-  worker_type: text
-  pid: int4
-  leader_pid: int4
-  relid: oid
-  received_lsn: pg_lsn
-  last_msg_send_time: timestamptz
-  last_msg_receipt_time: timestamptz
-  latest_end_lsn: pg_lsn
-  latest_end_time: timestamptz
-rows: []
+public:
+  pg_catalog:
+    pg_stat_subscription:
+      type: view
+      view_sql: " SELECT su.oid AS subid,\n    su.subname,\n    st.worker_type,\n\
+        \    st.pid,\n    st.leader_pid,\n    st.relid,\n    st.received_lsn,\n  \
+        \  st.last_msg_send_time,\n    st.last_msg_receipt_time,\n    st.latest_end_lsn,\n\
+        \    st.latest_end_time\n   FROM pg_subscription su\n     LEFT JOIN pg_stat_get_subscription(NULL::oid)\
+        \ st(subid, relid, pid, leader_pid, received_lsn, last_msg_send_time, last_msg_receipt_time,\
+        \ latest_end_lsn, latest_end_time, worker_type) ON st.subid = su.oid;"
+      schema:
+        subid: int
+        subname: varchar(64)
+        worker_type: varchar(256)
+        pid: int
+        leader_pid: int
+        relid: int
+        received_lsn: varchar(256)
+        last_msg_send_time: varchar(256)
+        last_msg_receipt_time: varchar(256)
+        latest_end_lsn: varchar(256)
+        latest_end_time: varchar(256)
+      pg_types:
+        subid: oid
+        subname: name
+        worker_type: text
+        pid: int4
+        leader_pid: int4
+        relid: oid
+        received_lsn: pg_lsn
+        last_msg_send_time: timestamptz
+        last_msg_receipt_time: timestamptz
+        latest_end_lsn: pg_lsn
+        latest_end_time: timestamptz
+      rows: []

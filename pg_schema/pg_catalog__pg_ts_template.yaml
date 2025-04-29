@@ -1,39 +1,42 @@
-type: system_catalog
-schema:
-  oid: int
-  tmplname: varchar(64)
-  tmplnamespace: int
-  tmplinit: varchar(256)
-  tmpllexize: varchar(256)
-pg_types:
-  oid: oid
-  tmplname: name
-  tmplnamespace: oid
-  tmplinit: regproc
-  tmpllexize: regproc
-rows:
-- oid: 3727
-  tmplname: simple
-  tmplnamespace: 11
-  tmplinit: dsimple_init
-  tmpllexize: dsimple_lexize
-- oid: 3730
-  tmplname: synonym
-  tmplnamespace: 11
-  tmplinit: dsynonym_init
-  tmpllexize: dsynonym_lexize
-- oid: 3733
-  tmplname: ispell
-  tmplnamespace: 11
-  tmplinit: dispell_init
-  tmpllexize: dispell_lexize
-- oid: 3742
-  tmplname: thesaurus
-  tmplnamespace: 11
-  tmplinit: thesaurus_init
-  tmpllexize: thesaurus_lexize
-- oid: 12618
-  tmplname: snowball
-  tmplnamespace: 11
-  tmplinit: dsnowball_init
-  tmpllexize: dsnowball_lexize
+public:
+  pg_catalog:
+    pg_ts_template:
+      type: system_catalog
+      schema:
+        oid: int
+        tmplname: varchar(64)
+        tmplnamespace: int
+        tmplinit: varchar(256)
+        tmpllexize: varchar(256)
+      pg_types:
+        oid: oid
+        tmplname: name
+        tmplnamespace: oid
+        tmplinit: regproc
+        tmpllexize: regproc
+      rows:
+      - oid: 3727
+        tmplname: simple
+        tmplnamespace: 11
+        tmplinit: dsimple_init
+        tmpllexize: dsimple_lexize
+      - oid: 3730
+        tmplname: synonym
+        tmplnamespace: 11
+        tmplinit: dsynonym_init
+        tmpllexize: dsynonym_lexize
+      - oid: 3733
+        tmplname: ispell
+        tmplnamespace: 11
+        tmplinit: dispell_init
+        tmpllexize: dispell_lexize
+      - oid: 3742
+        tmplname: thesaurus
+        tmplnamespace: 11
+        tmplinit: thesaurus_init
+        tmpllexize: thesaurus_lexize
+      - oid: 12618
+        tmplname: snowball
+        tmplnamespace: 11
+        tmplinit: dsnowball_init
+        tmpllexize: dsnowball_lexize

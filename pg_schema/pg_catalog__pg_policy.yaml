@@ -1,20 +1,23 @@
-type: system_catalog
-schema:
-  oid: int
-  polname: varchar(64)
-  polrelid: int
-  polcmd: varchar(256)
-  polpermissive: boolean
-  polroles: varchar(256)
-  polqual: varchar(256)
-  polwithcheck: varchar(256)
-pg_types:
-  oid: oid
-  polname: name
-  polrelid: oid
-  polcmd: char
-  polpermissive: bool
-  polroles: _oid
-  polqual: pg_node_tree
-  polwithcheck: pg_node_tree
-rows: []
+public:
+  pg_catalog:
+    pg_policy:
+      type: system_catalog
+      schema:
+        oid: int
+        polname: varchar(64)
+        polrelid: int
+        polcmd: varchar(256)
+        polpermissive: boolean
+        polroles: varchar(256)
+        polqual: varchar(256)
+        polwithcheck: varchar(256)
+      pg_types:
+        oid: oid
+        polname: name
+        polrelid: oid
+        polcmd: char
+        polpermissive: bool
+        polroles: _oid
+        polqual: pg_node_tree
+        polwithcheck: pg_node_tree
+      rows: []

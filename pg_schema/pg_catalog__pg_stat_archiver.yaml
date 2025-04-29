@@ -1,29 +1,32 @@
-type: view
-view_sql: " SELECT archived_count,\n    last_archived_wal,\n    last_archived_time,\n\
-  \    failed_count,\n    last_failed_wal,\n    last_failed_time,\n    stats_reset\n\
-  \   FROM pg_stat_get_archiver() s(archived_count, last_archived_wal, last_archived_time,\
-  \ failed_count, last_failed_wal, last_failed_time, stats_reset);"
-schema:
-  archived_count: bigint
-  last_archived_wal: varchar(256)
-  last_archived_time: varchar(256)
-  failed_count: bigint
-  last_failed_wal: varchar(256)
-  last_failed_time: varchar(256)
-  stats_reset: varchar(256)
-pg_types:
-  archived_count: int8
-  last_archived_wal: text
-  last_archived_time: timestamptz
-  failed_count: int8
-  last_failed_wal: text
-  last_failed_time: timestamptz
-  stats_reset: timestamptz
-rows:
-- archived_count: 0
-  last_archived_wal: null
-  last_archived_time: null
-  failed_count: 0
-  last_failed_wal: null
-  last_failed_time: null
-  stats_reset: '2025-04-26T01:03:02.788083+02:00'
+public:
+  pg_catalog:
+    pg_stat_archiver:
+      type: view
+      view_sql: " SELECT archived_count,\n    last_archived_wal,\n    last_archived_time,\n\
+        \    failed_count,\n    last_failed_wal,\n    last_failed_time,\n    stats_reset\n\
+        \   FROM pg_stat_get_archiver() s(archived_count, last_archived_wal, last_archived_time,\
+        \ failed_count, last_failed_wal, last_failed_time, stats_reset);"
+      schema:
+        archived_count: bigint
+        last_archived_wal: varchar(256)
+        last_archived_time: varchar(256)
+        failed_count: bigint
+        last_failed_wal: varchar(256)
+        last_failed_time: varchar(256)
+        stats_reset: varchar(256)
+      pg_types:
+        archived_count: int8
+        last_archived_wal: text
+        last_archived_time: timestamptz
+        failed_count: int8
+        last_failed_wal: text
+        last_failed_time: timestamptz
+        stats_reset: timestamptz
+      rows:
+      - archived_count: 0
+        last_archived_wal: null
+        last_archived_time: null
+        failed_count: 0
+        last_failed_wal: null
+        last_failed_time: null
+        stats_reset: '2025-04-26T01:03:02.788083+02:00'

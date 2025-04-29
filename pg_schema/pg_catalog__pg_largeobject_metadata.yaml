@@ -1,10 +1,13 @@
-type: system_catalog
-schema:
-  oid: int
-  lomowner: int
-  lomacl: varchar(256)
-pg_types:
-  oid: oid
-  lomowner: oid
-  lomacl: _aclitem
-rows: []
+public:
+  pg_catalog:
+    pg_largeobject_metadata:
+      type: system_catalog
+      schema:
+        oid: int
+        lomowner: int
+        lomacl: varchar(256)
+      pg_types:
+        oid: oid
+        lomowner: oid
+        lomacl: _aclitem
+      rows: []

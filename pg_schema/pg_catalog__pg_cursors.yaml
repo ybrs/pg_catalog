@@ -1,19 +1,22 @@
-type: view
-view_sql: " SELECT name,\n    statement,\n    is_holdable,\n    is_binary,\n    is_scrollable,\n\
-  \    creation_time\n   FROM pg_cursor() c(name, statement, is_holdable, is_binary,\
-  \ is_scrollable, creation_time);"
-schema:
-  name: varchar(256)
-  statement: varchar(256)
-  is_holdable: boolean
-  is_binary: boolean
-  is_scrollable: boolean
-  creation_time: varchar(256)
-pg_types:
-  name: text
-  statement: text
-  is_holdable: bool
-  is_binary: bool
-  is_scrollable: bool
-  creation_time: timestamptz
-rows: []
+public:
+  pg_catalog:
+    pg_cursors:
+      type: view
+      view_sql: " SELECT name,\n    statement,\n    is_holdable,\n    is_binary,\n\
+        \    is_scrollable,\n    creation_time\n   FROM pg_cursor() c(name, statement,\
+        \ is_holdable, is_binary, is_scrollable, creation_time);"
+      schema:
+        name: varchar(256)
+        statement: varchar(256)
+        is_holdable: boolean
+        is_binary: boolean
+        is_scrollable: boolean
+        creation_time: varchar(256)
+      pg_types:
+        name: text
+        statement: text
+        is_holdable: bool
+        is_binary: bool
+        is_scrollable: bool
+        creation_time: timestamptz
+      rows: []

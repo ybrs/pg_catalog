@@ -1,12 +1,15 @@
-type: view
-view_sql: " SELECT grantee,\n    role_name,\n    is_grantable\n   FROM information_schema.applicable_roles\n\
-  \  WHERE is_grantable::text = 'YES'::text;"
-schema:
-  grantee: varchar(64)
-  role_name: varchar(64)
-  is_grantable: varchar(256)
-pg_types:
-  grantee: name
-  role_name: name
-  is_grantable: varchar
-rows: []
+public:
+  information_schema:
+    administrable_role_authorizations:
+      type: view
+      view_sql: " SELECT grantee,\n    role_name,\n    is_grantable\n   FROM information_schema.applicable_roles\n\
+        \  WHERE is_grantable::text = 'YES'::text;"
+      schema:
+        grantee: varchar(64)
+        role_name: varchar(64)
+        is_grantable: varchar(256)
+      pg_types:
+        grantee: name
+        role_name: name
+        is_grantable: varchar
+      rows: []

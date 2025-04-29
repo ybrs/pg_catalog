@@ -1,22 +1,25 @@
-type: view
-view_sql: " SELECT relid,\n    indexrelid,\n    schemaname,\n    relname,\n    indexrelname,\n\
-  \    idx_blks_read,\n    idx_blks_hit\n   FROM pg_statio_all_indexes\n  WHERE (schemaname\
-  \ <> ALL (ARRAY['pg_catalog'::name, 'information_schema'::name])) AND schemaname\
-  \ !~ '^pg_toast'::text;"
-schema:
-  relid: int
-  indexrelid: int
-  schemaname: varchar(64)
-  relname: varchar(64)
-  indexrelname: varchar(64)
-  idx_blks_read: bigint
-  idx_blks_hit: bigint
-pg_types:
-  relid: oid
-  indexrelid: oid
-  schemaname: name
-  relname: name
-  indexrelname: name
-  idx_blks_read: int8
-  idx_blks_hit: int8
-rows: []
+public:
+  pg_catalog:
+    pg_statio_user_indexes:
+      type: view
+      view_sql: " SELECT relid,\n    indexrelid,\n    schemaname,\n    relname,\n\
+        \    indexrelname,\n    idx_blks_read,\n    idx_blks_hit\n   FROM pg_statio_all_indexes\n\
+        \  WHERE (schemaname <> ALL (ARRAY['pg_catalog'::name, 'information_schema'::name]))\
+        \ AND schemaname !~ '^pg_toast'::text;"
+      schema:
+        relid: int
+        indexrelid: int
+        schemaname: varchar(64)
+        relname: varchar(64)
+        indexrelname: varchar(64)
+        idx_blks_read: bigint
+        idx_blks_hit: bigint
+      pg_types:
+        relid: oid
+        indexrelid: oid
+        schemaname: name
+        relname: name
+        indexrelname: name
+        idx_blks_read: int8
+        idx_blks_hit: int8
+      rows: []

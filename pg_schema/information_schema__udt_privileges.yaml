@@ -1,2994 +1,2999 @@
-type: view
-view_sql: " SELECT u_grantor.rolname::information_schema.sql_identifier AS grantor,\n\
-  \    grantee.rolname::information_schema.sql_identifier AS grantee,\n    current_database()::information_schema.sql_identifier\
-  \ AS udt_catalog,\n    n.nspname::information_schema.sql_identifier AS udt_schema,\n\
-  \    t.typname::information_schema.sql_identifier AS udt_name,\n    'TYPE USAGE'::character\
-  \ varying::information_schema.character_data AS privilege_type,\n        CASE\n\
-  \            WHEN pg_has_role(grantee.oid, t.typowner, 'USAGE'::text) OR t.grantable\
-  \ THEN 'YES'::text\n            ELSE 'NO'::text\n        END::information_schema.yes_or_no\
-  \ AS is_grantable\n   FROM ( SELECT pg_type.oid,\n            pg_type.typname,\n\
-  \            pg_type.typnamespace,\n            pg_type.typtype,\n            pg_type.typowner,\n\
-  \            (aclexplode(COALESCE(pg_type.typacl, acldefault('T'::\"char\", pg_type.typowner)))).grantor\
-  \ AS grantor,\n            (aclexplode(COALESCE(pg_type.typacl, acldefault('T'::\"\
-  char\", pg_type.typowner)))).grantee AS grantee,\n            (aclexplode(COALESCE(pg_type.typacl,\
-  \ acldefault('T'::\"char\", pg_type.typowner)))).privilege_type AS privilege_type,\n\
-  \            (aclexplode(COALESCE(pg_type.typacl, acldefault('T'::\"char\", pg_type.typowner)))).is_grantable\
-  \ AS is_grantable\n           FROM pg_type) t(oid, typname, typnamespace, typtype,\
-  \ typowner, grantor, grantee, prtype, grantable),\n    pg_namespace n,\n    pg_authid\
-  \ u_grantor,\n    ( SELECT pg_authid.oid,\n            pg_authid.rolname\n     \
-  \      FROM pg_authid\n        UNION ALL\n         SELECT 0::oid AS oid,\n     \
-  \       'PUBLIC'::name) grantee(oid, rolname)\n  WHERE t.typnamespace = n.oid AND\
-  \ t.typtype = 'c'::\"char\" AND t.grantee = grantee.oid AND t.grantor = u_grantor.oid\
-  \ AND t.prtype = 'USAGE'::text AND (pg_has_role(u_grantor.oid, 'USAGE'::text) OR\
-  \ pg_has_role(grantee.oid, 'USAGE'::text) OR grantee.rolname = 'PUBLIC'::name);"
-schema:
-  grantor: varchar(64)
-  grantee: varchar(64)
-  udt_catalog: varchar(64)
-  udt_schema: varchar(64)
-  udt_name: varchar(64)
-  privilege_type: varchar(256)
-  is_grantable: varchar(256)
-pg_types:
-  grantor: name
-  grantee: name
-  udt_catalog: name
-  udt_schema: name
-  udt_name: name
-  privilege_type: varchar
-  is_grantable: varchar
-rows:
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_type
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_type
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_attribute
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_attribute
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_proc
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_proc
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_class
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_class
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_attrdef
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_attrdef
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_constraint
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_constraint
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_inherits
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_inherits
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_index
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_index
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_operator
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_operator
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_opfamily
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_opfamily
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_opclass
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_opclass
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_am
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_am
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_amop
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_amop
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_amproc
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_amproc
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_language
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_language
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_largeobject_metadata
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_largeobject_metadata
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_largeobject
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_largeobject
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_aggregate
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_aggregate
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_statistic
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_statistic
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_statistic_ext
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_statistic_ext
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_statistic_ext_data
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_statistic_ext_data
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_rewrite
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_rewrite
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_trigger
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_trigger
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_event_trigger
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_event_trigger
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_description
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_description
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_cast
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_cast
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_enum
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_enum
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_namespace
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_namespace
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_conversion
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_conversion
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_depend
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_depend
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_database
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_database
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_db_role_setting
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_db_role_setting
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_tablespace
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_tablespace
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_authid
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_authid
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_auth_members
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_auth_members
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_shdepend
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_shdepend
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_shdescription
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_shdescription
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_ts_config
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_ts_config
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_ts_config_map
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_ts_config_map
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_ts_dict
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_ts_dict
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_ts_parser
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_ts_parser
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_ts_template
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_ts_template
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_extension
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_extension
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_foreign_data_wrapper
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_foreign_data_wrapper
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_foreign_server
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_foreign_server
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_user_mapping
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_user_mapping
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_foreign_table
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_foreign_table
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_policy
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_policy
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_replication_origin
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_replication_origin
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_default_acl
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_default_acl
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_init_privs
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_init_privs
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_seclabel
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_seclabel
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_shseclabel
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_shseclabel
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_collation
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_collation
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_parameter_acl
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_parameter_acl
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_partitioned_table
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_partitioned_table
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_range
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_range
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_transform
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_transform
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_sequence
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_sequence
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_publication
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_publication
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_publication_namespace
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_publication_namespace
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_publication_rel
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_publication_rel
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_subscription
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_subscription
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_subscription_rel
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_subscription_rel
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_roles
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_roles
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_shadow
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_shadow
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_group
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_group
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_user
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_user
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_policies
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_policies
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_rules
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_rules
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_views
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_views
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_tables
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_tables
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_matviews
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_matviews
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_indexes
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_indexes
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_sequences
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_sequences
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stats
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stats
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stats_ext
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stats_ext
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stats_ext_exprs
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stats_ext_exprs
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_publication_tables
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_publication_tables
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_locks
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_locks
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_cursors
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_cursors
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_available_extensions
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_available_extensions
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_available_extension_versions
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_available_extension_versions
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_prepared_xacts
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_prepared_xacts
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_prepared_statements
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_prepared_statements
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_seclabels
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_seclabels
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_settings
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_settings
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_file_settings
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_file_settings
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_hba_file_rules
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_hba_file_rules
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_ident_file_mappings
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_ident_file_mappings
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_timezone_abbrevs
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_timezone_abbrevs
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_timezone_names
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_timezone_names
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_config
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_config
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_shmem_allocations
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_shmem_allocations
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_backend_memory_contexts
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_backend_memory_contexts
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_all_tables
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_all_tables
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_xact_all_tables
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_xact_all_tables
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_sys_tables
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_sys_tables
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_xact_sys_tables
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_xact_sys_tables
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_user_tables
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_user_tables
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_xact_user_tables
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_xact_user_tables
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_statio_all_tables
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_statio_all_tables
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_statio_sys_tables
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_statio_sys_tables
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_statio_user_tables
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_statio_user_tables
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_all_indexes
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_all_indexes
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_sys_indexes
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_sys_indexes
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_user_indexes
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_user_indexes
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_statio_all_indexes
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_statio_all_indexes
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_statio_sys_indexes
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_statio_sys_indexes
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_statio_user_indexes
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_statio_user_indexes
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_statio_all_sequences
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_statio_all_sequences
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_statio_sys_sequences
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_statio_sys_sequences
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_statio_user_sequences
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_statio_user_sequences
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_activity
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_activity
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_replication
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_replication
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_slru
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_slru
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_wal_receiver
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_wal_receiver
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_recovery_prefetch
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_recovery_prefetch
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_subscription
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_subscription
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_ssl
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_ssl
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_gssapi
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_gssapi
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_replication_slots
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_replication_slots
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_replication_slots
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_replication_slots
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_database
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_database
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_database_conflicts
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_database_conflicts
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_user_functions
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_user_functions
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_xact_user_functions
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_xact_user_functions
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_archiver
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_archiver
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_bgwriter
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_bgwriter
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_checkpointer
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_checkpointer
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_io
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_io
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_wal
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_wal
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_progress_analyze
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_progress_analyze
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_progress_vacuum
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_progress_vacuum
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_progress_cluster
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_progress_cluster
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_progress_create_index
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_progress_create_index
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_progress_basebackup
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_progress_basebackup
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_progress_copy
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_progress_copy
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_user_mappings
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_user_mappings
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_replication_origin_status
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_replication_origin_status
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_subscription_stats
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_stat_subscription_stats
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_wait_events
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: pg_catalog
-  udt_name: pg_wait_events
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: information_schema_catalog_name
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: information_schema_catalog_name
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: applicable_roles
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: applicable_roles
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: administrable_role_authorizations
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: administrable_role_authorizations
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: attributes
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: attributes
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: character_sets
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: character_sets
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: check_constraint_routine_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: check_constraint_routine_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: check_constraints
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: check_constraints
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: collations
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: collations
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: collation_character_set_applicability
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: collation_character_set_applicability
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: column_column_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: column_column_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: column_domain_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: column_domain_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: column_privileges
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: column_privileges
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: column_udt_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: column_udt_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: columns
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: columns
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: constraint_column_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: constraint_column_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: constraint_table_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: constraint_table_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: domain_constraints
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: domain_constraints
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: domain_udt_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: domain_udt_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: domains
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: domains
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: enabled_roles
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: enabled_roles
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: key_column_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: key_column_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: parameters
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: parameters
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: referential_constraints
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: referential_constraints
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: role_column_grants
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: role_column_grants
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: routine_column_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: routine_column_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: routine_privileges
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: routine_privileges
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: role_routine_grants
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: role_routine_grants
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: routine_routine_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: routine_routine_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: routine_sequence_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: routine_sequence_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: routine_table_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: routine_table_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: routines
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: routines
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: schemata
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: schemata
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: sequences
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: sequences
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: sql_features
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: sql_features
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: sql_implementation_info
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: sql_implementation_info
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: sql_parts
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: sql_parts
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: sql_sizing
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: sql_sizing
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: table_constraints
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: table_constraints
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: table_privileges
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: table_privileges
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: role_table_grants
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: role_table_grants
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: tables
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: tables
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: transforms
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: transforms
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: triggered_update_columns
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: triggered_update_columns
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: triggers
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: triggers
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: udt_privileges
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: udt_privileges
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: role_udt_grants
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: role_udt_grants
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: usage_privileges
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: usage_privileges
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: role_usage_grants
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: role_usage_grants
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: user_defined_types
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: user_defined_types
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: view_column_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: view_column_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: view_routine_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: view_routine_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: view_table_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: view_table_usage
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: views
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: views
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: data_type_privileges
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: data_type_privileges
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: element_types
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: element_types
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: _pg_foreign_table_columns
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: _pg_foreign_table_columns
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: column_options
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: column_options
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: _pg_foreign_data_wrappers
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: _pg_foreign_data_wrappers
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: foreign_data_wrapper_options
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: foreign_data_wrapper_options
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: foreign_data_wrappers
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: foreign_data_wrappers
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: _pg_foreign_servers
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: _pg_foreign_servers
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: foreign_server_options
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: foreign_server_options
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: foreign_servers
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: foreign_servers
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: _pg_foreign_tables
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: _pg_foreign_tables
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: foreign_table_options
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: foreign_table_options
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: foreign_tables
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: foreign_tables
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: _pg_user_mappings
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: _pg_user_mappings
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: user_mapping_options
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: user_mapping_options
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
-- grantor: aybarsb
-  grantee: PUBLIC
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: user_mappings
-  privilege_type: TYPE USAGE
-  is_grantable: 'NO'
-- grantor: aybarsb
-  grantee: aybarsb
-  udt_catalog: postgres
-  udt_schema: information_schema
-  udt_name: user_mappings
-  privilege_type: TYPE USAGE
-  is_grantable: 'YES'
+public:
+  information_schema:
+    udt_privileges:
+      type: view
+      view_sql: " SELECT u_grantor.rolname::information_schema.sql_identifier AS grantor,\n\
+        \    grantee.rolname::information_schema.sql_identifier AS grantee,\n    current_database()::information_schema.sql_identifier\
+        \ AS udt_catalog,\n    n.nspname::information_schema.sql_identifier AS udt_schema,\n\
+        \    t.typname::information_schema.sql_identifier AS udt_name,\n    'TYPE\
+        \ USAGE'::character varying::information_schema.character_data AS privilege_type,\n\
+        \        CASE\n            WHEN pg_has_role(grantee.oid, t.typowner, 'USAGE'::text)\
+        \ OR t.grantable THEN 'YES'::text\n            ELSE 'NO'::text\n        END::information_schema.yes_or_no\
+        \ AS is_grantable\n   FROM ( SELECT pg_type.oid,\n            pg_type.typname,\n\
+        \            pg_type.typnamespace,\n            pg_type.typtype,\n       \
+        \     pg_type.typowner,\n            (aclexplode(COALESCE(pg_type.typacl,\
+        \ acldefault('T'::\"char\", pg_type.typowner)))).grantor AS grantor,\n   \
+        \         (aclexplode(COALESCE(pg_type.typacl, acldefault('T'::\"char\", pg_type.typowner)))).grantee\
+        \ AS grantee,\n            (aclexplode(COALESCE(pg_type.typacl, acldefault('T'::\"\
+        char\", pg_type.typowner)))).privilege_type AS privilege_type,\n         \
+        \   (aclexplode(COALESCE(pg_type.typacl, acldefault('T'::\"char\", pg_type.typowner)))).is_grantable\
+        \ AS is_grantable\n           FROM pg_type) t(oid, typname, typnamespace,\
+        \ typtype, typowner, grantor, grantee, prtype, grantable),\n    pg_namespace\
+        \ n,\n    pg_authid u_grantor,\n    ( SELECT pg_authid.oid,\n            pg_authid.rolname\n\
+        \           FROM pg_authid\n        UNION ALL\n         SELECT 0::oid AS oid,\n\
+        \            'PUBLIC'::name) grantee(oid, rolname)\n  WHERE t.typnamespace\
+        \ = n.oid AND t.typtype = 'c'::\"char\" AND t.grantee = grantee.oid AND t.grantor\
+        \ = u_grantor.oid AND t.prtype = 'USAGE'::text AND (pg_has_role(u_grantor.oid,\
+        \ 'USAGE'::text) OR pg_has_role(grantee.oid, 'USAGE'::text) OR grantee.rolname\
+        \ = 'PUBLIC'::name);"
+      schema:
+        grantor: varchar(64)
+        grantee: varchar(64)
+        udt_catalog: varchar(64)
+        udt_schema: varchar(64)
+        udt_name: varchar(64)
+        privilege_type: varchar(256)
+        is_grantable: varchar(256)
+      pg_types:
+        grantor: name
+        grantee: name
+        udt_catalog: name
+        udt_schema: name
+        udt_name: name
+        privilege_type: varchar
+        is_grantable: varchar
+      rows:
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_type
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_type
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_attribute
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_attribute
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_proc
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_proc
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_class
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_class
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_attrdef
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_attrdef
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_constraint
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_constraint
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_inherits
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_inherits
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_index
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_index
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_operator
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_operator
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_opfamily
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_opfamily
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_opclass
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_opclass
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_am
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_am
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_amop
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_amop
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_amproc
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_amproc
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_language
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_language
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_largeobject_metadata
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_largeobject_metadata
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_largeobject
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_largeobject
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_aggregate
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_aggregate
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_statistic
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_statistic
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_statistic_ext
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_statistic_ext
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_statistic_ext_data
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_statistic_ext_data
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_rewrite
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_rewrite
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_trigger
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_trigger
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_event_trigger
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_event_trigger
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_description
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_description
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_cast
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_cast
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_enum
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_enum
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_namespace
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_namespace
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_conversion
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_conversion
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_depend
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_depend
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_database
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_database
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_db_role_setting
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_db_role_setting
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_tablespace
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_tablespace
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_authid
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_authid
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_auth_members
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_auth_members
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_shdepend
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_shdepend
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_shdescription
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_shdescription
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_ts_config
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_ts_config
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_ts_config_map
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_ts_config_map
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_ts_dict
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_ts_dict
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_ts_parser
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_ts_parser
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_ts_template
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_ts_template
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_extension
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_extension
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_foreign_data_wrapper
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_foreign_data_wrapper
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_foreign_server
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_foreign_server
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_user_mapping
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_user_mapping
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_foreign_table
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_foreign_table
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_policy
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_policy
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_replication_origin
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_replication_origin
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_default_acl
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_default_acl
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_init_privs
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_init_privs
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_seclabel
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_seclabel
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_shseclabel
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_shseclabel
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_collation
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_collation
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_parameter_acl
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_parameter_acl
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_partitioned_table
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_partitioned_table
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_range
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_range
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_transform
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_transform
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_sequence
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_sequence
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_publication
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_publication
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_publication_namespace
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_publication_namespace
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_publication_rel
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_publication_rel
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_subscription
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_subscription
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_subscription_rel
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_subscription_rel
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_roles
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_roles
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_shadow
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_shadow
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_group
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_group
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_user
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_user
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_policies
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_policies
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_rules
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_rules
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_views
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_views
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_tables
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_tables
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_matviews
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_matviews
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_indexes
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_indexes
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_sequences
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_sequences
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stats
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stats
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stats_ext
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stats_ext
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stats_ext_exprs
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stats_ext_exprs
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_publication_tables
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_publication_tables
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_locks
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_locks
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_cursors
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_cursors
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_available_extensions
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_available_extensions
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_available_extension_versions
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_available_extension_versions
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_prepared_xacts
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_prepared_xacts
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_prepared_statements
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_prepared_statements
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_seclabels
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_seclabels
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_settings
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_settings
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_file_settings
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_file_settings
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_hba_file_rules
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_hba_file_rules
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_ident_file_mappings
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_ident_file_mappings
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_timezone_abbrevs
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_timezone_abbrevs
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_timezone_names
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_timezone_names
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_config
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_config
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_shmem_allocations
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_shmem_allocations
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_backend_memory_contexts
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_backend_memory_contexts
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_all_tables
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_all_tables
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_xact_all_tables
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_xact_all_tables
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_sys_tables
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_sys_tables
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_xact_sys_tables
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_xact_sys_tables
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_user_tables
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_user_tables
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_xact_user_tables
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_xact_user_tables
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_statio_all_tables
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_statio_all_tables
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_statio_sys_tables
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_statio_sys_tables
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_statio_user_tables
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_statio_user_tables
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_all_indexes
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_all_indexes
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_sys_indexes
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_sys_indexes
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_user_indexes
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_user_indexes
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_statio_all_indexes
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_statio_all_indexes
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_statio_sys_indexes
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_statio_sys_indexes
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_statio_user_indexes
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_statio_user_indexes
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_statio_all_sequences
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_statio_all_sequences
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_statio_sys_sequences
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_statio_sys_sequences
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_statio_user_sequences
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_statio_user_sequences
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_activity
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_activity
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_replication
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_replication
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_slru
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_slru
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_wal_receiver
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_wal_receiver
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_recovery_prefetch
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_recovery_prefetch
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_subscription
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_subscription
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_ssl
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_ssl
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_gssapi
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_gssapi
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_replication_slots
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_replication_slots
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_replication_slots
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_replication_slots
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_database
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_database
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_database_conflicts
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_database_conflicts
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_user_functions
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_user_functions
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_xact_user_functions
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_xact_user_functions
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_archiver
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_archiver
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_bgwriter
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_bgwriter
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_checkpointer
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_checkpointer
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_io
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_io
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_wal
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_wal
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_progress_analyze
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_progress_analyze
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_progress_vacuum
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_progress_vacuum
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_progress_cluster
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_progress_cluster
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_progress_create_index
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_progress_create_index
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_progress_basebackup
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_progress_basebackup
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_progress_copy
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_progress_copy
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_user_mappings
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_user_mappings
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_replication_origin_status
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_replication_origin_status
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_subscription_stats
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_stat_subscription_stats
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_wait_events
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: pg_catalog
+        udt_name: pg_wait_events
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: information_schema_catalog_name
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: information_schema_catalog_name
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: applicable_roles
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: applicable_roles
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: administrable_role_authorizations
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: administrable_role_authorizations
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: attributes
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: attributes
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: character_sets
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: character_sets
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: check_constraint_routine_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: check_constraint_routine_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: check_constraints
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: check_constraints
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: collations
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: collations
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: collation_character_set_applicability
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: collation_character_set_applicability
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: column_column_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: column_column_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: column_domain_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: column_domain_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: column_privileges
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: column_privileges
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: column_udt_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: column_udt_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: columns
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: columns
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: constraint_column_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: constraint_column_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: constraint_table_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: constraint_table_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: domain_constraints
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: domain_constraints
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: domain_udt_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: domain_udt_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: domains
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: domains
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: enabled_roles
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: enabled_roles
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: key_column_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: key_column_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: parameters
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: parameters
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: referential_constraints
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: referential_constraints
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: role_column_grants
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: role_column_grants
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: routine_column_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: routine_column_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: routine_privileges
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: routine_privileges
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: role_routine_grants
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: role_routine_grants
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: routine_routine_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: routine_routine_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: routine_sequence_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: routine_sequence_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: routine_table_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: routine_table_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: routines
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: routines
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: schemata
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: schemata
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: sequences
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: sequences
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: sql_features
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: sql_features
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: sql_implementation_info
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: sql_implementation_info
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: sql_parts
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: sql_parts
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: sql_sizing
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: sql_sizing
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: table_constraints
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: table_constraints
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: table_privileges
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: table_privileges
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: role_table_grants
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: role_table_grants
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: tables
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: tables
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: transforms
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: transforms
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: triggered_update_columns
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: triggered_update_columns
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: triggers
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: triggers
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: udt_privileges
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: udt_privileges
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: role_udt_grants
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: role_udt_grants
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: usage_privileges
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: usage_privileges
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: role_usage_grants
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: role_usage_grants
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: user_defined_types
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: user_defined_types
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: view_column_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: view_column_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: view_routine_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: view_routine_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: view_table_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: view_table_usage
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: views
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: views
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: data_type_privileges
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: data_type_privileges
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: element_types
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: element_types
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: _pg_foreign_table_columns
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: _pg_foreign_table_columns
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: column_options
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: column_options
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: _pg_foreign_data_wrappers
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: _pg_foreign_data_wrappers
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: foreign_data_wrapper_options
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: foreign_data_wrapper_options
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: foreign_data_wrappers
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: foreign_data_wrappers
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: _pg_foreign_servers
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: _pg_foreign_servers
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: foreign_server_options
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: foreign_server_options
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: foreign_servers
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: foreign_servers
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: _pg_foreign_tables
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: _pg_foreign_tables
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: foreign_table_options
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: foreign_table_options
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: foreign_tables
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: foreign_tables
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: _pg_user_mappings
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: _pg_user_mappings
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: user_mapping_options
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: user_mapping_options
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'
+      - grantor: aybarsb
+        grantee: PUBLIC
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: user_mappings
+        privilege_type: TYPE USAGE
+        is_grantable: 'NO'
+      - grantor: aybarsb
+        grantee: aybarsb
+        udt_catalog: postgres
+        udt_schema: information_schema
+        udt_name: user_mappings
+        privilege_type: TYPE USAGE
+        is_grantable: 'YES'

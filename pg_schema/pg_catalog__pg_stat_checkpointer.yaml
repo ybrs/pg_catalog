@@ -1,38 +1,41 @@
-type: view
-view_sql: " SELECT pg_stat_get_checkpointer_num_timed() AS num_timed,\n    pg_stat_get_checkpointer_num_requested()\
-  \ AS num_requested,\n    pg_stat_get_checkpointer_restartpoints_timed() AS restartpoints_timed,\n\
-  \    pg_stat_get_checkpointer_restartpoints_requested() AS restartpoints_req,\n\
-  \    pg_stat_get_checkpointer_restartpoints_performed() AS restartpoints_done,\n\
-  \    pg_stat_get_checkpointer_write_time() AS write_time,\n    pg_stat_get_checkpointer_sync_time()\
-  \ AS sync_time,\n    pg_stat_get_checkpointer_buffers_written() AS buffers_written,\n\
-  \    pg_stat_get_checkpointer_stat_reset_time() AS stats_reset;"
-schema:
-  num_timed: bigint
-  num_requested: bigint
-  restartpoints_timed: bigint
-  restartpoints_req: bigint
-  restartpoints_done: bigint
-  write_time: float
-  sync_time: float
-  buffers_written: bigint
-  stats_reset: varchar(256)
-pg_types:
-  num_timed: int8
-  num_requested: int8
-  restartpoints_timed: int8
-  restartpoints_req: int8
-  restartpoints_done: int8
-  write_time: float8
-  sync_time: float8
-  buffers_written: int8
-  stats_reset: timestamptz
-rows:
-- num_timed: 12
-  num_requested: 1
-  restartpoints_timed: 0
-  restartpoints_req: 0
-  restartpoints_done: 0
-  write_time: 4580.0
-  sync_time: 3.0
-  buffers_written: 45
-  stats_reset: '2025-04-26T01:03:02.788083+02:00'
+public:
+  pg_catalog:
+    pg_stat_checkpointer:
+      type: view
+      view_sql: " SELECT pg_stat_get_checkpointer_num_timed() AS num_timed,\n    pg_stat_get_checkpointer_num_requested()\
+        \ AS num_requested,\n    pg_stat_get_checkpointer_restartpoints_timed() AS\
+        \ restartpoints_timed,\n    pg_stat_get_checkpointer_restartpoints_requested()\
+        \ AS restartpoints_req,\n    pg_stat_get_checkpointer_restartpoints_performed()\
+        \ AS restartpoints_done,\n    pg_stat_get_checkpointer_write_time() AS write_time,\n\
+        \    pg_stat_get_checkpointer_sync_time() AS sync_time,\n    pg_stat_get_checkpointer_buffers_written()\
+        \ AS buffers_written,\n    pg_stat_get_checkpointer_stat_reset_time() AS stats_reset;"
+      schema:
+        num_timed: bigint
+        num_requested: bigint
+        restartpoints_timed: bigint
+        restartpoints_req: bigint
+        restartpoints_done: bigint
+        write_time: float
+        sync_time: float
+        buffers_written: bigint
+        stats_reset: varchar(256)
+      pg_types:
+        num_timed: int8
+        num_requested: int8
+        restartpoints_timed: int8
+        restartpoints_req: int8
+        restartpoints_done: int8
+        write_time: float8
+        sync_time: float8
+        buffers_written: int8
+        stats_reset: timestamptz
+      rows:
+      - num_timed: 351
+        num_requested: 1
+        restartpoints_timed: 0
+        restartpoints_req: 0
+        restartpoints_done: 0
+        write_time: 4580.0
+        sync_time: 3.0
+        buffers_written: 45
+        stats_reset: '2025-04-26T01:03:02.788083+02:00'

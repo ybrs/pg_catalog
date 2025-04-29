@@ -1,18 +1,21 @@
-type: system_catalog
-schema:
-  oid: int
-  evtname: varchar(64)
-  evtevent: varchar(64)
-  evtowner: int
-  evtfoid: int
-  evtenabled: varchar(256)
-  evttags: varchar(256)
-pg_types:
-  oid: oid
-  evtname: name
-  evtevent: name
-  evtowner: oid
-  evtfoid: oid
-  evtenabled: char
-  evttags: _text
-rows: []
+public:
+  pg_catalog:
+    pg_event_trigger:
+      type: system_catalog
+      schema:
+        oid: int
+        evtname: varchar(64)
+        evtevent: varchar(64)
+        evtowner: int
+        evtfoid: int
+        evtenabled: varchar(256)
+        evttags: varchar(256)
+      pg_types:
+        oid: oid
+        evtname: name
+        evtevent: name
+        evtowner: oid
+        evtfoid: oid
+        evtenabled: char
+        evttags: _text
+      rows: []

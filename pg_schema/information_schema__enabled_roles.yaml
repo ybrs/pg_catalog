@@ -1,24 +1,27 @@
-type: view
-view_sql: " SELECT rolname::information_schema.sql_identifier AS role_name\n   FROM\
-  \ pg_authid a\n  WHERE pg_has_role(oid, 'USAGE'::text);"
-schema:
-  role_name: varchar(64)
-pg_types:
-  role_name: name
-rows:
-- role_name: aybarsb
-- role_name: pg_database_owner
-- role_name: pg_read_all_data
-- role_name: pg_write_all_data
-- role_name: pg_monitor
-- role_name: pg_read_all_settings
-- role_name: pg_read_all_stats
-- role_name: pg_stat_scan_tables
-- role_name: pg_read_server_files
-- role_name: pg_write_server_files
-- role_name: pg_execute_server_program
-- role_name: pg_signal_backend
-- role_name: pg_checkpoint
-- role_name: pg_maintain
-- role_name: pg_use_reserved_connections
-- role_name: pg_create_subscription
+public:
+  information_schema:
+    enabled_roles:
+      type: view
+      view_sql: " SELECT rolname::information_schema.sql_identifier AS role_name\n\
+        \   FROM pg_authid a\n  WHERE pg_has_role(oid, 'USAGE'::text);"
+      schema:
+        role_name: varchar(64)
+      pg_types:
+        role_name: name
+      rows:
+      - role_name: aybarsb
+      - role_name: pg_database_owner
+      - role_name: pg_read_all_data
+      - role_name: pg_write_all_data
+      - role_name: pg_monitor
+      - role_name: pg_read_all_settings
+      - role_name: pg_read_all_stats
+      - role_name: pg_stat_scan_tables
+      - role_name: pg_read_server_files
+      - role_name: pg_write_server_files
+      - role_name: pg_execute_server_program
+      - role_name: pg_signal_backend
+      - role_name: pg_checkpoint
+      - role_name: pg_maintain
+      - role_name: pg_use_reserved_connections
+      - role_name: pg_create_subscription

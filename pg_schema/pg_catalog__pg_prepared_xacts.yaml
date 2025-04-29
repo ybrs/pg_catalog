@@ -1,18 +1,21 @@
-type: view
-view_sql: " SELECT p.transaction,\n    p.gid,\n    p.prepared,\n    u.rolname AS owner,\n\
-  \    d.datname AS database\n   FROM pg_prepared_xact() p(transaction, gid, prepared,\
-  \ ownerid, dbid)\n     LEFT JOIN pg_authid u ON p.ownerid = u.oid\n     LEFT JOIN\
-  \ pg_database d ON p.dbid = d.oid;"
-schema:
-  transaction: varchar(256)
-  gid: varchar(256)
-  prepared: varchar(256)
-  owner: varchar(64)
-  database: varchar(64)
-pg_types:
-  transaction: xid
-  gid: text
-  prepared: timestamptz
-  owner: name
-  database: name
-rows: []
+public:
+  pg_catalog:
+    pg_prepared_xacts:
+      type: view
+      view_sql: " SELECT p.transaction,\n    p.gid,\n    p.prepared,\n    u.rolname\
+        \ AS owner,\n    d.datname AS database\n   FROM pg_prepared_xact() p(transaction,\
+        \ gid, prepared, ownerid, dbid)\n     LEFT JOIN pg_authid u ON p.ownerid =\
+        \ u.oid\n     LEFT JOIN pg_database d ON p.dbid = d.oid;"
+      schema:
+        transaction: varchar(256)
+        gid: varchar(256)
+        prepared: varchar(256)
+        owner: varchar(64)
+        database: varchar(64)
+      pg_types:
+        transaction: xid
+        gid: text
+        prepared: timestamptz
+        owner: name
+        database: name
+      rows: []

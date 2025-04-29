@@ -1,2080 +1,2086 @@
-type: view
-view_sql: " SELECT current_database()::information_schema.sql_identifier AS constraint_catalog,\n\
-  \    rs.nspname::information_schema.sql_identifier AS constraint_schema,\n    con.conname::information_schema.sql_identifier\
-  \ AS constraint_name,\n    pg_get_expr(con.conbin, COALESCE(c.oid, 0::oid))::information_schema.character_data\
-  \ AS check_clause\n   FROM pg_constraint con\n     LEFT JOIN pg_namespace rs ON\
-  \ rs.oid = con.connamespace\n     LEFT JOIN pg_class c ON c.oid = con.conrelid\n\
-  \     LEFT JOIN pg_type t ON t.oid = con.contypid\n  WHERE pg_has_role(COALESCE(c.relowner,\
-  \ t.typowner), 'USAGE'::text) AND con.contype = 'c'::\"char\"\nUNION\n SELECT current_database()::information_schema.sql_identifier\
-  \ AS constraint_catalog,\n    rs.nspname::information_schema.sql_identifier AS constraint_schema,\n\
-  \    con.conname::information_schema.sql_identifier AS constraint_name,\n    format('%s\
-  \ IS NOT NULL'::text, COALESCE(at.attname, 'VALUE'::name))::information_schema.character_data\
-  \ AS check_clause\n   FROM pg_constraint con\n     LEFT JOIN pg_namespace rs ON\
-  \ rs.oid = con.connamespace\n     LEFT JOIN pg_class c ON c.oid = con.conrelid\n\
-  \     LEFT JOIN pg_type t ON t.oid = con.contypid\n     LEFT JOIN pg_attribute at\
-  \ ON con.conrelid = at.attrelid AND con.conkey[1] = at.attnum\n  WHERE pg_has_role(COALESCE(c.relowner,\
-  \ t.typowner), 'USAGE'::text) AND con.contype = 'n'::\"char\"\nUNION\n SELECT current_database()::information_schema.sql_identifier\
-  \ AS constraint_catalog,\n    n.nspname::information_schema.sql_identifier AS constraint_schema,\n\
-  \    (((((n.oid::text || '_'::text) || r.oid::text) || '_'::text) || a.attnum::text)\
-  \ || '_not_null'::text)::information_schema.sql_identifier AS constraint_name,\n\
-  \    (a.attname::text || ' IS NOT NULL'::text)::information_schema.character_data\
-  \ AS check_clause\n   FROM pg_namespace n,\n    pg_class r,\n    pg_attribute a\n\
-  \  WHERE n.oid = r.relnamespace AND r.oid = a.attrelid AND a.attnum > 0 AND NOT\
-  \ a.attisdropped AND a.attnotnull AND (r.relkind = ANY (ARRAY['r'::\"char\", 'p'::\"\
-  char\"])) AND pg_has_role(r.relowner, 'USAGE'::text);"
-schema:
-  constraint_catalog: varchar(64)
-  constraint_schema: varchar(64)
-  constraint_name: varchar(64)
-  check_clause: varchar(256)
-pg_types:
-  constraint_catalog: name
-  constraint_schema: name
-  constraint_name: name
-  check_clause: varchar
-rows:
-- constraint_catalog: postgres
-  constraint_schema: information_schema
-  constraint_name: cardinal_number_domain_check
-  check_clause: (VALUE >= 0)
-- constraint_catalog: postgres
-  constraint_schema: information_schema
-  constraint_name: yes_or_no_check
-  check_clause: ((VALUE)::text = ANY ((ARRAY['YES'::character varying, 'NO'::character
-    varying])::text[]))
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1213_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1213_2_not_null
-  check_clause: spcname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1213_3_not_null
-  check_clause: spcowner IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1214_1_not_null
-  check_clause: dbid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1214_2_not_null
-  check_clause: classid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1214_3_not_null
-  check_clause: objid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1214_4_not_null
-  check_clause: objsubid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1214_5_not_null
-  check_clause: refclassid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1214_6_not_null
-  check_clause: refobjid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1214_7_not_null
-  check_clause: deptype IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_10_not_null
-  check_clause: typisdefined IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_11_not_null
-  check_clause: typdelim IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_12_not_null
-  check_clause: typrelid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_13_not_null
-  check_clause: typsubscript IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_14_not_null
-  check_clause: typelem IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_15_not_null
-  check_clause: typarray IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_16_not_null
-  check_clause: typinput IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_17_not_null
-  check_clause: typoutput IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_18_not_null
-  check_clause: typreceive IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_19_not_null
-  check_clause: typsend IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_20_not_null
-  check_clause: typmodin IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_21_not_null
-  check_clause: typmodout IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_22_not_null
-  check_clause: typanalyze IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_23_not_null
-  check_clause: typalign IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_24_not_null
-  check_clause: typstorage IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_25_not_null
-  check_clause: typnotnull IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_26_not_null
-  check_clause: typbasetype IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_27_not_null
-  check_clause: typtypmod IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_28_not_null
-  check_clause: typndims IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_29_not_null
-  check_clause: typcollation IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_2_not_null
-  check_clause: typname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_3_not_null
-  check_clause: typnamespace IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_4_not_null
-  check_clause: typowner IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_5_not_null
-  check_clause: typlen IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_6_not_null
-  check_clause: typbyval IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_7_not_null
-  check_clause: typtype IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_8_not_null
-  check_clause: typcategory IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1247_9_not_null
-  check_clause: typispreferred IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1249_10_not_null
-  check_clause: attalign IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1249_11_not_null
-  check_clause: attstorage IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1249_12_not_null
-  check_clause: attcompression IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1249_13_not_null
-  check_clause: attnotnull IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1249_14_not_null
-  check_clause: atthasdef IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1249_15_not_null
-  check_clause: atthasmissing IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1249_16_not_null
-  check_clause: attidentity IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1249_17_not_null
-  check_clause: attgenerated IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1249_18_not_null
-  check_clause: attisdropped IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1249_19_not_null
-  check_clause: attislocal IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1249_1_not_null
-  check_clause: attrelid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1249_20_not_null
-  check_clause: attinhcount IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1249_21_not_null
-  check_clause: attcollation IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1249_2_not_null
-  check_clause: attname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1249_3_not_null
-  check_clause: atttypid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1249_4_not_null
-  check_clause: attlen IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1249_5_not_null
-  check_clause: attnum IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1249_6_not_null
-  check_clause: attcacheoff IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1249_7_not_null
-  check_clause: atttypmod IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1249_8_not_null
-  check_clause: attndims IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1249_9_not_null
-  check_clause: attbyval IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1255_10_not_null
-  check_clause: prokind IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1255_11_not_null
-  check_clause: prosecdef IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1255_12_not_null
-  check_clause: proleakproof IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1255_13_not_null
-  check_clause: proisstrict IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1255_14_not_null
-  check_clause: proretset IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1255_15_not_null
-  check_clause: provolatile IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1255_16_not_null
-  check_clause: proparallel IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1255_17_not_null
-  check_clause: pronargs IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1255_18_not_null
-  check_clause: pronargdefaults IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1255_19_not_null
-  check_clause: prorettype IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1255_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1255_20_not_null
-  check_clause: proargtypes IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1255_26_not_null
-  check_clause: prosrc IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1255_2_not_null
-  check_clause: proname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1255_3_not_null
-  check_clause: pronamespace IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1255_4_not_null
-  check_clause: proowner IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1255_5_not_null
-  check_clause: prolang IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1255_6_not_null
-  check_clause: procost IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1255_7_not_null
-  check_clause: prorows IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1255_8_not_null
-  check_clause: provariadic IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1255_9_not_null
-  check_clause: prosupport IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_10_not_null
-  check_clause: relpages IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_11_not_null
-  check_clause: reltuples IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_12_not_null
-  check_clause: relallvisible IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_13_not_null
-  check_clause: reltoastrelid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_14_not_null
-  check_clause: relhasindex IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_15_not_null
-  check_clause: relisshared IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_16_not_null
-  check_clause: relpersistence IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_17_not_null
-  check_clause: relkind IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_18_not_null
-  check_clause: relnatts IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_19_not_null
-  check_clause: relchecks IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_20_not_null
-  check_clause: relhasrules IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_21_not_null
-  check_clause: relhastriggers IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_22_not_null
-  check_clause: relhassubclass IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_23_not_null
-  check_clause: relrowsecurity IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_24_not_null
-  check_clause: relforcerowsecurity IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_25_not_null
-  check_clause: relispopulated IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_26_not_null
-  check_clause: relreplident IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_27_not_null
-  check_clause: relispartition IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_28_not_null
-  check_clause: relrewrite IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_29_not_null
-  check_clause: relfrozenxid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_2_not_null
-  check_clause: relname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_30_not_null
-  check_clause: relminmxid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_3_not_null
-  check_clause: relnamespace IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_4_not_null
-  check_clause: reltype IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_5_not_null
-  check_clause: reloftype IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_6_not_null
-  check_clause: relowner IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_7_not_null
-  check_clause: relam IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_8_not_null
-  check_clause: relfilenode IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1259_9_not_null
-  check_clause: reltablespace IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1260_10_not_null
-  check_clause: rolconnlimit IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1260_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1260_2_not_null
-  check_clause: rolname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1260_3_not_null
-  check_clause: rolsuper IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1260_4_not_null
-  check_clause: rolinherit IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1260_5_not_null
-  check_clause: rolcreaterole IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1260_6_not_null
-  check_clause: rolcreatedb IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1260_7_not_null
-  check_clause: rolcanlogin IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1260_8_not_null
-  check_clause: rolreplication IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1260_9_not_null
-  check_clause: rolbypassrls IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1261_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1261_2_not_null
-  check_clause: roleid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1261_3_not_null
-  check_clause: member IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1261_4_not_null
-  check_clause: grantor IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1261_5_not_null
-  check_clause: admin_option IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1261_6_not_null
-  check_clause: inherit_option IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1261_7_not_null
-  check_clause: set_option IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1262_10_not_null
-  check_clause: datfrozenxid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1262_11_not_null
-  check_clause: datminmxid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1262_12_not_null
-  check_clause: dattablespace IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1262_13_not_null
-  check_clause: datcollate IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1262_14_not_null
-  check_clause: datctype IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1262_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1262_2_not_null
-  check_clause: datname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1262_3_not_null
-  check_clause: datdba IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1262_4_not_null
-  check_clause: encoding IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1262_5_not_null
-  check_clause: datlocprovider IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1262_6_not_null
-  check_clause: datistemplate IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1262_7_not_null
-  check_clause: datallowconn IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1262_8_not_null
-  check_clause: dathasloginevt IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1262_9_not_null
-  check_clause: datconnlimit IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1417_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1417_2_not_null
-  check_clause: srvname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1417_3_not_null
-  check_clause: srvowner IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1417_4_not_null
-  check_clause: srvfdw IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1418_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1418_2_not_null
-  check_clause: umuser IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_1418_3_not_null
-  check_clause: umserver IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2224_1_not_null
-  check_clause: seqrelid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2224_2_not_null
-  check_clause: seqtypid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2224_3_not_null
-  check_clause: seqstart IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2224_4_not_null
-  check_clause: seqincrement IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2224_5_not_null
-  check_clause: seqmax IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2224_6_not_null
-  check_clause: seqmin IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2224_7_not_null
-  check_clause: seqcache IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2224_8_not_null
-  check_clause: seqcycle IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2328_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2328_2_not_null
-  check_clause: fdwname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2328_3_not_null
-  check_clause: fdwowner IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2328_4_not_null
-  check_clause: fdwhandler IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2328_5_not_null
-  check_clause: fdwvalidator IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2396_1_not_null
-  check_clause: objoid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2396_2_not_null
-  check_clause: classoid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2396_3_not_null
-  check_clause: description IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2600_10_not_null
-  check_clause: aggminvtransfn IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2600_11_not_null
-  check_clause: aggmfinalfn IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2600_12_not_null
-  check_clause: aggfinalextra IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2600_13_not_null
-  check_clause: aggmfinalextra IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2600_14_not_null
-  check_clause: aggfinalmodify IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2600_15_not_null
-  check_clause: aggmfinalmodify IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2600_16_not_null
-  check_clause: aggsortop IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2600_17_not_null
-  check_clause: aggtranstype IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2600_18_not_null
-  check_clause: aggtransspace IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2600_19_not_null
-  check_clause: aggmtranstype IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2600_1_not_null
-  check_clause: aggfnoid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2600_20_not_null
-  check_clause: aggmtransspace IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2600_2_not_null
-  check_clause: aggkind IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2600_3_not_null
-  check_clause: aggnumdirectargs IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2600_4_not_null
-  check_clause: aggtransfn IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2600_5_not_null
-  check_clause: aggfinalfn IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2600_6_not_null
-  check_clause: aggcombinefn IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2600_7_not_null
-  check_clause: aggserialfn IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2600_8_not_null
-  check_clause: aggdeserialfn IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2600_9_not_null
-  check_clause: aggmtransfn IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2601_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2601_2_not_null
-  check_clause: amname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2601_3_not_null
-  check_clause: amhandler IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2601_4_not_null
-  check_clause: amtype IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2602_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2602_2_not_null
-  check_clause: amopfamily IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2602_3_not_null
-  check_clause: amoplefttype IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2602_4_not_null
-  check_clause: amoprighttype IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2602_5_not_null
-  check_clause: amopstrategy IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2602_6_not_null
-  check_clause: amoppurpose IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2602_7_not_null
-  check_clause: amopopr IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2602_8_not_null
-  check_clause: amopmethod IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2602_9_not_null
-  check_clause: amopsortfamily IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2603_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2603_2_not_null
-  check_clause: amprocfamily IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2603_3_not_null
-  check_clause: amproclefttype IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2603_4_not_null
-  check_clause: amprocrighttype IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2603_5_not_null
-  check_clause: amprocnum IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2603_6_not_null
-  check_clause: amproc IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2604_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2604_2_not_null
-  check_clause: adrelid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2604_3_not_null
-  check_clause: adnum IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2604_4_not_null
-  check_clause: adbin IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2605_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2605_2_not_null
-  check_clause: castsource IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2605_3_not_null
-  check_clause: casttarget IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2605_4_not_null
-  check_clause: castfunc IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2605_5_not_null
-  check_clause: castcontext IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2605_6_not_null
-  check_clause: castmethod IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2606_10_not_null
-  check_clause: conindid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2606_11_not_null
-  check_clause: conparentid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2606_12_not_null
-  check_clause: confrelid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2606_13_not_null
-  check_clause: confupdtype IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2606_14_not_null
-  check_clause: confdeltype IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2606_15_not_null
-  check_clause: confmatchtype IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2606_16_not_null
-  check_clause: conislocal IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2606_17_not_null
-  check_clause: coninhcount IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2606_18_not_null
-  check_clause: connoinherit IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2606_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2606_2_not_null
-  check_clause: conname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2606_3_not_null
-  check_clause: connamespace IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2606_4_not_null
-  check_clause: contype IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2606_5_not_null
-  check_clause: condeferrable IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2606_6_not_null
-  check_clause: condeferred IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2606_7_not_null
-  check_clause: convalidated IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2606_8_not_null
-  check_clause: conrelid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2606_9_not_null
-  check_clause: contypid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2607_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2607_2_not_null
-  check_clause: conname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2607_3_not_null
-  check_clause: connamespace IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2607_4_not_null
-  check_clause: conowner IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2607_5_not_null
-  check_clause: conforencoding IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2607_6_not_null
-  check_clause: contoencoding IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2607_7_not_null
-  check_clause: conproc IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2607_8_not_null
-  check_clause: condefault IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2608_1_not_null
-  check_clause: classid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2608_2_not_null
-  check_clause: objid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2608_3_not_null
-  check_clause: objsubid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2608_4_not_null
-  check_clause: refclassid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2608_5_not_null
-  check_clause: refobjid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2608_6_not_null
-  check_clause: refobjsubid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2608_7_not_null
-  check_clause: deptype IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2609_1_not_null
-  check_clause: objoid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2609_2_not_null
-  check_clause: classoid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2609_3_not_null
-  check_clause: objsubid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2609_4_not_null
-  check_clause: description IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2610_10_not_null
-  check_clause: indisclustered IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2610_11_not_null
-  check_clause: indisvalid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2610_12_not_null
-  check_clause: indcheckxmin IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2610_13_not_null
-  check_clause: indisready IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2610_14_not_null
-  check_clause: indislive IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2610_15_not_null
-  check_clause: indisreplident IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2610_16_not_null
-  check_clause: indkey IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2610_17_not_null
-  check_clause: indcollation IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2610_18_not_null
-  check_clause: indclass IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2610_19_not_null
-  check_clause: indoption IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2610_1_not_null
-  check_clause: indexrelid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2610_2_not_null
-  check_clause: indrelid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2610_3_not_null
-  check_clause: indnatts IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2610_4_not_null
-  check_clause: indnkeyatts IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2610_5_not_null
-  check_clause: indisunique IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2610_6_not_null
-  check_clause: indnullsnotdistinct IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2610_7_not_null
-  check_clause: indisprimary IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2610_8_not_null
-  check_clause: indisexclusion IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2610_9_not_null
-  check_clause: indimmediate IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2611_1_not_null
-  check_clause: inhrelid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2611_2_not_null
-  check_clause: inhparent IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2611_3_not_null
-  check_clause: inhseqno IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2611_4_not_null
-  check_clause: inhdetachpending IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2612_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2612_2_not_null
-  check_clause: lanname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2612_3_not_null
-  check_clause: lanowner IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2612_4_not_null
-  check_clause: lanispl IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2612_5_not_null
-  check_clause: lanpltrusted IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2612_6_not_null
-  check_clause: lanplcallfoid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2612_7_not_null
-  check_clause: laninline IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2612_8_not_null
-  check_clause: lanvalidator IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2613_1_not_null
-  check_clause: loid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2613_2_not_null
-  check_clause: pageno IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2613_3_not_null
-  check_clause: data IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2615_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2615_2_not_null
-  check_clause: nspname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2615_3_not_null
-  check_clause: nspowner IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2616_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2616_2_not_null
-  check_clause: opcmethod IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2616_3_not_null
-  check_clause: opcname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2616_4_not_null
-  check_clause: opcnamespace IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2616_5_not_null
-  check_clause: opcowner IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2616_6_not_null
-  check_clause: opcfamily IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2616_7_not_null
-  check_clause: opcintype IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2616_8_not_null
-  check_clause: opcdefault IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2616_9_not_null
-  check_clause: opckeytype IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2617_10_not_null
-  check_clause: oprresult IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2617_11_not_null
-  check_clause: oprcom IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2617_12_not_null
-  check_clause: oprnegate IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2617_13_not_null
-  check_clause: oprcode IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2617_14_not_null
-  check_clause: oprrest IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2617_15_not_null
-  check_clause: oprjoin IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2617_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2617_2_not_null
-  check_clause: oprname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2617_3_not_null
-  check_clause: oprnamespace IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2617_4_not_null
-  check_clause: oprowner IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2617_5_not_null
-  check_clause: oprkind IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2617_6_not_null
-  check_clause: oprcanmerge IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2617_7_not_null
-  check_clause: oprcanhash IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2617_8_not_null
-  check_clause: oprleft IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2617_9_not_null
-  check_clause: oprright IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2618_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2618_2_not_null
-  check_clause: rulename IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2618_3_not_null
-  check_clause: ev_class IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2618_4_not_null
-  check_clause: ev_type IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2618_5_not_null
-  check_clause: ev_enabled IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2618_6_not_null
-  check_clause: is_instead IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2618_7_not_null
-  check_clause: ev_qual IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2618_8_not_null
-  check_clause: ev_action IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2619_10_not_null
-  check_clause: stakind4 IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2619_11_not_null
-  check_clause: stakind5 IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2619_12_not_null
-  check_clause: staop1 IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2619_13_not_null
-  check_clause: staop2 IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2619_14_not_null
-  check_clause: staop3 IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2619_15_not_null
-  check_clause: staop4 IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2619_16_not_null
-  check_clause: staop5 IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2619_17_not_null
-  check_clause: stacoll1 IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2619_18_not_null
-  check_clause: stacoll2 IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2619_19_not_null
-  check_clause: stacoll3 IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2619_1_not_null
-  check_clause: starelid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2619_20_not_null
-  check_clause: stacoll4 IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2619_21_not_null
-  check_clause: stacoll5 IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2619_2_not_null
-  check_clause: staattnum IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2619_3_not_null
-  check_clause: stainherit IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2619_4_not_null
-  check_clause: stanullfrac IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2619_5_not_null
-  check_clause: stawidth IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2619_6_not_null
-  check_clause: stadistinct IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2619_7_not_null
-  check_clause: stakind1 IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2619_8_not_null
-  check_clause: stakind2 IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2619_9_not_null
-  check_clause: stakind3 IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2620_10_not_null
-  check_clause: tgconstrindid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2620_11_not_null
-  check_clause: tgconstraint IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2620_12_not_null
-  check_clause: tgdeferrable IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2620_13_not_null
-  check_clause: tginitdeferred IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2620_14_not_null
-  check_clause: tgnargs IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2620_15_not_null
-  check_clause: tgattr IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2620_16_not_null
-  check_clause: tgargs IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2620_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2620_2_not_null
-  check_clause: tgrelid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2620_3_not_null
-  check_clause: tgparentid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2620_4_not_null
-  check_clause: tgname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2620_5_not_null
-  check_clause: tgfoid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2620_6_not_null
-  check_clause: tgtype IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2620_7_not_null
-  check_clause: tgenabled IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2620_8_not_null
-  check_clause: tgisinternal IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2620_9_not_null
-  check_clause: tgconstrrelid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2753_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2753_2_not_null
-  check_clause: opfmethod IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2753_3_not_null
-  check_clause: opfname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2753_4_not_null
-  check_clause: opfnamespace IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2753_5_not_null
-  check_clause: opfowner IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2964_1_not_null
-  check_clause: setdatabase IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2964_2_not_null
-  check_clause: setrole IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2995_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_2995_2_not_null
-  check_clause: lomowner IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3079_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3079_2_not_null
-  check_clause: extname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3079_3_not_null
-  check_clause: extowner IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3079_4_not_null
-  check_clause: extnamespace IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3079_5_not_null
-  check_clause: extrelocatable IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3079_6_not_null
-  check_clause: extversion IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3118_1_not_null
-  check_clause: ftrelid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3118_2_not_null
-  check_clause: ftserver IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3256_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3256_2_not_null
-  check_clause: polname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3256_3_not_null
-  check_clause: polrelid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3256_4_not_null
-  check_clause: polcmd IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3256_5_not_null
-  check_clause: polpermissive IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3256_6_not_null
-  check_clause: polroles IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3350_1_not_null
-  check_clause: partrelid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3350_2_not_null
-  check_clause: partstrat IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3350_3_not_null
-  check_clause: partnatts IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3350_4_not_null
-  check_clause: partdefid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3350_5_not_null
-  check_clause: partattrs IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3350_6_not_null
-  check_clause: partclass IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3350_7_not_null
-  check_clause: partcollation IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3381_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3381_2_not_null
-  check_clause: stxrelid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3381_3_not_null
-  check_clause: stxname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3381_4_not_null
-  check_clause: stxnamespace IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3381_5_not_null
-  check_clause: stxowner IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3381_6_not_null
-  check_clause: stxkeys IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3381_8_not_null
-  check_clause: stxkind IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3394_1_not_null
-  check_clause: objoid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3394_2_not_null
-  check_clause: classoid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3394_3_not_null
-  check_clause: objsubid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3394_4_not_null
-  check_clause: privtype IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3394_5_not_null
-  check_clause: initprivs IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3429_1_not_null
-  check_clause: stxoid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3429_2_not_null
-  check_clause: stxdinherit IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3456_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3456_2_not_null
-  check_clause: collname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3456_3_not_null
-  check_clause: collnamespace IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3456_4_not_null
-  check_clause: collowner IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3456_5_not_null
-  check_clause: collprovider IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3456_6_not_null
-  check_clause: collisdeterministic IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3456_7_not_null
-  check_clause: collencoding IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3466_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3466_2_not_null
-  check_clause: evtname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3466_3_not_null
-  check_clause: evtevent IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3466_4_not_null
-  check_clause: evtowner IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3466_5_not_null
-  check_clause: evtfoid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3466_6_not_null
-  check_clause: evtenabled IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3501_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3501_2_not_null
-  check_clause: enumtypid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3501_3_not_null
-  check_clause: enumsortorder IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3501_4_not_null
-  check_clause: enumlabel IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3541_1_not_null
-  check_clause: rngtypid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3541_2_not_null
-  check_clause: rngsubtype IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3541_3_not_null
-  check_clause: rngmultitypid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3541_4_not_null
-  check_clause: rngcollation IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3541_5_not_null
-  check_clause: rngsubopc IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3541_6_not_null
-  check_clause: rngcanonical IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3541_7_not_null
-  check_clause: rngsubdiff IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3576_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3576_2_not_null
-  check_clause: trftype IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3576_3_not_null
-  check_clause: trflang IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3576_4_not_null
-  check_clause: trffromsql IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3576_5_not_null
-  check_clause: trftosql IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3592_1_not_null
-  check_clause: objoid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3592_2_not_null
-  check_clause: classoid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3592_3_not_null
-  check_clause: provider IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3592_4_not_null
-  check_clause: label IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3596_1_not_null
-  check_clause: objoid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3596_2_not_null
-  check_clause: classoid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3596_3_not_null
-  check_clause: objsubid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3596_4_not_null
-  check_clause: provider IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3596_5_not_null
-  check_clause: label IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3600_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3600_2_not_null
-  check_clause: dictname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3600_3_not_null
-  check_clause: dictnamespace IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3600_4_not_null
-  check_clause: dictowner IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3600_5_not_null
-  check_clause: dicttemplate IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3601_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3601_2_not_null
-  check_clause: prsname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3601_3_not_null
-  check_clause: prsnamespace IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3601_4_not_null
-  check_clause: prsstart IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3601_5_not_null
-  check_clause: prstoken IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3601_6_not_null
-  check_clause: prsend IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3601_7_not_null
-  check_clause: prsheadline IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3601_8_not_null
-  check_clause: prslextype IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3602_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3602_2_not_null
-  check_clause: cfgname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3602_3_not_null
-  check_clause: cfgnamespace IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3602_4_not_null
-  check_clause: cfgowner IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3602_5_not_null
-  check_clause: cfgparser IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3603_1_not_null
-  check_clause: mapcfg IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3603_2_not_null
-  check_clause: maptokentype IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3603_3_not_null
-  check_clause: mapseqno IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3603_4_not_null
-  check_clause: mapdict IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3764_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3764_2_not_null
-  check_clause: tmplname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3764_3_not_null
-  check_clause: tmplnamespace IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3764_4_not_null
-  check_clause: tmplinit IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_3764_5_not_null
-  check_clause: tmpllexize IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6000_1_not_null
-  check_clause: roident IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6000_2_not_null
-  check_clause: roname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6100_10_not_null
-  check_clause: subdisableonerr IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6100_11_not_null
-  check_clause: subpasswordrequired IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6100_12_not_null
-  check_clause: subrunasowner IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6100_13_not_null
-  check_clause: subfailover IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6100_14_not_null
-  check_clause: subconninfo IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6100_16_not_null
-  check_clause: subsynccommit IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6100_17_not_null
-  check_clause: subpublications IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6100_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6100_2_not_null
-  check_clause: subdbid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6100_3_not_null
-  check_clause: subskiplsn IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6100_4_not_null
-  check_clause: subname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6100_5_not_null
-  check_clause: subowner IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6100_6_not_null
-  check_clause: subenabled IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6100_7_not_null
-  check_clause: subbinary IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6100_8_not_null
-  check_clause: substream IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6100_9_not_null
-  check_clause: subtwophasestate IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6102_1_not_null
-  check_clause: srsubid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6102_2_not_null
-  check_clause: srrelid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6102_3_not_null
-  check_clause: srsubstate IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6104_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6104_2_not_null
-  check_clause: pubname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6104_3_not_null
-  check_clause: pubowner IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6104_4_not_null
-  check_clause: puballtables IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6104_5_not_null
-  check_clause: pubinsert IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6104_6_not_null
-  check_clause: pubupdate IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6104_7_not_null
-  check_clause: pubdelete IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6104_8_not_null
-  check_clause: pubtruncate IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6104_9_not_null
-  check_clause: pubviaroot IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6106_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6106_2_not_null
-  check_clause: prpubid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6106_3_not_null
-  check_clause: prrelid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6237_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6237_2_not_null
-  check_clause: pnpubid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6237_3_not_null
-  check_clause: pnnspid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6243_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_6243_2_not_null
-  check_clause: parname IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_826_1_not_null
-  check_clause: oid IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_826_2_not_null
-  check_clause: defaclrole IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_826_3_not_null
-  check_clause: defaclnamespace IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_826_4_not_null
-  check_clause: defaclobjtype IS NOT NULL
-- constraint_catalog: postgres
-  constraint_schema: pg_catalog
-  constraint_name: 11_826_5_not_null
-  check_clause: defaclacl IS NOT NULL
+public:
+  information_schema:
+    check_constraints:
+      type: view
+      view_sql: " SELECT current_database()::information_schema.sql_identifier AS\
+        \ constraint_catalog,\n    rs.nspname::information_schema.sql_identifier AS\
+        \ constraint_schema,\n    con.conname::information_schema.sql_identifier AS\
+        \ constraint_name,\n    pg_get_expr(con.conbin, COALESCE(c.oid, 0::oid))::information_schema.character_data\
+        \ AS check_clause\n   FROM pg_constraint con\n     LEFT JOIN pg_namespace\
+        \ rs ON rs.oid = con.connamespace\n     LEFT JOIN pg_class c ON c.oid = con.conrelid\n\
+        \     LEFT JOIN pg_type t ON t.oid = con.contypid\n  WHERE pg_has_role(COALESCE(c.relowner,\
+        \ t.typowner), 'USAGE'::text) AND con.contype = 'c'::\"char\"\nUNION\n SELECT\
+        \ current_database()::information_schema.sql_identifier AS constraint_catalog,\n\
+        \    rs.nspname::information_schema.sql_identifier AS constraint_schema,\n\
+        \    con.conname::information_schema.sql_identifier AS constraint_name,\n\
+        \    format('%s IS NOT NULL'::text, COALESCE(at.attname, 'VALUE'::name))::information_schema.character_data\
+        \ AS check_clause\n   FROM pg_constraint con\n     LEFT JOIN pg_namespace\
+        \ rs ON rs.oid = con.connamespace\n     LEFT JOIN pg_class c ON c.oid = con.conrelid\n\
+        \     LEFT JOIN pg_type t ON t.oid = con.contypid\n     LEFT JOIN pg_attribute\
+        \ at ON con.conrelid = at.attrelid AND con.conkey[1] = at.attnum\n  WHERE\
+        \ pg_has_role(COALESCE(c.relowner, t.typowner), 'USAGE'::text) AND con.contype\
+        \ = 'n'::\"char\"\nUNION\n SELECT current_database()::information_schema.sql_identifier\
+        \ AS constraint_catalog,\n    n.nspname::information_schema.sql_identifier\
+        \ AS constraint_schema,\n    (((((n.oid::text || '_'::text) || r.oid::text)\
+        \ || '_'::text) || a.attnum::text) || '_not_null'::text)::information_schema.sql_identifier\
+        \ AS constraint_name,\n    (a.attname::text || ' IS NOT NULL'::text)::information_schema.character_data\
+        \ AS check_clause\n   FROM pg_namespace n,\n    pg_class r,\n    pg_attribute\
+        \ a\n  WHERE n.oid = r.relnamespace AND r.oid = a.attrelid AND a.attnum >\
+        \ 0 AND NOT a.attisdropped AND a.attnotnull AND (r.relkind = ANY (ARRAY['r'::\"\
+        char\", 'p'::\"char\"])) AND pg_has_role(r.relowner, 'USAGE'::text);"
+      schema:
+        constraint_catalog: varchar(64)
+        constraint_schema: varchar(64)
+        constraint_name: varchar(64)
+        check_clause: varchar(256)
+      pg_types:
+        constraint_catalog: name
+        constraint_schema: name
+        constraint_name: name
+        check_clause: varchar
+      rows:
+      - constraint_catalog: postgres
+        constraint_schema: information_schema
+        constraint_name: cardinal_number_domain_check
+        check_clause: (VALUE >= 0)
+      - constraint_catalog: postgres
+        constraint_schema: information_schema
+        constraint_name: yes_or_no_check
+        check_clause: ((VALUE)::text = ANY ((ARRAY['YES'::character varying, 'NO'::character
+          varying])::text[]))
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1213_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1213_2_not_null
+        check_clause: spcname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1213_3_not_null
+        check_clause: spcowner IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1214_1_not_null
+        check_clause: dbid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1214_2_not_null
+        check_clause: classid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1214_3_not_null
+        check_clause: objid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1214_4_not_null
+        check_clause: objsubid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1214_5_not_null
+        check_clause: refclassid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1214_6_not_null
+        check_clause: refobjid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1214_7_not_null
+        check_clause: deptype IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_10_not_null
+        check_clause: typisdefined IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_11_not_null
+        check_clause: typdelim IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_12_not_null
+        check_clause: typrelid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_13_not_null
+        check_clause: typsubscript IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_14_not_null
+        check_clause: typelem IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_15_not_null
+        check_clause: typarray IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_16_not_null
+        check_clause: typinput IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_17_not_null
+        check_clause: typoutput IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_18_not_null
+        check_clause: typreceive IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_19_not_null
+        check_clause: typsend IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_20_not_null
+        check_clause: typmodin IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_21_not_null
+        check_clause: typmodout IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_22_not_null
+        check_clause: typanalyze IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_23_not_null
+        check_clause: typalign IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_24_not_null
+        check_clause: typstorage IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_25_not_null
+        check_clause: typnotnull IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_26_not_null
+        check_clause: typbasetype IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_27_not_null
+        check_clause: typtypmod IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_28_not_null
+        check_clause: typndims IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_29_not_null
+        check_clause: typcollation IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_2_not_null
+        check_clause: typname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_3_not_null
+        check_clause: typnamespace IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_4_not_null
+        check_clause: typowner IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_5_not_null
+        check_clause: typlen IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_6_not_null
+        check_clause: typbyval IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_7_not_null
+        check_clause: typtype IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_8_not_null
+        check_clause: typcategory IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1247_9_not_null
+        check_clause: typispreferred IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1249_10_not_null
+        check_clause: attalign IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1249_11_not_null
+        check_clause: attstorage IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1249_12_not_null
+        check_clause: attcompression IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1249_13_not_null
+        check_clause: attnotnull IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1249_14_not_null
+        check_clause: atthasdef IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1249_15_not_null
+        check_clause: atthasmissing IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1249_16_not_null
+        check_clause: attidentity IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1249_17_not_null
+        check_clause: attgenerated IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1249_18_not_null
+        check_clause: attisdropped IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1249_19_not_null
+        check_clause: attislocal IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1249_1_not_null
+        check_clause: attrelid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1249_20_not_null
+        check_clause: attinhcount IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1249_21_not_null
+        check_clause: attcollation IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1249_2_not_null
+        check_clause: attname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1249_3_not_null
+        check_clause: atttypid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1249_4_not_null
+        check_clause: attlen IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1249_5_not_null
+        check_clause: attnum IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1249_6_not_null
+        check_clause: attcacheoff IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1249_7_not_null
+        check_clause: atttypmod IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1249_8_not_null
+        check_clause: attndims IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1249_9_not_null
+        check_clause: attbyval IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1255_10_not_null
+        check_clause: prokind IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1255_11_not_null
+        check_clause: prosecdef IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1255_12_not_null
+        check_clause: proleakproof IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1255_13_not_null
+        check_clause: proisstrict IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1255_14_not_null
+        check_clause: proretset IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1255_15_not_null
+        check_clause: provolatile IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1255_16_not_null
+        check_clause: proparallel IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1255_17_not_null
+        check_clause: pronargs IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1255_18_not_null
+        check_clause: pronargdefaults IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1255_19_not_null
+        check_clause: prorettype IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1255_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1255_20_not_null
+        check_clause: proargtypes IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1255_26_not_null
+        check_clause: prosrc IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1255_2_not_null
+        check_clause: proname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1255_3_not_null
+        check_clause: pronamespace IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1255_4_not_null
+        check_clause: proowner IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1255_5_not_null
+        check_clause: prolang IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1255_6_not_null
+        check_clause: procost IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1255_7_not_null
+        check_clause: prorows IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1255_8_not_null
+        check_clause: provariadic IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1255_9_not_null
+        check_clause: prosupport IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_10_not_null
+        check_clause: relpages IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_11_not_null
+        check_clause: reltuples IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_12_not_null
+        check_clause: relallvisible IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_13_not_null
+        check_clause: reltoastrelid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_14_not_null
+        check_clause: relhasindex IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_15_not_null
+        check_clause: relisshared IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_16_not_null
+        check_clause: relpersistence IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_17_not_null
+        check_clause: relkind IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_18_not_null
+        check_clause: relnatts IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_19_not_null
+        check_clause: relchecks IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_20_not_null
+        check_clause: relhasrules IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_21_not_null
+        check_clause: relhastriggers IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_22_not_null
+        check_clause: relhassubclass IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_23_not_null
+        check_clause: relrowsecurity IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_24_not_null
+        check_clause: relforcerowsecurity IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_25_not_null
+        check_clause: relispopulated IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_26_not_null
+        check_clause: relreplident IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_27_not_null
+        check_clause: relispartition IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_28_not_null
+        check_clause: relrewrite IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_29_not_null
+        check_clause: relfrozenxid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_2_not_null
+        check_clause: relname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_30_not_null
+        check_clause: relminmxid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_3_not_null
+        check_clause: relnamespace IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_4_not_null
+        check_clause: reltype IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_5_not_null
+        check_clause: reloftype IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_6_not_null
+        check_clause: relowner IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_7_not_null
+        check_clause: relam IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_8_not_null
+        check_clause: relfilenode IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1259_9_not_null
+        check_clause: reltablespace IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1260_10_not_null
+        check_clause: rolconnlimit IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1260_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1260_2_not_null
+        check_clause: rolname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1260_3_not_null
+        check_clause: rolsuper IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1260_4_not_null
+        check_clause: rolinherit IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1260_5_not_null
+        check_clause: rolcreaterole IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1260_6_not_null
+        check_clause: rolcreatedb IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1260_7_not_null
+        check_clause: rolcanlogin IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1260_8_not_null
+        check_clause: rolreplication IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1260_9_not_null
+        check_clause: rolbypassrls IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1261_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1261_2_not_null
+        check_clause: roleid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1261_3_not_null
+        check_clause: member IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1261_4_not_null
+        check_clause: grantor IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1261_5_not_null
+        check_clause: admin_option IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1261_6_not_null
+        check_clause: inherit_option IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1261_7_not_null
+        check_clause: set_option IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1262_10_not_null
+        check_clause: datfrozenxid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1262_11_not_null
+        check_clause: datminmxid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1262_12_not_null
+        check_clause: dattablespace IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1262_13_not_null
+        check_clause: datcollate IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1262_14_not_null
+        check_clause: datctype IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1262_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1262_2_not_null
+        check_clause: datname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1262_3_not_null
+        check_clause: datdba IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1262_4_not_null
+        check_clause: encoding IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1262_5_not_null
+        check_clause: datlocprovider IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1262_6_not_null
+        check_clause: datistemplate IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1262_7_not_null
+        check_clause: datallowconn IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1262_8_not_null
+        check_clause: dathasloginevt IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1262_9_not_null
+        check_clause: datconnlimit IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1417_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1417_2_not_null
+        check_clause: srvname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1417_3_not_null
+        check_clause: srvowner IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1417_4_not_null
+        check_clause: srvfdw IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1418_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1418_2_not_null
+        check_clause: umuser IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_1418_3_not_null
+        check_clause: umserver IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2224_1_not_null
+        check_clause: seqrelid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2224_2_not_null
+        check_clause: seqtypid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2224_3_not_null
+        check_clause: seqstart IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2224_4_not_null
+        check_clause: seqincrement IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2224_5_not_null
+        check_clause: seqmax IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2224_6_not_null
+        check_clause: seqmin IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2224_7_not_null
+        check_clause: seqcache IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2224_8_not_null
+        check_clause: seqcycle IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2328_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2328_2_not_null
+        check_clause: fdwname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2328_3_not_null
+        check_clause: fdwowner IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2328_4_not_null
+        check_clause: fdwhandler IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2328_5_not_null
+        check_clause: fdwvalidator IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2396_1_not_null
+        check_clause: objoid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2396_2_not_null
+        check_clause: classoid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2396_3_not_null
+        check_clause: description IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2600_10_not_null
+        check_clause: aggminvtransfn IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2600_11_not_null
+        check_clause: aggmfinalfn IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2600_12_not_null
+        check_clause: aggfinalextra IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2600_13_not_null
+        check_clause: aggmfinalextra IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2600_14_not_null
+        check_clause: aggfinalmodify IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2600_15_not_null
+        check_clause: aggmfinalmodify IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2600_16_not_null
+        check_clause: aggsortop IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2600_17_not_null
+        check_clause: aggtranstype IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2600_18_not_null
+        check_clause: aggtransspace IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2600_19_not_null
+        check_clause: aggmtranstype IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2600_1_not_null
+        check_clause: aggfnoid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2600_20_not_null
+        check_clause: aggmtransspace IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2600_2_not_null
+        check_clause: aggkind IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2600_3_not_null
+        check_clause: aggnumdirectargs IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2600_4_not_null
+        check_clause: aggtransfn IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2600_5_not_null
+        check_clause: aggfinalfn IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2600_6_not_null
+        check_clause: aggcombinefn IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2600_7_not_null
+        check_clause: aggserialfn IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2600_8_not_null
+        check_clause: aggdeserialfn IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2600_9_not_null
+        check_clause: aggmtransfn IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2601_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2601_2_not_null
+        check_clause: amname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2601_3_not_null
+        check_clause: amhandler IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2601_4_not_null
+        check_clause: amtype IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2602_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2602_2_not_null
+        check_clause: amopfamily IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2602_3_not_null
+        check_clause: amoplefttype IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2602_4_not_null
+        check_clause: amoprighttype IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2602_5_not_null
+        check_clause: amopstrategy IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2602_6_not_null
+        check_clause: amoppurpose IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2602_7_not_null
+        check_clause: amopopr IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2602_8_not_null
+        check_clause: amopmethod IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2602_9_not_null
+        check_clause: amopsortfamily IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2603_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2603_2_not_null
+        check_clause: amprocfamily IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2603_3_not_null
+        check_clause: amproclefttype IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2603_4_not_null
+        check_clause: amprocrighttype IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2603_5_not_null
+        check_clause: amprocnum IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2603_6_not_null
+        check_clause: amproc IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2604_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2604_2_not_null
+        check_clause: adrelid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2604_3_not_null
+        check_clause: adnum IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2604_4_not_null
+        check_clause: adbin IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2605_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2605_2_not_null
+        check_clause: castsource IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2605_3_not_null
+        check_clause: casttarget IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2605_4_not_null
+        check_clause: castfunc IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2605_5_not_null
+        check_clause: castcontext IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2605_6_not_null
+        check_clause: castmethod IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2606_10_not_null
+        check_clause: conindid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2606_11_not_null
+        check_clause: conparentid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2606_12_not_null
+        check_clause: confrelid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2606_13_not_null
+        check_clause: confupdtype IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2606_14_not_null
+        check_clause: confdeltype IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2606_15_not_null
+        check_clause: confmatchtype IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2606_16_not_null
+        check_clause: conislocal IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2606_17_not_null
+        check_clause: coninhcount IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2606_18_not_null
+        check_clause: connoinherit IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2606_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2606_2_not_null
+        check_clause: conname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2606_3_not_null
+        check_clause: connamespace IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2606_4_not_null
+        check_clause: contype IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2606_5_not_null
+        check_clause: condeferrable IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2606_6_not_null
+        check_clause: condeferred IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2606_7_not_null
+        check_clause: convalidated IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2606_8_not_null
+        check_clause: conrelid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2606_9_not_null
+        check_clause: contypid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2607_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2607_2_not_null
+        check_clause: conname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2607_3_not_null
+        check_clause: connamespace IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2607_4_not_null
+        check_clause: conowner IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2607_5_not_null
+        check_clause: conforencoding IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2607_6_not_null
+        check_clause: contoencoding IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2607_7_not_null
+        check_clause: conproc IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2607_8_not_null
+        check_clause: condefault IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2608_1_not_null
+        check_clause: classid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2608_2_not_null
+        check_clause: objid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2608_3_not_null
+        check_clause: objsubid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2608_4_not_null
+        check_clause: refclassid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2608_5_not_null
+        check_clause: refobjid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2608_6_not_null
+        check_clause: refobjsubid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2608_7_not_null
+        check_clause: deptype IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2609_1_not_null
+        check_clause: objoid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2609_2_not_null
+        check_clause: classoid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2609_3_not_null
+        check_clause: objsubid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2609_4_not_null
+        check_clause: description IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2610_10_not_null
+        check_clause: indisclustered IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2610_11_not_null
+        check_clause: indisvalid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2610_12_not_null
+        check_clause: indcheckxmin IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2610_13_not_null
+        check_clause: indisready IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2610_14_not_null
+        check_clause: indislive IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2610_15_not_null
+        check_clause: indisreplident IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2610_16_not_null
+        check_clause: indkey IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2610_17_not_null
+        check_clause: indcollation IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2610_18_not_null
+        check_clause: indclass IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2610_19_not_null
+        check_clause: indoption IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2610_1_not_null
+        check_clause: indexrelid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2610_2_not_null
+        check_clause: indrelid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2610_3_not_null
+        check_clause: indnatts IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2610_4_not_null
+        check_clause: indnkeyatts IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2610_5_not_null
+        check_clause: indisunique IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2610_6_not_null
+        check_clause: indnullsnotdistinct IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2610_7_not_null
+        check_clause: indisprimary IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2610_8_not_null
+        check_clause: indisexclusion IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2610_9_not_null
+        check_clause: indimmediate IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2611_1_not_null
+        check_clause: inhrelid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2611_2_not_null
+        check_clause: inhparent IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2611_3_not_null
+        check_clause: inhseqno IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2611_4_not_null
+        check_clause: inhdetachpending IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2612_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2612_2_not_null
+        check_clause: lanname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2612_3_not_null
+        check_clause: lanowner IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2612_4_not_null
+        check_clause: lanispl IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2612_5_not_null
+        check_clause: lanpltrusted IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2612_6_not_null
+        check_clause: lanplcallfoid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2612_7_not_null
+        check_clause: laninline IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2612_8_not_null
+        check_clause: lanvalidator IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2613_1_not_null
+        check_clause: loid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2613_2_not_null
+        check_clause: pageno IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2613_3_not_null
+        check_clause: data IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2615_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2615_2_not_null
+        check_clause: nspname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2615_3_not_null
+        check_clause: nspowner IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2616_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2616_2_not_null
+        check_clause: opcmethod IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2616_3_not_null
+        check_clause: opcname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2616_4_not_null
+        check_clause: opcnamespace IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2616_5_not_null
+        check_clause: opcowner IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2616_6_not_null
+        check_clause: opcfamily IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2616_7_not_null
+        check_clause: opcintype IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2616_8_not_null
+        check_clause: opcdefault IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2616_9_not_null
+        check_clause: opckeytype IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2617_10_not_null
+        check_clause: oprresult IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2617_11_not_null
+        check_clause: oprcom IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2617_12_not_null
+        check_clause: oprnegate IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2617_13_not_null
+        check_clause: oprcode IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2617_14_not_null
+        check_clause: oprrest IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2617_15_not_null
+        check_clause: oprjoin IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2617_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2617_2_not_null
+        check_clause: oprname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2617_3_not_null
+        check_clause: oprnamespace IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2617_4_not_null
+        check_clause: oprowner IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2617_5_not_null
+        check_clause: oprkind IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2617_6_not_null
+        check_clause: oprcanmerge IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2617_7_not_null
+        check_clause: oprcanhash IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2617_8_not_null
+        check_clause: oprleft IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2617_9_not_null
+        check_clause: oprright IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2618_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2618_2_not_null
+        check_clause: rulename IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2618_3_not_null
+        check_clause: ev_class IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2618_4_not_null
+        check_clause: ev_type IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2618_5_not_null
+        check_clause: ev_enabled IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2618_6_not_null
+        check_clause: is_instead IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2618_7_not_null
+        check_clause: ev_qual IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2618_8_not_null
+        check_clause: ev_action IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2619_10_not_null
+        check_clause: stakind4 IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2619_11_not_null
+        check_clause: stakind5 IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2619_12_not_null
+        check_clause: staop1 IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2619_13_not_null
+        check_clause: staop2 IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2619_14_not_null
+        check_clause: staop3 IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2619_15_not_null
+        check_clause: staop4 IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2619_16_not_null
+        check_clause: staop5 IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2619_17_not_null
+        check_clause: stacoll1 IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2619_18_not_null
+        check_clause: stacoll2 IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2619_19_not_null
+        check_clause: stacoll3 IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2619_1_not_null
+        check_clause: starelid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2619_20_not_null
+        check_clause: stacoll4 IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2619_21_not_null
+        check_clause: stacoll5 IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2619_2_not_null
+        check_clause: staattnum IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2619_3_not_null
+        check_clause: stainherit IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2619_4_not_null
+        check_clause: stanullfrac IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2619_5_not_null
+        check_clause: stawidth IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2619_6_not_null
+        check_clause: stadistinct IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2619_7_not_null
+        check_clause: stakind1 IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2619_8_not_null
+        check_clause: stakind2 IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2619_9_not_null
+        check_clause: stakind3 IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2620_10_not_null
+        check_clause: tgconstrindid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2620_11_not_null
+        check_clause: tgconstraint IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2620_12_not_null
+        check_clause: tgdeferrable IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2620_13_not_null
+        check_clause: tginitdeferred IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2620_14_not_null
+        check_clause: tgnargs IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2620_15_not_null
+        check_clause: tgattr IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2620_16_not_null
+        check_clause: tgargs IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2620_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2620_2_not_null
+        check_clause: tgrelid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2620_3_not_null
+        check_clause: tgparentid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2620_4_not_null
+        check_clause: tgname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2620_5_not_null
+        check_clause: tgfoid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2620_6_not_null
+        check_clause: tgtype IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2620_7_not_null
+        check_clause: tgenabled IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2620_8_not_null
+        check_clause: tgisinternal IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2620_9_not_null
+        check_clause: tgconstrrelid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2753_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2753_2_not_null
+        check_clause: opfmethod IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2753_3_not_null
+        check_clause: opfname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2753_4_not_null
+        check_clause: opfnamespace IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2753_5_not_null
+        check_clause: opfowner IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2964_1_not_null
+        check_clause: setdatabase IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2964_2_not_null
+        check_clause: setrole IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2995_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_2995_2_not_null
+        check_clause: lomowner IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3079_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3079_2_not_null
+        check_clause: extname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3079_3_not_null
+        check_clause: extowner IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3079_4_not_null
+        check_clause: extnamespace IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3079_5_not_null
+        check_clause: extrelocatable IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3079_6_not_null
+        check_clause: extversion IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3118_1_not_null
+        check_clause: ftrelid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3118_2_not_null
+        check_clause: ftserver IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3256_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3256_2_not_null
+        check_clause: polname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3256_3_not_null
+        check_clause: polrelid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3256_4_not_null
+        check_clause: polcmd IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3256_5_not_null
+        check_clause: polpermissive IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3256_6_not_null
+        check_clause: polroles IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3350_1_not_null
+        check_clause: partrelid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3350_2_not_null
+        check_clause: partstrat IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3350_3_not_null
+        check_clause: partnatts IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3350_4_not_null
+        check_clause: partdefid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3350_5_not_null
+        check_clause: partattrs IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3350_6_not_null
+        check_clause: partclass IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3350_7_not_null
+        check_clause: partcollation IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3381_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3381_2_not_null
+        check_clause: stxrelid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3381_3_not_null
+        check_clause: stxname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3381_4_not_null
+        check_clause: stxnamespace IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3381_5_not_null
+        check_clause: stxowner IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3381_6_not_null
+        check_clause: stxkeys IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3381_8_not_null
+        check_clause: stxkind IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3394_1_not_null
+        check_clause: objoid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3394_2_not_null
+        check_clause: classoid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3394_3_not_null
+        check_clause: objsubid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3394_4_not_null
+        check_clause: privtype IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3394_5_not_null
+        check_clause: initprivs IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3429_1_not_null
+        check_clause: stxoid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3429_2_not_null
+        check_clause: stxdinherit IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3456_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3456_2_not_null
+        check_clause: collname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3456_3_not_null
+        check_clause: collnamespace IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3456_4_not_null
+        check_clause: collowner IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3456_5_not_null
+        check_clause: collprovider IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3456_6_not_null
+        check_clause: collisdeterministic IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3456_7_not_null
+        check_clause: collencoding IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3466_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3466_2_not_null
+        check_clause: evtname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3466_3_not_null
+        check_clause: evtevent IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3466_4_not_null
+        check_clause: evtowner IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3466_5_not_null
+        check_clause: evtfoid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3466_6_not_null
+        check_clause: evtenabled IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3501_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3501_2_not_null
+        check_clause: enumtypid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3501_3_not_null
+        check_clause: enumsortorder IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3501_4_not_null
+        check_clause: enumlabel IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3541_1_not_null
+        check_clause: rngtypid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3541_2_not_null
+        check_clause: rngsubtype IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3541_3_not_null
+        check_clause: rngmultitypid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3541_4_not_null
+        check_clause: rngcollation IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3541_5_not_null
+        check_clause: rngsubopc IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3541_6_not_null
+        check_clause: rngcanonical IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3541_7_not_null
+        check_clause: rngsubdiff IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3576_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3576_2_not_null
+        check_clause: trftype IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3576_3_not_null
+        check_clause: trflang IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3576_4_not_null
+        check_clause: trffromsql IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3576_5_not_null
+        check_clause: trftosql IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3592_1_not_null
+        check_clause: objoid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3592_2_not_null
+        check_clause: classoid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3592_3_not_null
+        check_clause: provider IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3592_4_not_null
+        check_clause: label IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3596_1_not_null
+        check_clause: objoid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3596_2_not_null
+        check_clause: classoid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3596_3_not_null
+        check_clause: objsubid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3596_4_not_null
+        check_clause: provider IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3596_5_not_null
+        check_clause: label IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3600_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3600_2_not_null
+        check_clause: dictname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3600_3_not_null
+        check_clause: dictnamespace IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3600_4_not_null
+        check_clause: dictowner IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3600_5_not_null
+        check_clause: dicttemplate IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3601_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3601_2_not_null
+        check_clause: prsname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3601_3_not_null
+        check_clause: prsnamespace IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3601_4_not_null
+        check_clause: prsstart IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3601_5_not_null
+        check_clause: prstoken IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3601_6_not_null
+        check_clause: prsend IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3601_7_not_null
+        check_clause: prsheadline IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3601_8_not_null
+        check_clause: prslextype IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3602_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3602_2_not_null
+        check_clause: cfgname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3602_3_not_null
+        check_clause: cfgnamespace IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3602_4_not_null
+        check_clause: cfgowner IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3602_5_not_null
+        check_clause: cfgparser IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3603_1_not_null
+        check_clause: mapcfg IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3603_2_not_null
+        check_clause: maptokentype IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3603_3_not_null
+        check_clause: mapseqno IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3603_4_not_null
+        check_clause: mapdict IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3764_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3764_2_not_null
+        check_clause: tmplname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3764_3_not_null
+        check_clause: tmplnamespace IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3764_4_not_null
+        check_clause: tmplinit IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_3764_5_not_null
+        check_clause: tmpllexize IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6000_1_not_null
+        check_clause: roident IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6000_2_not_null
+        check_clause: roname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6100_10_not_null
+        check_clause: subdisableonerr IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6100_11_not_null
+        check_clause: subpasswordrequired IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6100_12_not_null
+        check_clause: subrunasowner IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6100_13_not_null
+        check_clause: subfailover IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6100_14_not_null
+        check_clause: subconninfo IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6100_16_not_null
+        check_clause: subsynccommit IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6100_17_not_null
+        check_clause: subpublications IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6100_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6100_2_not_null
+        check_clause: subdbid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6100_3_not_null
+        check_clause: subskiplsn IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6100_4_not_null
+        check_clause: subname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6100_5_not_null
+        check_clause: subowner IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6100_6_not_null
+        check_clause: subenabled IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6100_7_not_null
+        check_clause: subbinary IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6100_8_not_null
+        check_clause: substream IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6100_9_not_null
+        check_clause: subtwophasestate IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6102_1_not_null
+        check_clause: srsubid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6102_2_not_null
+        check_clause: srrelid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6102_3_not_null
+        check_clause: srsubstate IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6104_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6104_2_not_null
+        check_clause: pubname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6104_3_not_null
+        check_clause: pubowner IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6104_4_not_null
+        check_clause: puballtables IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6104_5_not_null
+        check_clause: pubinsert IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6104_6_not_null
+        check_clause: pubupdate IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6104_7_not_null
+        check_clause: pubdelete IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6104_8_not_null
+        check_clause: pubtruncate IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6104_9_not_null
+        check_clause: pubviaroot IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6106_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6106_2_not_null
+        check_clause: prpubid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6106_3_not_null
+        check_clause: prrelid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6237_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6237_2_not_null
+        check_clause: pnpubid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6237_3_not_null
+        check_clause: pnnspid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6243_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_6243_2_not_null
+        check_clause: parname IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_826_1_not_null
+        check_clause: oid IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_826_2_not_null
+        check_clause: defaclrole IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_826_3_not_null
+        check_clause: defaclnamespace IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_826_4_not_null
+        check_clause: defaclobjtype IS NOT NULL
+      - constraint_catalog: postgres
+        constraint_schema: pg_catalog
+        constraint_name: 11_826_5_not_null
+        check_clause: defaclacl IS NOT NULL

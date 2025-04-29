@@ -1,32 +1,35 @@
-type: view
-view_sql: " SELECT s.oid,\n    s.srvoptions,\n    current_database()::information_schema.sql_identifier\
-  \ AS foreign_server_catalog,\n    s.srvname::information_schema.sql_identifier AS\
-  \ foreign_server_name,\n    current_database()::information_schema.sql_identifier\
-  \ AS foreign_data_wrapper_catalog,\n    w.fdwname::information_schema.sql_identifier\
-  \ AS foreign_data_wrapper_name,\n    s.srvtype::information_schema.character_data\
-  \ AS foreign_server_type,\n    s.srvversion::information_schema.character_data AS\
-  \ foreign_server_version,\n    u.rolname::information_schema.sql_identifier AS authorization_identifier\n\
-  \   FROM pg_foreign_server s,\n    pg_foreign_data_wrapper w,\n    pg_authid u\n\
-  \  WHERE w.oid = s.srvfdw AND u.oid = s.srvowner AND (pg_has_role(s.srvowner, 'USAGE'::text)\
-  \ OR has_server_privilege(s.oid, 'USAGE'::text));"
-schema:
-  oid: int
-  srvoptions: varchar(256)
-  foreign_server_catalog: varchar(64)
-  foreign_server_name: varchar(64)
-  foreign_data_wrapper_catalog: varchar(64)
-  foreign_data_wrapper_name: varchar(64)
-  foreign_server_type: varchar(256)
-  foreign_server_version: varchar(256)
-  authorization_identifier: varchar(64)
-pg_types:
-  oid: oid
-  srvoptions: _text
-  foreign_server_catalog: name
-  foreign_server_name: name
-  foreign_data_wrapper_catalog: name
-  foreign_data_wrapper_name: name
-  foreign_server_type: varchar
-  foreign_server_version: varchar
-  authorization_identifier: name
-rows: []
+public:
+  information_schema:
+    _pg_foreign_servers:
+      type: view
+      view_sql: " SELECT s.oid,\n    s.srvoptions,\n    current_database()::information_schema.sql_identifier\
+        \ AS foreign_server_catalog,\n    s.srvname::information_schema.sql_identifier\
+        \ AS foreign_server_name,\n    current_database()::information_schema.sql_identifier\
+        \ AS foreign_data_wrapper_catalog,\n    w.fdwname::information_schema.sql_identifier\
+        \ AS foreign_data_wrapper_name,\n    s.srvtype::information_schema.character_data\
+        \ AS foreign_server_type,\n    s.srvversion::information_schema.character_data\
+        \ AS foreign_server_version,\n    u.rolname::information_schema.sql_identifier\
+        \ AS authorization_identifier\n   FROM pg_foreign_server s,\n    pg_foreign_data_wrapper\
+        \ w,\n    pg_authid u\n  WHERE w.oid = s.srvfdw AND u.oid = s.srvowner AND\
+        \ (pg_has_role(s.srvowner, 'USAGE'::text) OR has_server_privilege(s.oid, 'USAGE'::text));"
+      schema:
+        oid: int
+        srvoptions: varchar(256)
+        foreign_server_catalog: varchar(64)
+        foreign_server_name: varchar(64)
+        foreign_data_wrapper_catalog: varchar(64)
+        foreign_data_wrapper_name: varchar(64)
+        foreign_server_type: varchar(256)
+        foreign_server_version: varchar(256)
+        authorization_identifier: varchar(64)
+      pg_types:
+        oid: oid
+        srvoptions: _text
+        foreign_server_catalog: name
+        foreign_server_name: name
+        foreign_data_wrapper_catalog: name
+        foreign_data_wrapper_name: name
+        foreign_server_type: varchar
+        foreign_server_version: varchar
+        authorization_identifier: name
+      rows: []

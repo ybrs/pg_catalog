@@ -1,19 +1,22 @@
-type: system_catalog
-schema:
-  objoid: int
-  classoid: int
-  description: varchar(256)
-pg_types:
-  objoid: oid
-  classoid: oid
-  description: text
-rows:
-- objoid: 1
-  classoid: 1262
-  description: default template for new databases
-- objoid: 4
-  classoid: 1262
-  description: unmodifiable empty database
-- objoid: 5
-  classoid: 1262
-  description: default administrative connection database
+public:
+  pg_catalog:
+    pg_shdescription:
+      type: system_catalog
+      schema:
+        objoid: int
+        classoid: int
+        description: varchar(256)
+      pg_types:
+        objoid: oid
+        classoid: oid
+        description: text
+      rows:
+      - objoid: 1
+        classoid: 1262
+        description: default template for new databases
+      - objoid: 4
+        classoid: 1262
+        description: unmodifiable empty database
+      - objoid: 5
+        classoid: 1262
+        description: default administrative connection database

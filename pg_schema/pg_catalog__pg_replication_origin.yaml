@@ -1,8 +1,11 @@
-type: system_catalog
-schema:
-  roident: int
-  roname: varchar(256)
-pg_types:
-  roident: oid
-  roname: text
-rows: []
+public:
+  pg_catalog:
+    pg_replication_origin:
+      type: system_catalog
+      schema:
+        roident: int
+        roname: varchar(256)
+      pg_types:
+        roident: oid
+        roname: text
+      rows: []

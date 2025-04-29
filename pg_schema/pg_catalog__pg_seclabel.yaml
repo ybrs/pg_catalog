@@ -1,14 +1,17 @@
-type: system_catalog
-schema:
-  objoid: int
-  classoid: int
-  objsubid: int
-  provider: varchar(256)
-  label: varchar(256)
-pg_types:
-  objoid: oid
-  classoid: oid
-  objsubid: int4
-  provider: text
-  label: text
-rows: []
+public:
+  pg_catalog:
+    pg_seclabel:
+      type: system_catalog
+      schema:
+        objoid: int
+        classoid: int
+        objsubid: int
+        provider: varchar(256)
+        label: varchar(256)
+      pg_types:
+        objoid: oid
+        classoid: oid
+        objsubid: int4
+        provider: text
+        label: text
+      rows: []

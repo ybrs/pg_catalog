@@ -1,91 +1,98 @@
-type: view
-view_sql: " SELECT current_database()::information_schema.sql_identifier AS user_defined_type_catalog,\n\
-  \    n.nspname::information_schema.sql_identifier AS user_defined_type_schema,\n\
-  \    c.relname::information_schema.sql_identifier AS user_defined_type_name,\n \
-  \   'STRUCTURED'::character varying::information_schema.character_data AS user_defined_type_category,\n\
-  \    'YES'::character varying::information_schema.yes_or_no AS is_instantiable,\n\
-  \    NULL::character varying::information_schema.yes_or_no AS is_final,\n    NULL::character\
-  \ varying::information_schema.character_data AS ordering_form,\n    NULL::character\
-  \ varying::information_schema.character_data AS ordering_category,\n    NULL::name::information_schema.sql_identifier\
-  \ AS ordering_routine_catalog,\n    NULL::name::information_schema.sql_identifier\
-  \ AS ordering_routine_schema,\n    NULL::name::information_schema.sql_identifier\
-  \ AS ordering_routine_name,\n    NULL::character varying::information_schema.character_data\
-  \ AS reference_type,\n    NULL::character varying::information_schema.character_data\
-  \ AS data_type,\n    NULL::integer::information_schema.cardinal_number AS character_maximum_length,\n\
-  \    NULL::integer::information_schema.cardinal_number AS character_octet_length,\n\
-  \    NULL::name::information_schema.sql_identifier AS character_set_catalog,\n \
-  \   NULL::name::information_schema.sql_identifier AS character_set_schema,\n   \
-  \ NULL::name::information_schema.sql_identifier AS character_set_name,\n    NULL::name::information_schema.sql_identifier\
-  \ AS collation_catalog,\n    NULL::name::information_schema.sql_identifier AS collation_schema,\n\
-  \    NULL::name::information_schema.sql_identifier AS collation_name,\n    NULL::integer::information_schema.cardinal_number\
-  \ AS numeric_precision,\n    NULL::integer::information_schema.cardinal_number AS\
-  \ numeric_precision_radix,\n    NULL::integer::information_schema.cardinal_number\
-  \ AS numeric_scale,\n    NULL::integer::information_schema.cardinal_number AS datetime_precision,\n\
-  \    NULL::character varying::information_schema.character_data AS interval_type,\n\
-  \    NULL::integer::information_schema.cardinal_number AS interval_precision,\n\
-  \    NULL::name::information_schema.sql_identifier AS source_dtd_identifier,\n \
-  \   NULL::name::information_schema.sql_identifier AS ref_dtd_identifier\n   FROM\
-  \ pg_namespace n,\n    pg_class c,\n    pg_type t\n  WHERE n.oid = c.relnamespace\
-  \ AND t.typrelid = c.oid AND c.relkind = 'c'::\"char\" AND (pg_has_role(t.typowner,\
-  \ 'USAGE'::text) OR has_type_privilege(t.oid, 'USAGE'::text));"
-schema:
-  user_defined_type_catalog: varchar(64)
-  user_defined_type_schema: varchar(64)
-  user_defined_type_name: varchar(64)
-  user_defined_type_category: varchar(256)
-  is_instantiable: varchar(256)
-  is_final: varchar(256)
-  ordering_form: varchar(256)
-  ordering_category: varchar(256)
-  ordering_routine_catalog: varchar(64)
-  ordering_routine_schema: varchar(64)
-  ordering_routine_name: varchar(64)
-  reference_type: varchar(256)
-  data_type: varchar(256)
-  character_maximum_length: int
-  character_octet_length: int
-  character_set_catalog: varchar(64)
-  character_set_schema: varchar(64)
-  character_set_name: varchar(64)
-  collation_catalog: varchar(64)
-  collation_schema: varchar(64)
-  collation_name: varchar(64)
-  numeric_precision: int
-  numeric_precision_radix: int
-  numeric_scale: int
-  datetime_precision: int
-  interval_type: varchar(256)
-  interval_precision: int
-  source_dtd_identifier: varchar(64)
-  ref_dtd_identifier: varchar(64)
-pg_types:
-  user_defined_type_catalog: name
-  user_defined_type_schema: name
-  user_defined_type_name: name
-  user_defined_type_category: varchar
-  is_instantiable: varchar
-  is_final: varchar
-  ordering_form: varchar
-  ordering_category: varchar
-  ordering_routine_catalog: name
-  ordering_routine_schema: name
-  ordering_routine_name: name
-  reference_type: varchar
-  data_type: varchar
-  character_maximum_length: int4
-  character_octet_length: int4
-  character_set_catalog: name
-  character_set_schema: name
-  character_set_name: name
-  collation_catalog: name
-  collation_schema: name
-  collation_name: name
-  numeric_precision: int4
-  numeric_precision_radix: int4
-  numeric_scale: int4
-  datetime_precision: int4
-  interval_type: varchar
-  interval_precision: int4
-  source_dtd_identifier: name
-  ref_dtd_identifier: name
-rows: []
+public:
+  information_schema:
+    user_defined_types:
+      type: view
+      view_sql: " SELECT current_database()::information_schema.sql_identifier AS\
+        \ user_defined_type_catalog,\n    n.nspname::information_schema.sql_identifier\
+        \ AS user_defined_type_schema,\n    c.relname::information_schema.sql_identifier\
+        \ AS user_defined_type_name,\n    'STRUCTURED'::character varying::information_schema.character_data\
+        \ AS user_defined_type_category,\n    'YES'::character varying::information_schema.yes_or_no\
+        \ AS is_instantiable,\n    NULL::character varying::information_schema.yes_or_no\
+        \ AS is_final,\n    NULL::character varying::information_schema.character_data\
+        \ AS ordering_form,\n    NULL::character varying::information_schema.character_data\
+        \ AS ordering_category,\n    NULL::name::information_schema.sql_identifier\
+        \ AS ordering_routine_catalog,\n    NULL::name::information_schema.sql_identifier\
+        \ AS ordering_routine_schema,\n    NULL::name::information_schema.sql_identifier\
+        \ AS ordering_routine_name,\n    NULL::character varying::information_schema.character_data\
+        \ AS reference_type,\n    NULL::character varying::information_schema.character_data\
+        \ AS data_type,\n    NULL::integer::information_schema.cardinal_number AS\
+        \ character_maximum_length,\n    NULL::integer::information_schema.cardinal_number\
+        \ AS character_octet_length,\n    NULL::name::information_schema.sql_identifier\
+        \ AS character_set_catalog,\n    NULL::name::information_schema.sql_identifier\
+        \ AS character_set_schema,\n    NULL::name::information_schema.sql_identifier\
+        \ AS character_set_name,\n    NULL::name::information_schema.sql_identifier\
+        \ AS collation_catalog,\n    NULL::name::information_schema.sql_identifier\
+        \ AS collation_schema,\n    NULL::name::information_schema.sql_identifier\
+        \ AS collation_name,\n    NULL::integer::information_schema.cardinal_number\
+        \ AS numeric_precision,\n    NULL::integer::information_schema.cardinal_number\
+        \ AS numeric_precision_radix,\n    NULL::integer::information_schema.cardinal_number\
+        \ AS numeric_scale,\n    NULL::integer::information_schema.cardinal_number\
+        \ AS datetime_precision,\n    NULL::character varying::information_schema.character_data\
+        \ AS interval_type,\n    NULL::integer::information_schema.cardinal_number\
+        \ AS interval_precision,\n    NULL::name::information_schema.sql_identifier\
+        \ AS source_dtd_identifier,\n    NULL::name::information_schema.sql_identifier\
+        \ AS ref_dtd_identifier\n   FROM pg_namespace n,\n    pg_class c,\n    pg_type\
+        \ t\n  WHERE n.oid = c.relnamespace AND t.typrelid = c.oid AND c.relkind =\
+        \ 'c'::\"char\" AND (pg_has_role(t.typowner, 'USAGE'::text) OR has_type_privilege(t.oid,\
+        \ 'USAGE'::text));"
+      schema:
+        user_defined_type_catalog: varchar(64)
+        user_defined_type_schema: varchar(64)
+        user_defined_type_name: varchar(64)
+        user_defined_type_category: varchar(256)
+        is_instantiable: varchar(256)
+        is_final: varchar(256)
+        ordering_form: varchar(256)
+        ordering_category: varchar(256)
+        ordering_routine_catalog: varchar(64)
+        ordering_routine_schema: varchar(64)
+        ordering_routine_name: varchar(64)
+        reference_type: varchar(256)
+        data_type: varchar(256)
+        character_maximum_length: int
+        character_octet_length: int
+        character_set_catalog: varchar(64)
+        character_set_schema: varchar(64)
+        character_set_name: varchar(64)
+        collation_catalog: varchar(64)
+        collation_schema: varchar(64)
+        collation_name: varchar(64)
+        numeric_precision: int
+        numeric_precision_radix: int
+        numeric_scale: int
+        datetime_precision: int
+        interval_type: varchar(256)
+        interval_precision: int
+        source_dtd_identifier: varchar(64)
+        ref_dtd_identifier: varchar(64)
+      pg_types:
+        user_defined_type_catalog: name
+        user_defined_type_schema: name
+        user_defined_type_name: name
+        user_defined_type_category: varchar
+        is_instantiable: varchar
+        is_final: varchar
+        ordering_form: varchar
+        ordering_category: varchar
+        ordering_routine_catalog: name
+        ordering_routine_schema: name
+        ordering_routine_name: name
+        reference_type: varchar
+        data_type: varchar
+        character_maximum_length: int4
+        character_octet_length: int4
+        character_set_catalog: name
+        character_set_schema: name
+        character_set_name: name
+        collation_catalog: name
+        collation_schema: name
+        collation_name: name
+        numeric_precision: int4
+        numeric_precision_radix: int4
+        numeric_scale: int4
+        datetime_precision: int4
+        interval_type: varchar
+        interval_precision: int4
+        source_dtd_identifier: name
+        ref_dtd_identifier: name
+      rows: []

@@ -1,19 +1,22 @@
-type: view
-view_sql: " SELECT pg_stat_get_bgwriter_buf_written_clean() AS buffers_clean,\n  \
-  \  pg_stat_get_bgwriter_maxwritten_clean() AS maxwritten_clean,\n    pg_stat_get_buf_alloc()\
-  \ AS buffers_alloc,\n    pg_stat_get_bgwriter_stat_reset_time() AS stats_reset;"
-schema:
-  buffers_clean: bigint
-  maxwritten_clean: bigint
-  buffers_alloc: bigint
-  stats_reset: varchar(256)
-pg_types:
-  buffers_clean: int8
-  maxwritten_clean: int8
-  buffers_alloc: int8
-  stats_reset: timestamptz
-rows:
-- buffers_clean: 0
-  maxwritten_clean: 0
-  buffers_alloc: 1103
-  stats_reset: '2025-04-26T01:03:02.788083+02:00'
+public:
+  pg_catalog:
+    pg_stat_bgwriter:
+      type: view
+      view_sql: " SELECT pg_stat_get_bgwriter_buf_written_clean() AS buffers_clean,\n\
+        \    pg_stat_get_bgwriter_maxwritten_clean() AS maxwritten_clean,\n    pg_stat_get_buf_alloc()\
+        \ AS buffers_alloc,\n    pg_stat_get_bgwriter_stat_reset_time() AS stats_reset;"
+      schema:
+        buffers_clean: bigint
+        maxwritten_clean: bigint
+        buffers_alloc: bigint
+        stats_reset: varchar(256)
+      pg_types:
+        buffers_clean: int8
+        maxwritten_clean: int8
+        buffers_alloc: int8
+        stats_reset: timestamptz
+      rows:
+      - buffers_clean: 0
+        maxwritten_clean: 0
+        buffers_alloc: 1104
+        stats_reset: '2025-04-26T01:03:02.788083+02:00'

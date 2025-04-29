@@ -1,40 +1,44 @@
-type: view
-view_sql: " SELECT current_database()::information_schema.sql_identifier AS udt_catalog,\n\
-  \    nt.nspname::information_schema.sql_identifier AS udt_schema,\n    t.typname::information_schema.sql_identifier\
-  \ AS udt_name,\n    current_database()::information_schema.sql_identifier AS specific_catalog,\n\
-  \    np.nspname::information_schema.sql_identifier AS specific_schema,\n    nameconcatoid(p.proname,\
-  \ p.oid)::information_schema.sql_identifier AS specific_name,\n    l.lanname::information_schema.sql_identifier\
-  \ AS group_name,\n    'FROM SQL'::character varying::information_schema.character_data\
-  \ AS transform_type\n   FROM pg_type t\n     JOIN pg_transform x ON t.oid = x.trftype\n\
-  \     JOIN pg_language l ON x.trflang = l.oid\n     JOIN pg_proc p ON x.trffromsql::oid\
-  \ = p.oid\n     JOIN pg_namespace nt ON t.typnamespace = nt.oid\n     JOIN pg_namespace\
-  \ np ON p.pronamespace = np.oid\nUNION\n SELECT current_database()::information_schema.sql_identifier\
-  \ AS udt_catalog,\n    nt.nspname::information_schema.sql_identifier AS udt_schema,\n\
-  \    t.typname::information_schema.sql_identifier AS udt_name,\n    current_database()::information_schema.sql_identifier\
-  \ AS specific_catalog,\n    np.nspname::information_schema.sql_identifier AS specific_schema,\n\
-  \    nameconcatoid(p.proname, p.oid)::information_schema.sql_identifier AS specific_name,\n\
-  \    l.lanname::information_schema.sql_identifier AS group_name,\n    'TO SQL'::character\
-  \ varying::information_schema.character_data AS transform_type\n   FROM pg_type\
-  \ t\n     JOIN pg_transform x ON t.oid = x.trftype\n     JOIN pg_language l ON x.trflang\
-  \ = l.oid\n     JOIN pg_proc p ON x.trftosql::oid = p.oid\n     JOIN pg_namespace\
-  \ nt ON t.typnamespace = nt.oid\n     JOIN pg_namespace np ON p.pronamespace = np.oid\n\
-  \  ORDER BY 1, 2, 3, 7, 8;"
-schema:
-  udt_catalog: varchar(64)
-  udt_schema: varchar(64)
-  udt_name: varchar(64)
-  specific_catalog: varchar(64)
-  specific_schema: varchar(64)
-  specific_name: varchar(64)
-  group_name: varchar(64)
-  transform_type: varchar(256)
-pg_types:
-  udt_catalog: name
-  udt_schema: name
-  udt_name: name
-  specific_catalog: name
-  specific_schema: name
-  specific_name: name
-  group_name: name
-  transform_type: varchar
-rows: []
+public:
+  information_schema:
+    transforms:
+      type: view
+      view_sql: " SELECT current_database()::information_schema.sql_identifier AS\
+        \ udt_catalog,\n    nt.nspname::information_schema.sql_identifier AS udt_schema,\n\
+        \    t.typname::information_schema.sql_identifier AS udt_name,\n    current_database()::information_schema.sql_identifier\
+        \ AS specific_catalog,\n    np.nspname::information_schema.sql_identifier\
+        \ AS specific_schema,\n    nameconcatoid(p.proname, p.oid)::information_schema.sql_identifier\
+        \ AS specific_name,\n    l.lanname::information_schema.sql_identifier AS group_name,\n\
+        \    'FROM SQL'::character varying::information_schema.character_data AS transform_type\n\
+        \   FROM pg_type t\n     JOIN pg_transform x ON t.oid = x.trftype\n     JOIN\
+        \ pg_language l ON x.trflang = l.oid\n     JOIN pg_proc p ON x.trffromsql::oid\
+        \ = p.oid\n     JOIN pg_namespace nt ON t.typnamespace = nt.oid\n     JOIN\
+        \ pg_namespace np ON p.pronamespace = np.oid\nUNION\n SELECT current_database()::information_schema.sql_identifier\
+        \ AS udt_catalog,\n    nt.nspname::information_schema.sql_identifier AS udt_schema,\n\
+        \    t.typname::information_schema.sql_identifier AS udt_name,\n    current_database()::information_schema.sql_identifier\
+        \ AS specific_catalog,\n    np.nspname::information_schema.sql_identifier\
+        \ AS specific_schema,\n    nameconcatoid(p.proname, p.oid)::information_schema.sql_identifier\
+        \ AS specific_name,\n    l.lanname::information_schema.sql_identifier AS group_name,\n\
+        \    'TO SQL'::character varying::information_schema.character_data AS transform_type\n\
+        \   FROM pg_type t\n     JOIN pg_transform x ON t.oid = x.trftype\n     JOIN\
+        \ pg_language l ON x.trflang = l.oid\n     JOIN pg_proc p ON x.trftosql::oid\
+        \ = p.oid\n     JOIN pg_namespace nt ON t.typnamespace = nt.oid\n     JOIN\
+        \ pg_namespace np ON p.pronamespace = np.oid\n  ORDER BY 1, 2, 3, 7, 8;"
+      schema:
+        udt_catalog: varchar(64)
+        udt_schema: varchar(64)
+        udt_name: varchar(64)
+        specific_catalog: varchar(64)
+        specific_schema: varchar(64)
+        specific_name: varchar(64)
+        group_name: varchar(64)
+        transform_type: varchar(256)
+      pg_types:
+        udt_catalog: name
+        udt_schema: name
+        udt_name: name
+        specific_catalog: name
+        specific_schema: name
+        specific_name: name
+        group_name: name
+        transform_type: varchar
+      rows: []

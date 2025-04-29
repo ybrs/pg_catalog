@@ -1,58 +1,62 @@
-type: view
-view_sql: " SELECT rolname AS groname,\n    oid AS grosysid,\n    ARRAY( SELECT pg_auth_members.member\n\
-  \           FROM pg_auth_members\n          WHERE pg_auth_members.roleid = pg_authid.oid)\
-  \ AS grolist\n   FROM pg_authid\n  WHERE NOT rolcanlogin;"
-schema:
-  groname: varchar(64)
-  grosysid: int
-  grolist: varchar(256)
-pg_types:
-  groname: name
-  grosysid: oid
-  grolist: _oid
-rows:
-- groname: pg_database_owner
-  grosysid: 6171
-  grolist: '[]'
-- groname: pg_read_all_data
-  grosysid: 6181
-  grolist: '[]'
-- groname: pg_write_all_data
-  grosysid: 6182
-  grolist: '[]'
-- groname: pg_monitor
-  grosysid: 3373
-  grolist: '[]'
-- groname: pg_read_all_settings
-  grosysid: 3374
-  grolist: '[3373]'
-- groname: pg_read_all_stats
-  grosysid: 3375
-  grolist: '[3373]'
-- groname: pg_stat_scan_tables
-  grosysid: 3377
-  grolist: '[3373]'
-- groname: pg_read_server_files
-  grosysid: 4569
-  grolist: '[]'
-- groname: pg_write_server_files
-  grosysid: 4570
-  grolist: '[]'
-- groname: pg_execute_server_program
-  grosysid: 4571
-  grolist: '[]'
-- groname: pg_signal_backend
-  grosysid: 4200
-  grolist: '[]'
-- groname: pg_checkpoint
-  grosysid: 4544
-  grolist: '[]'
-- groname: pg_maintain
-  grosysid: 6337
-  grolist: '[]'
-- groname: pg_use_reserved_connections
-  grosysid: 4550
-  grolist: '[]'
-- groname: pg_create_subscription
-  grosysid: 6304
-  grolist: '[]'
+public:
+  pg_catalog:
+    pg_group:
+      type: view
+      view_sql: " SELECT rolname AS groname,\n    oid AS grosysid,\n    ARRAY( SELECT\
+        \ pg_auth_members.member\n           FROM pg_auth_members\n          WHERE\
+        \ pg_auth_members.roleid = pg_authid.oid) AS grolist\n   FROM pg_authid\n\
+        \  WHERE NOT rolcanlogin;"
+      schema:
+        groname: varchar(64)
+        grosysid: int
+        grolist: varchar(256)
+      pg_types:
+        groname: name
+        grosysid: oid
+        grolist: _oid
+      rows:
+      - groname: pg_database_owner
+        grosysid: 6171
+        grolist: '[]'
+      - groname: pg_read_all_data
+        grosysid: 6181
+        grolist: '[]'
+      - groname: pg_write_all_data
+        grosysid: 6182
+        grolist: '[]'
+      - groname: pg_monitor
+        grosysid: 3373
+        grolist: '[]'
+      - groname: pg_read_all_settings
+        grosysid: 3374
+        grolist: '[3373]'
+      - groname: pg_read_all_stats
+        grosysid: 3375
+        grolist: '[3373]'
+      - groname: pg_stat_scan_tables
+        grosysid: 3377
+        grolist: '[3373]'
+      - groname: pg_read_server_files
+        grosysid: 4569
+        grolist: '[]'
+      - groname: pg_write_server_files
+        grosysid: 4570
+        grolist: '[]'
+      - groname: pg_execute_server_program
+        grosysid: 4571
+        grolist: '[]'
+      - groname: pg_signal_backend
+        grosysid: 4200
+        grolist: '[]'
+      - groname: pg_checkpoint
+        grosysid: 4544
+        grolist: '[]'
+      - groname: pg_maintain
+        grosysid: 6337
+        grolist: '[]'
+      - groname: pg_use_reserved_connections
+        grosysid: 4550
+        grolist: '[]'
+      - groname: pg_create_subscription
+        grosysid: 6304
+        grolist: '[]'

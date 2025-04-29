@@ -20,3 +20,4 @@ uuid = { version = "1.16.0", features = ["v4"] }
 pgwire = "0.28.0"
 futures = "0.3.31"
 anyhow = "1.0.98"
+bytes = "1.10.1"

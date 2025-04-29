@@ -1,67 +1,73 @@
-type: view
-view_sql: " SELECT current_database()::information_schema.sql_identifier AS trigger_catalog,\n\
-  \    n.nspname::information_schema.sql_identifier AS trigger_schema,\n    t.tgname::information_schema.sql_identifier\
-  \ AS trigger_name,\n    em.text::information_schema.character_data AS event_manipulation,\n\
-  \    current_database()::information_schema.sql_identifier AS event_object_catalog,\n\
-  \    n.nspname::information_schema.sql_identifier AS event_object_schema,\n    c.relname::information_schema.sql_identifier\
-  \ AS event_object_table,\n    rank() OVER (PARTITION BY (n.nspname::information_schema.sql_identifier),\
-  \ (c.relname::information_schema.sql_identifier), em.num, (t.tgtype::integer & 1),\
-  \ (t.tgtype::integer & 66) ORDER BY t.tgname)::information_schema.cardinal_number\
-  \ AS action_order,\n        CASE\n            WHEN pg_has_role(c.relowner, 'USAGE'::text)\
-  \ THEN (regexp_match(pg_get_triggerdef(t.oid), '.{35,} WHEN \\((.+)\\) EXECUTE FUNCTION'::text))[1]\n\
-  \            ELSE NULL::text\n        END::information_schema.character_data AS\
-  \ action_condition,\n    SUBSTRING(pg_get_triggerdef(t.oid) FROM POSITION(('EXECUTE\
-  \ FUNCTION'::text) IN (SUBSTRING(pg_get_triggerdef(t.oid) FROM 48))) + 47)::information_schema.character_data\
-  \ AS action_statement,\n        CASE t.tgtype::integer & 1\n            WHEN 1 THEN\
-  \ 'ROW'::text\n            ELSE 'STATEMENT'::text\n        END::information_schema.character_data\
-  \ AS action_orientation,\n        CASE t.tgtype::integer & 66\n            WHEN\
-  \ 2 THEN 'BEFORE'::text\n            WHEN 64 THEN 'INSTEAD OF'::text\n         \
-  \   ELSE 'AFTER'::text\n        END::information_schema.character_data AS action_timing,\n\
-  \    t.tgoldtable::information_schema.sql_identifier AS action_reference_old_table,\n\
-  \    t.tgnewtable::information_schema.sql_identifier AS action_reference_new_table,\n\
-  \    NULL::name::information_schema.sql_identifier AS action_reference_old_row,\n\
-  \    NULL::name::information_schema.sql_identifier AS action_reference_new_row,\n\
-  \    NULL::timestamp with time zone::information_schema.time_stamp AS created\n\
-  \   FROM pg_namespace n,\n    pg_class c,\n    pg_trigger t,\n    ( VALUES (4,'INSERT'::text),\
-  \ (8,'DELETE'::text), (16,'UPDATE'::text)) em(num, text)\n  WHERE n.oid = c.relnamespace\
-  \ AND c.oid = t.tgrelid AND (t.tgtype::integer & em.num) <> 0 AND NOT t.tgisinternal\
-  \ AND NOT pg_is_other_temp_schema(n.oid) AND (pg_has_role(c.relowner, 'USAGE'::text)\
-  \ OR has_table_privilege(c.oid, 'INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER'::text)\
-  \ OR has_any_column_privilege(c.oid, 'INSERT, UPDATE, REFERENCES'::text));"
-schema:
-  trigger_catalog: varchar(64)
-  trigger_schema: varchar(64)
-  trigger_name: varchar(64)
-  event_manipulation: varchar(256)
-  event_object_catalog: varchar(64)
-  event_object_schema: varchar(64)
-  event_object_table: varchar(64)
-  action_order: int
-  action_condition: varchar(256)
-  action_statement: varchar(256)
-  action_orientation: varchar(256)
-  action_timing: varchar(256)
-  action_reference_old_table: varchar(64)
-  action_reference_new_table: varchar(64)
-  action_reference_old_row: varchar(64)
-  action_reference_new_row: varchar(64)
-  created: varchar(256)
-pg_types:
-  trigger_catalog: name
-  trigger_schema: name
-  trigger_name: name
-  event_manipulation: varchar
-  event_object_catalog: name
-  event_object_schema: name
-  event_object_table: name
-  action_order: int4
-  action_condition: varchar
-  action_statement: varchar
-  action_orientation: varchar
-  action_timing: varchar
-  action_reference_old_table: name
-  action_reference_new_table: name
-  action_reference_old_row: name
-  action_reference_new_row: name
-  created: timestamptz
-rows: []
+public:
+  information_schema:
+    triggers:
+      type: view
+      view_sql: " SELECT current_database()::information_schema.sql_identifier AS\
+        \ trigger_catalog,\n    n.nspname::information_schema.sql_identifier AS trigger_schema,\n\
+        \    t.tgname::information_schema.sql_identifier AS trigger_name,\n    em.text::information_schema.character_data\
+        \ AS event_manipulation,\n    current_database()::information_schema.sql_identifier\
+        \ AS event_object_catalog,\n    n.nspname::information_schema.sql_identifier\
+        \ AS event_object_schema,\n    c.relname::information_schema.sql_identifier\
+        \ AS event_object_table,\n    rank() OVER (PARTITION BY (n.nspname::information_schema.sql_identifier),\
+        \ (c.relname::information_schema.sql_identifier), em.num, (t.tgtype::integer\
+        \ & 1), (t.tgtype::integer & 66) ORDER BY t.tgname)::information_schema.cardinal_number\
+        \ AS action_order,\n        CASE\n            WHEN pg_has_role(c.relowner,\
+        \ 'USAGE'::text) THEN (regexp_match(pg_get_triggerdef(t.oid), '.{35,} WHEN\
+        \ \\((.+)\\) EXECUTE FUNCTION'::text))[1]\n            ELSE NULL::text\n \
+        \       END::information_schema.character_data AS action_condition,\n    SUBSTRING(pg_get_triggerdef(t.oid)\
+        \ FROM POSITION(('EXECUTE FUNCTION'::text) IN (SUBSTRING(pg_get_triggerdef(t.oid)\
+        \ FROM 48))) + 47)::information_schema.character_data AS action_statement,\n\
+        \        CASE t.tgtype::integer & 1\n            WHEN 1 THEN 'ROW'::text\n\
+        \            ELSE 'STATEMENT'::text\n        END::information_schema.character_data\
+        \ AS action_orientation,\n        CASE t.tgtype::integer & 66\n          \
+        \  WHEN 2 THEN 'BEFORE'::text\n            WHEN 64 THEN 'INSTEAD OF'::text\n\
+        \            ELSE 'AFTER'::text\n        END::information_schema.character_data\
+        \ AS action_timing,\n    t.tgoldtable::information_schema.sql_identifier AS\
+        \ action_reference_old_table,\n    t.tgnewtable::information_schema.sql_identifier\
+        \ AS action_reference_new_table,\n    NULL::name::information_schema.sql_identifier\
+        \ AS action_reference_old_row,\n    NULL::name::information_schema.sql_identifier\
+        \ AS action_reference_new_row,\n    NULL::timestamp with time zone::information_schema.time_stamp\
+        \ AS created\n   FROM pg_namespace n,\n    pg_class c,\n    pg_trigger t,\n\
+        \    ( VALUES (4,'INSERT'::text), (8,'DELETE'::text), (16,'UPDATE'::text))\
+        \ em(num, text)\n  WHERE n.oid = c.relnamespace AND c.oid = t.tgrelid AND\
+        \ (t.tgtype::integer & em.num) <> 0 AND NOT t.tgisinternal AND NOT pg_is_other_temp_schema(n.oid)\
+        \ AND (pg_has_role(c.relowner, 'USAGE'::text) OR has_table_privilege(c.oid,\
+        \ 'INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER'::text) OR has_any_column_privilege(c.oid,\
+        \ 'INSERT, UPDATE, REFERENCES'::text));"
+      schema:
+        trigger_catalog: varchar(64)
+        trigger_schema: varchar(64)
+        trigger_name: varchar(64)
+        event_manipulation: varchar(256)
+        event_object_catalog: varchar(64)
+        event_object_schema: varchar(64)
+        event_object_table: varchar(64)
+        action_order: int
+        action_condition: varchar(256)
+        action_statement: varchar(256)
+        action_orientation: varchar(256)
+        action_timing: varchar(256)
+        action_reference_old_table: varchar(64)
+        action_reference_new_table: varchar(64)
+        action_reference_old_row: varchar(64)
+        action_reference_new_row: varchar(64)
+        created: varchar(256)
+      pg_types:
+        trigger_catalog: name
+        trigger_schema: name
+        trigger_name: name
+        event_manipulation: varchar
+        event_object_catalog: name
+        event_object_schema: name
+        event_object_table: name
+        action_order: int4
+        action_condition: varchar
+        action_statement: varchar
+        action_orientation: varchar
+        action_timing: varchar
+        action_reference_old_table: name
+        action_reference_new_table: name
+        action_reference_old_row: name
+        action_reference_new_row: name
+        created: timestamptz
+      rows: []

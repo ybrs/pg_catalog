@@ -1,18 +1,21 @@
-type: system_catalog
-schema:
-  oid: int
-  fdwname: varchar(64)
-  fdwowner: int
-  fdwhandler: int
-  fdwvalidator: int
-  fdwacl: varchar(256)
-  fdwoptions: varchar(256)
-pg_types:
-  oid: oid
-  fdwname: name
-  fdwowner: oid
-  fdwhandler: oid
-  fdwvalidator: oid
-  fdwacl: _aclitem
-  fdwoptions: _text
-rows: []
+public:
+  pg_catalog:
+    pg_foreign_data_wrapper:
+      type: system_catalog
+      schema:
+        oid: int
+        fdwname: varchar(64)
+        fdwowner: int
+        fdwhandler: int
+        fdwvalidator: int
+        fdwacl: varchar(256)
+        fdwoptions: varchar(256)
+      pg_types:
+        oid: oid
+        fdwname: name
+        fdwowner: oid
+        fdwhandler: oid
+        fdwvalidator: oid
+        fdwacl: _aclitem
+        fdwoptions: _text
+      rows: []

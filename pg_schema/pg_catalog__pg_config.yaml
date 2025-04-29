@@ -1,66 +1,71 @@
-type: view
-view_sql: " SELECT name,\n    setting\n   FROM pg_config() pg_config(name, setting);"
-schema:
-  name: varchar(256)
-  setting: varchar(256)
-pg_types:
-  name: text
-  setting: text
-rows:
-- name: BINDIR
-  setting: /Users/aybarsb/projects/pg_catalog/postgres-17/bin
-- name: DOCDIR
-  setting: /Users/aybarsb/projects/pg_catalog/postgres-17/share/doc
-- name: HTMLDIR
-  setting: /Users/aybarsb/projects/pg_catalog/postgres-17/share/doc
-- name: INCLUDEDIR
-  setting: /Users/aybarsb/projects/pg_catalog/postgres-17/include
-- name: PKGINCLUDEDIR
-  setting: /Users/aybarsb/projects/pg_catalog/postgres-17/include
-- name: INCLUDEDIR-SERVER
-  setting: /Users/aybarsb/projects/pg_catalog/postgres-17/include/server
-- name: LIBDIR
-  setting: /Users/aybarsb/projects/pg_catalog/postgres-17/lib
-- name: PKGLIBDIR
-  setting: /Users/aybarsb/projects/pg_catalog/postgres-17/lib
-- name: LOCALEDIR
-  setting: /Users/aybarsb/projects/pg_catalog/postgres-17/share/locale
-- name: MANDIR
-  setting: /Users/aybarsb/projects/pg_catalog/postgres-17/share/man
-- name: SHAREDIR
-  setting: /Users/aybarsb/projects/pg_catalog/postgres-17/share
-- name: SYSCONFDIR
-  setting: /Users/aybarsb/projects/pg_catalog/postgres-17/etc
-- name: PGXS
-  setting: /Users/aybarsb/projects/pg_catalog/postgres-17/lib/pgxs/src/makefiles/pgxs.mk
-- name: CONFIGURE
-  setting: ' ''--prefix'' ''/Users/runner/work/postgresql-binaries/postgresql-binaries/postgresql-17.4.0-aarch64-apple-darwin''
-    ''--enable-integer-datetimes'' ''--enable-option-checking=fatal'' ''--without-icu''
-    ''--without-ldap'' ''--with-libxml'' ''--with-libxslt'' ''--with-openssl'' ''--with-pgport=5432''
-    ''--with-readline'' ''--with-system-tzdata=/usr/share/zoneinfo'' ''--with-uuid=e2fs''
-    ''LDFLAGS=-L/opt/homebrew/opt/icu4c/lib -L/opt/homebrew/opt/openssl/lib'' ''CPPFLAGS=-I/opt/homebrew/opt/icu4c/include
-    -I/opt/homebrew/opt/openssl/include'' ''LLVM_CONFIG=/opt/homebrew/opt/llvm/bin/llvm-config'''
-- name: CC
-  setting: gcc
-- name: CPPFLAGS
-  setting: -isysroot /Applications/Xcode_16.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk
-    -I/opt/homebrew/opt/icu4c/include -I/opt/homebrew/opt/openssl/include
-- name: CFLAGS
-  setting: -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement
-    -Werror=vla -Werror=unguarded-availability-new -Wendif-labels -Wmissing-format-attribute
-    -Wcast-function-type -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard
-    -Wno-unused-command-line-argument -Wno-compound-token-split-by-macro -Wno-cast-function-type-strict
-    -O2
-- name: CFLAGS_SL
-  setting: ''
-- name: LDFLAGS
-  setting: -isysroot /Applications/Xcode_16.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk
-    -L/opt/homebrew/opt/icu4c/lib -L/opt/homebrew/opt/openssl/lib -Wl,-dead_strip_dylibs
-- name: LDFLAGS_EX
-  setting: ''
-- name: LDFLAGS_SL
-  setting: ''
-- name: LIBS
-  setting: '-lpgcommon -lpgport -lxslt -lxml2 -lssl -lcrypto -lz -lreadline -lm '
-- name: VERSION
-  setting: PostgreSQL 17.4
+public:
+  pg_catalog:
+    pg_config:
+      type: view
+      view_sql: " SELECT name,\n    setting\n   FROM pg_config() pg_config(name, setting);"
+      schema:
+        name: varchar(256)
+        setting: varchar(256)
+      pg_types:
+        name: text
+        setting: text
+      rows:
+      - name: BINDIR
+        setting: /Users/aybarsb/projects/pg_catalog/postgres-17/bin
+      - name: DOCDIR
+        setting: /Users/aybarsb/projects/pg_catalog/postgres-17/share/doc
+      - name: HTMLDIR
+        setting: /Users/aybarsb/projects/pg_catalog/postgres-17/share/doc
+      - name: INCLUDEDIR
+        setting: /Users/aybarsb/projects/pg_catalog/postgres-17/include
+      - name: PKGINCLUDEDIR
+        setting: /Users/aybarsb/projects/pg_catalog/postgres-17/include
+      - name: INCLUDEDIR-SERVER
+        setting: /Users/aybarsb/projects/pg_catalog/postgres-17/include/server
+      - name: LIBDIR
+        setting: /Users/aybarsb/projects/pg_catalog/postgres-17/lib
+      - name: PKGLIBDIR
+        setting: /Users/aybarsb/projects/pg_catalog/postgres-17/lib
+      - name: LOCALEDIR
+        setting: /Users/aybarsb/projects/pg_catalog/postgres-17/share/locale
+      - name: MANDIR
+        setting: /Users/aybarsb/projects/pg_catalog/postgres-17/share/man
+      - name: SHAREDIR
+        setting: /Users/aybarsb/projects/pg_catalog/postgres-17/share
+      - name: SYSCONFDIR
+        setting: /Users/aybarsb/projects/pg_catalog/postgres-17/etc
+      - name: PGXS
+        setting: /Users/aybarsb/projects/pg_catalog/postgres-17/lib/pgxs/src/makefiles/pgxs.mk
+      - name: CONFIGURE
+        setting: ' ''--prefix'' ''/Users/runner/work/postgresql-binaries/postgresql-binaries/postgresql-17.4.0-aarch64-apple-darwin''
+          ''--enable-integer-datetimes'' ''--enable-option-checking=fatal'' ''--without-icu''
+          ''--without-ldap'' ''--with-libxml'' ''--with-libxslt'' ''--with-openssl''
+          ''--with-pgport=5432'' ''--with-readline'' ''--with-system-tzdata=/usr/share/zoneinfo''
+          ''--with-uuid=e2fs'' ''LDFLAGS=-L/opt/homebrew/opt/icu4c/lib -L/opt/homebrew/opt/openssl/lib''
+          ''CPPFLAGS=-I/opt/homebrew/opt/icu4c/include -I/opt/homebrew/opt/openssl/include''
+          ''LLVM_CONFIG=/opt/homebrew/opt/llvm/bin/llvm-config'''
+      - name: CC
+        setting: gcc
+      - name: CPPFLAGS
+        setting: -isysroot /Applications/Xcode_16.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk
+          -I/opt/homebrew/opt/icu4c/include -I/opt/homebrew/opt/openssl/include
+      - name: CFLAGS
+        setting: -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement
+          -Werror=vla -Werror=unguarded-availability-new -Wendif-labels -Wmissing-format-attribute
+          -Wcast-function-type -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard
+          -Wno-unused-command-line-argument -Wno-compound-token-split-by-macro -Wno-cast-function-type-strict
+          -O2
+      - name: CFLAGS_SL
+        setting: ''
+      - name: LDFLAGS
+        setting: -isysroot /Applications/Xcode_16.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.0.sdk
+          -L/opt/homebrew/opt/icu4c/lib -L/opt/homebrew/opt/openssl/lib -Wl,-dead_strip_dylibs
+      - name: LDFLAGS_EX
+        setting: ''
+      - name: LDFLAGS_SL
+        setting: ''
+      - name: LIBS
+        setting: '-lpgcommon -lpgport -lxslt -lxml2 -lssl -lcrypto -lz -lreadline
+          -lm '
+      - name: VERSION
+        setting: PostgreSQL 17.4

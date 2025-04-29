@@ -1,22 +1,25 @@
-type: system_catalog
-schema:
-  oid: int
-  pubname: varchar(64)
-  pubowner: int
-  puballtables: boolean
-  pubinsert: boolean
-  pubupdate: boolean
-  pubdelete: boolean
-  pubtruncate: boolean
-  pubviaroot: boolean
-pg_types:
-  oid: oid
-  pubname: name
-  pubowner: oid
-  puballtables: bool
-  pubinsert: bool
-  pubupdate: bool
-  pubdelete: bool
-  pubtruncate: bool
-  pubviaroot: bool
-rows: []
+public:
+  pg_catalog:
+    pg_publication:
+      type: system_catalog
+      schema:
+        oid: int
+        pubname: varchar(64)
+        pubowner: int
+        puballtables: boolean
+        pubinsert: boolean
+        pubupdate: boolean
+        pubdelete: boolean
+        pubtruncate: boolean
+        pubviaroot: boolean
+      pg_types:
+        oid: oid
+        pubname: name
+        pubowner: oid
+        puballtables: bool
+        pubinsert: bool
+        pubupdate: bool
+        pubdelete: bool
+        pubtruncate: bool
+        pubviaroot: bool
+      rows: []

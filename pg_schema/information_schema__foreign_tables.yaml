@@ -1,16 +1,19 @@
-type: view
-view_sql: " SELECT foreign_table_catalog,\n    foreign_table_schema,\n    foreign_table_name,\n\
-  \    foreign_server_catalog,\n    foreign_server_name\n   FROM information_schema._pg_foreign_tables;"
-schema:
-  foreign_table_catalog: varchar(64)
-  foreign_table_schema: varchar(64)
-  foreign_table_name: varchar(64)
-  foreign_server_catalog: varchar(64)
-  foreign_server_name: varchar(64)
-pg_types:
-  foreign_table_catalog: name
-  foreign_table_schema: name
-  foreign_table_name: name
-  foreign_server_catalog: name
-  foreign_server_name: name
-rows: []
+public:
+  information_schema:
+    foreign_tables:
+      type: view
+      view_sql: " SELECT foreign_table_catalog,\n    foreign_table_schema,\n    foreign_table_name,\n\
+        \    foreign_server_catalog,\n    foreign_server_name\n   FROM information_schema._pg_foreign_tables;"
+      schema:
+        foreign_table_catalog: varchar(64)
+        foreign_table_schema: varchar(64)
+        foreign_table_name: varchar(64)
+        foreign_server_catalog: varchar(64)
+        foreign_server_name: varchar(64)
+      pg_types:
+        foreign_table_catalog: name
+        foreign_table_schema: name
+        foreign_table_name: name
+        foreign_server_catalog: name
+        foreign_server_name: name
+      rows: []

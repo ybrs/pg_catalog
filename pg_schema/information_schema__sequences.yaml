@@ -1,44 +1,50 @@
-type: view
-view_sql: " SELECT current_database()::information_schema.sql_identifier AS sequence_catalog,\n\
-  \    nc.nspname::information_schema.sql_identifier AS sequence_schema,\n    c.relname::information_schema.sql_identifier\
-  \ AS sequence_name,\n    format_type(s.seqtypid, NULL::integer)::information_schema.character_data\
-  \ AS data_type,\n    information_schema._pg_numeric_precision(s.seqtypid, '-1'::integer)::information_schema.cardinal_number\
-  \ AS numeric_precision,\n    2::information_schema.cardinal_number AS numeric_precision_radix,\n\
-  \    0::information_schema.cardinal_number AS numeric_scale,\n    s.seqstart::information_schema.character_data\
-  \ AS start_value,\n    s.seqmin::information_schema.character_data AS minimum_value,\n\
-  \    s.seqmax::information_schema.character_data AS maximum_value,\n    s.seqincrement::information_schema.character_data\
-  \ AS increment,\n        CASE\n            WHEN s.seqcycle THEN 'YES'::text\n  \
-  \          ELSE 'NO'::text\n        END::information_schema.yes_or_no AS cycle_option\n\
-  \   FROM pg_namespace nc,\n    pg_class c,\n    pg_sequence s\n  WHERE c.relnamespace\
-  \ = nc.oid AND c.relkind = 'S'::\"char\" AND NOT (EXISTS ( SELECT 1\n          \
-  \ FROM pg_depend\n          WHERE pg_depend.classid = 'pg_class'::regclass::oid\
-  \ AND pg_depend.objid = c.oid AND pg_depend.deptype = 'i'::\"char\")) AND NOT pg_is_other_temp_schema(nc.oid)\
-  \ AND c.oid = s.seqrelid AND (pg_has_role(c.relowner, 'USAGE'::text) OR has_sequence_privilege(c.oid,\
-  \ 'SELECT, UPDATE, USAGE'::text));"
-schema:
-  sequence_catalog: varchar(64)
-  sequence_schema: varchar(64)
-  sequence_name: varchar(64)
-  data_type: varchar(256)
-  numeric_precision: int
-  numeric_precision_radix: int
-  numeric_scale: int
-  start_value: varchar(256)
-  minimum_value: varchar(256)
-  maximum_value: varchar(256)
-  increment: varchar(256)
-  cycle_option: varchar(256)
-pg_types:
-  sequence_catalog: name
-  sequence_schema: name
-  sequence_name: name
-  data_type: varchar
-  numeric_precision: int4
-  numeric_precision_radix: int4
-  numeric_scale: int4
-  start_value: varchar
-  minimum_value: varchar
-  maximum_value: varchar
-  increment: varchar
-  cycle_option: varchar
-rows: []
+public:
+  information_schema:
+    sequences:
+      type: view
+      view_sql: " SELECT current_database()::information_schema.sql_identifier AS\
+        \ sequence_catalog,\n    nc.nspname::information_schema.sql_identifier AS\
+        \ sequence_schema,\n    c.relname::information_schema.sql_identifier AS sequence_name,\n\
+        \    format_type(s.seqtypid, NULL::integer)::information_schema.character_data\
+        \ AS data_type,\n    information_schema._pg_numeric_precision(s.seqtypid,\
+        \ '-1'::integer)::information_schema.cardinal_number AS numeric_precision,\n\
+        \    2::information_schema.cardinal_number AS numeric_precision_radix,\n \
+        \   0::information_schema.cardinal_number AS numeric_scale,\n    s.seqstart::information_schema.character_data\
+        \ AS start_value,\n    s.seqmin::information_schema.character_data AS minimum_value,\n\
+        \    s.seqmax::information_schema.character_data AS maximum_value,\n    s.seqincrement::information_schema.character_data\
+        \ AS increment,\n        CASE\n            WHEN s.seqcycle THEN 'YES'::text\n\
+        \            ELSE 'NO'::text\n        END::information_schema.yes_or_no AS\
+        \ cycle_option\n   FROM pg_namespace nc,\n    pg_class c,\n    pg_sequence\
+        \ s\n  WHERE c.relnamespace = nc.oid AND c.relkind = 'S'::\"char\" AND NOT\
+        \ (EXISTS ( SELECT 1\n           FROM pg_depend\n          WHERE pg_depend.classid\
+        \ = 'pg_class'::regclass::oid AND pg_depend.objid = c.oid AND pg_depend.deptype\
+        \ = 'i'::\"char\")) AND NOT pg_is_other_temp_schema(nc.oid) AND c.oid = s.seqrelid\
+        \ AND (pg_has_role(c.relowner, 'USAGE'::text) OR has_sequence_privilege(c.oid,\
+        \ 'SELECT, UPDATE, USAGE'::text));"
+      schema:
+        sequence_catalog: varchar(64)
+        sequence_schema: varchar(64)
+        sequence_name: varchar(64)
+        data_type: varchar(256)
+        numeric_precision: int
+        numeric_precision_radix: int
+        numeric_scale: int
+        start_value: varchar(256)
+        minimum_value: varchar(256)
+        maximum_value: varchar(256)
+        increment: varchar(256)
+        cycle_option: varchar(256)
+      pg_types:
+        sequence_catalog: name
+        sequence_schema: name
+        sequence_name: name
+        data_type: varchar
+        numeric_precision: int4
+        numeric_precision_radix: int4
+        numeric_scale: int4
+        start_value: varchar
+        minimum_value: varchar
+        maximum_value: varchar
+        increment: varchar
+        cycle_option: varchar
+      rows: []

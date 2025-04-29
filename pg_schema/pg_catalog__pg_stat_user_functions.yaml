@@ -1,21 +1,25 @@
-type: view
-view_sql: " SELECT p.oid AS funcid,\n    n.nspname AS schemaname,\n    p.proname AS\
-  \ funcname,\n    pg_stat_get_function_calls(p.oid) AS calls,\n    pg_stat_get_function_total_time(p.oid)\
-  \ AS total_time,\n    pg_stat_get_function_self_time(p.oid) AS self_time\n   FROM\
-  \ pg_proc p\n     LEFT JOIN pg_namespace n ON n.oid = p.pronamespace\n  WHERE p.prolang\
-  \ <> 12::oid AND pg_stat_get_function_calls(p.oid) IS NOT NULL;"
-schema:
-  funcid: int
-  schemaname: varchar(64)
-  funcname: varchar(64)
-  calls: bigint
-  total_time: float
-  self_time: float
-pg_types:
-  funcid: oid
-  schemaname: name
-  funcname: name
-  calls: int8
-  total_time: float8
-  self_time: float8
-rows: []
+public:
+  pg_catalog:
+    pg_stat_user_functions:
+      type: view
+      view_sql: " SELECT p.oid AS funcid,\n    n.nspname AS schemaname,\n    p.proname\
+        \ AS funcname,\n    pg_stat_get_function_calls(p.oid) AS calls,\n    pg_stat_get_function_total_time(p.oid)\
+        \ AS total_time,\n    pg_stat_get_function_self_time(p.oid) AS self_time\n\
+        \   FROM pg_proc p\n     LEFT JOIN pg_namespace n ON n.oid = p.pronamespace\n\
+        \  WHERE p.prolang <> 12::oid AND pg_stat_get_function_calls(p.oid) IS NOT\
+        \ NULL;"
+      schema:
+        funcid: int
+        schemaname: varchar(64)
+        funcname: varchar(64)
+        calls: bigint
+        total_time: float
+        self_time: float
+      pg_types:
+        funcid: oid
+        schemaname: name
+        funcname: name
+        calls: int8
+        total_time: float8
+        self_time: float8
+      rows: []

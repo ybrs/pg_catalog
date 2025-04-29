@@ -1,34 +1,39 @@
-type: view
-view_sql: " SELECT DISTINCT current_database()::information_schema.sql_identifier\
-  \ AS specific_catalog,\n    np.nspname::information_schema.sql_identifier AS specific_schema,\n\
-  \    nameconcatoid(p.proname, p.oid)::information_schema.sql_identifier AS specific_name,\n\
-  \    current_database()::information_schema.sql_identifier AS routine_catalog,\n\
-  \    np.nspname::information_schema.sql_identifier AS routine_schema,\n    p.proname::information_schema.sql_identifier\
-  \ AS routine_name,\n    current_database()::information_schema.sql_identifier AS\
-  \ sequence_catalog,\n    ns.nspname::information_schema.sql_identifier AS sequence_schema,\n\
-  \    s.relname::information_schema.sql_identifier AS sequence_name\n   FROM pg_namespace\
-  \ np,\n    pg_proc p,\n    pg_depend d,\n    pg_class s,\n    pg_namespace ns\n\
-  \  WHERE np.oid = p.pronamespace AND p.oid = d.objid AND d.classid = 'pg_proc'::regclass::oid\
-  \ AND d.refobjid = s.oid AND d.refclassid = 'pg_class'::regclass::oid AND s.relnamespace\
-  \ = ns.oid AND s.relkind = 'S'::\"char\" AND pg_has_role(s.relowner, 'USAGE'::text);"
-schema:
-  specific_catalog: varchar(64)
-  specific_schema: varchar(64)
-  specific_name: varchar(64)
-  routine_catalog: varchar(64)
-  routine_schema: varchar(64)
-  routine_name: varchar(64)
-  sequence_catalog: varchar(64)
-  sequence_schema: varchar(64)
-  sequence_name: varchar(64)
-pg_types:
-  specific_catalog: name
-  specific_schema: name
-  specific_name: name
-  routine_catalog: name
-  routine_schema: name
-  routine_name: name
-  sequence_catalog: name
-  sequence_schema: name
-  sequence_name: name
-rows: []
+public:
+  information_schema:
+    routine_sequence_usage:
+      type: view
+      view_sql: " SELECT DISTINCT current_database()::information_schema.sql_identifier\
+        \ AS specific_catalog,\n    np.nspname::information_schema.sql_identifier\
+        \ AS specific_schema,\n    nameconcatoid(p.proname, p.oid)::information_schema.sql_identifier\
+        \ AS specific_name,\n    current_database()::information_schema.sql_identifier\
+        \ AS routine_catalog,\n    np.nspname::information_schema.sql_identifier AS\
+        \ routine_schema,\n    p.proname::information_schema.sql_identifier AS routine_name,\n\
+        \    current_database()::information_schema.sql_identifier AS sequence_catalog,\n\
+        \    ns.nspname::information_schema.sql_identifier AS sequence_schema,\n \
+        \   s.relname::information_schema.sql_identifier AS sequence_name\n   FROM\
+        \ pg_namespace np,\n    pg_proc p,\n    pg_depend d,\n    pg_class s,\n  \
+        \  pg_namespace ns\n  WHERE np.oid = p.pronamespace AND p.oid = d.objid AND\
+        \ d.classid = 'pg_proc'::regclass::oid AND d.refobjid = s.oid AND d.refclassid\
+        \ = 'pg_class'::regclass::oid AND s.relnamespace = ns.oid AND s.relkind =\
+        \ 'S'::\"char\" AND pg_has_role(s.relowner, 'USAGE'::text);"
+      schema:
+        specific_catalog: varchar(64)
+        specific_schema: varchar(64)
+        specific_name: varchar(64)
+        routine_catalog: varchar(64)
+        routine_schema: varchar(64)
+        routine_name: varchar(64)
+        sequence_catalog: varchar(64)
+        sequence_schema: varchar(64)
+        sequence_name: varchar(64)
+      pg_types:
+        specific_catalog: name
+        specific_schema: name
+        specific_name: name
+        routine_catalog: name
+        routine_schema: name
+        routine_name: name
+        sequence_catalog: name
+        sequence_schema: name
+        sequence_name: name
+      rows: []

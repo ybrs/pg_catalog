@@ -1,3490 +1,3493 @@
-type: system_catalog
-schema:
-  indexrelid: int
-  indrelid: int
-  indnatts: int
-  indnkeyatts: int
-  indisunique: boolean
-  indnullsnotdistinct: boolean
-  indisprimary: boolean
-  indisexclusion: boolean
-  indimmediate: boolean
-  indisclustered: boolean
-  indisvalid: boolean
-  indcheckxmin: boolean
-  indisready: boolean
-  indislive: boolean
-  indisreplident: boolean
-  indkey: varchar(256)
-  indcollation: varchar(256)
-  indclass: varchar(256)
-  indoption: varchar(256)
-  indexprs: varchar(256)
-  indpred: varchar(256)
-pg_types:
-  indexrelid: oid
-  indrelid: oid
-  indnatts: int2
-  indnkeyatts: int2
-  indisunique: bool
-  indnullsnotdistinct: bool
-  indisprimary: bool
-  indisexclusion: bool
-  indimmediate: bool
-  indisclustered: bool
-  indisvalid: bool
-  indcheckxmin: bool
-  indisready: bool
-  indislive: bool
-  indisreplident: bool
-  indkey: int2vector
-  indcollation: oidvector
-  indclass: oidvector
-  indoption: int2vector
-  indexprs: pg_node_tree
-  indpred: pg_node_tree
-rows:
-- indexrelid: 2837
-  indrelid: 2836
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 4172
-  indrelid: 4171
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2831
-  indrelid: 2830
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2833
-  indrelid: 2832
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 4158
-  indrelid: 4157
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 4160
-  indrelid: 4159
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2841
-  indrelid: 2840
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 3440
-  indrelid: 3439
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 3431
-  indrelid: 3430
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2839
-  indrelid: 2838
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2337
-  indrelid: 2336
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 4146
-  indrelid: 4145
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2835
-  indrelid: 2834
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 4164
-  indrelid: 4163
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 4178
-  indrelid: 4177
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2967
-  indrelid: 2966
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 4186
-  indrelid: 4185
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 4176
-  indrelid: 4175
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2847
-  indrelid: 2846
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 4170
-  indrelid: 4169
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 4148
-  indrelid: 4147
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 4150
-  indrelid: 4149
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 4152
-  indrelid: 4151
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 4174
-  indrelid: 4173
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 4154
-  indrelid: 4153
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 4168
-  indrelid: 4167
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 4182
-  indrelid: 4181
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 4144
-  indrelid: 4143
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 4156
-  indrelid: 4155
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 3599
-  indrelid: 3598
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 4061
-  indrelid: 4060
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 6176
-  indrelid: 6175
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 6245
-  indrelid: 6244
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 4166
-  indrelid: 4165
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 6229
-  indrelid: 6228
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 4184
-  indrelid: 4183
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2691
-  indrelid: 1255
-  indnatts: 3
-  indnkeyatts: 3
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 2 20 3
-  indcollation: 950 0 0
-  indclass: 10028 10032 1981
-  indoption: 0 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2704
-  indrelid: 1247
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 2 3
-  indcollation: 950 0
-  indclass: 10028 1981
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2658
-  indrelid: 1249
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 950
-  indclass: 1981 10028
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2663
-  indrelid: 1259
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 2 3
-  indcollation: 950 0
-  indclass: 10028 1981
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 3455
-  indrelid: 1259
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: false
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 9 8
-  indcollation: 0 0
-  indclass: 1981 1981
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2703
-  indrelid: 1247
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2659
-  indrelid: 1249
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 5
-  indcollation: 0 0
-  indclass: 1981 1979
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2656
-  indrelid: 2604
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 2 3
-  indcollation: 0 0
-  indclass: 1981 1979
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2664
-  indrelid: 2606
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: false
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 2 3
-  indcollation: 950 0
-  indclass: 10028 1981
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2665
-  indrelid: 2606
-  indnatts: 3
-  indnkeyatts: 3
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 8 9 2
-  indcollation: 0 0 950
-  indclass: 1981 1981 10028
-  indoption: 0 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2666
-  indrelid: 2606
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: false
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '9'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2579
-  indrelid: 2606
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: false
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '11'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2187
-  indrelid: 2611
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: false
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '2'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2678
-  indrelid: 2610
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: false
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '2'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2689
-  indrelid: 2617
-  indnatts: 4
-  indnkeyatts: 4
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 2 8 9 3
-  indcollation: 950 0 0 0
-  indclass: 10028 1981 1981 1981
-  indoption: 0 0 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2754
-  indrelid: 2753
-  indnatts: 3
-  indnkeyatts: 3
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 2 3 4
-  indcollation: 0 950 0
-  indclass: 1981 10028 1981
-  indoption: 0 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2686
-  indrelid: 2616
-  indnatts: 3
-  indnkeyatts: 3
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 2 3 4
-  indcollation: 0 950 0
-  indclass: 1981 10028 1981
-  indoption: 0 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2651
-  indrelid: 2601
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '2'
-  indcollation: '950'
-  indclass: '10028'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2653
-  indrelid: 2602
-  indnatts: 4
-  indnkeyatts: 4
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 2 3 4 5
-  indcollation: 0 0 0 0
-  indclass: 1981 1981 1981 1979
-  indoption: 0 0 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2654
-  indrelid: 2602
-  indnatts: 3
-  indnkeyatts: 3
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 7 6 2
-  indcollation: 0 0 0
-  indclass: 1981 10007 1981
-  indoption: 0 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2655
-  indrelid: 2603
-  indnatts: 4
-  indnkeyatts: 4
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 2 3 4 5
-  indcollation: 0 0 0 0
-  indclass: 1981 1981 1981 1979
-  indoption: 0 0 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2681
-  indrelid: 2612
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '2'
-  indcollation: '950'
-  indclass: '10028'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 3997
-  indrelid: 3381
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 3 4
-  indcollation: 950 0
-  indclass: 10028 1981
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 3379
-  indrelid: 3381
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: false
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '2'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2693
-  indrelid: 2618
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 3 2
-  indcollation: 0 950
-  indclass: 1981 10028
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2699
-  indrelid: 2620
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: false
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '11'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2701
-  indrelid: 2620
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 2 4
-  indcollation: 0 950
-  indclass: 1981 10028
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 3467
-  indrelid: 3466
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '2'
-  indcollation: '950'
-  indclass: '10028'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2661
-  indrelid: 2605
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 2 3
-  indcollation: 0 0
-  indclass: 1981 1981
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2680
-  indrelid: 2611
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 3
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2679
-  indrelid: 2610
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2688
-  indrelid: 2617
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2755
-  indrelid: 2753
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2687
-  indrelid: 2616
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2652
-  indrelid: 2601
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2756
-  indrelid: 2602
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2757
-  indrelid: 2603
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2682
-  indrelid: 2612
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2996
-  indrelid: 2995
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2683
-  indrelid: 2613
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2650
-  indrelid: 2600
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2696
-  indrelid: 2619
-  indnatts: 3
-  indnkeyatts: 3
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2 3
-  indcollation: 0 0 0
-  indclass: 1981 1979 10003
-  indoption: 0 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 3380
-  indrelid: 3381
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 3433
-  indrelid: 3429
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 10003
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2692
-  indrelid: 2618
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2702
-  indrelid: 2620
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 3468
-  indrelid: 3466
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2675
-  indrelid: 2609
-  indnatts: 3
-  indnkeyatts: 3
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2 3
-  indcollation: 0 0 0
-  indclass: 1981 1981 1978
-  indoption: 0 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2660
-  indrelid: 2605
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 3502
-  indrelid: 3501
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 3503
-  indrelid: 3501
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 2 4
-  indcollation: 0 950
-  indclass: 1981 10028
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 3534
-  indrelid: 3501
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 2 3
-  indcollation: 0 0
-  indclass: 1981 10012
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2684
-  indrelid: 2615
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '2'
-  indcollation: '950'
-  indclass: '10028'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2668
-  indrelid: 2607
-  indnatts: 4
-  indnkeyatts: 4
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 3 5 6 1
-  indcollation: 0 0 0 0
-  indclass: 1981 1978 1978 1981
-  indoption: 0 0 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2669
-  indrelid: 2607
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 2 3
-  indcollation: 950 0
-  indclass: 10028 1981
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2673
-  indrelid: 2608
-  indnatts: 3
-  indnkeyatts: 3
-  indisunique: false
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2 3
-  indcollation: 0 0 0
-  indclass: 1981 1981 1978
-  indoption: 0 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2674
-  indrelid: 2608
-  indnatts: 3
-  indnkeyatts: 3
-  indisunique: false
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 4 5 6
-  indcollation: 0 0 0
-  indclass: 1981 1981 1978
-  indoption: 0 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2671
-  indrelid: 1262
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '2'
-  indcollation: '950'
-  indclass: '10028'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2698
-  indrelid: 1213
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '2'
-  indcollation: '950'
-  indclass: '10028'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2676
-  indrelid: 1260
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '2'
-  indcollation: '950'
-  indclass: '10028'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2694
-  indrelid: 1261
-  indnatts: 3
-  indnkeyatts: 3
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 2 3 4
-  indcollation: 0 0 0
-  indclass: 1981 1981 1981
-  indoption: 0 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2695
-  indrelid: 1261
-  indnatts: 3
-  indnkeyatts: 3
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 3 2 4
-  indcollation: 0 0 0
-  indclass: 1981 1981 1981
-  indoption: 0 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 6302
-  indrelid: 1261
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: false
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '4'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 1232
-  indrelid: 1214
-  indnatts: 4
-  indnkeyatts: 4
-  indisunique: false
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2 3 4
-  indcollation: 0 0 0 0
-  indclass: 1981 1981 1981 1978
-  indoption: 0 0 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 1233
-  indrelid: 1214
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: false
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 5 6
-  indcollation: 0 0
-  indclass: 1981 1981
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 3608
-  indrelid: 3602
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 2 3
-  indcollation: 950 0
-  indclass: 10028 1981
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 3604
-  indrelid: 3600
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 2 3
-  indcollation: 950 0
-  indclass: 10028 1981
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 3606
-  indrelid: 3601
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 2 3
-  indcollation: 950 0
-  indclass: 10028 1981
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 3766
-  indrelid: 3764
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 2 3
-  indcollation: 950 0
-  indclass: 10028 1981
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 3081
-  indrelid: 3079
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '2'
-  indcollation: '950'
-  indclass: '10028'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 548
-  indrelid: 2328
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '2'
-  indcollation: '950'
-  indclass: '10028'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 549
-  indrelid: 1417
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '2'
-  indcollation: '950'
-  indclass: '10028'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 175
-  indrelid: 1418
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 2 3
-  indcollation: 0 0
-  indclass: 1981 1981
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 3258
-  indrelid: 3256
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 3 2
-  indcollation: 0 950
-  indclass: 1981 10028
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 6002
-  indrelid: 6000
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '2'
-  indcollation: '950'
-  indclass: '3126'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2670
-  indrelid: 2607
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2672
-  indrelid: 1262
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2965
-  indrelid: 2964
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1981
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2697
-  indrelid: 1213
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2677
-  indrelid: 1260
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 6303
-  indrelid: 1261
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2397
-  indrelid: 2396
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1981
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 3712
-  indrelid: 3602
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 3609
-  indrelid: 3603
-  indnatts: 3
-  indnkeyatts: 3
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2 3
-  indcollation: 0 0 0
-  indclass: 1981 1978 1978
-  indoption: 0 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 3605
-  indrelid: 3600
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 3607
-  indrelid: 3601
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 3767
-  indrelid: 3764
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 3080
-  indrelid: 3079
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 112
-  indrelid: 2328
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 113
-  indrelid: 1417
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 174
-  indrelid: 1418
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 3119
-  indrelid: 3118
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 3257
-  indrelid: 3256
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 6001
-  indrelid: 6000
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 827
-  indrelid: 826
-  indnatts: 3
-  indnkeyatts: 3
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 2 3 4
-  indcollation: 0 0 0
-  indclass: 1981 1981 10007
-  indoption: 0 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 3164
-  indrelid: 3456
-  indnatts: 3
-  indnkeyatts: 3
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 2 7 3
-  indcollation: 950 0 0
-  indclass: 10028 1978 1981
-  indoption: 0 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 6246
-  indrelid: 6243
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '2'
-  indcollation: '950'
-  indclass: '3126'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2228
-  indrelid: 3541
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '3'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 3575
-  indrelid: 3576
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 2 3
-  indcollation: 0 0
-  indclass: 1981 1981
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 6111
-  indrelid: 6104
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '2'
-  indcollation: '950'
-  indclass: '10028'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 6239
-  indrelid: 6237
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 3 2
-  indcollation: 0 0
-  indclass: 1981 1981
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 6113
-  indrelid: 6106
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 3 2
-  indcollation: 0 0
-  indclass: 1981 1981
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 6116
-  indrelid: 6106
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: false
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '2'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 6115
-  indrelid: 6100
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: false
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 2 4
-  indcollation: 0 950
-  indclass: 1981 10028
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 2690
-  indrelid: 1255
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2662
-  indrelid: 1259
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2657
-  indrelid: 2604
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2667
-  indrelid: 2606
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 2685
-  indrelid: 2615
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 828
-  indrelid: 826
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 3395
-  indrelid: 3394
-  indnatts: 3
-  indnkeyatts: 3
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2 3
-  indcollation: 0 0 0
-  indclass: 1981 1981 1978
-  indoption: 0 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 3597
-  indrelid: 3596
-  indnatts: 4
-  indnkeyatts: 4
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2 3 4
-  indcollation: 0 0 0 950
-  indclass: 1981 1981 1978 3126
-  indoption: 0 0 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 3593
-  indrelid: 3592
-  indnatts: 3
-  indnkeyatts: 3
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2 3
-  indcollation: 0 0 950
-  indclass: 1981 1981 3126
-  indoption: 0 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 3085
-  indrelid: 3456
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 6247
-  indrelid: 6243
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 3351
-  indrelid: 3350
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 3542
-  indrelid: 3541
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 3574
-  indrelid: 3576
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 5002
-  indrelid: 2224
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 6110
-  indrelid: 6104
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 6238
-  indrelid: 6237
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 6112
-  indrelid: 6106
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 6114
-  indrelid: 6100
-  indnatts: 1
-  indnkeyatts: 1
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: '1'
-  indcollation: '0'
-  indclass: '1981'
-  indoption: '0'
-  indexprs: null
-  indpred: null
-- indexrelid: 6117
-  indrelid: 6102
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 2 1
-  indcollation: 0 0
-  indclass: 1981 1981
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 12862
-  indrelid: 12861
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 12867
-  indrelid: 12866
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 12872
-  indrelid: 12871
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
-- indexrelid: 12877
-  indrelid: 12876
-  indnatts: 2
-  indnkeyatts: 2
-  indisunique: true
-  indnullsnotdistinct: false
-  indisprimary: true
-  indisexclusion: false
-  indimmediate: true
-  indisclustered: false
-  indisvalid: true
-  indcheckxmin: false
-  indisready: true
-  indislive: true
-  indisreplident: false
-  indkey: 1 2
-  indcollation: 0 0
-  indclass: 1981 1978
-  indoption: 0 0
-  indexprs: null
-  indpred: null
+public:
+  pg_catalog:
+    pg_index:
+      type: system_catalog
+      schema:
+        indexrelid: int
+        indrelid: int
+        indnatts: int
+        indnkeyatts: int
+        indisunique: boolean
+        indnullsnotdistinct: boolean
+        indisprimary: boolean
+        indisexclusion: boolean
+        indimmediate: boolean
+        indisclustered: boolean
+        indisvalid: boolean
+        indcheckxmin: boolean
+        indisready: boolean
+        indislive: boolean
+        indisreplident: boolean
+        indkey: varchar(256)
+        indcollation: varchar(256)
+        indclass: varchar(256)
+        indoption: varchar(256)
+        indexprs: varchar(256)
+        indpred: varchar(256)
+      pg_types:
+        indexrelid: oid
+        indrelid: oid
+        indnatts: int2
+        indnkeyatts: int2
+        indisunique: bool
+        indnullsnotdistinct: bool
+        indisprimary: bool
+        indisexclusion: bool
+        indimmediate: bool
+        indisclustered: bool
+        indisvalid: bool
+        indcheckxmin: bool
+        indisready: bool
+        indislive: bool
+        indisreplident: bool
+        indkey: int2vector
+        indcollation: oidvector
+        indclass: oidvector
+        indoption: int2vector
+        indexprs: pg_node_tree
+        indpred: pg_node_tree
+      rows:
+      - indexrelid: 2837
+        indrelid: 2836
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 4172
+        indrelid: 4171
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2831
+        indrelid: 2830
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2833
+        indrelid: 2832
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 4158
+        indrelid: 4157
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 4160
+        indrelid: 4159
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2841
+        indrelid: 2840
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 3440
+        indrelid: 3439
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 3431
+        indrelid: 3430
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2839
+        indrelid: 2838
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2337
+        indrelid: 2336
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 4146
+        indrelid: 4145
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2835
+        indrelid: 2834
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 4164
+        indrelid: 4163
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 4178
+        indrelid: 4177
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2967
+        indrelid: 2966
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 4186
+        indrelid: 4185
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 4176
+        indrelid: 4175
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2847
+        indrelid: 2846
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 4170
+        indrelid: 4169
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 4148
+        indrelid: 4147
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 4150
+        indrelid: 4149
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 4152
+        indrelid: 4151
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 4174
+        indrelid: 4173
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 4154
+        indrelid: 4153
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 4168
+        indrelid: 4167
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 4182
+        indrelid: 4181
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 4144
+        indrelid: 4143
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 4156
+        indrelid: 4155
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 3599
+        indrelid: 3598
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 4061
+        indrelid: 4060
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 6176
+        indrelid: 6175
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 6245
+        indrelid: 6244
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 4166
+        indrelid: 4165
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 6229
+        indrelid: 6228
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 4184
+        indrelid: 4183
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2691
+        indrelid: 1255
+        indnatts: 3
+        indnkeyatts: 3
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 2 20 3
+        indcollation: 950 0 0
+        indclass: 10028 10032 1981
+        indoption: 0 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2704
+        indrelid: 1247
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 2 3
+        indcollation: 950 0
+        indclass: 10028 1981
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2658
+        indrelid: 1249
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 950
+        indclass: 1981 10028
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2663
+        indrelid: 1259
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 2 3
+        indcollation: 950 0
+        indclass: 10028 1981
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 3455
+        indrelid: 1259
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: false
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 9 8
+        indcollation: 0 0
+        indclass: 1981 1981
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2703
+        indrelid: 1247
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2659
+        indrelid: 1249
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 5
+        indcollation: 0 0
+        indclass: 1981 1979
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2656
+        indrelid: 2604
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 2 3
+        indcollation: 0 0
+        indclass: 1981 1979
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2664
+        indrelid: 2606
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: false
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 2 3
+        indcollation: 950 0
+        indclass: 10028 1981
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2665
+        indrelid: 2606
+        indnatts: 3
+        indnkeyatts: 3
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 8 9 2
+        indcollation: 0 0 950
+        indclass: 1981 1981 10028
+        indoption: 0 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2666
+        indrelid: 2606
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: false
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '9'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2579
+        indrelid: 2606
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: false
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '11'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2187
+        indrelid: 2611
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: false
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '2'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2678
+        indrelid: 2610
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: false
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '2'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2689
+        indrelid: 2617
+        indnatts: 4
+        indnkeyatts: 4
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 2 8 9 3
+        indcollation: 950 0 0 0
+        indclass: 10028 1981 1981 1981
+        indoption: 0 0 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2754
+        indrelid: 2753
+        indnatts: 3
+        indnkeyatts: 3
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 2 3 4
+        indcollation: 0 950 0
+        indclass: 1981 10028 1981
+        indoption: 0 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2686
+        indrelid: 2616
+        indnatts: 3
+        indnkeyatts: 3
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 2 3 4
+        indcollation: 0 950 0
+        indclass: 1981 10028 1981
+        indoption: 0 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2651
+        indrelid: 2601
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '2'
+        indcollation: '950'
+        indclass: '10028'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2653
+        indrelid: 2602
+        indnatts: 4
+        indnkeyatts: 4
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 2 3 4 5
+        indcollation: 0 0 0 0
+        indclass: 1981 1981 1981 1979
+        indoption: 0 0 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2654
+        indrelid: 2602
+        indnatts: 3
+        indnkeyatts: 3
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 7 6 2
+        indcollation: 0 0 0
+        indclass: 1981 10007 1981
+        indoption: 0 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2655
+        indrelid: 2603
+        indnatts: 4
+        indnkeyatts: 4
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 2 3 4 5
+        indcollation: 0 0 0 0
+        indclass: 1981 1981 1981 1979
+        indoption: 0 0 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2681
+        indrelid: 2612
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '2'
+        indcollation: '950'
+        indclass: '10028'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 3997
+        indrelid: 3381
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 3 4
+        indcollation: 950 0
+        indclass: 10028 1981
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 3379
+        indrelid: 3381
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: false
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '2'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2693
+        indrelid: 2618
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 3 2
+        indcollation: 0 950
+        indclass: 1981 10028
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2699
+        indrelid: 2620
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: false
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '11'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2701
+        indrelid: 2620
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 2 4
+        indcollation: 0 950
+        indclass: 1981 10028
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 3467
+        indrelid: 3466
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '2'
+        indcollation: '950'
+        indclass: '10028'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2661
+        indrelid: 2605
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 2 3
+        indcollation: 0 0
+        indclass: 1981 1981
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2680
+        indrelid: 2611
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 3
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2679
+        indrelid: 2610
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2688
+        indrelid: 2617
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2755
+        indrelid: 2753
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2687
+        indrelid: 2616
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2652
+        indrelid: 2601
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2756
+        indrelid: 2602
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2757
+        indrelid: 2603
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2682
+        indrelid: 2612
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2996
+        indrelid: 2995
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2683
+        indrelid: 2613
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2650
+        indrelid: 2600
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2696
+        indrelid: 2619
+        indnatts: 3
+        indnkeyatts: 3
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2 3
+        indcollation: 0 0 0
+        indclass: 1981 1979 10003
+        indoption: 0 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 3380
+        indrelid: 3381
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 3433
+        indrelid: 3429
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 10003
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2692
+        indrelid: 2618
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2702
+        indrelid: 2620
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 3468
+        indrelid: 3466
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2675
+        indrelid: 2609
+        indnatts: 3
+        indnkeyatts: 3
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2 3
+        indcollation: 0 0 0
+        indclass: 1981 1981 1978
+        indoption: 0 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2660
+        indrelid: 2605
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 3502
+        indrelid: 3501
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 3503
+        indrelid: 3501
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 2 4
+        indcollation: 0 950
+        indclass: 1981 10028
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 3534
+        indrelid: 3501
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 2 3
+        indcollation: 0 0
+        indclass: 1981 10012
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2684
+        indrelid: 2615
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '2'
+        indcollation: '950'
+        indclass: '10028'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2668
+        indrelid: 2607
+        indnatts: 4
+        indnkeyatts: 4
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 3 5 6 1
+        indcollation: 0 0 0 0
+        indclass: 1981 1978 1978 1981
+        indoption: 0 0 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2669
+        indrelid: 2607
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 2 3
+        indcollation: 950 0
+        indclass: 10028 1981
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2673
+        indrelid: 2608
+        indnatts: 3
+        indnkeyatts: 3
+        indisunique: false
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2 3
+        indcollation: 0 0 0
+        indclass: 1981 1981 1978
+        indoption: 0 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2674
+        indrelid: 2608
+        indnatts: 3
+        indnkeyatts: 3
+        indisunique: false
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 4 5 6
+        indcollation: 0 0 0
+        indclass: 1981 1981 1978
+        indoption: 0 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2671
+        indrelid: 1262
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '2'
+        indcollation: '950'
+        indclass: '10028'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2698
+        indrelid: 1213
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '2'
+        indcollation: '950'
+        indclass: '10028'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2676
+        indrelid: 1260
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '2'
+        indcollation: '950'
+        indclass: '10028'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2694
+        indrelid: 1261
+        indnatts: 3
+        indnkeyatts: 3
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 2 3 4
+        indcollation: 0 0 0
+        indclass: 1981 1981 1981
+        indoption: 0 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2695
+        indrelid: 1261
+        indnatts: 3
+        indnkeyatts: 3
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 3 2 4
+        indcollation: 0 0 0
+        indclass: 1981 1981 1981
+        indoption: 0 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 6302
+        indrelid: 1261
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: false
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '4'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 1232
+        indrelid: 1214
+        indnatts: 4
+        indnkeyatts: 4
+        indisunique: false
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2 3 4
+        indcollation: 0 0 0 0
+        indclass: 1981 1981 1981 1978
+        indoption: 0 0 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 1233
+        indrelid: 1214
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: false
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 5 6
+        indcollation: 0 0
+        indclass: 1981 1981
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 3608
+        indrelid: 3602
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 2 3
+        indcollation: 950 0
+        indclass: 10028 1981
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 3604
+        indrelid: 3600
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 2 3
+        indcollation: 950 0
+        indclass: 10028 1981
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 3606
+        indrelid: 3601
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 2 3
+        indcollation: 950 0
+        indclass: 10028 1981
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 3766
+        indrelid: 3764
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 2 3
+        indcollation: 950 0
+        indclass: 10028 1981
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 3081
+        indrelid: 3079
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '2'
+        indcollation: '950'
+        indclass: '10028'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 548
+        indrelid: 2328
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '2'
+        indcollation: '950'
+        indclass: '10028'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 549
+        indrelid: 1417
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '2'
+        indcollation: '950'
+        indclass: '10028'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 175
+        indrelid: 1418
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 2 3
+        indcollation: 0 0
+        indclass: 1981 1981
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 3258
+        indrelid: 3256
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 3 2
+        indcollation: 0 950
+        indclass: 1981 10028
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 6002
+        indrelid: 6000
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '2'
+        indcollation: '950'
+        indclass: '3126'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2670
+        indrelid: 2607
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2672
+        indrelid: 1262
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2965
+        indrelid: 2964
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1981
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2697
+        indrelid: 1213
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2677
+        indrelid: 1260
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 6303
+        indrelid: 1261
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2397
+        indrelid: 2396
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1981
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 3712
+        indrelid: 3602
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 3609
+        indrelid: 3603
+        indnatts: 3
+        indnkeyatts: 3
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2 3
+        indcollation: 0 0 0
+        indclass: 1981 1978 1978
+        indoption: 0 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 3605
+        indrelid: 3600
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 3607
+        indrelid: 3601
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 3767
+        indrelid: 3764
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 3080
+        indrelid: 3079
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 112
+        indrelid: 2328
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 113
+        indrelid: 1417
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 174
+        indrelid: 1418
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 3119
+        indrelid: 3118
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 3257
+        indrelid: 3256
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 6001
+        indrelid: 6000
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 827
+        indrelid: 826
+        indnatts: 3
+        indnkeyatts: 3
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 2 3 4
+        indcollation: 0 0 0
+        indclass: 1981 1981 10007
+        indoption: 0 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 3164
+        indrelid: 3456
+        indnatts: 3
+        indnkeyatts: 3
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 2 7 3
+        indcollation: 950 0 0
+        indclass: 10028 1978 1981
+        indoption: 0 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 6246
+        indrelid: 6243
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '2'
+        indcollation: '950'
+        indclass: '3126'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2228
+        indrelid: 3541
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '3'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 3575
+        indrelid: 3576
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 2 3
+        indcollation: 0 0
+        indclass: 1981 1981
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 6111
+        indrelid: 6104
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '2'
+        indcollation: '950'
+        indclass: '10028'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 6239
+        indrelid: 6237
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 3 2
+        indcollation: 0 0
+        indclass: 1981 1981
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 6113
+        indrelid: 6106
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 3 2
+        indcollation: 0 0
+        indclass: 1981 1981
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 6116
+        indrelid: 6106
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: false
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '2'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 6115
+        indrelid: 6100
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: false
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 2 4
+        indcollation: 0 950
+        indclass: 1981 10028
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 2690
+        indrelid: 1255
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2662
+        indrelid: 1259
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2657
+        indrelid: 2604
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2667
+        indrelid: 2606
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 2685
+        indrelid: 2615
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 828
+        indrelid: 826
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 3395
+        indrelid: 3394
+        indnatts: 3
+        indnkeyatts: 3
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2 3
+        indcollation: 0 0 0
+        indclass: 1981 1981 1978
+        indoption: 0 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 3597
+        indrelid: 3596
+        indnatts: 4
+        indnkeyatts: 4
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2 3 4
+        indcollation: 0 0 0 950
+        indclass: 1981 1981 1978 3126
+        indoption: 0 0 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 3593
+        indrelid: 3592
+        indnatts: 3
+        indnkeyatts: 3
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2 3
+        indcollation: 0 0 950
+        indclass: 1981 1981 3126
+        indoption: 0 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 3085
+        indrelid: 3456
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 6247
+        indrelid: 6243
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 3351
+        indrelid: 3350
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 3542
+        indrelid: 3541
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 3574
+        indrelid: 3576
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 5002
+        indrelid: 2224
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 6110
+        indrelid: 6104
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 6238
+        indrelid: 6237
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 6112
+        indrelid: 6106
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 6114
+        indrelid: 6100
+        indnatts: 1
+        indnkeyatts: 1
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: '1'
+        indcollation: '0'
+        indclass: '1981'
+        indoption: '0'
+        indexprs: null
+        indpred: null
+      - indexrelid: 6117
+        indrelid: 6102
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 2 1
+        indcollation: 0 0
+        indclass: 1981 1981
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 12862
+        indrelid: 12861
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 12867
+        indrelid: 12866
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 12872
+        indrelid: 12871
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null
+      - indexrelid: 12877
+        indrelid: 12876
+        indnatts: 2
+        indnkeyatts: 2
+        indisunique: true
+        indnullsnotdistinct: false
+        indisprimary: true
+        indisexclusion: false
+        indimmediate: true
+        indisclustered: false
+        indisvalid: true
+        indcheckxmin: false
+        indisready: true
+        indislive: true
+        indisreplident: false
+        indkey: 1 2
+        indcollation: 0 0
+        indclass: 1981 1978
+        indoption: 0 0
+        indexprs: null
+        indpred: null

@@ -1,270 +1,273 @@
-type: view
-view_sql: " SELECT name,\n    off,\n    size,\n    allocated_size\n   FROM pg_get_shmem_allocations()\
-  \ pg_get_shmem_allocations(name, off, size, allocated_size);"
-schema:
-  name: varchar(256)
-  'off': bigint
-  size: bigint
-  allocated_size: bigint
-pg_types:
-  name: text
-  'off': int8
-  size: int8
-  allocated_size: int8
-rows:
-- name: Buffer Descriptors
-  'off': 5715712
-  size: 1048576
-  allocated_size: 1048576
-- name: Backend SSL Status Buffer
-  'off': 146815744
-  size: 41796
-  allocated_size: 41856
-- name: Async Queue Control
-  'off': 147490432
-  size: 3992
-  allocated_size: 4096
-- name: Wal Sender Ctl
-  'off': 147483648
-  size: 1152
-  allocated_size: 1152
-- name: AutoVacuum Data
-  'off': 147474816
-  size: 5328
-  allocated_size: 5376
-- name: commit_timestamp
-  'off': 4778112
-  size: 267424
-  allocated_size: 267520
-- name: multixact_member
-  'off': 5447040
-  size: 267424
-  allocated_size: 267520
-- name: multixact_offset
-  'off': 5313280
-  size: 133760
-  allocated_size: 133760
-- name: subtransaction
-  'off': 5045760
-  size: 267424
-  allocated_size: 267520
-- name: notify
-  'off': 147494528
-  size: 133760
-  allocated_size: 133760
-- name: Shared Memory Stats
-  'off': 147628288
-  size: 279992
-  allocated_size: 280064
-- name: serializable
-  'off': 146186624
-  size: 267424
-  allocated_size: 267520
-- name: PROCLOCK hash
-  'off': 143203968
-  size: 2896
-  allocated_size: 2944
-- name: FinishedSerializableTransactions
-  'off': 146186496
-  size: 16
-  allocated_size: 128
-- name: XLOG Ctl
-  'off': 39552
-  size: 4208200
-  allocated_size: 4208256
-- name: Shared MultiXact State
-  'off': 5714560
-  size: 1044
-  allocated_size: 1152
-- name: Proc Header
-  'off': 146454272
-  size: 136
-  allocated_size: 256
-- name: Archiver Data
-  'off': 147487232
-  size: 8
-  allocated_size: 128
-- name: XLOG Recovery Ctl
-  'off': 4248320
-  size: 104
-  allocated_size: 128
-- name: Backend Client Host Name Buffer
-  'off': 146675328
-  size: 8256
-  allocated_size: 8320
-- name: ReplicationSlot Ctl
-  'off': 147480192
-  size: 2800
-  allocated_size: 2816
-- name: KnownAssignedXids
-  'off': 146571136
-  size: 31980
-  allocated_size: 32000
-- name: Prepared Transaction Table
-  'off': 146857600
-  size: 16
-  allocated_size: 128
-- name: BTree Vacuum State
-  'off': 147488128
-  size: 1488
-  allocated_size: 1536
-- name: Checkpoint BufferIds
-  'off': 141248256
-  size: 327680
-  allocated_size: 327680
-- name: Wal Receiver Ctl
-  'off': 147484800
-  size: 2264
-  allocated_size: 2304
-- name: PREDICATELOCKTARGET hash
-  'off': 143907456
-  size: 2896
-  allocated_size: 2944
-- name: Backend Status Array
-  'off': 146611200
-  size: 55728
-  allocated_size: 55808
-- name: KnownAssignedXidsValid
-  'off': 146603136
-  size: 7995
-  allocated_size: 8064
-- name: Slot Sync Data
-  'off': 147488000
-  size: 24
-  allocated_size: 128
-- name: DSM Registry Data
-  'off': 39296
-  size: 16
-  allocated_size: 128
-- name: WaitEventCustom hash by wait event information
-  'off': 147908480
-  size: 2896
-  allocated_size: 2944
-- name: Shared Buffer Lookup Table
-  'off': 141575936
-  size: 2896
-  allocated_size: 2944
-- name: CommitTs shared
-  'off': 5045632
-  size: 32
-  allocated_size: 128
-- name: Backend Application Name Buffer
-  'off': 146667008
-  size: 8256
-  allocated_size: 8320
-- name: ProcSignal
-  'off': 146939008
-  size: 11360
-  allocated_size: 11392
-- name: Logical Replication Launcher Data
-  'off': 147487360
-  size: 528
-  allocated_size: 640
-- name: Buffer Blocks
-  'off': 6764288
-  size: 134221824
-  allocated_size: 134221824
-- name: Buffer IO Condition Variables
-  'off': 140986112
-  size: 262144
-  allocated_size: 262144
-- name: Proc Array
-  'off': 146570496
-  size: 528
-  allocated_size: 640
-- name: PMSignalState
-  'off': 146937984
-  size: 1016
-  allocated_size: 1024
-- name: PREDICATELOCK hash
-  'off': 144356864
-  size: 2896
-  allocated_size: 2944
-- name: PredXactList
-  'off': 145625472
-  size: 88
-  allocated_size: 128
-- name: Fast Path Strong Relation Lock Data
-  'off': 143903232
-  size: 4100
-  allocated_size: 4224
-- name: Wal Summarizer Ctl
-  'off': 147487104
-  size: 48
-  allocated_size: 128
-- name: WaitEventCustomCounterData
-  'off': 147908352
-  size: 8
-  allocated_size: 128
-- name: transaction
-  'off': 4248448
-  size: 529568
-  allocated_size: 529664
-- name: RWConflictPool
-  'off': 145891072
-  size: 24
-  allocated_size: 128
-- name: TransamVariables
-  'off': 39424
-  size: 72
-  allocated_size: 128
-- name: XLogPrefetchStats
-  'off': 4248192
-  size: 72
-  allocated_size: 128
-- name: Buffer Strategy Status
-  'off': 142504576
-  size: 28
-  allocated_size: 128
-- name: SerialControlData
-  'off': 146454144
-  size: 16
-  allocated_size: 128
-- name: shmInvalBuffer
-  'off': 146869760
-  size: 68148
-  allocated_size: 68224
-- name: Sync Scan Locations List
-  'off': 147489664
-  size: 656
-  allocated_size: 768
-- name: Control File
-  'off': 4247808
-  size: 296
-  allocated_size: 384
-- name: ReplicationOriginState
-  'off': 147483008
-  size: 568
-  allocated_size: 640
-- name: SERIALIZABLEXID hash
-  'off': 145832320
-  size: 2896
-  allocated_size: 2944
-- name: Backend Activity Buffer
-  'off': 146683648
-  size: 132096
-  allocated_size: 132096
-- name: Background Worker Data
-  'off': 146857728
-  size: 11920
-  allocated_size: 12032
-- name: LOCK hash
-  'off': 142504704
-  size: 2896
-  allocated_size: 2944
-- name: WaitEventCustom hash by name
-  'off': 147914880
-  size: 2896
-  allocated_size: 2944
-- name: Checkpointer Data
-  'off': 146950400
-  size: 524344
-  allocated_size: 524416
-- name: <anonymous>
-  'off': null
-  size: 4750464
-  allocated_size: 4750464
-- name: null
-  'off': 147921280
-  size: 1951360
-  allocated_size: 1951360
+public:
+  pg_catalog:
+    pg_shmem_allocations:
+      type: view
+      view_sql: " SELECT name,\n    off,\n    size,\n    allocated_size\n   FROM pg_get_shmem_allocations()\
+        \ pg_get_shmem_allocations(name, off, size, allocated_size);"
+      schema:
+        name: varchar(256)
+        'off': bigint
+        size: bigint
+        allocated_size: bigint
+      pg_types:
+        name: text
+        'off': int8
+        size: int8
+        allocated_size: int8
+      rows:
+      - name: Buffer Descriptors
+        'off': 5715712
+        size: 1048576
+        allocated_size: 1048576
+      - name: Backend SSL Status Buffer
+        'off': 146815744
+        size: 41796
+        allocated_size: 41856
+      - name: Async Queue Control
+        'off': 147490432
+        size: 3992
+        allocated_size: 4096
+      - name: Wal Sender Ctl
+        'off': 147483648
+        size: 1152
+        allocated_size: 1152
+      - name: AutoVacuum Data
+        'off': 147474816
+        size: 5328
+        allocated_size: 5376
+      - name: commit_timestamp
+        'off': 4778112
+        size: 267424
+        allocated_size: 267520
+      - name: multixact_member
+        'off': 5447040
+        size: 267424
+        allocated_size: 267520
+      - name: multixact_offset
+        'off': 5313280
+        size: 133760
+        allocated_size: 133760
+      - name: subtransaction
+        'off': 5045760
+        size: 267424
+        allocated_size: 267520
+      - name: notify
+        'off': 147494528
+        size: 133760
+        allocated_size: 133760
+      - name: Shared Memory Stats
+        'off': 147628288
+        size: 279992
+        allocated_size: 280064
+      - name: serializable
+        'off': 146186624
+        size: 267424
+        allocated_size: 267520
+      - name: PROCLOCK hash
+        'off': 143203968
+        size: 2896
+        allocated_size: 2944
+      - name: FinishedSerializableTransactions
+        'off': 146186496
+        size: 16
+        allocated_size: 128
+      - name: XLOG Ctl
+        'off': 39552
+        size: 4208200
+        allocated_size: 4208256
+      - name: Shared MultiXact State
+        'off': 5714560
+        size: 1044
+        allocated_size: 1152
+      - name: Proc Header
+        'off': 146454272
+        size: 136
+        allocated_size: 256
+      - name: Archiver Data
+        'off': 147487232
+        size: 8
+        allocated_size: 128
+      - name: XLOG Recovery Ctl
+        'off': 4248320
+        size: 104
+        allocated_size: 128
+      - name: Backend Client Host Name Buffer
+        'off': 146675328
+        size: 8256
+        allocated_size: 8320
+      - name: ReplicationSlot Ctl
+        'off': 147480192
+        size: 2800
+        allocated_size: 2816
+      - name: KnownAssignedXids
+        'off': 146571136
+        size: 31980
+        allocated_size: 32000
+      - name: Prepared Transaction Table
+        'off': 146857600
+        size: 16
+        allocated_size: 128
+      - name: BTree Vacuum State
+        'off': 147488128
+        size: 1488
+        allocated_size: 1536
+      - name: Checkpoint BufferIds
+        'off': 141248256
+        size: 327680
+        allocated_size: 327680
+      - name: Wal Receiver Ctl
+        'off': 147484800
+        size: 2264
+        allocated_size: 2304
+      - name: PREDICATELOCKTARGET hash
+        'off': 143907456
+        size: 2896
+        allocated_size: 2944
+      - name: Backend Status Array
+        'off': 146611200
+        size: 55728
+        allocated_size: 55808
+      - name: KnownAssignedXidsValid
+        'off': 146603136
+        size: 7995
+        allocated_size: 8064
+      - name: Slot Sync Data
+        'off': 147488000
+        size: 24
+        allocated_size: 128
+      - name: DSM Registry Data
+        'off': 39296
+        size: 16
+        allocated_size: 128
+      - name: WaitEventCustom hash by wait event information
+        'off': 147908480
+        size: 2896
+        allocated_size: 2944
+      - name: Shared Buffer Lookup Table
+        'off': 141575936
+        size: 2896
+        allocated_size: 2944
+      - name: CommitTs shared
+        'off': 5045632
+        size: 32
+        allocated_size: 128
+      - name: Backend Application Name Buffer
+        'off': 146667008
+        size: 8256
+        allocated_size: 8320
+      - name: ProcSignal
+        'off': 146939008
+        size: 11360
+        allocated_size: 11392
+      - name: Logical Replication Launcher Data
+        'off': 147487360
+        size: 528
+        allocated_size: 640
+      - name: Buffer Blocks
+        'off': 6764288
+        size: 134221824
+        allocated_size: 134221824
+      - name: Buffer IO Condition Variables
+        'off': 140986112
+        size: 262144
+        allocated_size: 262144
+      - name: Proc Array
+        'off': 146570496
+        size: 528
+        allocated_size: 640
+      - name: PMSignalState
+        'off': 146937984
+        size: 1016
+        allocated_size: 1024
+      - name: PREDICATELOCK hash
+        'off': 144356864
+        size: 2896
+        allocated_size: 2944
+      - name: PredXactList
+        'off': 145625472
+        size: 88
+        allocated_size: 128
+      - name: Fast Path Strong Relation Lock Data
+        'off': 143903232
+        size: 4100
+        allocated_size: 4224
+      - name: Wal Summarizer Ctl
+        'off': 147487104
+        size: 48
+        allocated_size: 128
+      - name: WaitEventCustomCounterData
+        'off': 147908352
+        size: 8
+        allocated_size: 128
+      - name: transaction
+        'off': 4248448
+        size: 529568
+        allocated_size: 529664
+      - name: RWConflictPool
+        'off': 145891072
+        size: 24
+        allocated_size: 128
+      - name: TransamVariables
+        'off': 39424
+        size: 72
+        allocated_size: 128
+      - name: XLogPrefetchStats
+        'off': 4248192
+        size: 72
+        allocated_size: 128
+      - name: Buffer Strategy Status
+        'off': 142504576
+        size: 28
+        allocated_size: 128
+      - name: SerialControlData
+        'off': 146454144
+        size: 16
+        allocated_size: 128
+      - name: shmInvalBuffer
+        'off': 146869760
+        size: 68148
+        allocated_size: 68224
+      - name: Sync Scan Locations List
+        'off': 147489664
+        size: 656
+        allocated_size: 768
+      - name: Control File
+        'off': 4247808
+        size: 296
+        allocated_size: 384
+      - name: ReplicationOriginState
+        'off': 147483008
+        size: 568
+        allocated_size: 640
+      - name: SERIALIZABLEXID hash
+        'off': 145832320
+        size: 2896
+        allocated_size: 2944
+      - name: Backend Activity Buffer
+        'off': 146683648
+        size: 132096
+        allocated_size: 132096
+      - name: Background Worker Data
+        'off': 146857728
+        size: 11920
+        allocated_size: 12032
+      - name: LOCK hash
+        'off': 142504704
+        size: 2896
+        allocated_size: 2944
+      - name: WaitEventCustom hash by name
+        'off': 147914880
+        size: 2896
+        allocated_size: 2944
+      - name: Checkpointer Data
+        'off': 146950400
+        size: 524344
+        allocated_size: 524416
+      - name: <anonymous>
+        'off': null
+        size: 4750464
+        allocated_size: 4750464
+      - name: null
+        'off': 147921280
+        size: 1951360
+        allocated_size: 1951360

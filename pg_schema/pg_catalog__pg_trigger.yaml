@@ -1,42 +1,45 @@
-type: system_catalog
-schema:
-  oid: int
-  tgrelid: int
-  tgparentid: int
-  tgname: varchar(64)
-  tgfoid: int
-  tgtype: int
-  tgenabled: varchar(256)
-  tgisinternal: boolean
-  tgconstrrelid: int
-  tgconstrindid: int
-  tgconstraint: int
-  tgdeferrable: boolean
-  tginitdeferred: boolean
-  tgnargs: int
-  tgattr: varchar(256)
-  tgargs: varchar(256)
-  tgqual: varchar(256)
-  tgoldtable: varchar(64)
-  tgnewtable: varchar(64)
-pg_types:
-  oid: oid
-  tgrelid: oid
-  tgparentid: oid
-  tgname: name
-  tgfoid: oid
-  tgtype: int2
-  tgenabled: char
-  tgisinternal: bool
-  tgconstrrelid: oid
-  tgconstrindid: oid
-  tgconstraint: oid
-  tgdeferrable: bool
-  tginitdeferred: bool
-  tgnargs: int2
-  tgattr: int2vector
-  tgargs: bytea
-  tgqual: pg_node_tree
-  tgoldtable: name
-  tgnewtable: name
-rows: []
+public:
+  pg_catalog:
+    pg_trigger:
+      type: system_catalog
+      schema:
+        oid: int
+        tgrelid: int
+        tgparentid: int
+        tgname: varchar(64)
+        tgfoid: int
+        tgtype: int
+        tgenabled: varchar(256)
+        tgisinternal: boolean
+        tgconstrrelid: int
+        tgconstrindid: int
+        tgconstraint: int
+        tgdeferrable: boolean
+        tginitdeferred: boolean
+        tgnargs: int
+        tgattr: varchar(256)
+        tgargs: varchar(256)
+        tgqual: varchar(256)
+        tgoldtable: varchar(64)
+        tgnewtable: varchar(64)
+      pg_types:
+        oid: oid
+        tgrelid: oid
+        tgparentid: oid
+        tgname: name
+        tgfoid: oid
+        tgtype: int2
+        tgenabled: char
+        tgisinternal: bool
+        tgconstrrelid: oid
+        tgconstrindid: oid
+        tgconstraint: oid
+        tgdeferrable: bool
+        tginitdeferred: bool
+        tgnargs: int2
+        tgattr: int2vector
+        tgargs: bytea
+        tgqual: pg_node_tree
+        tgoldtable: name
+        tgnewtable: name
+      rows: []
