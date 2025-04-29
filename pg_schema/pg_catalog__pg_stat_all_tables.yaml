@@ -77,9 +77,9 @@ rows:
 - relid: 3601
   schemaname: pg_catalog
   relname: pg_ts_parser
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 4
+  seq_scan: 7
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 7
   idx_scan: 0
   last_idx_scan: null
   idx_tup_fetch: 0
@@ -103,12 +103,12 @@ rows:
 - relid: 2602
   schemaname: pg_catalog
   relname: pg_amop
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 3780
-  idx_scan: 245
-  last_idx_scan: '2025-04-26T01:48:00.849080+02:00'
-  idx_tup_fetch: 400
+  seq_scan: 7
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 6615
+  idx_scan: 470
+  last_idx_scan: '2025-04-26T02:06:13.783620+02:00'
+  idx_tup_fetch: 768
   n_tup_ins: 0
   n_tup_upd: 0
   n_tup_del: 0
@@ -155,8 +155,8 @@ rows:
 - relid: 6104
   schemaname: pg_catalog
   relname: pg_publication
-  seq_scan: 7
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 13
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
   idx_scan: 0
   last_idx_scan: null
@@ -181,8 +181,8 @@ rows:
 - relid: 3429
   schemaname: pg_catalog
   relname: pg_statistic_ext_data
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 7
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
   idx_scan: 0
   last_idx_scan: null
@@ -259,12 +259,12 @@ rows:
 - relid: 2619
   schemaname: pg_catalog
   relname: pg_statistic
-  seq_scan: 7
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 2870
-  idx_scan: 3055
-  last_idx_scan: '2025-04-26T01:48:00.849080+02:00'
-  idx_tup_fetch: 1640
+  seq_scan: 13
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 5330
+  idx_scan: 5412
+  last_idx_scan: '2025-04-26T02:07:30.111227+02:00'
+  idx_tup_fetch: 2888
   n_tup_ins: 0
   n_tup_upd: 0
   n_tup_del: 0
@@ -311,11 +311,11 @@ rows:
 - relid: 3541
   schemaname: pg_catalog
   relname: pg_range
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 24
-  idx_scan: 18
-  last_idx_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 7
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 42
+  idx_scan: 35
+  last_idx_scan: '2025-04-26T02:04:54.012056+02:00'
   idx_tup_fetch: 0
   n_tup_ins: 0
   n_tup_upd: 0
@@ -337,12 +337,12 @@ rows:
 - relid: 3602
   schemaname: pg_catalog
   relname: pg_ts_config
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 116
-  idx_scan: 6
-  last_idx_scan: '2025-04-26T01:48:00.849080+02:00'
-  idx_tup_fetch: 6
+  seq_scan: 7
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 203
+  idx_scan: 12
+  last_idx_scan: '2025-04-26T02:04:54.012056+02:00'
+  idx_tup_fetch: 12
   n_tup_ins: 0
   n_tup_upd: 0
   n_tup_del: 0
@@ -363,11 +363,11 @@ rows:
 - relid: 3381
   schemaname: pg_catalog
   relname: pg_statistic_ext
-  seq_scan: 10
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 19
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
-  idx_scan: 272
-  last_idx_scan: '2025-04-26T01:48:00.849080+02:00'
+  idx_scan: 475
+  last_idx_scan: '2025-04-26T02:06:13.783620+02:00'
   idx_tup_fetch: 0
   n_tup_ins: 0
   n_tup_upd: 0
@@ -415,9 +415,9 @@ rows:
 - relid: 12863
   schemaname: information_schema
   relname: sql_implementation_info
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 48
+  seq_scan: 6
+  last_seq_scan: '2025-04-26T02:03:00.224195+02:00'
+  seq_tup_read: 72
   idx_scan: null
   last_idx_scan: null
   idx_tup_fetch: null
@@ -441,8 +441,8 @@ rows:
 - relid: 6106
   schemaname: pg_catalog
   relname: pg_publication_rel
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 7
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
   idx_scan: 0
   last_idx_scan: null
@@ -467,12 +467,12 @@ rows:
 - relid: 2605
   schemaname: pg_catalog
   relname: pg_cast
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 916
-  idx_scan: 861
-  last_idx_scan: '2025-04-26T01:48:00.849080+02:00'
-  idx_tup_fetch: 92
+  seq_scan: 7
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 1603
+  idx_scan: 1764
+  last_idx_scan: '2025-04-26T02:08:05.123193+02:00'
+  idx_tup_fetch: 180
   n_tup_ins: 0
   n_tup_upd: 0
   n_tup_del: 0
@@ -545,8 +545,8 @@ rows:
 - relid: 2224
   schemaname: pg_catalog
   relname: pg_sequence
-  seq_scan: 19
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 33
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
   idx_scan: 0
   last_idx_scan: null
@@ -571,8 +571,8 @@ rows:
 - relid: 2611
   schemaname: pg_catalog
   relname: pg_inherits
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 7
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
   idx_scan: 0
   last_idx_scan: null
@@ -623,8 +623,8 @@ rows:
 - relid: 1417
   schemaname: pg_catalog
   relname: pg_foreign_server
-  seq_scan: 19
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 32
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
   idx_scan: 0
   last_idx_scan: null
@@ -649,12 +649,12 @@ rows:
 - relid: 1262
   schemaname: pg_catalog
   relname: pg_database
-  seq_scan: 198
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 570
-  idx_scan: 353
-  last_idx_scan: '2025-04-26T01:52:53.457640+02:00'
-  idx_tup_fetch: 349
+  seq_scan: 327
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 957
+  idx_scan: 484
+  last_idx_scan: '2025-04-26T02:09:47.255738+02:00'
+  idx_tup_fetch: 480
   n_tup_ins: 3
   n_tup_upd: 4
   n_tup_del: 0
@@ -727,8 +727,8 @@ rows:
 - relid: 3501
   schemaname: pg_catalog
   relname: pg_enum
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 7
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
   idx_scan: 0
   last_idx_scan: null
@@ -753,9 +753,9 @@ rows:
 - relid: 2607
   schemaname: pg_catalog
   relname: pg_conversion
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 512
+  seq_scan: 7
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 896
   idx_scan: 0
   last_idx_scan: null
   idx_tup_fetch: 0
@@ -779,8 +779,8 @@ rows:
 - relid: 3576
   schemaname: pg_catalog
   relname: pg_transform
-  seq_scan: 10
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 17
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
   idx_scan: 0
   last_idx_scan: null
@@ -805,8 +805,8 @@ rows:
 - relid: 826
   schemaname: pg_catalog
   relname: pg_default_acl
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 7
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
   idx_scan: 0
   last_idx_scan: null
@@ -831,9 +831,9 @@ rows:
 - relid: 2601
   schemaname: pg_catalog
   relname: pg_am
-  seq_scan: 59
-  last_seq_scan: '2025-04-26T01:52:53.457640+02:00'
-  seq_tup_read: 83
+  seq_scan: 85
+  last_seq_scan: '2025-04-26T02:09:47.255738+02:00'
+  seq_tup_read: 127
   idx_scan: 0
   last_idx_scan: null
   idx_tup_fetch: 0
@@ -909,8 +909,8 @@ rows:
 - relid: 2604
   schemaname: pg_catalog
   relname: pg_attrdef
-  seq_scan: 10
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 18
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
   idx_scan: 0
   last_idx_scan: null
@@ -935,9 +935,9 @@ rows:
 - relid: 3394
   schemaname: pg_catalog
   relname: pg_init_privs
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 892
+  seq_scan: 7
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 1561
   idx_scan: 0
   last_idx_scan: null
   idx_tup_fetch: 0
@@ -1065,9 +1065,9 @@ rows:
 - relid: 12868
   schemaname: information_schema
   relname: sql_parts
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 44
+  seq_scan: 6
+  last_seq_scan: '2025-04-26T02:03:00.224195+02:00'
+  seq_tup_read: 66
   idx_scan: null
   last_idx_scan: null
   idx_tup_fetch: null
@@ -1091,8 +1091,8 @@ rows:
 - relid: 6000
   schemaname: pg_catalog
   relname: pg_replication_origin
-  seq_scan: 6
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 9
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
   idx_scan: 0
   last_idx_scan: null
@@ -1117,12 +1117,12 @@ rows:
 - relid: 2603
   schemaname: pg_catalog
   relname: pg_amproc
-  seq_scan: 8
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 2798
-  idx_scan: 130
-  last_idx_scan: '2025-04-26T01:52:53.457640+02:00'
-  idx_tup_fetch: 297
+  seq_scan: 11
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 4886
+  idx_scan: 212
+  last_idx_scan: '2025-04-26T02:09:47.255738+02:00'
+  idx_tup_fetch: 456
   n_tup_ins: 0
   n_tup_upd: 0
   n_tup_del: 0
@@ -1143,12 +1143,12 @@ rows:
 - relid: 2606
   schemaname: pg_catalog
   relname: pg_constraint
-  seq_scan: 28
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 3136
-  idx_scan: 138
-  last_idx_scan: '2025-04-26T01:48:00.849080+02:00'
-  idx_tup_fetch: 25
+  seq_scan: 49
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 5488
+  idx_scan: 254
+  last_idx_scan: '2025-04-26T02:04:54.012056+02:00'
+  idx_tup_fetch: 49
   n_tup_ins: 0
   n_tup_upd: 0
   n_tup_del: 0
@@ -1169,12 +1169,12 @@ rows:
 - relid: 1255
   schemaname: pg_catalog
   relname: pg_proc
-  seq_scan: 40
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 133200
-  idx_scan: 19805
-  last_idx_scan: '2025-04-26T01:48:00.849080+02:00'
-  idx_tup_fetch: 20521
+  seq_scan: 69
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 229770
+  idx_scan: 34633
+  last_idx_scan: '2025-04-26T02:06:13.783620+02:00'
+  idx_tup_fetch: 35943
   n_tup_ins: 0
   n_tup_upd: 0
   n_tup_del: 0
@@ -1198,9 +1198,9 @@ rows:
   seq_scan: 0
   last_seq_scan: null
   seq_tup_read: 0
-  idx_scan: 88
-  last_idx_scan: '2025-04-26T01:48:00.849080+02:00'
-  idx_tup_fetch: 143
+  idx_scan: 159
+  last_idx_scan: '2025-04-26T02:04:54.012056+02:00'
+  idx_tup_fetch: 259
   n_tup_ins: 0
   n_tup_upd: 0
   n_tup_del: 0
@@ -1247,8 +1247,8 @@ rows:
 - relid: 2328
   schemaname: pg_catalog
   relname: pg_foreign_data_wrapper
-  seq_scan: 19
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 32
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
   idx_scan: 0
   last_idx_scan: null
@@ -1273,8 +1273,8 @@ rows:
 - relid: 2620
   schemaname: pg_catalog
   relname: pg_trigger
-  seq_scan: 1297
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 2162
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
   idx_scan: 0
   last_idx_scan: null
@@ -1325,12 +1325,12 @@ rows:
 - relid: 1260
   schemaname: pg_catalog
   relname: pg_authid
-  seq_scan: 2766
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 43041
-  idx_scan: 66534
-  last_idx_scan: '2025-04-26T01:52:53.457640+02:00'
-  idx_tup_fetch: 54304
+  seq_scan: 4618
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 71863
+  idx_scan: 121123
+  last_idx_scan: '2025-04-26T02:09:47.255738+02:00'
+  idx_tup_fetch: 98807
   n_tup_ins: 16
   n_tup_upd: 0
   n_tup_del: 0
@@ -1351,11 +1351,11 @@ rows:
 - relid: 2612
   schemaname: pg_catalog
   relname: pg_language
-  seq_scan: 13
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 52
-  idx_scan: 18
-  last_idx_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 22
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 88
+  idx_scan: 30
+  last_idx_scan: '2025-04-26T02:03:00.224195+02:00'
   idx_tup_fetch: 0
   n_tup_ins: 0
   n_tup_upd: 0
@@ -1403,9 +1403,9 @@ rows:
 - relid: 12873
   schemaname: information_schema
   relname: sql_sizing
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 92
+  seq_scan: 6
+  last_seq_scan: '2025-04-26T02:03:00.224195+02:00'
+  seq_tup_read: 138
   idx_scan: null
   last_idx_scan: null
   idx_tup_fetch: null
@@ -1429,8 +1429,8 @@ rows:
 - relid: 6102
   schemaname: pg_catalog
   relname: pg_subscription_rel
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 7
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
   idx_scan: 0
   last_idx_scan: null
@@ -1455,8 +1455,8 @@ rows:
 - relid: 1214
   schemaname: pg_catalog
   relname: pg_shdepend
-  seq_scan: 6
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 9
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
   idx_scan: 86
   last_idx_scan: '2025-04-26T01:03:03.503435+02:00'
@@ -1559,12 +1559,12 @@ rows:
 - relid: 2615
   schemaname: pg_catalog
   relname: pg_namespace
-  seq_scan: 53222
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 115932
-  idx_scan: 15184
-  last_idx_scan: '2025-04-26T01:48:00.849080+02:00'
-  idx_tup_fetch: 5565
+  seq_scan: 88836
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 193552
+  idx_scan: 26879
+  last_idx_scan: '2025-04-26T02:06:13.783620+02:00'
+  idx_tup_fetch: 9183
   n_tup_ins: 0
   n_tup_upd: 0
   n_tup_del: 0
@@ -1588,9 +1588,9 @@ rows:
   seq_scan: 0
   last_seq_scan: null
   seq_tup_read: 0
-  idx_scan: 18
-  last_idx_scan: '2025-04-26T01:48:00.849080+02:00'
-  idx_tup_fetch: 25
+  idx_scan: 32
+  last_idx_scan: '2025-04-26T02:04:54.012056+02:00'
+  idx_tup_fetch: 44
   n_tup_ins: 0
   n_tup_upd: 0
   n_tup_del: 0
@@ -1611,12 +1611,12 @@ rows:
 - relid: 3456
   schemaname: pg_catalog
   relname: pg_collation
-  seq_scan: 28
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 7588
-  idx_scan: 7749
-  last_idx_scan: '2025-04-26T01:48:00.849080+02:00'
-  idx_tup_fetch: 3129
+  seq_scan: 49
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 13279
+  idx_scan: 13959
+  last_idx_scan: '2025-04-26T02:04:54.012056+02:00'
+  idx_tup_fetch: 5544
   n_tup_ins: 0
   n_tup_upd: 0
   n_tup_del: 0
@@ -1637,9 +1637,9 @@ rows:
 - relid: 3079
   schemaname: pg_catalog
   relname: pg_extension
-  seq_scan: 10
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 10
+  seq_scan: 20
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 20
   idx_scan: 0
   last_idx_scan: null
   idx_tup_fetch: 0
@@ -1663,8 +1663,8 @@ rows:
 - relid: 6100
   schemaname: pg_catalog
   relname: pg_subscription
-  seq_scan: 14
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 23
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
   idx_scan: 0
   last_idx_scan: null
@@ -1715,9 +1715,9 @@ rows:
 - relid: 2396
   schemaname: pg_catalog
   relname: pg_shdescription
-  seq_scan: 5
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 13
+  seq_scan: 8
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 22
   idx_scan: 2
   last_idx_scan: '2025-04-26T01:03:03.503435+02:00'
   idx_tup_fetch: 0
@@ -1741,8 +1741,8 @@ rows:
 - relid: 3256
   schemaname: pg_catalog
   relname: pg_policy
-  seq_scan: 7
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 13
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
   idx_scan: 0
   last_idx_scan: null
@@ -1767,9 +1767,9 @@ rows:
 - relid: 3600
   schemaname: pg_catalog
   relname: pg_ts_dict
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 116
+  seq_scan: 7
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 203
   idx_scan: 0
   last_idx_scan: null
   idx_tup_fetch: 0
@@ -1793,8 +1793,8 @@ rows:
 - relid: 3596
   schemaname: pg_catalog
   relname: pg_seclabel
-  seq_scan: 31
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 61
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
   idx_scan: 0
   last_idx_scan: null
@@ -1819,11 +1819,11 @@ rows:
 - relid: 2609
   schemaname: pg_catalog
   relname: pg_description
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 17732
-  idx_scan: 0
-  last_idx_scan: null
+  seq_scan: 13
+  last_seq_scan: '2025-04-26T02:09:11.693105+02:00'
+  seq_tup_read: 57629
+  idx_scan: 428
+  last_idx_scan: '2025-04-26T02:09:09.027344+02:00'
   idx_tup_fetch: 0
   n_tup_ins: 0
   n_tup_upd: 0
@@ -1845,8 +1845,8 @@ rows:
 - relid: 3466
   schemaname: pg_catalog
   relname: pg_event_trigger
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 7
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
   idx_scan: 0
   last_idx_scan: null
@@ -1897,8 +1897,8 @@ rows:
 - relid: 3592
   schemaname: pg_catalog
   relname: pg_shseclabel
-  seq_scan: 17
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 32
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
   idx_scan: 0
   last_idx_scan: null
@@ -1923,9 +1923,9 @@ rows:
 - relid: 3764
   schemaname: pg_catalog
   relname: pg_ts_template
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 20
+  seq_scan: 7
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 35
   idx_scan: 0
   last_idx_scan: null
   idx_tup_fetch: 0
@@ -1949,8 +1949,8 @@ rows:
 - relid: 6237
   schemaname: pg_catalog
   relname: pg_publication_namespace
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 7
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
   idx_scan: 0
   last_idx_scan: null
@@ -1975,9 +1975,9 @@ rows:
 - relid: 3603
   schemaname: pg_catalog
   relname: pg_ts_config_map
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 2204
+  seq_scan: 7
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 3857
   idx_scan: 0
   last_idx_scan: null
   idx_tup_fetch: 0
@@ -2001,12 +2001,12 @@ rows:
 - relid: 1213
   schemaname: pg_catalog
   relname: pg_tablespace
-  seq_scan: 13
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 26
-  idx_scan: 53
-  last_idx_scan: '2025-04-26T01:48:00.849080+02:00'
-  idx_tup_fetch: 14
+  seq_scan: 19
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 38
+  idx_scan: 102
+  last_idx_scan: '2025-04-26T02:04:54.012056+02:00'
+  idx_tup_fetch: 24
   n_tup_ins: 2
   n_tup_upd: 0
   n_tup_del: 0
@@ -2027,12 +2027,12 @@ rows:
 - relid: 2608
   schemaname: pg_catalog
   relname: pg_depend
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 6836
-  idx_scan: 9328
-  last_idx_scan: '2025-04-26T01:48:00.849080+02:00'
-  idx_tup_fetch: 165113
+  seq_scan: 7
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 11963
+  idx_scan: 16585
+  last_idx_scan: '2025-04-26T02:04:54.012056+02:00'
+  idx_tup_fetch: 296132
   n_tup_ins: 0
   n_tup_upd: 0
   n_tup_del: 0
@@ -2053,11 +2053,11 @@ rows:
 - relid: 2964
   schemaname: pg_catalog
   relname: pg_db_role_setting
-  seq_scan: 14
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 26
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
-  idx_scan: 392
-  last_idx_scan: '2025-04-26T01:52:53.457640+02:00'
+  idx_scan: 544
+  last_idx_scan: '2025-04-26T02:09:47.255738+02:00'
   idx_tup_fetch: 0
   n_tup_ins: 0
   n_tup_upd: 0
@@ -2079,8 +2079,8 @@ rows:
 - relid: 2995
   schemaname: pg_catalog
   relname: pg_largeobject_metadata
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 7
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
   idx_scan: 0
   last_idx_scan: null
@@ -2157,8 +2157,8 @@ rows:
 - relid: 6243
   schemaname: pg_catalog
   relname: pg_parameter_acl
-  seq_scan: 6
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 9
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
   idx_scan: 0
   last_idx_scan: null
@@ -2183,8 +2183,8 @@ rows:
 - relid: 1418
   schemaname: pg_catalog
   relname: pg_user_mapping
-  seq_scan: 16
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 28
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
   idx_scan: 0
   last_idx_scan: null
@@ -2209,8 +2209,8 @@ rows:
 - relid: 2613
   schemaname: pg_catalog
   relname: pg_largeobject
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 7
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
   idx_scan: 0
   last_idx_scan: null
@@ -2261,12 +2261,12 @@ rows:
 - relid: 1261
   schemaname: pg_catalog
   relname: pg_auth_members
-  seq_scan: 59
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 165
-  idx_scan: 24
-  last_idx_scan: '2025-04-26T01:48:00.849080+02:00'
-  idx_tup_fetch: 9
+  seq_scan: 113
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 327
+  idx_scan: 36
+  last_idx_scan: '2025-04-26T02:04:54.012056+02:00'
+  idx_tup_fetch: 15
   n_tup_ins: 3
   n_tup_upd: 0
   n_tup_del: 0
@@ -2287,12 +2287,12 @@ rows:
 - relid: 2616
   schemaname: pg_catalog
   relname: pg_opclass
-  seq_scan: 8
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 712
-  idx_scan: 811
-  last_idx_scan: '2025-04-26T01:52:53.457640+02:00'
-  idx_tup_fetch: 29672
+  seq_scan: 11
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 1243
+  idx_scan: 1571
+  last_idx_scan: '2025-04-26T02:09:47.255738+02:00'
+  idx_tup_fetch: 59170
   n_tup_ins: 0
   n_tup_upd: 0
   n_tup_del: 0
@@ -2313,12 +2313,12 @@ rows:
 - relid: 2617
   schemaname: pg_catalog
   relname: pg_operator
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 3196
-  idx_scan: 204
-  last_idx_scan: '2025-04-26T01:48:00.849080+02:00'
-  idx_tup_fetch: 383
+  seq_scan: 7
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 5593
+  idx_scan: 402
+  last_idx_scan: '2025-04-26T02:08:05.123193+02:00'
+  idx_tup_fetch: 821
   n_tup_ins: 0
   n_tup_upd: 0
   n_tup_del: 0
@@ -2342,9 +2342,9 @@ rows:
   seq_scan: 0
   last_seq_scan: null
   seq_tup_read: 0
-  idx_scan: 1314
-  last_idx_scan: '2025-04-26T01:48:00.849080+02:00'
-  idx_tup_fetch: 4463
+  idx_scan: 2426
+  last_idx_scan: '2025-04-26T02:04:54.012056+02:00'
+  idx_tup_fetch: 8228
   n_tup_ins: 0
   n_tup_upd: 0
   n_tup_del: 0
@@ -2417,12 +2417,12 @@ rows:
 - relid: 2610
   schemaname: pg_catalog
   relname: pg_index
-  seq_scan: 1491
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 242242
-  idx_scan: 1041
-  last_idx_scan: '2025-04-26T01:52:53.457640+02:00'
-  idx_tup_fetch: 1161
+  seq_scan: 2919
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 476434
+  idx_scan: 1774
+  last_idx_scan: '2025-04-26T02:09:47.255738+02:00'
+  idx_tup_fetch: 1957
   n_tup_ins: 0
   n_tup_upd: 0
   n_tup_del: 0
@@ -2443,12 +2443,12 @@ rows:
 - relid: 1249
   schemaname: pg_catalog
   relname: pg_attribute
-  seq_scan: 68
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 143902
-  idx_scan: 13106
-  last_idx_scan: '2025-04-26T01:52:53.457640+02:00'
-  idx_tup_fetch: 29028
+  seq_scan: 103
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 253312
+  idx_scan: 24740
+  last_idx_scan: '2025-04-26T02:09:47.255738+02:00'
+  idx_tup_fetch: 53037
   n_tup_ins: 0
   n_tup_upd: 0
   n_tup_del: 0
@@ -2469,9 +2469,9 @@ rows:
 - relid: 12858
   schemaname: information_schema
   relname: sql_features
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 3020
+  seq_scan: 6
+  last_seq_scan: '2025-04-26T02:03:00.224195+02:00'
+  seq_tup_read: 4530
   idx_scan: null
   last_idx_scan: null
   idx_tup_fetch: null
@@ -2495,12 +2495,12 @@ rows:
 - relid: 2600
   schemaname: pg_catalog
   relname: pg_aggregate
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 628
-  idx_scan: 12
-  last_idx_scan: '2025-04-26T01:48:00.849080+02:00'
-  idx_tup_fetch: 12
+  seq_scan: 7
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 1099
+  idx_scan: 24
+  last_idx_scan: '2025-04-26T02:04:54.012056+02:00'
+  idx_tup_fetch: 24
   n_tup_ins: 0
   n_tup_upd: 0
   n_tup_del: 0
@@ -2521,8 +2521,8 @@ rows:
 - relid: 3118
   schemaname: pg_catalog
   relname: pg_foreign_table
-  seq_scan: 19
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 32
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
   idx_scan: 0
   last_idx_scan: null
@@ -2547,12 +2547,12 @@ rows:
 - relid: 1259
   schemaname: pg_catalog
   relname: pg_class
-  seq_scan: 340
-  last_seq_scan: '2025-04-26T01:52:08.843210+02:00'
-  seq_tup_read: 112633
-  idx_scan: 9496
-  last_idx_scan: '2025-04-26T01:52:53.457640+02:00'
-  idx_tup_fetch: 8860
+  seq_scan: 546
+  last_seq_scan: '2025-04-26T02:09:09.149330+02:00'
+  seq_tup_read: 190092
+  idx_scan: 16956
+  last_idx_scan: '2025-04-26T02:09:47.255738+02:00'
+  idx_tup_fetch: 15761
   n_tup_ins: 0
   n_tup_upd: 0
   n_tup_del: 0
@@ -2599,8 +2599,8 @@ rows:
 - relid: 3350
   schemaname: pg_catalog
   relname: pg_partitioned_table
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
+  seq_scan: 7
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
   seq_tup_read: 0
   idx_scan: 0
   last_idx_scan: null
@@ -2625,12 +2625,12 @@ rows:
 - relid: 2618
   schemaname: pg_catalog
   relname: pg_rewrite
-  seq_scan: 7
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 1015
-  idx_scan: 1730
-  last_idx_scan: '2025-04-26T01:48:00.849080+02:00'
-  idx_tup_fetch: 1730
+  seq_scan: 13
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 1885
+  idx_scan: 3261
+  last_idx_scan: '2025-04-26T02:04:54.012056+02:00'
+  idx_tup_fetch: 3261
   n_tup_ins: 0
   n_tup_upd: 0
   n_tup_del: 0
@@ -2807,9 +2807,9 @@ rows:
 - relid: 2753
   schemaname: pg_catalog
   relname: pg_opfamily
-  seq_scan: 4
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 584
+  seq_scan: 7
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 1022
   idx_scan: 0
   last_idx_scan: null
   idx_tup_fetch: 0
@@ -2859,12 +2859,12 @@ rows:
 - relid: 1247
   schemaname: pg_catalog
   relname: pg_type
-  seq_scan: 73
-  last_seq_scan: '2025-04-26T01:48:00.849080+02:00'
-  seq_tup_read: 43193
-  idx_scan: 51714
-  last_idx_scan: '2025-04-26T01:48:00.849080+02:00'
-  idx_tup_fetch: 47842
+  seq_scan: 122
+  last_seq_scan: '2025-04-26T02:04:54.012056+02:00'
+  seq_tup_read: 72194
+  idx_scan: 88380
+  last_idx_scan: '2025-04-26T02:07:30.111227+02:00'
+  idx_tup_fetch: 80938
   n_tup_ins: 0
   n_tup_upd: 0
   n_tup_del: 0

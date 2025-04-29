@@ -26,7 +26,15 @@ pg_types:
   client_serial: numeric
   issuer_dn: text
 rows:
-- pid: 74361
+- pid: 74459
+  ssl: false
+  version: null
+  cipher: null
+  bits: null
+  client_dn: null
+  client_serial: null
+  issuer_dn: null
+- pid: 74844
   ssl: false
   version: null
   cipher: null

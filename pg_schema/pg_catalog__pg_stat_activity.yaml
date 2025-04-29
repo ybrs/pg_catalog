@@ -60,18 +60,40 @@ pg_types:
 rows:
 - datid: 5
   datname: postgres
-  pid: 74361
+  pid: 74459
+  leader_pid: null
+  usesysid: 10
+  usename: aybarsb
+  application_name: psql
+  client_addr: null
+  client_hostname: null
+  client_port: -1
+  backend_start: '2025-04-26T01:56:15.546678+02:00'
+  xact_start: null
+  query_start: '2025-04-26T02:09:11.691931+02:00'
+  state_change: '2025-04-26T02:09:11.693112+02:00'
+  wait_event_type: Client
+  wait_event: ClientRead
+  state: idle
+  backend_xid: null
+  backend_xmin: null
+  query_id: null
+  query: select * from pg_catalog.pg_description where classoid=1247;
+  backend_type: client backend
+- datid: 5
+  datname: postgres
+  pid: 74844
   leader_pid: null
   usesysid: 10
   usename: aybarsb
   application_name: ''
   client_addr: ::1
   client_hostname: null
-  client_port: 59285
-  backend_start: '2025-04-26T01:52:53.360827+02:00'
-  xact_start: '2025-04-26T01:52:53.458072+02:00'
-  query_start: '2025-04-26T01:53:01.511551+02:00'
-  state_change: '2025-04-26T01:53:01.511551+02:00'
+  client_port: 63382
+  backend_start: '2025-04-26T02:09:47.244232+02:00'
+  xact_start: '2025-04-26T02:09:47.255983+02:00'
+  query_start: '2025-04-26T02:09:55.373701+02:00'
+  state_change: '2025-04-26T02:09:55.373701+02:00'
   wait_event_type: null
   wait_event: null
   state: active

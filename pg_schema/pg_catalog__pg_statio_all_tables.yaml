@@ -44,20 +44,20 @@ rows:
   schemaname: pg_catalog
   relname: pg_statistic
   heap_blks_read: 19
-  heap_blks_hit: 1754
+  heap_blks_hit: 3116
   idx_blks_read: 4
-  idx_blks_hit: 6110
+  idx_blks_hit: 10828
   toast_blks_read: 3
-  toast_blks_hit: 96
+  toast_blks_hit: 177
   tidx_blks_read: 2
-  tidx_blks_hit: 90
+  tidx_blks_hit: 165
 - relid: 1247
   schemaname: pg_catalog
   relname: pg_type
   heap_blks_read: 17
-  heap_blks_hit: 48315
+  heap_blks_hit: 81753
   idx_blks_read: 10
-  idx_blks_hit: 103427
+  idx_blks_hit: 176767
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 0
@@ -66,9 +66,9 @@ rows:
   schemaname: pg_toast
   relname: pg_toast_1255
   heap_blks_read: 1
-  heap_blks_hit: 17
+  heap_blks_hit: 31
   idx_blks_read: 2
-  idx_blks_hit: 20
+  idx_blks_hit: 37
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -132,9 +132,9 @@ rows:
   schemaname: pg_toast
   relname: pg_toast_2619
   heap_blks_read: 3
-  heap_blks_hit: 96
+  heap_blks_hit: 177
   idx_blks_read: 2
-  idx_blks_hit: 90
+  idx_blks_hit: 165
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -165,9 +165,9 @@ rows:
   schemaname: pg_toast
   relname: pg_toast_2618
   heap_blks_read: 63
-  heap_blks_hit: 1878
+  heap_blks_hit: 3517
   idx_blks_read: 2
-  idx_blks_hit: 1316
+  idx_blks_hit: 2432
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -211,7 +211,7 @@ rows:
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 1
-  idx_blks_hit: 18
+  idx_blks_hit: 31
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 0
@@ -473,9 +473,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_authid
   heap_blks_read: 4
-  heap_blks_hit: 57141
+  heap_blks_hit: 103532
   idx_blks_read: 8
-  idx_blks_hit: 66544
+  idx_blks_hit: 121141
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 1
@@ -486,7 +486,7 @@ rows:
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 1
-  idx_blks_hit: 9
+  idx_blks_hit: 18
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 0
@@ -497,7 +497,7 @@ rows:
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 2
-  idx_blks_hit: 30
+  idx_blks_hit: 54
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 0
@@ -508,7 +508,7 @@ rows:
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 4
-  idx_blks_hit: 24
+  idx_blks_hit: 48
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 1
@@ -517,9 +517,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_attribute
   heap_blks_read: 96
-  heap_blks_hit: 16662
+  heap_blks_hit: 30692
   idx_blks_read: 27
-  idx_blks_hit: 26261
+  idx_blks_hit: 49566
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -528,20 +528,20 @@ rows:
   schemaname: pg_catalog
   relname: pg_proc
   heap_blks_read: 101
-  heap_blks_hit: 23809
+  heap_blks_hit: 41628
   idx_blks_read: 51
-  idx_blks_hit: 39576
+  idx_blks_hit: 69245
   toast_blks_read: 1
-  toast_blks_hit: 17
+  toast_blks_hit: 31
   tidx_blks_read: 2
-  tidx_blks_hit: 20
+  tidx_blks_hit: 37
 - relid: 1259
   schemaname: pg_catalog
   relname: pg_class
   heap_blks_read: 27
-  heap_blks_hit: 13771
+  heap_blks_hit: 23821
   idx_blks_read: 13
-  idx_blks_hit: 19038
+  idx_blks_hit: 33987
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -552,7 +552,7 @@ rows:
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 2
-  idx_blks_hit: 136
+  idx_blks_hit: 240
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 0
@@ -561,9 +561,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_constraint
   heap_blks_read: 4
-  heap_blks_hit: 207
+  heap_blks_hit: 378
   idx_blks_read: 8
-  idx_blks_hit: 150
+  idx_blks_hit: 281
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 0
@@ -574,7 +574,7 @@ rows:
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 2
-  idx_blks_hit: 6
+  idx_blks_hit: 12
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -583,9 +583,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_index
   heap_blks_read: 9
-  heap_blks_hit: 7006
+  heap_blks_hit: 13470
   idx_blks_read: 6
-  idx_blks_hit: 1090
+  idx_blks_hit: 1848
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -594,9 +594,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_operator
   heap_blks_read: 14
-  heap_blks_hit: 362
+  heap_blks_hit: 758
   idx_blks_read: 9
-  idx_blks_hit: 410
+  idx_blks_hit: 818
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -605,9 +605,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_opfamily
   heap_blks_read: 2
-  heap_blks_hit: 6
+  heap_blks_hit: 12
   idx_blks_read: 2
-  idx_blks_hit: 6
+  idx_blks_hit: 12
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -616,9 +616,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_opclass
   heap_blks_read: 6
-  heap_blks_hit: 8438
+  heap_blks_hit: 16769
   idx_blks_read: 6
-  idx_blks_hit: 860
+  idx_blks_hit: 1645
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -627,9 +627,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_am
   heap_blks_read: 2
-  heap_blks_hit: 57
+  heap_blks_hit: 83
   idx_blks_read: 2
-  idx_blks_hit: 6
+  idx_blks_hit: 12
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -638,9 +638,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_amop
   heap_blks_read: 7
-  heap_blks_hit: 361
+  heap_blks_hit: 696
   idx_blks_read: 8
-  idx_blks_hit: 494
+  idx_blks_hit: 955
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -649,9 +649,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_amproc
   heap_blks_read: 10
-  heap_blks_hit: 157
+  heap_blks_hit: 251
   idx_blks_read: 7
-  idx_blks_hit: 308
+  idx_blks_hit: 496
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -660,9 +660,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_language
   heap_blks_read: 2
-  heap_blks_hit: 29
+  heap_blks_hit: 50
   idx_blks_read: 3
-  idx_blks_hit: 23
+  idx_blks_hit: 41
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 0
@@ -673,7 +673,7 @@ rows:
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 1
-  idx_blks_hit: 6
+  idx_blks_hit: 12
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -682,9 +682,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_aggregate
   heap_blks_read: 2
-  heap_blks_hit: 18
+  heap_blks_hit: 36
   idx_blks_read: 2
-  idx_blks_hit: 14
+  idx_blks_hit: 29
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 0
@@ -695,7 +695,7 @@ rows:
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 3
-  idx_blks_hit: 571
+  idx_blks_hit: 1004
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 0
@@ -704,20 +704,20 @@ rows:
   schemaname: pg_catalog
   relname: pg_rewrite
   heap_blks_read: 15
-  heap_blks_hit: 1819
+  heap_blks_hit: 3440
   idx_blks_read: 4
-  idx_blks_hit: 1734
+  idx_blks_hit: 3272
   toast_blks_read: 63
-  toast_blks_hit: 1878
+  toast_blks_hit: 3517
   tidx_blks_read: 2
-  tidx_blks_hit: 1316
+  tidx_blks_hit: 2432
 - relid: 2620
   schemaname: pg_catalog
   relname: pg_trigger
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 3
-  idx_blks_hit: 90
+  idx_blks_hit: 153
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 0
@@ -728,7 +728,7 @@ rows:
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 2
-  idx_blks_hit: 12
+  idx_blks_hit: 24
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 0
@@ -736,10 +736,10 @@ rows:
 - relid: 2609
   schemaname: pg_catalog
   relname: pg_description
-  heap_blks_read: 39
-  heap_blks_hit: 117
-  idx_blks_read: 1
-  idx_blks_hit: 3
+  heap_blks_read: 40
+  heap_blks_hit: 472
+  idx_blks_read: 14
+  idx_blks_hit: 850
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 0
@@ -748,9 +748,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_cast
   heap_blks_read: 2
-  heap_blks_hit: 98
+  heap_blks_hit: 192
   idx_blks_read: 3
-  idx_blks_hit: 866
+  idx_blks_hit: 1776
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -761,7 +761,7 @@ rows:
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 3
-  idx_blks_hit: 9
+  idx_blks_hit: 18
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -770,9 +770,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_namespace
   heap_blks_read: 3
-  heap_blks_hit: 60967
+  heap_blks_hit: 101957
   idx_blks_read: 6
-  idx_blks_hit: 15187
+  idx_blks_hit: 26889
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 0
@@ -781,9 +781,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_conversion
   heap_blks_read: 2
-  heap_blks_hit: 6
+  heap_blks_hit: 12
   idx_blks_read: 3
-  idx_blks_hit: 9
+  idx_blks_hit: 18
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -792,9 +792,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_depend
   heap_blks_read: 13
-  heap_blks_hit: 58426
+  heap_blks_hit: 106004
   idx_blks_read: 10
-  idx_blks_hit: 39195
+  idx_blks_hit: 70521
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -803,9 +803,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_database
   heap_blks_read: 2
-  heap_blks_hit: 575
+  heap_blks_hit: 835
   idx_blks_read: 10
-  idx_blks_hit: 457
+  idx_blks_hit: 630
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 1
@@ -816,7 +816,7 @@ rows:
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 3
-  idx_blks_hit: 795
+  idx_blks_hit: 1111
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 1
@@ -825,9 +825,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_tablespace
   heap_blks_read: 3
-  heap_blks_hit: 67
+  heap_blks_hit: 119
   idx_blks_read: 6
-  idx_blks_hit: 59
+  idx_blks_hit: 115
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 1
@@ -836,9 +836,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_auth_members
   heap_blks_read: 1
-  heap_blks_hit: 65
+  heap_blks_hit: 121
   idx_blks_read: 9
-  idx_blks_hit: 58
+  idx_blks_hit: 82
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -849,7 +849,7 @@ rows:
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 4
-  idx_blks_hit: 178
+  idx_blks_hit: 184
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -858,9 +858,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_shdescription
   heap_blks_read: 2
-  heap_blks_hit: 15
+  heap_blks_hit: 18
   idx_blks_read: 3
-  idx_blks_hit: 7
+  idx_blks_hit: 10
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 1
@@ -869,9 +869,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_ts_config
   heap_blks_read: 1
-  heap_blks_hit: 9
+  heap_blks_hit: 18
   idx_blks_read: 4
-  idx_blks_hit: 10
+  idx_blks_hit: 22
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -880,9 +880,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_ts_config_map
   heap_blks_read: 3
-  heap_blks_hit: 9
+  heap_blks_hit: 18
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -891,9 +891,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_ts_dict
   heap_blks_read: 1
-  heap_blks_hit: 3
+  heap_blks_hit: 6
   idx_blks_read: 2
-  idx_blks_hit: 6
+  idx_blks_hit: 12
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 0
@@ -902,9 +902,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_ts_parser
   heap_blks_read: 1
-  heap_blks_hit: 3
+  heap_blks_hit: 6
   idx_blks_read: 2
-  idx_blks_hit: 6
+  idx_blks_hit: 12
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -913,9 +913,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_ts_template
   heap_blks_read: 1
-  heap_blks_hit: 3
+  heap_blks_hit: 6
   idx_blks_read: 2
-  idx_blks_hit: 6
+  idx_blks_hit: 12
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -924,9 +924,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_extension
   heap_blks_read: 1
-  heap_blks_hit: 9
+  heap_blks_hit: 19
   idx_blks_read: 2
-  idx_blks_hit: 6
+  idx_blks_hit: 14
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 0
@@ -937,7 +937,7 @@ rows:
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 2
-  idx_blks_hit: 90
+  idx_blks_hit: 152
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 0
@@ -948,7 +948,7 @@ rows:
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 2
-  idx_blks_hit: 78
+  idx_blks_hit: 134
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 0
@@ -959,7 +959,7 @@ rows:
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 2
-  idx_blks_hit: 12
+  idx_blks_hit: 24
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 0
@@ -970,7 +970,7 @@ rows:
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 4
-  idx_blks_hit: 6
+  idx_blks_hit: 12
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 1
@@ -981,7 +981,7 @@ rows:
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 2
-  idx_blks_hit: 6
+  idx_blks_hit: 12
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 0
@@ -990,9 +990,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_init_privs
   heap_blks_read: 3
-  heap_blks_hit: 9
+  heap_blks_hit: 18
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 0
@@ -1003,7 +1003,7 @@ rows:
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 1
-  idx_blks_hit: 30
+  idx_blks_hit: 60
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 0
@@ -1014,7 +1014,7 @@ rows:
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 2
-  idx_blks_hit: 15
+  idx_blks_hit: 30
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 1
@@ -1023,9 +1023,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_collation
   heap_blks_read: 6
-  heap_blks_hit: 3298
+  heap_blks_hit: 5845
   idx_blks_read: 3
-  idx_blks_hit: 7754
+  idx_blks_hit: 13970
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 0
@@ -1036,7 +1036,7 @@ rows:
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 4
-  idx_blks_hit: 6
+  idx_blks_hit: 12
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 1
@@ -1047,7 +1047,7 @@ rows:
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 0
@@ -1056,9 +1056,9 @@ rows:
   schemaname: pg_catalog
   relname: pg_range
   heap_blks_read: 1
-  heap_blks_hit: 3
+  heap_blks_hit: 6
   idx_blks_read: 4
-  idx_blks_hit: 22
+  idx_blks_hit: 45
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -1069,7 +1069,7 @@ rows:
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 2
-  idx_blks_hit: 18
+  idx_blks_hit: 32
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -1080,7 +1080,7 @@ rows:
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 1
-  idx_blks_hit: 62
+  idx_blks_hit: 109
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -1091,7 +1091,7 @@ rows:
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 2
-  idx_blks_hit: 18
+  idx_blks_hit: 36
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -1102,7 +1102,7 @@ rows:
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 2
-  idx_blks_hit: 6
+  idx_blks_hit: 12
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -1113,7 +1113,7 @@ rows:
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 3
-  idx_blks_hit: 9
+  idx_blks_hit: 18
   toast_blks_read: 0
   toast_blks_hit: 0
   tidx_blks_read: 0
@@ -1124,7 +1124,7 @@ rows:
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -1135,7 +1135,7 @@ rows:
   heap_blks_read: 0
   heap_blks_hit: 0
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
   toast_blks_read: null
   toast_blks_hit: null
   tidx_blks_read: null
@@ -1155,7 +1155,7 @@ rows:
   schemaname: information_schema
   relname: sql_parts
   heap_blks_read: 1
-  heap_blks_hit: 3
+  heap_blks_hit: 5
   idx_blks_read: null
   idx_blks_hit: null
   toast_blks_read: 0
@@ -1188,7 +1188,7 @@ rows:
   schemaname: information_schema
   relname: sql_features
   heap_blks_read: 8
-  heap_blks_hit: 24
+  heap_blks_hit: 40
   idx_blks_read: null
   idx_blks_hit: null
   toast_blks_read: 0
@@ -1210,7 +1210,7 @@ rows:
   schemaname: information_schema
   relname: sql_implementation_info
   heap_blks_read: 1
-  heap_blks_hit: 3
+  heap_blks_hit: 5
   idx_blks_read: null
   idx_blks_hit: null
   toast_blks_read: 0
@@ -1221,7 +1221,7 @@ rows:
   schemaname: information_schema
   relname: sql_sizing
   heap_blks_read: 1
-  heap_blks_hit: 3
+  heap_blks_hit: 5
   idx_blks_read: null
   idx_blks_hit: null
   toast_blks_read: 0

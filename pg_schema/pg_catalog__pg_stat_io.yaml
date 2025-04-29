@@ -83,7 +83,7 @@ rows:
 - backend_type: client backend
   object: relation
   context: normal
-  reads: 686
+  reads: 700
   read_time: 0.0
   writes: 0
   write_time: 0.0
@@ -92,7 +92,7 @@ rows:
   extends: 0
   extend_time: 0.0
   op_bytes: 8192
-  hits: 631874
+  hits: 1123145
   evictions: 0
   reuses: null
   fsyncs: 0
@@ -200,7 +200,7 @@ rows:
   extends: 10
   extend_time: 0.0
   op_bytes: 8192
-  hits: 17801
+  hits: 20861
   evictions: 0
   reuses: null
   fsyncs: 0

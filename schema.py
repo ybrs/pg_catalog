@@ -24,9 +24,10 @@ def map_pg_type(pg_type):
 def fetch_objects(conn, schema):
     with conn.cursor() as cur:
         cur.execute("""
-            SELECT c.relname, c.relkind
+            SELECT c.relname, c.relkind, d.description
             FROM pg_catalog.pg_class c
             JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
+            LEFT JOIN pg_catalog.pg_description d ON d.objoid = c.oid AND d.objsubid = 0
             WHERE n.nspname = %s
               AND c.relkind IN ('r', 'v')
         """, (schema,))
@@ -35,8 +36,10 @@ def fetch_objects(conn, schema):
 def safe_value(value):
     if isinstance(value, (int, float, bool)) or value is None:
         return value
-    if isinstance(value, (str, )):
+    if isinstance(value, str):
         return value
+    if isinstance(value, (datetime.datetime, datetime.date)):
+        return value.isoformat()
     return str(value)
 
 def fetch_table_schema_and_rows(conn, schema, table):
@@ -61,10 +64,7 @@ def fetch_table_schema_and_rows(conn, schema, table):
         for record in cur.fetchall():
             row = {}
             for key, value in zip(colnames, record):
-                if isinstance(value, (datetime.datetime, datetime.date)):
-                    row[key] = value.isoformat()
-                else:
-                    row[key] = safe_value(value)
+                row[key] = safe_value(value)
             rows.append(row)
 
         return schema_info, raw_pg_types, rows
@@ -90,7 +90,7 @@ def generate(output_dir):
         print(f"processing schema: {schema_name}")
         objects = fetch_objects(conn, schema_name)
 
-        for objname, relkind in objects:
+        for objname, relkind, description in objects:
             print(f"  processing object: {objname}")
             entry = {}
 
@@ -108,6 +108,10 @@ def generate(output_dir):
                 entry["schema"] = table_schema
                 entry["pg_types"] = raw_types
                 entry["rows"] = table_rows
+
+            if description:
+                entry["description"] = description
+                import ipdb; ipdb.set_trace()
 
             out_file = os.path.join(output_dir, f"{schema_name}__{objname}.yaml")
             with open(out_file, "w") as f:
@@ -140,6 +144,9 @@ def show(output_dir, specific_table=None):
         print(f"{schema_table}:")
         print(f"  type: {entry.get('type', 'unknown')}")
         print(f"  rows: {len(entry.get('rows', []))}")
+
+        if "description" in entry:
+            print(f"  description: {entry['description']}")
 
         if specific_table:
             print("  schema:")

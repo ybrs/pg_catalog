@@ -27,7 +27,7 @@ pg_types:
   buffers_written: int8
   stats_reset: timestamptz
 rows:
-- num_timed: 9
+- num_timed: 12
   num_requested: 1
   restartpoints_timed: 0
   restartpoints_req: 0

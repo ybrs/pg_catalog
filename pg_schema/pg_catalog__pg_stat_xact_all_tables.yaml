@@ -846,7 +846,7 @@ rows:
   relname: pg_description
   seq_scan: 1
   seq_tup_read: 4433
-  idx_scan: 0
+  idx_scan: 143
   idx_tup_fetch: 0
   n_tup_ins: 0
   n_tup_upd: 0
@@ -1182,7 +1182,7 @@ rows:
   relname: pg_class
   seq_scan: 12
   seq_tup_read: 4980
-  idx_scan: 981
+  idx_scan: 983
   idx_tup_fetch: 942
   n_tup_ins: 0
   n_tup_upd: 0

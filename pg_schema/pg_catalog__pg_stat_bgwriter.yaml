@@ -15,5 +15,5 @@ pg_types:
 rows:
 - buffers_clean: 0
   maxwritten_clean: 0
-  buffers_alloc: 1089
+  buffers_alloc: 1103
   stats_reset: '2025-04-26T01:03:02.788083+02:00'

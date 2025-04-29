@@ -26,7 +26,7 @@ rows:
   relname: pg_toast_1255
   indexrelname: pg_toast_1255_index
   idx_blks_read: 2
-  idx_blks_hit: 20
+  idx_blks_hit: 37
 - relid: 4171
   indexrelid: 4172
   schemaname: pg_toast
@@ -68,7 +68,7 @@ rows:
   relname: pg_toast_2619
   indexrelname: pg_toast_2619_index
   idx_blks_read: 2
-  idx_blks_hit: 90
+  idx_blks_hit: 165
 - relid: 3439
   indexrelid: 3440
   schemaname: pg_toast
@@ -89,7 +89,7 @@ rows:
   relname: pg_toast_2618
   indexrelname: pg_toast_2618_index
   idx_blks_read: 2
-  idx_blks_hit: 1316
+  idx_blks_hit: 2432
 - relid: 2336
   indexrelid: 2337
   schemaname: pg_toast
@@ -278,868 +278,868 @@ rows:
   relname: pg_proc
   indexrelname: pg_proc_proname_args_nsp_index
   idx_blks_read: 36
-  idx_blks_hit: 15890
+  idx_blks_hit: 28085
 - relid: 1247
   indexrelid: 2704
   schemaname: pg_catalog
   relname: pg_type
   indexrelname: pg_type_typname_nsp_index
   idx_blks_read: 3
-  idx_blks_hit: 13
+  idx_blks_hit: 29
 - relid: 1249
   indexrelid: 2658
   schemaname: pg_catalog
   relname: pg_attribute
   indexrelname: pg_attribute_relid_attnam_index
   idx_blks_read: 9
-  idx_blks_hit: 670
+  idx_blks_hit: 1123
 - relid: 1259
   indexrelid: 2663
   schemaname: pg_catalog
   relname: pg_class
   indexrelname: pg_class_relname_nsp_index
   idx_blks_read: 5
-  idx_blks_hit: 2807
+  idx_blks_hit: 5115
 - relid: 1259
   indexrelid: 3455
   schemaname: pg_catalog
   relname: pg_class
   indexrelname: pg_class_tblspc_relfilenode_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 7
 - relid: 1247
   indexrelid: 2703
   schemaname: pg_catalog
   relname: pg_type
   indexrelname: pg_type_oid_index
   idx_blks_read: 7
-  idx_blks_hit: 103414
+  idx_blks_hit: 176738
 - relid: 1249
   indexrelid: 2659
   schemaname: pg_catalog
   relname: pg_attribute
   indexrelname: pg_attribute_relid_attnum_index
   idx_blks_read: 18
-  idx_blks_hit: 25591
+  idx_blks_hit: 48443
 - relid: 2604
   indexrelid: 2656
   schemaname: pg_catalog
   relname: pg_attrdef
   indexrelname: pg_attrdef_adrelid_adnum_index
   idx_blks_read: 1
-  idx_blks_hit: 68
+  idx_blks_hit: 120
 - relid: 2606
   indexrelid: 2664
   schemaname: pg_catalog
   relname: pg_constraint
   indexrelname: pg_constraint_conname_nsp_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 2606
   indexrelid: 2665
   schemaname: pg_catalog
   relname: pg_constraint
   indexrelname: pg_constraint_conrelid_contypid_conname_index
   idx_blks_read: 2
-  idx_blks_hit: 62
+  idx_blks_hit: 117
 - relid: 2606
   indexrelid: 2666
   schemaname: pg_catalog
   relname: pg_constraint
   indexrelname: pg_constraint_contypid_index
   idx_blks_read: 2
-  idx_blks_hit: 56
+  idx_blks_hit: 105
 - relid: 2606
   indexrelid: 2579
   schemaname: pg_catalog
   relname: pg_constraint
   indexrelname: pg_constraint_conparentid_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 2611
   indexrelid: 2187
   schemaname: pg_catalog
   relname: pg_inherits
   indexrelname: pg_inherits_parent_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 2610
   indexrelid: 2678
   schemaname: pg_catalog
   relname: pg_index
   indexrelname: pg_index_indrelid_index
   idx_blks_read: 2
-  idx_blks_hit: 348
+  idx_blks_hit: 636
 - relid: 2617
   indexrelid: 2689
   schemaname: pg_catalog
   relname: pg_operator
   indexrelname: pg_operator_oprname_l_r_n_index
   idx_blks_read: 5
-  idx_blks_hit: 162
+  idx_blks_hit: 338
 - relid: 2753
   indexrelid: 2754
   schemaname: pg_catalog
   relname: pg_opfamily
   indexrelname: pg_opfamily_am_name_nsp_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 2616
   indexrelid: 2686
   schemaname: pg_catalog
   relname: pg_opclass
   indexrelname: pg_opclass_am_name_nsp_index
   idx_blks_read: 2
-  idx_blks_hit: 675
+  idx_blks_hit: 1349
 - relid: 2601
   indexrelid: 2651
   schemaname: pg_catalog
   relname: pg_am
   indexrelname: pg_am_name_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 2602
   indexrelid: 2653
   schemaname: pg_catalog
   relname: pg_amop
   indexrelname: pg_amop_fam_strat_index
   idx_blks_read: 3
-  idx_blks_hit: 255
+  idx_blks_hit: 499
 - relid: 2602
   indexrelid: 2654
   schemaname: pg_catalog
   relname: pg_amop
   indexrelname: pg_amop_opr_fam_index
   idx_blks_read: 4
-  idx_blks_hit: 236
+  idx_blks_hit: 450
 - relid: 2603
   indexrelid: 2655
   schemaname: pg_catalog
   relname: pg_amproc
   indexrelname: pg_amproc_fam_proc_index
   idx_blks_read: 6
-  idx_blks_hit: 305
+  idx_blks_hit: 490
 - relid: 2612
   indexrelid: 2681
   schemaname: pg_catalog
   relname: pg_language
   indexrelname: pg_language_name_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 3381
   indexrelid: 3997
   schemaname: pg_catalog
   relname: pg_statistic_ext
   indexrelname: pg_statistic_ext_name_index
   idx_blks_read: 1
-  idx_blks_hit: 9
+  idx_blks_hit: 18
 - relid: 3381
   indexrelid: 3379
   schemaname: pg_catalog
   relname: pg_statistic_ext
   indexrelname: pg_statistic_ext_relid_index
   idx_blks_read: 1
-  idx_blks_hit: 553
+  idx_blks_hit: 968
 - relid: 2618
   indexrelid: 2693
   schemaname: pg_catalog
   relname: pg_rewrite
   indexrelname: pg_rewrite_rel_rulename_index
   idx_blks_read: 2
-  idx_blks_hit: 1726
+  idx_blks_hit: 3255
 - relid: 2620
   indexrelid: 2699
   schemaname: pg_catalog
   relname: pg_trigger
   indexrelname: pg_trigger_tgconstraint_index
   idx_blks_read: 1
-  idx_blks_hit: 30
+  idx_blks_hit: 51
 - relid: 2620
   indexrelid: 2701
   schemaname: pg_catalog
   relname: pg_trigger
   indexrelname: pg_trigger_tgrelid_tgname_index
   idx_blks_read: 1
-  idx_blks_hit: 30
+  idx_blks_hit: 51
 - relid: 3466
   indexrelid: 3467
   schemaname: pg_catalog
   relname: pg_event_trigger
   indexrelname: pg_event_trigger_evtname_index
   idx_blks_read: 1
-  idx_blks_hit: 6
+  idx_blks_hit: 12
 - relid: 2605
   indexrelid: 2661
   schemaname: pg_catalog
   relname: pg_cast
   indexrelname: pg_cast_source_target_index
   idx_blks_read: 2
-  idx_blks_hit: 863
+  idx_blks_hit: 1770
 - relid: 2611
   indexrelid: 2680
   schemaname: pg_catalog
   relname: pg_inherits
   indexrelname: pg_inherits_relid_seqno_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 2610
   indexrelid: 2679
   schemaname: pg_catalog
   relname: pg_index
   indexrelname: pg_index_indexrelid_index
   idx_blks_read: 4
-  idx_blks_hit: 742
+  idx_blks_hit: 1212
 - relid: 2617
   indexrelid: 2688
   schemaname: pg_catalog
   relname: pg_operator
   indexrelname: pg_operator_oid_index
   idx_blks_read: 4
-  idx_blks_hit: 248
+  idx_blks_hit: 480
 - relid: 2753
   indexrelid: 2755
   schemaname: pg_catalog
   relname: pg_opfamily
   indexrelname: pg_opfamily_oid_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 2616
   indexrelid: 2687
   schemaname: pg_catalog
   relname: pg_opclass
   indexrelname: pg_opclass_oid_index
   idx_blks_read: 4
-  idx_blks_hit: 185
+  idx_blks_hit: 296
 - relid: 2601
   indexrelid: 2652
   schemaname: pg_catalog
   relname: pg_am
   indexrelname: pg_am_oid_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 2602
   indexrelid: 2756
   schemaname: pg_catalog
   relname: pg_amop
   indexrelname: pg_amop_oid_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 2603
   indexrelid: 2757
   schemaname: pg_catalog
   relname: pg_amproc
   indexrelname: pg_amproc_oid_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 2612
   indexrelid: 2682
   schemaname: pg_catalog
   relname: pg_language
   indexrelname: pg_language_oid_index
   idx_blks_read: 2
-  idx_blks_hit: 20
+  idx_blks_hit: 35
 - relid: 2995
   indexrelid: 2996
   schemaname: pg_catalog
   relname: pg_largeobject_metadata
   indexrelname: pg_largeobject_metadata_oid_index
   idx_blks_read: 1
-  idx_blks_hit: 6
+  idx_blks_hit: 12
 - relid: 2613
   indexrelid: 2683
   schemaname: pg_catalog
   relname: pg_largeobject
   indexrelname: pg_largeobject_loid_pn_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 2600
   indexrelid: 2650
   schemaname: pg_catalog
   relname: pg_aggregate
   indexrelname: pg_aggregate_fnoid_index
   idx_blks_read: 2
-  idx_blks_hit: 14
+  idx_blks_hit: 29
 - relid: 2619
   indexrelid: 2696
   schemaname: pg_catalog
   relname: pg_statistic
   indexrelname: pg_statistic_relid_att_inh_index
   idx_blks_read: 4
-  idx_blks_hit: 6110
+  idx_blks_hit: 10828
 - relid: 3381
   indexrelid: 3380
   schemaname: pg_catalog
   relname: pg_statistic_ext
   indexrelname: pg_statistic_ext_oid_index
   idx_blks_read: 1
-  idx_blks_hit: 9
+  idx_blks_hit: 18
 - relid: 3429
   indexrelid: 3433
   schemaname: pg_catalog
   relname: pg_statistic_ext_data
   indexrelname: pg_statistic_ext_data_stxoid_inh_index
   idx_blks_read: 1
-  idx_blks_hit: 9
+  idx_blks_hit: 18
 - relid: 2618
   indexrelid: 2692
   schemaname: pg_catalog
   relname: pg_rewrite
   indexrelname: pg_rewrite_oid_index
   idx_blks_read: 2
-  idx_blks_hit: 8
+  idx_blks_hit: 17
 - relid: 2620
   indexrelid: 2702
   schemaname: pg_catalog
   relname: pg_trigger
   indexrelname: pg_trigger_oid_index
   idx_blks_read: 1
-  idx_blks_hit: 30
+  idx_blks_hit: 51
 - relid: 3466
   indexrelid: 3468
   schemaname: pg_catalog
   relname: pg_event_trigger
   indexrelname: pg_event_trigger_oid_index
   idx_blks_read: 1
-  idx_blks_hit: 6
+  idx_blks_hit: 12
 - relid: 2609
   indexrelid: 2675
   schemaname: pg_catalog
   relname: pg_description
   indexrelname: pg_description_o_c_o_index
-  idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_read: 14
+  idx_blks_hit: 850
 - relid: 2605
   indexrelid: 2660
   schemaname: pg_catalog
   relname: pg_cast
   indexrelname: pg_cast_oid_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 3501
   indexrelid: 3502
   schemaname: pg_catalog
   relname: pg_enum
   indexrelname: pg_enum_oid_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 3501
   indexrelid: 3503
   schemaname: pg_catalog
   relname: pg_enum
   indexrelname: pg_enum_typid_label_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 3501
   indexrelid: 3534
   schemaname: pg_catalog
   relname: pg_enum
   indexrelname: pg_enum_typid_sortorder_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 2615
   indexrelid: 2684
   schemaname: pg_catalog
   relname: pg_namespace
   indexrelname: pg_namespace_nspname_index
   idx_blks_read: 4
-  idx_blks_hit: 73
+  idx_blks_hit: 146
 - relid: 2607
   indexrelid: 2668
   schemaname: pg_catalog
   relname: pg_conversion
   indexrelname: pg_conversion_default_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 2607
   indexrelid: 2669
   schemaname: pg_catalog
   relname: pg_conversion
   indexrelname: pg_conversion_name_nsp_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 2608
   indexrelid: 2673
   schemaname: pg_catalog
   relname: pg_depend
   indexrelname: pg_depend_depender_index
   idx_blks_read: 4
-  idx_blks_hit: 4950
+  idx_blks_hit: 8255
 - relid: 2608
   indexrelid: 2674
   schemaname: pg_catalog
   relname: pg_depend
   indexrelname: pg_depend_reference_index
   idx_blks_read: 6
-  idx_blks_hit: 34245
+  idx_blks_hit: 62266
 - relid: 1262
   indexrelid: 2671
   schemaname: pg_catalog
   relname: pg_database
   indexrelname: pg_database_datname_index
   idx_blks_read: 4
-  idx_blks_hit: 21
+  idx_blks_hit: 29
 - relid: 1213
   indexrelid: 2698
   schemaname: pg_catalog
   relname: pg_tablespace
   indexrelname: pg_tablespace_spcname_index
   idx_blks_read: 2
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 1260
   indexrelid: 2676
   schemaname: pg_catalog
   relname: pg_authid
   indexrelname: pg_authid_rolname_index
   idx_blks_read: 4
-  idx_blks_hit: 17
+  idx_blks_hit: 25
 - relid: 1261
   indexrelid: 2694
   schemaname: pg_catalog
   relname: pg_auth_members
   indexrelname: pg_auth_members_role_member_index
   idx_blks_read: 2
-  idx_blks_hit: 12
+  idx_blks_hit: 15
 - relid: 1261
   indexrelid: 2695
   schemaname: pg_catalog
   relname: pg_auth_members
   indexrelname: pg_auth_members_member_role_index
   idx_blks_read: 3
-  idx_blks_hit: 26
+  idx_blks_hit: 41
 - relid: 1261
   indexrelid: 6302
   schemaname: pg_catalog
   relname: pg_auth_members
   indexrelname: pg_auth_members_grantor_index
   idx_blks_read: 2
-  idx_blks_hit: 8
+  idx_blks_hit: 11
 - relid: 1214
   indexrelid: 1232
   schemaname: pg_catalog
   relname: pg_shdepend
   indexrelname: pg_shdepend_depender_index
   idx_blks_read: 2
-  idx_blks_hit: 175
+  idx_blks_hit: 178
 - relid: 1214
   indexrelid: 1233
   schemaname: pg_catalog
   relname: pg_shdepend
   indexrelname: pg_shdepend_reference_index
   idx_blks_read: 2
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 3602
   indexrelid: 3608
   schemaname: pg_catalog
   relname: pg_ts_config
   indexrelname: pg_ts_config_cfgname_index
   idx_blks_read: 2
-  idx_blks_hit: 5
+  idx_blks_hit: 11
 - relid: 3600
   indexrelid: 3604
   schemaname: pg_catalog
   relname: pg_ts_dict
   indexrelname: pg_ts_dict_dictname_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 3601
   indexrelid: 3606
   schemaname: pg_catalog
   relname: pg_ts_parser
   indexrelname: pg_ts_parser_prsname_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 3764
   indexrelid: 3766
   schemaname: pg_catalog
   relname: pg_ts_template
   indexrelname: pg_ts_template_tmplname_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 3079
   indexrelid: 3081
   schemaname: pg_catalog
   relname: pg_extension
   indexrelname: pg_extension_name_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 7
 - relid: 2328
   indexrelid: 548
   schemaname: pg_catalog
   relname: pg_foreign_data_wrapper
   indexrelname: pg_foreign_data_wrapper_name_index
   idx_blks_read: 1
-  idx_blks_hit: 45
+  idx_blks_hit: 76
 - relid: 1417
   indexrelid: 549
   schemaname: pg_catalog
   relname: pg_foreign_server
   indexrelname: pg_foreign_server_name_index
   idx_blks_read: 1
-  idx_blks_hit: 39
+  idx_blks_hit: 67
 - relid: 1418
   indexrelid: 175
   schemaname: pg_catalog
   relname: pg_user_mapping
   indexrelname: pg_user_mapping_user_server_index
   idx_blks_read: 1
-  idx_blks_hit: 15
+  idx_blks_hit: 27
 - relid: 3256
   indexrelid: 3258
   schemaname: pg_catalog
   relname: pg_policy
   indexrelname: pg_policy_polrelid_polname_index
   idx_blks_read: 1
-  idx_blks_hit: 6
+  idx_blks_hit: 12
 - relid: 6000
   indexrelid: 6002
   schemaname: pg_catalog
   relname: pg_replication_origin
   indexrelname: pg_replication_origin_roname_index
   idx_blks_read: 2
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 2607
   indexrelid: 2670
   schemaname: pg_catalog
   relname: pg_conversion
   indexrelname: pg_conversion_oid_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 1262
   indexrelid: 2672
   schemaname: pg_catalog
   relname: pg_database
   indexrelname: pg_database_oid_index
   idx_blks_read: 6
-  idx_blks_hit: 436
+  idx_blks_hit: 601
 - relid: 2964
   indexrelid: 2965
   schemaname: pg_catalog
   relname: pg_db_role_setting
   indexrelname: pg_db_role_setting_databaseid_rol_index
   idx_blks_read: 3
-  idx_blks_hit: 795
+  idx_blks_hit: 1111
 - relid: 1213
   indexrelid: 2697
   schemaname: pg_catalog
   relname: pg_tablespace
   indexrelname: pg_tablespace_oid_index
   idx_blks_read: 4
-  idx_blks_hit: 56
+  idx_blks_hit: 109
 - relid: 1260
   indexrelid: 2677
   schemaname: pg_catalog
   relname: pg_authid
   indexrelname: pg_authid_oid_index
   idx_blks_read: 4
-  idx_blks_hit: 66527
+  idx_blks_hit: 121116
 - relid: 1261
   indexrelid: 6303
   schemaname: pg_catalog
   relname: pg_auth_members
   indexrelname: pg_auth_members_oid_index
   idx_blks_read: 2
-  idx_blks_hit: 12
+  idx_blks_hit: 15
 - relid: 2396
   indexrelid: 2397
   schemaname: pg_catalog
   relname: pg_shdescription
   indexrelname: pg_shdescription_o_c_index
   idx_blks_read: 3
-  idx_blks_hit: 7
+  idx_blks_hit: 10
 - relid: 3602
   indexrelid: 3712
   schemaname: pg_catalog
   relname: pg_ts_config
   indexrelname: pg_ts_config_oid_index
   idx_blks_read: 2
-  idx_blks_hit: 5
+  idx_blks_hit: 11
 - relid: 3603
   indexrelid: 3609
   schemaname: pg_catalog
   relname: pg_ts_config_map
   indexrelname: pg_ts_config_map_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 3600
   indexrelid: 3605
   schemaname: pg_catalog
   relname: pg_ts_dict
   indexrelname: pg_ts_dict_oid_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 3601
   indexrelid: 3607
   schemaname: pg_catalog
   relname: pg_ts_parser
   indexrelname: pg_ts_parser_oid_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 3764
   indexrelid: 3767
   schemaname: pg_catalog
   relname: pg_ts_template
   indexrelname: pg_ts_template_oid_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 3079
   indexrelid: 3080
   schemaname: pg_catalog
   relname: pg_extension
   indexrelname: pg_extension_oid_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 7
 - relid: 2328
   indexrelid: 112
   schemaname: pg_catalog
   relname: pg_foreign_data_wrapper
   indexrelname: pg_foreign_data_wrapper_oid_index
   idx_blks_read: 1
-  idx_blks_hit: 45
+  idx_blks_hit: 76
 - relid: 1417
   indexrelid: 113
   schemaname: pg_catalog
   relname: pg_foreign_server
   indexrelname: pg_foreign_server_oid_index
   idx_blks_read: 1
-  idx_blks_hit: 39
+  idx_blks_hit: 67
 - relid: 1418
   indexrelid: 174
   schemaname: pg_catalog
   relname: pg_user_mapping
   indexrelname: pg_user_mapping_oid_index
   idx_blks_read: 1
-  idx_blks_hit: 15
+  idx_blks_hit: 27
 - relid: 3118
   indexrelid: 3119
   schemaname: pg_catalog
   relname: pg_foreign_table
   indexrelname: pg_foreign_table_relid_index
   idx_blks_read: 1
-  idx_blks_hit: 18
+  idx_blks_hit: 31
 - relid: 3256
   indexrelid: 3257
   schemaname: pg_catalog
   relname: pg_policy
   indexrelname: pg_policy_oid_index
   idx_blks_read: 1
-  idx_blks_hit: 6
+  idx_blks_hit: 12
 - relid: 6000
   indexrelid: 6001
   schemaname: pg_catalog
   relname: pg_replication_origin
   indexrelname: pg_replication_origin_roiident_index
   idx_blks_read: 2
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 826
   indexrelid: 827
   schemaname: pg_catalog
   relname: pg_default_acl
   indexrelname: pg_default_acl_role_nsp_obj_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 3456
   indexrelid: 3164
   schemaname: pg_catalog
   relname: pg_collation
   indexrelname: pg_collation_name_enc_nsp_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 6243
   indexrelid: 6246
   schemaname: pg_catalog
   relname: pg_parameter_acl
   indexrelname: pg_parameter_acl_parname_index
   idx_blks_read: 2
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 3541
   indexrelid: 2228
   schemaname: pg_catalog
   relname: pg_range
   indexrelname: pg_range_rngmultitypid_index
   idx_blks_read: 2
-  idx_blks_hit: 17
+  idx_blks_hit: 34
 - relid: 3576
   indexrelid: 3575
   schemaname: pg_catalog
   relname: pg_transform
   indexrelname: pg_transform_type_lang_index
   idx_blks_read: 1
-  idx_blks_hit: 9
+  idx_blks_hit: 16
 - relid: 6104
   indexrelid: 6111
   schemaname: pg_catalog
   relname: pg_publication
   indexrelname: pg_publication_pubname_index
   idx_blks_read: 1
-  idx_blks_hit: 9
+  idx_blks_hit: 18
 - relid: 6237
   indexrelid: 6239
   schemaname: pg_catalog
   relname: pg_publication_namespace
   indexrelname: pg_publication_namespace_pnnspid_pnpubid_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 6106
   indexrelid: 6113
   schemaname: pg_catalog
   relname: pg_publication_rel
   indexrelname: pg_publication_rel_prrelid_prpubid_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 6106
   indexrelid: 6116
   schemaname: pg_catalog
   relname: pg_publication_rel
   indexrelname: pg_publication_rel_prpubid_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 6100
   indexrelid: 6115
   schemaname: pg_catalog
   relname: pg_subscription
   indexrelname: pg_subscription_subname_index
   idx_blks_read: 2
-  idx_blks_hit: 12
+  idx_blks_hit: 24
 - relid: 1255
   indexrelid: 2690
   schemaname: pg_catalog
   relname: pg_proc
   indexrelname: pg_proc_oid_index
   idx_blks_read: 15
-  idx_blks_hit: 23686
+  idx_blks_hit: 41160
 - relid: 1259
   indexrelid: 2662
   schemaname: pg_catalog
   relname: pg_class
   indexrelname: pg_class_oid_index
   idx_blks_read: 7
-  idx_blks_hit: 16228
+  idx_blks_hit: 28865
 - relid: 2604
   indexrelid: 2657
   schemaname: pg_catalog
   relname: pg_attrdef
   indexrelname: pg_attrdef_oid_index
   idx_blks_read: 1
-  idx_blks_hit: 68
+  idx_blks_hit: 120
 - relid: 2606
   indexrelid: 2667
   schemaname: pg_catalog
   relname: pg_constraint
   indexrelname: pg_constraint_oid_index
   idx_blks_read: 2
-  idx_blks_hit: 26
+  idx_blks_hit: 47
 - relid: 2615
   indexrelid: 2685
   schemaname: pg_catalog
   relname: pg_namespace
   indexrelname: pg_namespace_oid_index
   idx_blks_read: 2
-  idx_blks_hit: 15114
+  idx_blks_hit: 26743
 - relid: 826
   indexrelid: 828
   schemaname: pg_catalog
   relname: pg_default_acl
   indexrelname: pg_default_acl_oid_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 3394
   indexrelid: 3395
   schemaname: pg_catalog
   relname: pg_init_privs
   indexrelname: pg_init_privs_o_c_o_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 3596
   indexrelid: 3597
   schemaname: pg_catalog
   relname: pg_seclabel
   indexrelname: pg_seclabel_object_index
   idx_blks_read: 1
-  idx_blks_hit: 30
+  idx_blks_hit: 60
 - relid: 3592
   indexrelid: 3593
   schemaname: pg_catalog
   relname: pg_shseclabel
   indexrelname: pg_shseclabel_object_index
   idx_blks_read: 2
-  idx_blks_hit: 15
+  idx_blks_hit: 30
 - relid: 3456
   indexrelid: 3085
   schemaname: pg_catalog
   relname: pg_collation
   indexrelname: pg_collation_oid_index
   idx_blks_read: 2
-  idx_blks_hit: 7751
+  idx_blks_hit: 13964
 - relid: 6243
   indexrelid: 6247
   schemaname: pg_catalog
   relname: pg_parameter_acl
   indexrelname: pg_parameter_acl_oid_index
   idx_blks_read: 2
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 3350
   indexrelid: 3351
   schemaname: pg_catalog
   relname: pg_partitioned_table
   indexrelname: pg_partitioned_table_partrelid_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 3541
   indexrelid: 3542
   schemaname: pg_catalog
   relname: pg_range
   indexrelname: pg_range_rngtypid_index
   idx_blks_read: 2
-  idx_blks_hit: 5
+  idx_blks_hit: 11
 - relid: 3576
   indexrelid: 3574
   schemaname: pg_catalog
   relname: pg_transform
   indexrelname: pg_transform_oid_index
   idx_blks_read: 1
-  idx_blks_hit: 9
+  idx_blks_hit: 16
 - relid: 2224
   indexrelid: 5002
   schemaname: pg_catalog
   relname: pg_sequence
   indexrelname: pg_sequence_seqrelid_index
   idx_blks_read: 1
-  idx_blks_hit: 62
+  idx_blks_hit: 109
 - relid: 6104
   indexrelid: 6110
   schemaname: pg_catalog
   relname: pg_publication
   indexrelname: pg_publication_oid_index
   idx_blks_read: 1
-  idx_blks_hit: 9
+  idx_blks_hit: 18
 - relid: 6237
   indexrelid: 6238
   schemaname: pg_catalog
   relname: pg_publication_namespace
   indexrelname: pg_publication_namespace_oid_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 6106
   indexrelid: 6112
   schemaname: pg_catalog
   relname: pg_publication_rel
   indexrelname: pg_publication_rel_oid_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 6100
   indexrelid: 6114
   schemaname: pg_catalog
   relname: pg_subscription
   indexrelname: pg_subscription_oid_index
   idx_blks_read: 2
-  idx_blks_hit: 12
+  idx_blks_hit: 24
 - relid: 6102
   indexrelid: 6117
   schemaname: pg_catalog
   relname: pg_subscription_rel
   indexrelname: pg_subscription_rel_srrelid_srsubid_index
   idx_blks_read: 1
-  idx_blks_hit: 3
+  idx_blks_hit: 6
 - relid: 12861
   indexrelid: 12862
   schemaname: pg_toast

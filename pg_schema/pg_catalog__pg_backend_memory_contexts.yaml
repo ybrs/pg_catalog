@@ -30,9 +30,9 @@ rows:
   level: 0
   total_bytes: 97792
   total_nblocks: 5
-  free_bytes: 5640
+  free_bytes: 5368
   free_chunks: 8
-  used_bytes: 92152
+  used_bytes: 92424
 - name: Record information cache
   ident: null
   parent: TopMemoryContext
@@ -147,18 +147,18 @@ rows:
   level: 1
   total_bytes: 8192
   total_nblocks: 4
-  free_bytes: 2432
+  free_bytes: 2288
   free_chunks: 5
-  used_bytes: 5760
+  used_bytes: 5904
 - name: PgStat Pending
   ident: null
   parent: TopMemoryContext
   level: 1
   total_bytes: 24576
   total_nblocks: 6
-  free_bytes: 6184
+  free_bytes: 5656
   free_chunks: 13
-  used_bytes: 18392
+  used_bytes: 18920
 - name: TransactionAbortContext
   ident: null
   parent: TopMemoryContext
@@ -237,18 +237,18 @@ rows:
   level: 1
   total_bytes: 16384
   total_nblocks: 2
-  free_bytes: 3608
+  free_bytes: 2576
   free_chunks: 3
-  used_bytes: 12776
+  used_bytes: 13808
 - name: CacheMemoryContext
   ident: null
   parent: TopMemoryContext
   level: 1
   total_bytes: 4243600
   total_nblocks: 13
-  free_bytes: 2057776
+  free_bytes: 2041952
   free_chunks: 6
-  used_bytes: 2185824
+  used_bytes: 2201648
 - name: CachedPlan
   ident: "\n            SELECT column_name, udt_name\n            FROM information_schema.columns\n\
     \            WHERE table_schema = $1 AND table_name = $2\n            ORDER BY\
@@ -398,15 +398,6 @@ rows:
   free_chunks: 0
   used_bytes: 400
 - name: index info
-  ident: pg_toast_2619_index
-  parent: CacheMemoryContext
-  level: 2
-  total_bytes: 2048
-  total_nblocks: 2
-  free_bytes: 640
-  free_chunks: 2
-  used_bytes: 1408
-- name: index info
   ident: pg_depend_reference_index
   parent: CacheMemoryContext
   level: 2
@@ -487,6 +478,24 @@ rows:
   free_bytes: 7400
   free_chunks: 3
   used_bytes: 197784
+- name: index info
+  ident: pg_toast_2619_index
+  parent: CacheMemoryContext
+  level: 2
+  total_bytes: 2048
+  total_nblocks: 2
+  free_bytes: 640
+  free_chunks: 2
+  used_bytes: 1408
+- name: index info
+  ident: pg_description_o_c_o_index
+  parent: CacheMemoryContext
+  level: 2
+  total_bytes: 3072
+  total_nblocks: 2
+  free_bytes: 1112
+  free_chunks: 1
+  used_bytes: 1960
 - name: index info
   ident: pg_statistic_ext_relid_index
   parent: CacheMemoryContext
@@ -1303,9 +1312,9 @@ rows:
   level: 1
   total_bytes: 8192
   total_nblocks: 1
-  free_bytes: 7248
+  free_bytes: 7200
   free_chunks: 0
-  used_bytes: 944
+  used_bytes: 992
 - name: LOCALLOCK hash
   ident: null
   parent: TopMemoryContext
