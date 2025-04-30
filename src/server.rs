@@ -17,7 +17,7 @@ use pgwire::messages::data::DataRow;
 use pgwire::tokio::process_socket;
 use tokio::net::{TcpListener};
 
-use arrow::array::{BooleanArray, Int32Array, Int64Array, StringArray};
+use arrow::array::{BooleanArray, Int32Array, Int64Array, LargeStringArray, StringArray, StringViewArray};
 use arrow::record_batch::RecordBatch;
 use datafusion::execution::context::SessionContext;
 
@@ -123,12 +123,25 @@ fn batch_to_row_stream(batch: &RecordBatch, schema: Arc<Vec<FieldInfo>>) -> impl
     for row_idx in 0..batch.num_rows() {
         let mut encoder = DataRowEncoder::new(schema.clone());
         for col in batch.columns() {
+
+            // if row_idx == 0 {
+            //     println!("col {:?} type {:?}", col, col.data_type());
+            // }
+
             if col.is_null(row_idx) {
                 encoder.encode_field::<Option<&str>>(&None).unwrap();
             } else {
                 let value = match col.data_type() {
                     arrow::datatypes::DataType::Utf8 => {
                         let array = col.as_any().downcast_ref::<StringArray>().unwrap();
+                        Some(array.value(row_idx).to_string())
+                    }
+                    arrow::datatypes::DataType::Utf8View => {
+                        let array = col.as_any().downcast_ref::<StringViewArray>().unwrap();
+                        Some(array.value(row_idx).to_string())
+                    }
+                    arrow::datatypes::DataType::LargeUtf8 => {
+                        let array = col.as_any().downcast_ref::<LargeStringArray>().unwrap();
                         Some(array.value(row_idx).to_string())
                     }
                     arrow::datatypes::DataType::Int32 => {
@@ -143,7 +156,7 @@ fn batch_to_row_stream(batch: &RecordBatch, schema: Arc<Vec<FieldInfo>>) -> impl
                         let array = col.as_any().downcast_ref::<BooleanArray>().unwrap();
                         Some(array.value(row_idx).to_string())
                     }
-                    _ => Some("[unsupported]".to_string()),
+                    _ => Some(format!("[unsupported {}]", col.data_type())),
                 };
                 encoder.encode_field(&value).unwrap();
             }

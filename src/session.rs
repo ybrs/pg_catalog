@@ -25,7 +25,7 @@ use datafusion::config::ConfigField;
 use datafusion::prelude::create_udf;
 use pgwire::api::Type;
 use crate::clean_duplicate_columns::alias_all_columns;
-use crate::replace::{create_regclass_udf, replace_regclass};
+use crate::replace::{regclass_udfs, replace_regclass};
 
 #[derive(Debug, Deserialize)]
 struct TableDef {
@@ -47,76 +47,6 @@ fn map_pg_type(pg_type: &str) -> DataType {
         _ => DataType::Utf8,
     }
 }
-
-// fn parse_schema(yaml_path: &str) -> HashMap<String, HashMap<String, HashMap<String, (SchemaRef, Vec<RecordBatch>)>>> {
-//     let contents = fs::read_to_string(yaml_path).expect("Failed to read schema.yaml");
-//     let parsed: YamlSchema = serde_yaml::from_str(&contents).expect("Invalid YAML schema");
-//
-//     parsed.0.into_iter().map(|(catalog_name, schemas)| {
-//         let schemas = schemas.into_iter().map(|(schema_name, tables)| {
-//             let tables = tables.into_iter().map(|(table_name, def)| {
-//                 let fields: Vec<Field> = def.schema.iter()
-//                     .map(|(col, typ)| Field::new(col, map_pg_type(typ), true))
-//                     .collect();
-//
-//                 let schema_ref = Arc::new(Schema::new(fields.clone()));
-//
-//                 let record_batch = if let Some(rows) = def.rows {
-//                     let mut cols: Vec<Vec<serde_json::Value>> = vec![vec![]; fields.len()];
-//                     for row in rows {
-//                         for (i, field) in fields.iter().enumerate() {
-//                             cols[i].push(row.get(field.name()).cloned().unwrap_or(serde_json::Value::Null));
-//                         }
-//                     }
-//
-//                     let arrays = fields.iter().zip(cols.into_iter())
-//                         .map(|(field, col_data)| {
-//                             use arrow::array::*;
-//                             use arrow::datatypes::DataType;
-//
-//                             let array: ArrayRef = match field.data_type() {
-//                                 DataType::Utf8 => Arc::new(StringArray::from(
-//                                     col_data.into_iter()
-//                                         .map(|v| v.as_str().map(|s| s.to_string()))
-//                                         .collect::<Vec<_>>()
-//                                 )),
-//                                 DataType::Int32 => Arc::new(Int32Array::from(
-//                                     col_data.into_iter()
-//                                         .map(|v| v.as_i64().map(|i| i as i32))
-//                                         .collect::<Vec<_>>()
-//                                 )),
-//                                 DataType::Int64 => Arc::new(Int64Array::from(
-//                                     col_data.into_iter()
-//                                         .map(|v| v.as_i64())
-//                                         .collect::<Vec<_>>()
-//                                 )),
-//                                 DataType::Boolean => Arc::new(BooleanArray::from(
-//                                     col_data.into_iter()
-//                                         .map(|v| v.as_bool())
-//                                         .collect::<Vec<_>>()
-//                                 )),
-//                                 _ => Arc::new(StringArray::from(
-//                                     col_data.into_iter()
-//                                         .map(|v| Some(v.to_string()))
-//                                         .collect::<Vec<_>>()
-//                                 )),
-//                             };
-//                             array
-//                         })
-//                         .collect::<Vec<_>>();
-//
-//                     vec![RecordBatch::try_new(schema_ref.clone(), arrays).unwrap()]
-//                 } else {
-//                     vec![RecordBatch::new_empty(schema_ref.clone())]
-//                 };
-//
-//                 (table_name, (schema_ref, record_batch))
-//             }).collect();
-//             (schema_name, tables)
-//         }).collect();
-//         (catalog_name, schemas)
-//     }).collect()
-// }
 
 #[derive(Debug, Clone)]
 pub struct ScanTrace {
@@ -420,16 +350,6 @@ fn build_table(def: TableDef) -> (SchemaRef, Vec<RecordBatch>) {
     (schema_ref, record_batches)
 }
 
-
-
-
-
-
-
-
-
-
-
 pub fn get_session_context(schema_path: &String, default_catalog:String, default_schema:String) -> datafusion::error::Result<(SessionContext, Arc<Mutex<Vec<ScanTrace>>>)> {
     let log: Arc<Mutex<Vec<ScanTrace>>> = Arc::new(Mutex::new(Vec::new()));
 
@@ -457,7 +377,13 @@ pub fn get_session_context(schema_path: &String, default_catalog:String, default
         }
     }
 
-    ctx.register_udf(create_regclass_udf());
+
+    for f in regclass_udfs(&ctx) {
+        ctx.register_udf(f);
+    }
+
+
+    // ctx.register_udf(create_regclass_udf(&ctx));
     Ok((ctx, log))
 }
 
