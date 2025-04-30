@@ -2,6 +2,7 @@ mod session;
 mod replace;
 mod clean_duplicate_columns;
 mod server;
+mod user_functions;
 
 use std::env;
 use std::sync::Arc;
