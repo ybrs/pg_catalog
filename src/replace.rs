@@ -109,7 +109,7 @@ pub fn replace_regclass(sql: &str) -> String {
                             if let Expr::Value(ValueWithSpan { value: Value::SingleQuotedString(s), .. }) =
                                 &**inner
                             {
-                                *expr = make_fn("regclass_oid", s);
+                                *expr = make_fn("oid", s);
                             }
                         }
                         // Handle inner regclass('text') if it already got rewritten
@@ -123,7 +123,7 @@ pub fn replace_regclass(sql: &str) -> String {
                                                                                      }),
                                                                      ))) = list.args.get(0)
                                     {
-                                        *expr = make_fn("regclass_oid", s);
+                                        *expr = make_fn("oid", s);
                                     }
                                 }
                             }

@@ -1411,6 +1411,7 @@ dependencies = [
  "chrono",
  "datafusion",
  "futures",
+ "log",
  "pgwire",
  "regex",
  "serde",

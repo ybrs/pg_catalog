@@ -97,7 +97,7 @@ pub fn register_scalar_regclass_oid(ctx: &SessionContext) -> Result<()> {
             ColumnarValue::Scalar(ScalarValue::Utf8(None)) => {
                 return Ok(ColumnarValue::Scalar(ScalarValue::Int64(None)))
             }
-            _ => return plan_err!("regclass_oid expects text"),
+            _ => return plan_err!("oid expects text"),
         };
 
         let sql = format!(
@@ -133,12 +133,12 @@ pub fn register_scalar_regclass_oid(ctx: &SessionContext) -> Result<()> {
                 }
             })
         })?;
-        
+
         Ok(ColumnarValue::Scalar(ScalarValue::Int64(opt)))
     });
 
     let udf = create_udf(
-        "regclass_oid",
+        "oid",
         vec![DataType::Utf8],
         DataType::Int64,
         Volatility::Immutable,
