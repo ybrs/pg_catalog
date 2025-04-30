@@ -29,7 +29,6 @@ fn alias_projection(select: &mut Select, counter: &mut usize, alias_map: &mut Ha
 
                         let alias = format!("alias_{}", *counter);
                         *counter += 1;
-                        let obj_name = obj;
                         let name = obj.0
                             .last()
                             .and_then(|part| part.as_ident())
@@ -46,7 +45,15 @@ fn alias_projection(select: &mut Select, counter: &mut usize, alias_map: &mut Ha
                             alias: Ident::new(alias),
                         });
                     },
-                    _ => new_proj.push(item.clone()),
+                    _ => {
+                        let alias = format!("alias_{}", *counter);
+                        *counter += 1;
+                        alias_map.insert(alias.clone(), data_type.to_string().to_lowercase());
+                        new_proj.push(SelectItem::ExprWithAlias {
+                            expr: expr.clone(),
+                            alias: Ident::new(alias),
+                        });
+                    },
                 }
                 Expr::Function(f) => {
                     let alias = format!("alias_{}", *counter);
@@ -227,6 +234,31 @@ mod tests {
                 vec!["SELECT 'pg_constraint'::REGCLASS::oid AS alias_1"],
                 alias_maps(&["oid"]),
             ),
+
+            (
+                "select '1'::int4;",
+                vec!["SELECT '1'::INT4 AS alias_1"],
+                alias_maps(&["int4"]),
+            ),
+
+            (
+                "select '1'::int8;",
+                vec!["SELECT '1'::INT8 AS alias_1"],
+                alias_maps(&["int8"]),
+            ),
+
+            (
+                "select '1'::varchar;",
+                vec!["SELECT '1'::VARCHAR AS alias_1"],
+                alias_maps(&["varchar"]),
+            ),
+
+            (
+                "select '1'::varchar(120);",
+                vec!["SELECT '1'::VARCHAR(120) AS alias_1"],
+                alias_maps(&["varchar(120)"]),
+            ),
+
 
             (
                 "select 'pg_constraint'::regclass",

@@ -10,43 +10,17 @@ use sqlparser::parser::{Parser};
 use std::sync::Arc;
 use datafusion::prelude::SessionContext;
 use sqlparser::ast::*;
-use arrow::datatypes::DataType as T;
 use async_trait::async_trait;
 use sqlparser::tokenizer::Span;
 
 /* ---------- UDF ---------- */
 pub fn regclass_udfs(ctx: &SessionContext) -> Vec<ScalarUDF> {
-    let mut map: std::collections::HashMap<String, i32> = [
-        ("pg_class", 1259),
-        ("pg_constraint", 2606),
-        ("pg_namespace", 2615),
-    ]
-        .into_iter()
-        .map(|(k, v)| (k.into(), v))
-        .collect();
-    let mut next = 16384;
-    for c in ctx.catalog_names() {
-        let cat = ctx.catalog(&c).unwrap();
-        for s in cat.schema_names() {
-            let sch = cat.schema(&s).unwrap();
-            for t in sch.table_names() {
-                let k = if s == "public" { t.clone() } else { format!("{}.{}", s, t) };
-                if !map.contains_key(&k) {
-                    map.insert(k, next);
-                    next += 1;
-                }
-            }
-        }
-    }
-    let map = std::sync::Arc::new(map);
-
     let regclass = create_udf(
         "regclass",
-        vec![T::Utf8],
-        T::Utf8,
+        vec![ArrowDataType::Utf8],
+        ArrowDataType::Utf8,
         Volatility::Immutable,
         {
-            let map = map.clone();
             std::sync::Arc::new(move |args| {
                 if let ColumnarValue::Scalar(ScalarValue::Utf8(Some(s))) = &args[0] {
                     Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(s.clone()))))

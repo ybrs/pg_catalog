@@ -158,7 +158,7 @@ impl SchemaAccess for ScanTrace {
 use bytes::Bytes;
 use datafusion::common::ParamValues;
 use datafusion::scalar::ScalarValue;
-use crate::user_functions::register_scalar_regclass_oid;
+use crate::user_functions::{register_scalar_pg_tablespace_location, register_scalar_regclass_oid};
 
 pub async fn execute_sql(
     ctx: &SessionContext,
@@ -384,7 +384,9 @@ pub fn get_session_context(schema_path: &String, default_catalog:String, default
     }
 
     ctx.register_udtf("regclass_oid", Arc::new(crate::user_functions::RegClassOidFunc));
+
     register_scalar_regclass_oid(&ctx)?;
+    register_scalar_pg_tablespace_location(&ctx)?;
 
     Ok((ctx, log))
 }

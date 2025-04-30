@@ -15,6 +15,7 @@ use datafusion::logical_expr::{ColumnarValue, Volatility};
 use arrow::array::Array;
 use futures::executor::block_on;
 use tokio::task::block_in_place;
+use arrow::datatypes::DataType as ArrowDataType;
 
 #[derive(Debug)]
 struct RegClassOidTable {
@@ -91,7 +92,7 @@ impl TableFunctionImpl for RegClassOidFunc {
 pub fn register_scalar_regclass_oid(ctx: &SessionContext) -> Result<()> {
     let ctx_arc = Arc::new(ctx.clone());
 
-    let f = Arc::new(move |args: &[ColumnarValue]| -> Result<ColumnarValue> {
+    let fn_ = Arc::new(move |args: &[ColumnarValue]| -> Result<ColumnarValue> {
         let name = match &args[0] {
             ColumnarValue::Scalar(ScalarValue::Utf8(Some(s))) => s.clone(),
             ColumnarValue::Scalar(ScalarValue::Utf8(None)) => {
@@ -142,11 +143,36 @@ pub fn register_scalar_regclass_oid(ctx: &SessionContext) -> Result<()> {
         vec![DataType::Utf8],
         DataType::Int64,
         Volatility::Immutable,
-        f,
+        fn_,
     );
     ctx.register_udf(udf);
     Ok(())
 }
+
+
+
+pub fn register_scalar_pg_tablespace_location(ctx: &SessionContext) -> Result<()> {
+    // TODO: this always returns empty string for now.
+    //   If there is a db supporting tablespaces, this should be done correctly.
+    let ctx_arc = Arc::new(ctx.clone());
+
+    let udf = create_udf(
+        "pg_tablespace_location",
+        vec![ArrowDataType::Utf8],
+        ArrowDataType::Utf8,
+        Volatility::Immutable,
+        {
+            std::sync::Arc::new(move |args| {
+                Ok(ColumnarValue::Scalar(ScalarValue::Utf8(None)))
+            })
+        },
+    );
+    ctx_arc.register_udf(udf);
+    Ok(())
+}
+
+
+
 
 #[cfg(test)]
 mod tests {
@@ -160,6 +186,20 @@ mod tests {
     use datafusion::prelude::*;
     use std::sync::Arc;
     use datafusion::catalog::{CatalogProvider, SchemaProvider};
+
+    /* TODO:
+
+    postgresql handles number::regclass differently. it just passes them as oid.
+
+    postgres=# select '222222222'::regclass::oid;
+    oid
+    -----------
+     222222222
+    (1 row)
+
+
+     */
+
 
     async fn make_ctx() -> Result<SessionContext> {
         let mut config = datafusion::execution::context::SessionConfig::new()
