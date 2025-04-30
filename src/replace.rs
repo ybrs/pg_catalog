@@ -164,15 +164,15 @@ mod tests {
         let cases = vec![
             (
                 "SELECT 'pg_constraint'::regclass::oid",
-                "SELECT regclass_oid('pg_constraint')",
+                "SELECT oid('pg_constraint')",
             ),
             (
                 "WITH c AS (SELECT 'pg_class'::regclass::oid) SELECT * FROM c",
-                "WITH c AS (SELECT regclass_oid('pg_class')) SELECT * FROM c",
+                "WITH c AS (SELECT oid('pg_class')) SELECT * FROM c",
             ),
             (
                 "SELECT t.*, 'pg_namespace'::regclass::oid FROM x t",
-                "SELECT t.*, regclass_oid('pg_namespace') FROM x AS t",
+                "SELECT t.*, oid('pg_namespace') FROM x AS t",
             ),
         ];
 

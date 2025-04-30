@@ -233,7 +233,7 @@ mod tests {
     async fn test_regclass_scalar_ok() -> Result<()> {
         let ctx = make_ctx().await?;
         let batches = ctx
-            .sql("SELECT regclass_oid('pg_constraint') AS v;")
+            .sql("SELECT oid('pg_constraint') AS v;")
             .await?
             .collect()
             .await?;
@@ -246,7 +246,7 @@ mod tests {
     async fn test_regclass_scalar_null() -> Result<()> {
         let ctx = make_ctx().await?;
         let batches = ctx
-            .sql("SELECT regclass_oid('does_not_exist') AS v;")
+            .sql("SELECT oid('does_not_exist') AS v;")
             .await?
             .collect()
             .await?;
