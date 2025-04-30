@@ -57,25 +57,7 @@ pub fn regclass_udfs(ctx: &SessionContext) -> Vec<ScalarUDF> {
         },
     );
 
-    let regclass_oid = create_udf(
-        "regclass_oid",
-        vec![T::Utf8],
-        T::Int32,
-        Volatility::Immutable,
-        {
-            let map = map.clone();
-            std::sync::Arc::new(move |args| {
-                let v = if let ColumnarValue::Scalar(ScalarValue::Utf8(Some(s))) = &args[0] {
-                    *map.get(s).unwrap_or(&0)
-                } else {
-                    0
-                };
-                Ok(ColumnarValue::Scalar(ScalarValue::Int32(Some(v))))
-            })
-        },
-    );
-
-    vec![regclass, regclass_oid]
+    vec![regclass]
 }
 
 

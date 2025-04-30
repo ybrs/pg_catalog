@@ -158,6 +158,7 @@ impl SchemaAccess for ScanTrace {
 use bytes::Bytes;
 use datafusion::common::ParamValues;
 use datafusion::scalar::ScalarValue;
+use crate::user_functions::register_scalar_regclass_oid;
 
 pub async fn execute_sql(
     ctx: &SessionContext,
@@ -382,8 +383,9 @@ pub fn get_session_context(schema_path: &String, default_catalog:String, default
         ctx.register_udf(f);
     }
 
+    ctx.register_udtf("regclass_oid", Arc::new(crate::user_functions::RegClassOidFunc));
+    register_scalar_regclass_oid(&ctx)?;
 
-    // ctx.register_udf(create_regclass_udf(&ctx));
     Ok((ctx, log))
 }
 

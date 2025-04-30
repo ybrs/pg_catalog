@@ -6,11 +6,15 @@ use datafusion::catalog::{Session, TableFunctionImpl};
 use datafusion::common::{plan_err, ScalarValue};
 use datafusion::datasource::memory::MemorySourceConfig;
 use datafusion::datasource::TableProvider;
-use datafusion::error::Result;
+use datafusion::error::{DataFusionError, Result};
 use datafusion::logical_expr::{Expr, TableType};
 use datafusion::prelude::*;
 use std::sync::Arc;
 use datafusion::execution::SessionState;
+use datafusion::logical_expr::{ColumnarValue, Volatility};
+use arrow::array::Array;
+use futures::executor::block_on;
+use tokio::task::block_in_place;
 
 #[derive(Debug)]
 struct RegClassOidTable {
@@ -70,7 +74,7 @@ impl TableProvider for RegClassOidTable {
 }
 
 #[derive(Debug)]
-struct RegClassOidFunc;
+pub struct RegClassOidFunc;
 
 impl TableFunctionImpl for RegClassOidFunc {
     fn call(&self, exprs: &[Expr]) -> Result<Arc<dyn TableProvider>> {
@@ -84,6 +88,65 @@ impl TableFunctionImpl for RegClassOidFunc {
     }
 }
 
+pub fn register_scalar_regclass_oid(ctx: &SessionContext) -> Result<()> {
+    let ctx_arc = Arc::new(ctx.clone());
+
+    let f = Arc::new(move |args: &[ColumnarValue]| -> Result<ColumnarValue> {
+        let name = match &args[0] {
+            ColumnarValue::Scalar(ScalarValue::Utf8(Some(s))) => s.clone(),
+            ColumnarValue::Scalar(ScalarValue::Utf8(None)) => {
+                return Ok(ColumnarValue::Scalar(ScalarValue::Int64(None)))
+            }
+            _ => return plan_err!("regclass_oid expects text"),
+        };
+
+        let sql = format!(
+            "SELECT oid FROM pg_catalog.pg_class WHERE relname = '{}'",
+            name.replace('\'', "''")
+        );
+
+        println!("udf query {:?}", sql);
+
+        let opt: Option<i64> = block_in_place(|| {
+            block_on(async {
+                let batches = ctx_arc.sql(&sql).await?.collect().await?;
+                if batches.is_empty() || batches[0].num_rows() == 0 {
+                    Ok::<Option<i64>, DataFusionError>(None)
+                } else {
+                    let col = batches[0].column(0);
+                    if let Some(arr) = col.as_any().downcast_ref::<Int64Array>() {
+                        if arr.is_null(0) {
+                            Ok(None)
+                        } else {
+                            Ok(Some(arr.value(0)))
+                        }
+                    } else if let Some(arr) = col.as_any().downcast_ref::<arrow::array::Int32Array>() {
+                        if arr.is_null(0) {
+                            Ok(None)
+                        } else {
+                            Ok(Some(arr.value(0) as i64))
+                        }
+                    } else {
+                        // any other type ⇒ return NULL, don't panic
+                        Ok(None)
+                    }
+                }
+            })
+        })?;
+        
+        Ok(ColumnarValue::Scalar(ScalarValue::Int64(opt)))
+    });
+
+    let udf = create_udf(
+        "regclass_oid",
+        vec![DataType::Utf8],
+        DataType::Int64,
+        Volatility::Immutable,
+        f,
+    );
+    ctx.register_udf(udf);
+    Ok(())
+}
 
 #[cfg(test)]
 mod tests {
@@ -104,7 +167,7 @@ mod tests {
 
         let ctx = SessionContext::new_with_config(config);
         ctx.register_udtf("regclass_oid", Arc::new(RegClassOidFunc));
-
+        register_scalar_regclass_oid(&ctx)?;
         let relname = StringArray::from(vec!["pg_constraint", "demo"]);
         let oid = Int64Array::from(vec![2606i64, 9999i64]);
         let batch = RecordBatch::try_new(
@@ -165,4 +228,30 @@ mod tests {
         assert_eq!(col.value(0), 2607);
         Ok(())
     }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_regclass_scalar_ok() -> Result<()> {
+        let ctx = make_ctx().await?;
+        let batches = ctx
+            .sql("SELECT regclass_oid('pg_constraint') AS v;")
+            .await?
+            .collect()
+            .await?;
+        let col = batches[0].column(0).as_any().downcast_ref::<Int64Array>().unwrap();
+        assert_eq!(col.value(0), 2606);
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_regclass_scalar_null() -> Result<()> {
+        let ctx = make_ctx().await?;
+        let batches = ctx
+            .sql("SELECT regclass_oid('does_not_exist') AS v;")
+            .await?
+            .collect()
+            .await?;
+        assert!(batches[0].column(0).as_any().downcast_ref::<Int64Array>().unwrap().is_null(0));
+        Ok(())
+    }
+
 }
