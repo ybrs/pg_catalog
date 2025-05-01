@@ -14,7 +14,7 @@ use crate::session::{print_execution_log, get_session_context, execute_sql};
 async fn main() -> anyhow::Result<()> {
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
-        println!("Usage: {} schema.yaml ", args[0]);
+        println!("Usage: {} schema_directory --default-catalog public --default-schema postgres", args[0]);
         std::process::exit(1);
     }
 
@@ -52,7 +52,7 @@ async fn main() -> anyhow::Result<()> {
     // let results = execute_sql(&ctx, sql.as_str()).await?;
     // pretty::print_batches(&results)?;
     // print_execution_log(log.clone());
-
+    
     start_server(Arc::new(ctx), &address).await?;
 
     Ok(())

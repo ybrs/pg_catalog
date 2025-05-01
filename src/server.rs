@@ -192,8 +192,8 @@ impl SimpleQueryHandler for DatafusionBackend {
         let database = client.metadata().get(pgwire::api::METADATA_DATABASE).cloned();
         println!("database: {:?} {:?}", database, user);
 
-        self.register_current_database(client);
-        self.register_session_user(client);
+        let _ = self.register_current_database(client);
+        let _ = self.register_session_user(client);
         let (results, schema) = execute_sql(&self.ctx, query, None, None).await.map_err(|e| PgWireError::ApiError(Box::new(e)))?;
 
         let mut responses = Vec::new();
@@ -243,8 +243,8 @@ impl ExtendedQueryHandler for DatafusionBackend {
 
         println!("query start extended {:?} {:?}", portal.statement.statement.as_str(), portal.parameters);
 
-        self.register_current_database(client);
-        self.register_session_user(client);
+        let _ = self.register_current_database(client);
+        let _ = self.register_session_user(client);
 
         let (results, schema) = execute_sql(&self.ctx, portal.statement.statement.as_str(),
                                   Some(portal.parameters.clone()),

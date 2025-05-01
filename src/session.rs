@@ -21,11 +21,54 @@ use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use datafusion::config::ConfigField;
-use datafusion::prelude::create_udf;
 use pgwire::api::Type;
 use crate::clean_duplicate_columns::alias_all_columns;
 use crate::replace::{regclass_udfs, replace_regclass};
+use bytes::Bytes;
+
+use datafusion::scalar::ScalarValue;
+use crate::user_functions::{register_scalar_pg_tablespace_location, register_scalar_regclass_oid};
+use datafusion::common::{config_err, config::ConfigEntry};
+
+use datafusion::common::config::{ConfigExtension, ExtensionOptions};
+
+#[derive(Default, Clone, Debug)]
+pub struct ClientOpts {
+    pub application_name: String,
+}
+
+
+impl ConfigExtension for ClientOpts {
+    const PREFIX: &'static str = "client";
+}
+
+impl ExtensionOptions for ClientOpts {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any_mut(&mut self) -> &mut dyn std::any::Any { self }
+    fn cloned(&self) -> Box<dyn ExtensionOptions> { Box::new(self.clone()) }
+
+    fn set(&mut self, key: &str, value: &str) -> datafusion::error::Result<()> {
+        println!("set key {:?}", key);
+        match key {
+            "application_name" => {
+                self.application_name = value.to_string();
+                Ok(())
+            }
+            _ => config_err!("unknown key {key}"),
+        }
+    }
+
+    fn entries(&self) -> Vec<ConfigEntry> {
+        vec![ConfigEntry {
+            // key: format!("{}.application_name", Self::PREFIX),
+            key: "application_name".to_string(),
+            value: Some(self.application_name.clone()),
+            description: "",
+        }]
+    }
+
+}
+
 
 #[derive(Debug, Deserialize)]
 struct TableDef {
@@ -155,10 +198,6 @@ impl SchemaAccess for ScanTrace {
 }
 
 
-use bytes::Bytes;
-use datafusion::common::ParamValues;
-use datafusion::scalar::ScalarValue;
-use crate::user_functions::{register_scalar_pg_tablespace_location, register_scalar_regclass_oid};
 
 pub async fn execute_sql(
     ctx: &SessionContext,
@@ -169,7 +208,7 @@ pub async fn execute_sql(
     let sql = replace_regclass(sql);
     let (sql, aliases) = alias_all_columns(&sql);
 
-    let mut df = ctx.sql(&sql).await?;
+    let df = ctx.sql(&sql).await?;
 
     if let (Some(params), Some(types)) = (vec, vec0) {
 
@@ -357,7 +396,8 @@ pub fn get_session_context(schema_path: &String, default_catalog:String, default
     let schemas = parse_schema(schema_path.as_str());
 
     let mut config = datafusion::execution::context::SessionConfig::new()
-        .with_default_catalog_and_schema(&default_catalog, &default_schema);
+        .with_default_catalog_and_schema(&default_catalog, &default_schema)
+        .with_option_extension(ClientOpts::default());
 
     config.options_mut().catalog.information_schema = true;
 
