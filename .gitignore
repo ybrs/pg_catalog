@@ -3,3 +3,4 @@ target/
 postgres-17/
 .DS_Store
 postgres-data
+venv/
