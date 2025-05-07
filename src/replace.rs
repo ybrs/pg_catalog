@@ -34,7 +34,38 @@ pub fn regclass_udfs(ctx: &SessionContext) -> Vec<ScalarUDF> {
     vec![regclass]
 }
 
+use sqlparser::ast::{visit_statements_mut, Statement};
 
+use sqlparser::ast::OneOrManyWithParens;
+
+fn add_namespace_to_set_command(obj: &mut ObjectName) {
+    if obj.0.len() == 1 {
+        let ident = obj.0.remove(0);
+        obj.0.push(ObjectNamePart::Identifier(Ident::new("pg_catalog")));
+        obj.0.push(ident);
+    }
+}
+
+pub fn replace_set_command_with_namespace(sql: &str) -> String {
+    let dialect = PostgreSqlDialect {};
+    let mut statements = Parser::parse_sql(&dialect, sql).unwrap();
+
+    visit_statements_mut(&mut statements, |stmt| {
+        if let Statement::SetVariable { variables, .. } = stmt {
+            match variables {
+                OneOrManyWithParens::One(obj) => add_namespace_to_set_command(obj),
+                OneOrManyWithParens::Many(list) => list.iter_mut().for_each(add_namespace_to_set_command),
+            }
+        }
+        ControlFlow::<()>::Continue(())
+    });
+
+    statements
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join("; ")
+}
 
 pub fn replace_regclass(sql: &str) -> String {
     fn make_fn(name: &str, lit: &str) -> Expr {
@@ -184,6 +215,26 @@ mod tests {
             assert_eq!(transformed, expected, "Failed for input: {}", input);
         }
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_set_show_query_rewrite() -> Result<(), Box<dyn Error>> {
+        assert_eq!(
+            replace_set_command_with_namespace("SET application_name = 'x'"),
+            "SET pg_catalog.application_name = 'x'"
+        );
+        assert_eq!(
+            replace_set_command_with_namespace("SELECT foo FROM bar"),
+            "SELECT foo FROM bar"
+        );
+
+        assert_eq!(
+            replace_set_command_with_namespace(
+                "SET LOCAL work_mem TO '4MB'"
+            ),
+            "SET LOCAL pg_catalog.work_mem = '4MB'"
+        );
         Ok(())
     }
 

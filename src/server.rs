@@ -28,6 +28,7 @@ use datafusion::{
     common::ScalarValue,
 };
 
+use crate::replace::replace_set_command_with_namespace;
 use crate::session::{execute_sql};
 use tokio::net::TcpStream;
 use tokio::io::AsyncReadExt;
@@ -203,8 +204,10 @@ impl SimpleQueryHandler for DatafusionBackend {
 
         if results.is_empty() {
             // TODO:
+            // 
+            let query = replace_set_command_with_namespace(&query);        
             // zero-row result, but still need schema
-            let df = self.ctx.sql(query).await.map_err(|e| PgWireError::ApiError(Box::new(e)))?;
+            let df = self.ctx.sql(&query).await.map_err(|e| PgWireError::ApiError(Box::new(e)))?;
             let schema = df.schema();
 
             let batch = RecordBatch::new_empty(SchemaRef::from(schema.clone()));

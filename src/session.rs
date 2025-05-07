@@ -23,7 +23,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use pgwire::api::Type;
 use crate::clean_duplicate_columns::alias_all_columns;
-use crate::replace::{regclass_udfs, replace_regclass};
+use crate::replace::{regclass_udfs, replace_regclass, replace_set_command_with_namespace};
 use bytes::Bytes;
 
 use datafusion::scalar::ScalarValue;
@@ -39,7 +39,7 @@ pub struct ClientOpts {
 
 
 impl ConfigExtension for ClientOpts {
-    const PREFIX: &'static str = "client";
+    const PREFIX: &'static str = "pg_catalog";
 }
 
 impl ExtensionOptions for ClientOpts {
@@ -48,10 +48,12 @@ impl ExtensionOptions for ClientOpts {
     fn cloned(&self) -> Box<dyn ExtensionOptions> { Box::new(self.clone()) }
 
     fn set(&mut self, key: &str, value: &str) -> datafusion::error::Result<()> {
+        
         println!("set key {:?}", key);
         match key {
             "application_name" => {
                 self.application_name = value.to_string();
+                println!("value is set!!!");
                 Ok(())
             }
             _ => config_err!("unknown key {key}"),
@@ -160,10 +162,6 @@ impl TableProvider for ObservableMemTable {
     }
 }
 
-
-
-
-
 fn rename_columns(batch: &RecordBatch, name_map: &HashMap<String, String>) -> RecordBatch {
     let new_fields = batch
         .schema()
@@ -205,11 +203,13 @@ pub async fn execute_sql(
     vec: Option<Vec<Option<Bytes>>>,
     vec0: Option<Vec<Type>>,
 ) -> datafusion::error::Result<(Vec<RecordBatch>, Arc<Schema>)> {
-    let sql = replace_regclass(sql);
+    let sql = replace_set_command_with_namespace(&sql);
+
+    let sql = replace_regclass(&sql);
     let (sql, aliases) = alias_all_columns(&sql);
-
+    println!("final sql {:?}", sql);
     let df = ctx.sql(&sql).await?;
-
+    println!("executed sql");
     if let (Some(params), Some(types)) = (vec, vec0) {
 
         let mut scalars = Vec::new();
