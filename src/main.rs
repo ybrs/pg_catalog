@@ -10,8 +10,7 @@ use arrow::util::pretty;
 use crate::server::start_server;
 use crate::session::{print_execution_log, get_session_context, execute_sql};
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn run() -> anyhow::Result<()> {
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
         println!("Usage: {} schema_directory --default-catalog public --default-schema postgres", args[0]);
@@ -19,8 +18,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let schema_path = &args[1];
-
-    let sql = &args[2];
+    
     let default_catalog = args.iter()
         .position(|x| x == "--default-catalog")
         .and_then(|i| args.get(i + 1))
@@ -55,5 +53,14 @@ async fn main() -> anyhow::Result<()> {
     
     start_server(Arc::new(ctx), &address).await?;
 
+    Ok(())
+}
+
+
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    if let Err(e) = run().await {
+        eprintln!("server crashed: {:?}", e);
+    }
     Ok(())
 }

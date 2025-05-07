@@ -29,6 +29,9 @@ use datafusion::{
 };
 
 use crate::session::{execute_sql};
+use tokio::net::TcpStream;
+use tokio::io::AsyncReadExt;
+use tokio::io::AsyncWriteExt;
 
 pub struct DatafusionBackend {
     ctx: Arc<SessionContext>,
@@ -176,7 +179,7 @@ impl SimpleQueryHandler for DatafusionBackend {
     where
         C: ClientInfo + Unpin + Send + Sync,
     {
-
+        println!("query handler");
 
         let lowercase = query.trim().to_lowercase();
         if lowercase.starts_with("begin") {
@@ -337,7 +340,7 @@ impl PgWireServerHandlers for DatafusionBackendFactory {
     fn startup_handler(&self) -> Arc<Self::StartupHandler> {
         let mut params = DefaultServerParameterProvider::default();
         params.server_version = "14.13".to_string();
-
+        println!("startup handler");
         Arc::new(Md5PasswordAuthStartupHandler::new(
             Arc::new(DummyAuthSource),
             Arc::new(params),
@@ -353,6 +356,26 @@ impl PgWireServerHandlers for DatafusionBackendFactory {
     }
 }
 
+async fn detect_gssencmode(mut socket: TcpStream) -> Option<TcpStream> {
+    let mut buf = [0u8; 8];
+
+    if let Ok(n) = socket.peek(&mut buf).await {
+        if n == 8 {
+            let request_code = u32::from_be_bytes([buf[4], buf[5], buf[6], buf[7]]);
+            if request_code == 80877104 {
+                if let Err(e) = socket.read_exact(&mut buf).await {
+                    println!("Failed to consume GSSAPI request: {:?}", e);
+                }
+                if let Err(e) = socket.write_all(b"N").await {
+                    println!("Failed to send rejection message: {:?}", e);
+                }
+            }
+        }
+    }
+
+    Some(socket)
+}
+
 
 pub async fn start_server(ctx: Arc<SessionContext>, addr: &str) -> anyhow::Result<()> {
 
@@ -361,18 +384,20 @@ pub async fn start_server(ctx: Arc<SessionContext>, addr: &str) -> anyhow::Resul
 
     loop {
         let (socket, _) = listener.accept().await?;
+        if let Some(socket) = detect_gssencmode(socket).await {
+
+            let factory = Arc::new(DatafusionBackendFactory {
+                handler: Arc::new(DatafusionBackend::new(Arc::clone(&ctx))),
+            });
 
 
-        let factory = Arc::new(DatafusionBackendFactory {
-            handler: Arc::new(DatafusionBackend::new(Arc::clone(&ctx))),
-        });
+            let factory = factory.clone();
+            tokio::spawn(async move {
+                if let Err(e) = process_socket(socket, None, factory).await {
+                    eprintln!("connection error: {:?}", e);
+                }
+            });
 
-
-        let factory = factory.clone();
-        tokio::spawn(async move {
-            if let Err(e) = process_socket(socket, None, factory).await {
-                eprintln!("connection error: {:?}", e);
-            }
-        });
+        }
     }
 }
