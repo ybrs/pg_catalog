@@ -1,6 +1,7 @@
 use std::sync::{Arc};
 
 use async_trait::async_trait;
+use datafusion::prelude::SessionConfig;
 use futures::{stream};
 use futures::Stream;
 
@@ -28,8 +29,9 @@ use datafusion::{
     common::ScalarValue,
 };
 
-use crate::replace::replace_set_command_with_namespace;
-use crate::session::{execute_sql};
+use crate::replace::{regclass_udfs, replace_set_command_with_namespace};
+use crate::session::{execute_sql, ClientOpts};
+use crate::user_functions::{register_current_schema, register_scalar_pg_tablespace_location, register_scalar_regclass_oid};
 use tokio::net::TcpStream;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
@@ -203,7 +205,7 @@ impl SimpleQueryHandler for DatafusionBackend {
         let mut responses = Vec::new();
 
         if results.is_empty() {
-            // TODO:
+            // TODO: we are double parsing the sql here. this shouldn't be needed.
             // 
             let query = replace_set_command_with_namespace(&query);        
             // zero-row result, but still need schema
@@ -380,7 +382,8 @@ async fn detect_gssencmode(mut socket: TcpStream) -> Option<TcpStream> {
 }
 
 
-pub async fn start_server(ctx: Arc<SessionContext>, addr: &str) -> anyhow::Result<()> {
+pub async fn start_server(base_ctx: Arc<SessionContext>, addr: &str, 
+    default_catalog:&str, default_schema: &str) -> anyhow::Result<()> {
 
     let listener = TcpListener::bind(addr).await?;
     println!("Listening on {}", addr);
@@ -389,12 +392,35 @@ pub async fn start_server(ctx: Arc<SessionContext>, addr: &str) -> anyhow::Resul
         let (socket, _) = listener.accept().await?;
         if let Some(socket) = detect_gssencmode(socket).await {
 
+            let mut session_config = datafusion::execution::context::SessionConfig::new()
+            .with_default_catalog_and_schema(default_catalog, default_schema)
+            .with_option_extension(ClientOpts::default());
+    
+            session_config.options_mut().catalog.information_schema = true;
+    
+            let ctx = Arc::new(SessionContext::new_with_config_rt(session_config, base_ctx.runtime_env().clone()));
+            
+            if let Some(base_catalog) = base_ctx.catalog("public") {
+                println!("re-registering catalog pg_catalog");
+                ctx.register_catalog("public", base_catalog.clone());
+            }
+
+            // TODO: duplicate code
+            for f in regclass_udfs(&ctx) {
+                ctx.register_udf(f);
+            }
+        
+            ctx.register_udtf("regclass_oid", Arc::new(crate::user_functions::RegClassOidFunc));
+        
+            register_scalar_regclass_oid(&ctx)?;
+            register_scalar_pg_tablespace_location(&ctx)?;
+            register_current_schema(&ctx);
+            
             let factory = Arc::new(DatafusionBackendFactory {
                 handler: Arc::new(DatafusionBackend::new(Arc::clone(&ctx))),
             });
-
-
             let factory = factory.clone();
+
             tokio::spawn(async move {
                 if let Err(e) = process_socket(socket, None, factory).await {
                     eprintln!("connection error: {:?}", e);

@@ -204,12 +204,13 @@ pub async fn execute_sql(
     vec0: Option<Vec<Type>>,
 ) -> datafusion::error::Result<(Vec<RecordBatch>, Arc<Schema>)> {
     let sql = replace_set_command_with_namespace(&sql);
-
     let sql = replace_regclass(&sql);
     let (sql, aliases) = alias_all_columns(&sql);
     println!("final sql {:?}", sql);
     let df = ctx.sql(&sql).await?;
     println!("executed sql");
+
+
     if let (Some(params), Some(types)) = (vec, vec0) {
 
         let mut scalars = Vec::new();

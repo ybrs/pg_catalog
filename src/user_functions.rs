@@ -172,6 +172,29 @@ pub fn register_scalar_pg_tablespace_location(ctx: &SessionContext) -> Result<()
 }
 
 
+pub fn register_current_schema(ctx: &SessionContext) -> Result<()> {
+    // TODO: this always returns public
+    //   If there is a db supporting tablespaces, this should be done correctly.
+    let ctx_arc = Arc::new(ctx.clone());
+
+    let udf = create_udf(
+        "current_schema",
+        vec![],
+        ArrowDataType::Utf8,
+        Volatility::Immutable,
+        {
+            std::sync::Arc::new(move |_args| {
+                Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some("public".to_string()))))
+            })
+        },
+    );
+    ctx_arc.register_udf(udf);
+    Ok(())
+}
+
+
+
+
 
 
 #[cfg(test)]

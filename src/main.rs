@@ -7,6 +7,7 @@ mod user_functions;
 use std::env;
 use std::sync::Arc;
 use arrow::util::pretty;
+use datafusion::prelude::SessionContext;
 use crate::server::start_server;
 use crate::session::{print_execution_log, get_session_context, execute_sql};
 
@@ -18,7 +19,7 @@ async fn run() -> anyhow::Result<()> {
     }
 
     let schema_path = &args[1];
-    
+
     let default_catalog = args.iter()
         .position(|x| x == "--default-catalog")
         .and_then(|i| args.get(i + 1))
@@ -51,7 +52,7 @@ async fn run() -> anyhow::Result<()> {
     // pretty::print_batches(&results)?;
     // print_execution_log(log.clone());
     
-    start_server(Arc::new(ctx), &address).await?;
+    start_server(Arc::new(ctx), &address, &default_catalog, &default_schema).await?;
 
     Ok(())
 }
