@@ -47,7 +47,7 @@ async fn run() -> anyhow::Result<()> {
     let address = format!("{}:{}", host, port);
 
 
-    let (ctx, log) = get_session_context(schema_path, default_catalog.clone(), default_schema.clone())?;
+    let (ctx, log) = get_session_context(schema_path, default_catalog.clone(), default_schema.clone()).await?;
     // let results = execute_sql(&ctx, sql.as_str()).await?;
     // pretty::print_batches(&results)?;
     // print_execution_log(log.clone());

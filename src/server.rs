@@ -31,7 +31,7 @@ use datafusion::{
 
 use crate::replace::{regclass_udfs, replace_set_command_with_namespace};
 use crate::session::{execute_sql, ClientOpts};
-use crate::user_functions::{register_current_schema, register_scalar_pg_tablespace_location, register_scalar_regclass_oid};
+use crate::user_functions::{register_current_schema, register_scalar_format_type, register_scalar_pg_get_expr, register_scalar_pg_get_partkeydef, register_scalar_pg_tablespace_location, register_scalar_regclass_oid};
 use tokio::net::TcpStream;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
@@ -280,6 +280,8 @@ impl ExtendedQueryHandler for DatafusionBackend {
     where
         C: ClientInfo + Unpin + Send + Sync,
     {
+        println!("do_describe_statement");
+        
         let (results, schema) = execute_sql(&self.ctx, stmt.statement.as_str(), None, None)
             .await
             .map_err(|e| PgWireError::ApiError(Box::new(e)))?;
@@ -306,9 +308,17 @@ impl ExtendedQueryHandler for DatafusionBackend {
     where
         C: ClientInfo + Unpin + Send + Sync,
     {
-        let (results, schema) = execute_sql(&self.ctx, portal.statement.statement.as_str(), None, None)
-            .await
-            .map_err(|e| PgWireError::ApiError(Box::new(e)))?;
+
+        println!("do_describe_portal");
+
+        // let (results, schema) = execute_sql(&self.ctx, portal.statement.statement.as_str(), None, None)
+        //     .await
+        //     .map_err(|e| PgWireError::ApiError(Box::new(e)))?;
+
+        let (results, schema) = execute_sql(&self.ctx, portal.statement.statement.as_str(),
+            Some(portal.parameters.clone()),
+            Some(portal.statement.parameter_types.clone()),
+        ).await.map_err(|e| PgWireError::ApiError(Box::new(e)))?;
 
         println!("do_describe_portal {:?}", schema);
 
@@ -415,6 +425,9 @@ pub async fn start_server(base_ctx: Arc<SessionContext>, addr: &str,
             register_scalar_regclass_oid(&ctx)?;
             register_scalar_pg_tablespace_location(&ctx)?;
             register_current_schema(&ctx);
+            register_scalar_format_type(&ctx)?;
+            register_scalar_pg_get_expr(&ctx)?;
+            register_scalar_pg_get_partkeydef(&ctx)?;
             
             let factory = Arc::new(DatafusionBackendFactory {
                 handler: Arc::new(DatafusionBackend::new(Arc::clone(&ctx))),

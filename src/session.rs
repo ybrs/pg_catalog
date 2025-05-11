@@ -1,3 +1,4 @@
+use arrow::array::{Int32Array, StringArray};
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 
 use datafusion::catalog::CatalogProvider;
@@ -19,6 +20,7 @@ use serde_yaml;
 
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
+use std::ops::Deref;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use pgwire::api::Type;
@@ -27,7 +29,7 @@ use crate::replace::{regclass_udfs, replace_regclass, replace_set_command_with_n
 use bytes::Bytes;
 
 use datafusion::scalar::ScalarValue;
-use crate::user_functions::{register_scalar_pg_tablespace_location, register_scalar_regclass_oid};
+use crate::user_functions::{register_scalar_format_type, register_scalar_pg_tablespace_location, register_scalar_regclass_oid};
 use datafusion::common::{config_err, config::ConfigEntry};
 
 use datafusion::common::config::{ConfigExtension, ExtensionOptions};
@@ -54,6 +56,9 @@ impl ExtensionOptions for ClientOpts {
             "application_name" => {
                 self.application_name = value.to_string();
                 println!("value is set!!!");
+                Ok(())
+            }
+            "extra_float_digits" => {
                 Ok(())
             }
             _ => config_err!("unknown key {key}"),
@@ -206,12 +211,10 @@ pub async fn execute_sql(
     let sql = replace_set_command_with_namespace(&sql);
     let sql = replace_regclass(&sql);
     let (sql, aliases) = alias_all_columns(&sql);
-    println!("final sql {:?}", sql);
-    let df = ctx.sql(&sql).await?;
-    println!("executed sql");
 
-
-    if let (Some(params), Some(types)) = (vec, vec0) {
+    
+    let df = if let (Some(params), Some(types)) = (vec, vec0) {
+        println!("params {:?}", params);
 
         let mut scalars = Vec::new();
 
@@ -244,9 +247,16 @@ pub async fn execute_sql(
             scalars.push(value);
         }
 
-    }
+        let df = ctx.sql(&sql).await?.with_param_values(scalars)?;
+        df
+    } else {
+        println!("final sql {:?}", sql);    
+        let df = ctx.sql(&sql).await?;
+        println!("executed sql");
+        df
+    };
 
-
+    // TODO: fix scope
     let original_schema = df.schema();
     let renamed_fields = original_schema
         .fields()
@@ -391,7 +401,7 @@ fn build_table(def: TableDef) -> (SchemaRef, Vec<RecordBatch>) {
     (schema_ref, record_batches)
 }
 
-pub fn get_session_context(schema_path: &String, default_catalog:String, default_schema:String) -> datafusion::error::Result<(SessionContext, Arc<Mutex<Vec<ScanTrace>>>)> {
+pub async fn get_session_context(schema_path: &String, default_catalog:String, default_schema:String) -> datafusion::error::Result<(SessionContext, Arc<Mutex<Vec<ScanTrace>>>)> {
     let log: Arc<Mutex<Vec<ScanTrace>>> = Arc::new(Mutex::new(Vec::new()));
 
     let schemas = parse_schema(schema_path.as_str());
@@ -419,7 +429,6 @@ pub fn get_session_context(schema_path: &String, default_catalog:String, default
         }
     }
 
-
     for f in regclass_udfs(&ctx) {
         ctx.register_udf(f);
     }
@@ -428,6 +437,36 @@ pub fn get_session_context(schema_path: &String, default_catalog:String, default
 
     register_scalar_regclass_oid(&ctx)?;
     register_scalar_pg_tablespace_location(&ctx)?;
+    register_scalar_format_type(&ctx)?;
+
+    // register additional databases    
+    if let Some(catalog) = ctx.catalog("public") {
+        let schema_provider = Arc::new(MemorySchemaProvider::new());
+        catalog.register_schema("crm", schema_provider.clone())?;
+        
+        let table_schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int32, false),
+            Field::new("name", DataType::Utf8, false),
+        ]));
+
+        // Create a record batch
+        let batch = RecordBatch::try_new(
+            table_schema.clone(),
+            vec![
+                Arc::new(Int32Array::from(vec![1, 2, 3])),
+                Arc::new(StringArray::from(vec!["Alice", "Bob", "Charlie"])),
+            ],
+        )?;        
+
+        let table = MemTable::try_new(table_schema, vec![vec![batch]])?;
+
+        schema_provider.register_table("users".to_string(), Arc::new(table))?;
+    }
+    // TODO: how to add a new db
+    // TODO: how to add new columns in pg_catalog
+    ctx.sql("INSERT INTO pg_catalog.pg_class (relname, relnamespace, relkind, reltuples, reltype) VALUES ('users', 'crm', 'r', 3, 0);").await?;
+
+
 
     Ok((ctx, log))
 }

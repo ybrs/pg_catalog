@@ -12,7 +12,7 @@ use datafusion::prelude::*;
 use std::sync::Arc;
 use datafusion::execution::SessionState;
 use datafusion::logical_expr::{ColumnarValue, Volatility};
-use arrow::array::Array;
+use arrow::array::{as_string_array, Array, ArrayRef, StringBuilder};
 use futures::executor::block_on;
 use tokio::task::block_in_place;
 use arrow::datatypes::DataType as ArrowDataType;
@@ -166,6 +166,146 @@ pub fn register_scalar_pg_tablespace_location(ctx: &SessionContext) -> Result<()
                 Ok(ColumnarValue::Scalar(ScalarValue::Utf8(None)))
             })
         },
+    );
+    ctx_arc.register_udf(udf);
+    Ok(())
+}
+
+// /// FORMAT_TYPE function
+// pub fn register_scalar_format_type(ctx: &SessionContext) -> Result<()> {
+//     // TODO: this just returns some known types, it should actually run a query
+//     let ctx_arc = Arc::new(ctx.clone());
+//     let udf = create_udf(
+//         "format_type",
+//         vec![ArrowDataType::Int64, ArrowDataType::Int64],
+//         ArrowDataType::Utf8,
+//         Volatility::Immutable,
+//         Arc::new(|args| {
+//             let oid = match &args[0] {
+//                 ColumnarValue::Scalar(ScalarValue::Int64(v)) => *v,
+//                 _ => return Err(DataFusionError::Execution("first arg must be INT8 scalar".into())),
+//             };
+//             let typmod = match &args[1] {
+//                 ColumnarValue::Scalar(ScalarValue::Int64(v)) => *v,
+//                 _ => return Err(DataFusionError::Execution("second arg must be INT8 scalar".into())),
+//             };
+//             let s = match oid {
+//                 Some(16) => "boolean".to_string(),
+//                 Some(20) => "bigint".to_string(),
+//                 Some(21) => "smallint".to_string(),
+//                 Some(23) => "integer".to_string(),
+//                 Some(25) => "text".to_string(),
+//                 Some(1043) => {
+//                     if let Some(tm) = typmod {
+//                         if tm >= 0 { format!("character varying({})", tm - 4) } else { "character varying".to_string() }
+//                     } else { "character varying".to_string() }
+//                 }
+//                 _ => oid.map(|o| o.to_string()).unwrap_or_default(),
+//             };
+//             Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(s))))
+//         }),
+//     );
+//     ctx_arc.register_udf(udf);
+//     Ok(())
+// }
+
+
+fn format_type_string(oid: i64, typmod: Option<i64>) -> String {
+    match oid {
+        16 => "boolean".to_string(),
+        20 => "bigint".to_string(),
+        21 => "smallint".to_string(),
+        23 => "integer".to_string(),
+        25 => "text".to_string(),
+        1043 => {
+            if let Some(tm) = typmod {
+                if tm >= 0 {
+                    format!("character varying({})", tm - 4)
+                } else {
+                    "character varying".to_string()
+                }
+            } else {
+                "character varying".to_string()
+            }
+        }
+        _ => oid.to_string(),
+    }
+}
+use datafusion::common::cast::as_int64_array;
+
+
+pub fn register_scalar_format_type(ctx: &SessionContext) -> Result<()> {
+    let ctx_arc = Arc::new(ctx.clone());
+    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
+        let arrays = ColumnarValue::values_to_arrays(args)?;
+        let oids = as_int64_array(&arrays[0])?;
+        let mods = as_int64_array(&arrays[1])?;
+        let mut builder = StringBuilder::new();
+        for i in 0..oids.len() {
+            if oids.is_null(i) {
+                builder.append_null();
+            } else {
+                let s = format_type_string(oids.value(i), if mods.is_null(i) { None } else { Some(mods.value(i)) });
+                builder.append_value(&s);
+            }
+        }
+        Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
+    };
+    let udf = create_udf(
+        "format_type",
+        vec![ArrowDataType::Int64, ArrowDataType::Int64],
+        ArrowDataType::Utf8,
+        Volatility::Immutable,
+        Arc::new(fun),
+    );
+    ctx_arc.register_udf(udf);
+    Ok(())
+}
+
+
+pub fn register_scalar_pg_get_expr(ctx: &SessionContext) -> Result<()> {
+    let ctx_arc = Arc::new(ctx.clone());
+    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
+        let arrays = ColumnarValue::values_to_arrays(args)?;
+        let exprs = as_string_array(&arrays[0]);
+        let mut builder = StringBuilder::new();
+        for i in 0..exprs.len() {
+            if exprs.is_null(i) {
+                builder.append_null();
+            } else {
+                builder.append_value(exprs.value(i));
+            }
+        }
+        Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
+    };
+    let udf = create_udf(
+        "pg_catalog.pg_get_expr",
+        vec![ArrowDataType::Utf8, ArrowDataType::Int64],
+        ArrowDataType::Utf8,
+        Volatility::Immutable,
+        Arc::new(fun),
+    );
+    ctx_arc.register_udf(udf);
+    Ok(())
+}
+
+pub fn register_scalar_pg_get_partkeydef(ctx: &SessionContext) -> Result<()> {
+    let ctx_arc = Arc::new(ctx.clone());
+    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
+        let arrays = ColumnarValue::values_to_arrays(args)?;
+        let oids = as_int64_array(&arrays[0])?;
+        let mut builder = StringBuilder::new();
+        for i in 0..oids.len() {
+            builder.append_null();
+        }
+        Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
+    };
+    let udf = create_udf(
+        "pg_catalog.pg_get_partkeydef",
+        vec![ArrowDataType::Int64],
+        ArrowDataType::Utf8,
+        Volatility::Immutable,
+        Arc::new(fun),
     );
     ctx_arc.register_udf(udf);
     Ok(())
