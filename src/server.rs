@@ -268,7 +268,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
 
         let field_infos = Arc::new(batch_to_field_info(&batch, &portal.result_column_format)?);
         let rows = batch_to_row_stream(&batch, field_infos.clone());
-        println!("return from do_query {:?}", field_infos);
+        // println!("return from do_query {:?}", field_infos);
         Ok(Response::Query(QueryResponse::new(field_infos, rows)))
     }
 
@@ -309,7 +309,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
         C: ClientInfo + Unpin + Send + Sync,
     {
 
-        println!("do_describe_portal");
+        // println!("do_describe_portal");
 
         // let (results, schema) = execute_sql(&self.ctx, portal.statement.statement.as_str(), None, None)
         //     .await
@@ -320,7 +320,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
             Some(portal.statement.parameter_types.clone()),
         ).await.map_err(|e| PgWireError::ApiError(Box::new(e)))?;
 
-        println!("do_describe_portal {:?}", schema);
+        // println!("do_describe_portal {:?}", schema);
 
         let batch = if results.is_empty() {
             RecordBatch::new_empty(schema.clone())
@@ -410,9 +410,10 @@ pub async fn start_server(base_ctx: Arc<SessionContext>, addr: &str,
     
             let ctx = Arc::new(SessionContext::new_with_config_rt(session_config, base_ctx.runtime_env().clone()));
             
-            if let Some(base_catalog) = base_ctx.catalog("public") {
-                println!("re-registering catalog pg_catalog");
-                ctx.register_catalog("public", base_catalog.clone());
+            // TODO: public is schema ! catalog is the database.
+            if let Some(base_catalog) = base_ctx.catalog(default_catalog) {
+                println!("re-registering schema pg_catalog");
+                ctx.register_catalog(default_catalog, base_catalog.clone());
             }
 
             // TODO: duplicate code
@@ -428,7 +429,47 @@ pub async fn start_server(base_ctx: Arc<SessionContext>, addr: &str,
             register_scalar_format_type(&ctx)?;
             register_scalar_pg_get_expr(&ctx)?;
             register_scalar_pg_get_partkeydef(&ctx)?;
+
             
+            let df = ctx.sql("INSERT INTO pg_catalog.pg_database (
+                oid,
+                datname,
+                datdba,
+                encoding,
+                datcollate,
+                datctype,
+                datistemplate,
+                datallowconn,
+                datconnlimit,
+            
+                datfrozenxid,
+                datminmxid,
+                dattablespace,
+                datacl
+            ) VALUES (
+                27734,
+                'pgtry',
+                27735,
+                6,
+                'C',
+                'C',
+                false,
+                true,
+                -1,
+            
+                726,
+                1,
+                1663,
+                '{=Tc/dbuser,dbuser=CTc/dbuser}'
+            );
+            ").await?;
+            df.show().await?;
+
+            let df = ctx.sql("SELECT datname FROM pg_catalog.pg_database").await?;
+            df.show().await?;
+                        
+
+
             let factory = Arc::new(DatafusionBackendFactory {
                 handler: Arc::new(DatafusionBackend::new(Arc::clone(&ctx))),
             });

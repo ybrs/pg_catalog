@@ -415,14 +415,35 @@ pub async fn get_session_context(schema_path: &String, default_catalog:String, d
     let ctx = SessionContext::new_with_config(config);
 
     for (catalog_name, schemas) in schemas {
-        let catalog_provider = Arc::new(MemoryCatalogProvider::new());
-        ctx.register_catalog(&catalog_name, catalog_provider.clone());
+
+        let current_catalog = if catalog_name == "public" {
+            default_catalog.to_string()
+        } else {
+            catalog_name
+        };
+
+        let catalog_provider = if let Some(catalog_provider) = ctx.catalog(&current_catalog){
+            catalog_provider
+        } else {
+            let catalog_provider = Arc::new(MemoryCatalogProvider::new());
+            ctx.register_catalog(&current_catalog, catalog_provider.clone());
+            catalog_provider
+        };
 
         for (schema_name, tables) in schemas {
-            let schema_provider = Arc::new(MemorySchemaProvider::new());
+
+            let schema_provider = if let Some(schema_provider) = catalog_provider.schema(&schema_name) {
+                schema_provider
+            } else {
+                Arc::new(MemorySchemaProvider::new())
+            };
+
             let _ = catalog_provider.register_schema(&schema_name, schema_provider.clone());
+            println!("catalog/database: {:?} schema: {:?}", current_catalog, schema_name);
 
             for (table, (schema_ref, batches)) in tables {
+                println!("-- table {:?}", &table);
+
                 let wrapped = ObservableMemTable::new(table.clone(), schema_ref, log.clone(), batches);
                 schema_provider.register_table(table, Arc::new(wrapped))?;
             }
@@ -439,8 +460,14 @@ pub async fn get_session_context(schema_path: &String, default_catalog:String, d
     register_scalar_pg_tablespace_location(&ctx)?;
     register_scalar_format_type(&ctx)?;
 
+    let catalogs = ctx.catalog_names();
+    println!("registered catalogs: {:?}", catalogs);
+
+    println!("Current catalog: {}", default_catalog);
+
+
     // register additional databases    
-    if let Some(catalog) = ctx.catalog("public") {
+    if let Some(catalog) = ctx.catalog("crm") {
         let schema_provider = Arc::new(MemorySchemaProvider::new());
         catalog.register_schema("crm", schema_provider.clone())?;
         
@@ -464,8 +491,7 @@ pub async fn get_session_context(schema_path: &String, default_catalog:String, d
     }
     // TODO: how to add a new db
     // TODO: how to add new columns in pg_catalog
-    ctx.sql("INSERT INTO pg_catalog.pg_class (relname, relnamespace, relkind, reltuples, reltype) VALUES ('users', 'crm', 'r', 3, 0);").await?;
-
+    // ctx.sql("INSERT INTO pg_catalog.pg_class (relname, relnamespace, relkind, reltuples, reltype) VALUES ('users', 'crm', 'r', 3, 0);").await?;
 
 
     Ok((ctx, log))
