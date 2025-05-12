@@ -463,7 +463,7 @@ pub async fn start_server(base_ctx: Arc<SessionContext>, addr: &str,
                 '{=Tc/dbuser,dbuser=CTc/dbuser}'
             );
             ").await?;
-            df.show().await?;
+            // df.show().await?;
 
             let df = ctx.sql("SELECT datname FROM pg_catalog.pg_database").await?;
             df.show().await?;

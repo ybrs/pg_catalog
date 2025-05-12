@@ -33,6 +33,8 @@ use crate::user_functions::{register_scalar_format_type, register_scalar_pg_tabl
 use datafusion::common::{config_err, config::ConfigEntry};
 
 use datafusion::common::config::{ConfigExtension, ExtensionOptions};
+use crate::db_table::{map_pg_type, ObservableMemTable, ScanTrace};
+
 
 #[derive(Default, Clone, Debug)]
 pub struct ClientOpts {
@@ -87,85 +89,6 @@ struct TableDef {
 struct YamlSchema(HashMap<String, HashMap<String, HashMap<String, TableDef>>>);
 
 
-fn map_pg_type(pg_type: &str) -> DataType {
-    match pg_type.to_lowercase().as_str() {
-        "uuid" => DataType::Utf8,
-        "int" | "integer" => DataType::Int32,
-        "bigint" => DataType::Int64,
-        "bool" | "boolean" => DataType::Boolean,
-        _ if pg_type.to_lowercase().starts_with("varchar") => DataType::Utf8,
-        _ => DataType::Utf8,
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct ScanTrace {
-    table: String,
-    projection: Option<Vec<usize>>,
-    filters: Vec<Expr>,
-    types: BTreeMap<String, String>,
-}
-
-#[derive(Debug)]
-struct ObservableMemTable {
-    schema: SchemaRef,
-    mem: Arc<MemTable>,
-    log: Arc<Mutex<Vec<ScanTrace>>>,
-    table_name: String,
-}
-
-impl ObservableMemTable {
-    fn new(table_name: String, schema: SchemaRef, log: Arc<Mutex<Vec<ScanTrace>>>, data: Vec<RecordBatch>) -> Self {
-        let mem = MemTable::try_new(schema.clone(), vec![data]).unwrap();
-        Self {
-            table_name,
-            schema,
-            mem: Arc::new(mem),
-            log,
-        }
-    }
-}
-
-#[async_trait]
-impl TableProvider for ObservableMemTable {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
-    fn schema(&self) -> SchemaRef {
-        self.schema.clone()
-    }
-
-    fn table_type(&self) -> TableType {
-        TableType::Base
-    }
-
-    fn supports_filters_pushdown(&self, filters: &[&Expr]) -> Result<Vec<TableProviderFilterPushDown>> {
-        Ok(vec![TableProviderFilterPushDown::Inexact; filters.len()])
-    }
-
-    async fn scan(
-        &self,
-        state: &dyn datafusion::catalog::Session,
-        projection: Option<&Vec<usize>>,
-        filters: &[Expr],
-        limit: Option<usize>,
-    ) -> Result<Arc<dyn ExecutionPlan>> {
-        let mut types = BTreeMap::new();
-        for f in self.schema.fields() {
-            types.insert(f.name().clone(), f.data_type().to_string());
-        }
-
-        self.log.lock().unwrap().push(ScanTrace {
-            table: self.table_name.clone(),
-            projection: projection.cloned(),
-            filters: filters.to_vec(),
-            types,
-        });
-
-        self.mem.scan(state, projection, filters, limit).await
-    }
-}
 
 fn rename_columns(batch: &RecordBatch, name_map: &HashMap<String, String>) -> RecordBatch {
     let new_fields = batch
@@ -184,23 +107,6 @@ fn rename_columns(batch: &RecordBatch, name_map: &HashMap<String, String>) -> Re
     let new_schema = std::sync::Arc::new(Schema::new(new_fields));
     RecordBatch::try_new(new_schema, batch.columns().to_vec()).unwrap()
 }
-
-trait SchemaAccess {
-    fn schema(&self) -> SchemaRef;
-}
-
-impl SchemaAccess for ScanTrace {
-    fn schema(&self) -> SchemaRef {
-        Arc::new(Schema::new(
-            self.types
-                .iter()
-                .map(|(k, v)| Field::new(k, map_pg_type(v), true))
-                .collect::<Vec<_>>(),
-        ))
-    }
-}
-
-
 
 pub async fn execute_sql(
     ctx: &SessionContext,
@@ -401,7 +307,7 @@ fn build_table(def: TableDef) -> (SchemaRef, Vec<RecordBatch>) {
     (schema_ref, record_batches)
 }
 
-pub async fn get_session_context(schema_path: &String, default_catalog:String, default_schema:String) -> datafusion::error::Result<(SessionContext, Arc<Mutex<Vec<ScanTrace>>>)> {
+pub async fn get_base_session_context(schema_path: &String, default_catalog:String, default_schema:String) -> datafusion::error::Result<(SessionContext, Arc<Mutex<Vec<ScanTrace>>>)> {
     let log: Arc<Mutex<Vec<ScanTrace>>> = Arc::new(Mutex::new(Vec::new()));
 
     let schemas = parse_schema(schema_path.as_str());
@@ -497,19 +403,3 @@ pub async fn get_session_context(schema_path: &String, default_catalog:String, d
     Ok((ctx, log))
 }
 
-pub fn print_execution_log(log:Arc<Mutex<Vec<ScanTrace>>>){
-    let out: Vec<_> = log.lock().unwrap().iter().map(|entry| {
-        let columns: Vec<_> = match &entry.projection {
-            Some(p) => p.iter().map(|i| entry.schema().field(*i).name().clone()).collect(),
-            None => entry.types.keys().cloned().collect(),
-        };
-        json!({
-            "table": entry.table,
-            "columns": columns,
-            "filters": entry.filters.iter().map(|f| f.to_string()).collect::<Vec<_>>(),
-            "types": entry.types,
-        })
-    }).collect();
-
-    println!("{}", serde_json::to_string_pretty(&out).unwrap());
-}
