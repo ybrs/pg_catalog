@@ -171,45 +171,6 @@ pub fn register_scalar_pg_tablespace_location(ctx: &SessionContext) -> Result<()
     Ok(())
 }
 
-// /// FORMAT_TYPE function
-// pub fn register_scalar_format_type(ctx: &SessionContext) -> Result<()> {
-//     // TODO: this just returns some known types, it should actually run a query
-//     let ctx_arc = Arc::new(ctx.clone());
-//     let udf = create_udf(
-//         "format_type",
-//         vec![ArrowDataType::Int64, ArrowDataType::Int64],
-//         ArrowDataType::Utf8,
-//         Volatility::Immutable,
-//         Arc::new(|args| {
-//             let oid = match &args[0] {
-//                 ColumnarValue::Scalar(ScalarValue::Int64(v)) => *v,
-//                 _ => return Err(DataFusionError::Execution("first arg must be INT8 scalar".into())),
-//             };
-//             let typmod = match &args[1] {
-//                 ColumnarValue::Scalar(ScalarValue::Int64(v)) => *v,
-//                 _ => return Err(DataFusionError::Execution("second arg must be INT8 scalar".into())),
-//             };
-//             let s = match oid {
-//                 Some(16) => "boolean".to_string(),
-//                 Some(20) => "bigint".to_string(),
-//                 Some(21) => "smallint".to_string(),
-//                 Some(23) => "integer".to_string(),
-//                 Some(25) => "text".to_string(),
-//                 Some(1043) => {
-//                     if let Some(tm) = typmod {
-//                         if tm >= 0 { format!("character varying({})", tm - 4) } else { "character varying".to_string() }
-//                     } else { "character varying".to_string() }
-//                 }
-//                 _ => oid.map(|o| o.to_string()).unwrap_or_default(),
-//             };
-//             Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(s))))
-//         }),
-//     );
-//     ctx_arc.register_udf(udf);
-//     Ok(())
-// }
-
-
 fn format_type_string(oid: i64, typmod: Option<i64>) -> String {
     match oid {
         16 => "boolean".to_string(),
@@ -259,44 +220,69 @@ pub fn register_scalar_format_type(ctx: &SessionContext) -> Result<()> {
         Arc::new(fun),
     );
     ctx_arc.register_udf(udf);
+
+
+    let udf = create_udf(
+        "pg_catalog.format_type",
+        vec![ArrowDataType::Int64, ArrowDataType::Int64],
+        ArrowDataType::Utf8,
+        Volatility::Immutable,
+        Arc::new(fun),
+    );
+    ctx_arc.register_udf(udf);
+
     Ok(())
 }
 
-// pub fn register_scalar_pg_get_expr(ctx: &SessionContext) -> Result<()> {
-//     use arrow::array::{ArrayRef, StringBuilder};
-//     use arrow::array::cast::as_string_array;
-//     use arrow::datatypes::DataType as ArrowDataType;
+
+// pub async fn register_scalar_format_type_with_lookup(ctx: &SessionContext) -> Result<()> {
+//     use arrow::array::{ArrayRef, Int32Array, StringArray, StringBuilder};
+//     use arrow::datatypes::DataType;
 //     use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
+//     use std::sync::Arc;
 
-//     let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
-//         let arrays = ColumnarValue::values_to_arrays(args)?;
-//         let exprs  = as_string_array(&arrays[0]);
-//         let mut b = StringBuilder::with_capacity(exprs.len(), 64 * exprs.len());
-//         for i in 0..exprs.len() {
-//             if exprs.is_null(i) { b.append_null(); } else { b.append_value(exprs.value(i)); }
+//     // Build a HashMap<oid,i32 -> typname> once
+//     let mut map = std::collections::HashMap::<i32, String>::new();
+//     if let Some(tbl) = ctx.table("pg_catalog.pg_type") {
+//         let batches = tbl.collect().await?;
+//         for b in &batches {
+//             let oid = b
+//                 .column_by_name("oid")
+//                 .and_then(|c| c.as_any().downcast_ref::<Int32Array>())
+//                 .unwrap();
+//             let name = b
+//                 .column_by_name("typname")
+//                 .and_then(|c| c.as_any().downcast_ref::<StringArray>())
+//                 .unwrap();
+//             for i in 0..b.num_rows() {
+//                 if !oid.is_null(i) && !name.is_null(i) {
+//                     map.insert(oid.value(i), name.value(i).to_string());
+//                 }
+//             }
 //         }
-//         Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
-//     };
-//     let f = Arc::new(fun);
+//     }
 
-//     // 2-argument signature (Utf8, Int32)
+//     // closure used by the UDF
+//     let fun = Arc::new(move |args: &[ColumnarValue]| -> Result<ColumnarValue> {
+//         let oid = match &args[0] {
+//             ColumnarValue::Scalar(ScalarValue::Int32(Some(v))) => *v,
+//             ColumnarValue::Array(arr) => {
+//                 let a = arr.as_any().downcast_ref::<Int32Array>().unwrap();
+//                 if a.is_null(0) { 0 } else { a.value(0) }
+//             }
+//             _ => 0,
+//         };
+//         let typname = map.get(&oid).cloned().unwrap_or_else(|| "text".into());
+//         Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(typname))))
+//     });
+
 //     ctx.register_udf(create_udf(
-//         "pg_catalog.pg_get_expr",
-//         vec![ArrowDataType::Utf8, ArrowDataType::Int32],
-//         ArrowDataType::Utf8,
-//         Volatility::Immutable,
-//         f.clone(),
+//         "pg_catalog.format_type",
+//         vec![DataType::Int32, DataType::Int32],
+//         DataType::Utf8,
+//         Volatility::Stable,
+//         fun,
 //     ));
-
-//     // // 3-argument signature (Utf8, Int32, Boolean)
-//     // ctx.register_udf(create_udf(
-//     //     "pg_catalog.pg_get_expr",
-//     //     vec![ArrowDataType::Utf8, ArrowDataType::Int32, ArrowDataType::Boolean],
-//     //     ArrowDataType::Utf8,
-//     //     Volatility::Immutable,
-//     //     f,
-//     // ));
-
 //     Ok(())
 // }
 
@@ -403,9 +389,275 @@ pub fn register_current_schema(ctx: &SessionContext) -> Result<()> {
 }
 
 
+pub fn register_scalar_pg_table_is_visible(ctx: &SessionContext) -> Result<()> {
+    use arrow::array::{ArrayRef, BooleanBuilder};
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
+    use std::sync::Arc;
+
+    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
+        let len = match &args[0] {
+            ColumnarValue::Array(a) => a.len(),
+            ColumnarValue::Scalar(_) => 1,
+        };
+        let mut b = BooleanBuilder::with_capacity(len);
+        for _ in 0..len { b.append_value(true); }
+        Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
+    };
+
+    ctx.register_udf(create_udf(
+        "pg_catalog.pg_table_is_visible",
+        vec![DataType::Int32],
+        DataType::Boolean,
+        Volatility::Stable,
+        Arc::new(fun),
+    ));
+    Ok(())
+}
+
+pub fn register_scalar_pg_get_userbyid(ctx: &SessionContext) -> Result<()> {
+    use arrow::array::{ArrayRef, StringBuilder};
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
+    use std::sync::Arc;
+
+    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
+        let len = match &args[0] {
+            ColumnarValue::Array(a) => a.len(),
+            ColumnarValue::Scalar(_) => 1,
+        };
+        let mut b = StringBuilder::with_capacity(len, 8 * len);
+        for _ in 0..len { b.append_value("postgres"); }
+        Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
+    };
+
+    ctx.register_udf(create_udf(
+        "pg_catalog.pg_get_userbyid",
+        vec![DataType::Int32],   // one OID argument
+        DataType::Utf8,
+        Volatility::Stable,
+        Arc::new(fun),
+    ));
+    Ok(())
+}
+
+pub fn register_scalar_pg_encoding_to_char(ctx: &SessionContext) -> Result<()> {
+    use arrow::array::{ArrayRef, StringBuilder};
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
+    use std::sync::Arc;
+
+    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
+        let len = match &args[0] {
+            ColumnarValue::Array(a) => a.len(),
+            ColumnarValue::Scalar(_) => 1,
+        };
+        let mut b = StringBuilder::with_capacity(len, 8 * len);
+        for _ in 0..len { b.append_value("UTF8"); }
+        Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
+    };
+
+    ctx.register_udf(create_udf(
+        "pg_catalog.pg_encoding_to_char",
+        vec![DataType::Int32],      // single OID argument
+        DataType::Utf8,
+        Volatility::Stable,
+        Arc::new(fun),
+    ));
+    Ok(())
+}
+
+
+pub fn register_scalar_array_to_string(ctx: &SessionContext) -> Result<()> {
+    use arrow::array::{Array, ArrayRef, GenericListArray, OffsetSizeTrait, StringArray, StringBuilder};
+    use arrow::datatypes::{DataType, Field};
+    use datafusion::logical_expr::{ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature, Volatility};
+    use std::sync::Arc;
+    use arrow::datatypes::ArrowNativeType;
+
+    fn build_list<O: OffsetSizeTrait>(
+        arr: ArrayRef,
+        delim: &str,
+        null_rep: &Option<String>,
+    ) -> Result<ColumnarValue> {
+        let l = arr
+            .as_any()
+            .downcast_ref::<GenericListArray<O>>()
+            .unwrap();
+        let strings = l
+            .values()
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap();
+        let offsets = l.value_offsets();
+        let mut out = StringBuilder::with_capacity(l.len(), 32 * l.len());
+        for i in 0..l.len() {
+            if l.is_null(i) {
+                out.append_null();
+                continue;
+            }
+            let mut parts = Vec::new();
+            let start = offsets[i].to_usize().unwrap();
+            let end = offsets[i + 1].to_usize().unwrap();
+            for idx in start..end {
+                if strings.is_null(idx) {
+                    if let Some(ref nr) = null_rep {
+                        parts.push(nr.as_str())
+                    }
+                } else {
+                    parts.push(strings.value(idx))
+                }
+            }
+            out.append_value(parts.join(delim));
+        }
+        Ok(ColumnarValue::Array(Arc::new(out.finish()) as ArrayRef))
+    }
 
 
 
+    #[derive(Debug)]
+    struct ArrayToString { sig: Signature }
+
+
+    impl ArrayToString {
+        fn new() -> Self {
+            let list = DataType::List(Arc::new(Field::new("item", DataType::Utf8, true)));
+            Self { sig: Signature::one_of(
+                vec![
+                    TypeSignature::Exact(vec![list.clone(), DataType::Utf8]),
+                    TypeSignature::Exact(vec![list, DataType::Utf8, DataType::Utf8]),
+                    //
+                    TypeSignature::Exact(vec![DataType::Utf8, DataType::Utf8]),
+                    TypeSignature::Exact(vec![DataType::Utf8, DataType::Utf8, DataType::Utf8]),    
+                ],
+                Volatility::Stable)}
+        }
+    }
+
+    impl ScalarUDFImpl for ArrayToString {
+        fn as_any(&self) -> &dyn std::any::Any { self }
+        fn name(&self) -> &str { "pg_catalog.array_to_string" }
+        fn signature(&self) -> &Signature { &self.sig }
+        fn return_type(&self, _: &[DataType]) -> Result<DataType> { Ok(DataType::Utf8) }
+
+
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            let delim = match &args.args[1] {
+                ColumnarValue::Scalar(ScalarValue::Utf8(Some(s))) => s.clone(),
+                _ => "".to_string(),
+            };
+            let null_rep = if args.args.len() == 3 {
+                match &args.args[2] {
+                    ColumnarValue::Scalar(ScalarValue::Utf8(opt)) => opt.clone(),
+                    _ => None,
+                }
+            } else {
+                None
+            };
+        
+            match &args.args[0] {
+                ColumnarValue::Array(a) if a.as_any().is::<GenericListArray<i32>>() => {
+                    build_list::<i32>(a.clone(), &delim, &null_rep)
+                }
+                ColumnarValue::Array(a) if a.as_any().is::<GenericListArray<i64>>() => {
+                    build_list::<i64>(a.clone(), &delim, &null_rep)
+                }
+                ColumnarValue::Array(a) if a.as_any().is::<StringArray>() => {
+                    let sa = a.as_any().downcast_ref::<StringArray>().unwrap();
+                    let mut b = StringBuilder::with_capacity(sa.len(), 32 * sa.len());
+                    for i in 0..sa.len() {
+                        if sa.is_null(i) { b.append_null(); } else { b.append_value(sa.value(i)); }
+                    }
+                    Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
+                }
+                ColumnarValue::Scalar(ScalarValue::Utf8(Some(s))) => {
+                    let mut b = StringBuilder::with_capacity(1, s.len());
+                    b.append_value(s);
+                    Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
+                }
+                _ => Err(DataFusionError::Plan("unsupported argument to array_to_string".into())),
+            }
+        }
+        
+
+        fn return_type_from_args(&self, args: datafusion::logical_expr::ReturnTypeArgs) -> Result<datafusion::logical_expr::ReturnInfo> {
+            let return_type = self.return_type(args.arg_types)?;
+            Ok(datafusion::logical_expr::ReturnInfo::new_nullable(return_type))
+        }
+        
+        fn is_nullable(&self, _args: &[Expr], _schema: &dyn datafusion::common::ExprSchema) -> bool {
+            true
+        }
+        
+        fn aliases(&self) -> &[String] {
+            &[]
+        }
+        
+        fn simplify(
+            &self,
+            args: Vec<Expr>,
+            _info: &dyn datafusion::logical_expr::simplify::SimplifyInfo,
+        ) -> Result<datafusion::logical_expr::simplify::ExprSimplifyResult> {
+            Ok(datafusion::logical_expr::simplify::ExprSimplifyResult::Original(args))
+        }
+        
+        fn short_circuits(&self) -> bool {
+            false
+        }
+        
+        fn evaluate_bounds(&self, _input: &[&datafusion::logical_expr::interval_arithmetic::Interval]) -> Result<datafusion::logical_expr::interval_arithmetic::Interval> {
+            // We cannot assume the input datatype is the same of output type.
+            datafusion::logical_expr::interval_arithmetic::Interval::make_unbounded(&DataType::Null)
+        }
+        
+        fn propagate_constraints(
+            &self,
+            _interval: &datafusion::logical_expr::interval_arithmetic::Interval,
+            _inputs: &[&datafusion::logical_expr::interval_arithmetic::Interval],
+        ) -> Result<Option<Vec<datafusion::logical_expr::interval_arithmetic::Interval>>> {
+            Ok(Some(std::vec![]))
+        }
+        
+        fn output_ordering(&self, inputs: &[datafusion::logical_expr::sort_properties::ExprProperties]) -> Result<datafusion::logical_expr::sort_properties::SortProperties> {
+            if !self.preserves_lex_ordering(inputs)? {
+                return Ok(datafusion::logical_expr::sort_properties::SortProperties::Unordered);
+            }
+        
+            let Some(first_order) = inputs.first().map(|p| &p.sort_properties) else {
+                return Ok(datafusion::logical_expr::sort_properties::SortProperties::Singleton);
+            };
+        
+            if inputs
+                .iter()
+                .skip(1)
+                .all(|input| &input.sort_properties == first_order)
+            {
+                Ok(*first_order)
+            } else {
+                Ok(datafusion::logical_expr::sort_properties::SortProperties::Unordered)
+            }
+        }
+        
+        fn preserves_lex_ordering(&self, _inputs: &[datafusion::logical_expr::sort_properties::ExprProperties]) -> Result<bool> {
+            Ok(false)
+        }
+        
+        fn coerce_types(&self, _arg_types: &[DataType]) -> Result<Vec<DataType>> {
+            datafusion::common::not_impl_err!("Function {} does not implement coerce_types", self.name())
+        }
+        
+        fn equals(&self, other: &dyn datafusion::logical_expr::ScalarUDFImpl) -> bool {
+            self.name() == other.name() && self.signature() == other.signature()
+        }
+        
+        fn documentation(&self) -> Option<&datafusion::logical_expr::Documentation> {
+            None
+        }
+    }
+
+    ctx.register_udf(ScalarUDF::new_from_impl(ArrayToString::new()));
+    Ok(())
+}
 
 #[cfg(test)]
 mod tests {

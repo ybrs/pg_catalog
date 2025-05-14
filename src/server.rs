@@ -31,7 +31,7 @@ use datafusion::{
 
 use crate::replace::{regclass_udfs, replace_set_command_with_namespace};
 use crate::session::{execute_sql, ClientOpts};
-use crate::user_functions::{register_current_schema, register_scalar_format_type, register_scalar_pg_get_expr, register_scalar_pg_get_partkeydef, register_scalar_pg_tablespace_location, register_scalar_regclass_oid};
+use crate::user_functions::{register_current_schema, register_scalar_array_to_string, register_scalar_format_type, register_scalar_pg_encoding_to_char, register_scalar_pg_get_expr, register_scalar_pg_get_partkeydef, register_scalar_pg_get_userbyid, register_scalar_pg_table_is_visible, register_scalar_pg_tablespace_location, register_scalar_regclass_oid};
 use tokio::net::TcpStream;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
@@ -391,6 +391,61 @@ async fn detect_gssencmode(mut socket: TcpStream) -> Option<TcpStream> {
     Some(socket)
 }
 
+use datafusion::error::Result as DFResult;
+
+async fn ensure_pg_catalog_rows(ctx: &SessionContext) -> DFResult<()> {
+    // 1. pg_class (row for oid 50010)
+    if ctx
+        .sql("SELECT 1 FROM pg_catalog.pg_class WHERE oid = 50010")
+        .await?
+        .count()
+        .await?
+        == 0
+    {
+        ctx.sql("INSERT INTO pg_catalog.pg_class
+                 (oid, relname, relnamespace, relkind, reltuples, reltype)
+                 VALUES (50010,'users',2200,'r',0,50011)")
+            .await?
+            .collect()
+            .await?;
+    }
+
+    // 2. pg_type (row for oid 50011)
+    if ctx
+        .sql("SELECT 1 FROM pg_catalog.pg_type WHERE oid = 50011")
+        .await?
+        .count()
+        .await?
+        == 0
+    {
+        ctx.sql("INSERT INTO pg_catalog.pg_type
+                 (oid, typname, typrelid, typlen, typcategory)
+                 VALUES (50011,'_users',50010,-1,'C')")
+            .await?
+            .collect()
+            .await?;
+    }
+
+    // 3. pg_attribute (rows for attrelid 50010)
+    if ctx
+        .sql("SELECT 1 FROM pg_catalog.pg_attribute
+              WHERE attrelid = 50010 AND attnum = 1")
+        .await?
+        .count()
+        .await?
+        == 0
+    {
+        ctx.sql("INSERT INTO pg_catalog.pg_attribute
+                 (attrelid,attnum,attname,atttypid,atttypmod,attnotnull,attisdropped)
+                 VALUES
+                 (50010,1,'id',23,-1,false,false),
+                 (50010,2,'name',25,-1,false,false)")
+            .await?
+            .collect()
+            .await?;
+    }
+    Ok(())
+}
 
 pub async fn start_server(base_ctx: Arc<SessionContext>, addr: &str, 
     default_catalog:&str, default_schema: &str) -> anyhow::Result<()> {
@@ -429,7 +484,10 @@ pub async fn start_server(base_ctx: Arc<SessionContext>, addr: &str,
             register_scalar_format_type(&ctx)?;
             register_scalar_pg_get_expr(&ctx)?;
             register_scalar_pg_get_partkeydef(&ctx)?;
-
+            register_scalar_pg_table_is_visible(&ctx)?;
+            register_scalar_pg_get_userbyid(&ctx)?;
+            register_scalar_pg_encoding_to_char(&ctx)?;
+            register_scalar_array_to_string(&ctx)?;
             
             let df = ctx.sql("SELECT datname FROM pg_catalog.pg_database where datname='pgtry'").await?;
             if df.count().await? == 0 {
@@ -470,34 +528,8 @@ pub async fn start_server(base_ctx: Arc<SessionContext>, addr: &str,
             let df = ctx.sql("select datname from pg_catalog.pg_database").await?;
             df.show().await?;
 
+            ensure_pg_catalog_rows(&ctx).await?;
 
-            // Adding some tables
-            let df = ctx.sql("INSERT INTO pg_catalog.pg_class (
-                oid, relname, relnamespace, relkind, reltuples, reltype
-            ) VALUES (
-                50010, 'users', 2200, 'r', 0, 50011
-            )").await?;
-            df.show().await?;
-
-
-            let df = ctx.sql("INSERT INTO pg_catalog.pg_type (
-                oid, typname, typrelid, typlen, typcategory
-            ) VALUES (
-                50011, '_users', 50010, -1, 'C'
-            )").await?;
-            df.show().await?;
-
-            let df = ctx.sql("
-                INSERT INTO pg_catalog.pg_attribute (
-                    attrelid, attnum, attname, atttypid, atttypmod, attnotnull, attisdropped
-                ) VALUES
-                (50010, 1, 'id',   23, -1, false, false),    -- int4
-                (50010, 2, 'name', 25, -1, false, false);    -- text
-            ").await?;
-            df.show().await?;
-
-
-            dbg!(ctx.state().scalar_functions().keys());
 
             let factory = Arc::new(DatafusionBackendFactory {
                 handler: Arc::new(DatafusionBackend::new(Arc::clone(&ctx))),
