@@ -1,14 +1,17 @@
 use arrow::array::{Int32Array, StringArray};
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 
-use datafusion::catalog::CatalogProvider;
+use datafusion::catalog::{CatalogProvider, Session};
 use datafusion::catalog::SchemaProvider;
 
 use datafusion::catalog::memory::{MemoryCatalogProvider, MemorySchemaProvider};
 use datafusion::datasource::{MemTable, TableProvider, TableType};
 use datafusion::datasource::provider::TableProviderFilterPushDown;
 use datafusion::execution::context::SessionContext;
+use datafusion::execution::TaskContext;
+use datafusion::logical_expr::dml::InsertOp;
 use datafusion::logical_expr::Expr;
+use datafusion::physical_plan::empty::EmptyExec;
 use datafusion::physical_plan::ExecutionPlan;
 use datafusion::error::Result;
 use async_trait::async_trait;
@@ -33,6 +36,8 @@ use crate::user_functions::{register_scalar_format_type, register_scalar_pg_tabl
 use datafusion::common::{config_err, config::ConfigEntry};
 
 use datafusion::common::config::{ConfigExtension, ExtensionOptions};
+use arrow::compute::concat_batches;
+use datafusion::physical_plan::collect;
 
 
 
@@ -133,6 +138,43 @@ impl TableProvider for ObservableMemTable {
 
         self.mem.scan(state, projection, filters, limit).await
     }
+
+    async fn insert_into(
+        &self,
+        state: &dyn Session,
+        input: Arc<dyn ExecutionPlan>,
+        insert_op: InsertOp,
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        let task_ctx: Arc<TaskContext> = if let Some(ctx) = state.as_any().downcast_ref::<SessionContext>() {
+            ctx.task_ctx()
+        } else {
+            Arc::new(TaskContext::from(state))
+        };
+
+        let mut new_batches = collect(input, task_ctx).await?;
+        let merged = match insert_op {
+            InsertOp::Overwrite => concat_batches(&self.schema, &new_batches)?,
+            _ => {
+                let mut guard = self.mem.batches[0].write().await;
+                if !guard.is_empty() {
+                    let mut all = vec![guard[0].clone()];
+                    all.append(&mut new_batches);
+                    concat_batches(&self.schema, &all)?
+                } else {
+                    concat_batches(&self.schema, &new_batches)?
+                }
+            }
+        };
+
+        {
+            let mut guard = self.mem.batches[0].write().await;
+            guard.clear();
+            guard.push(merged);
+        }
+
+        Ok(Arc::new(EmptyExec::new(self.schema.clone())))
+    }
+
 }
 
 pub fn print_execution_log(log:Arc<Mutex<Vec<ScanTrace>>>){

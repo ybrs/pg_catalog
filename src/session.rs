@@ -108,6 +108,34 @@ fn rename_columns(batch: &RecordBatch, name_map: &HashMap<String, String>) -> Re
     RecordBatch::try_new(new_schema, batch.columns().to_vec()).unwrap()
 }
 
+
+
+pub fn print_params(params: &Vec<Option<Bytes>>) {
+    for (i, param) in params.iter().enumerate() {
+        match param {
+            Some(bytes) => {
+                match bytes.len() {
+                    4 => {
+                        let v = u32::from_be_bytes(bytes[..4].try_into().unwrap());
+                        println!("param[{}] as u32: {}", i, v);
+                    }
+                    8 => {
+                        let v = u64::from_be_bytes(bytes[..8].try_into().unwrap());
+                        println!("param[{}] as u64: {}", i, v);
+                    }
+                    _ => {
+                        println!("param[{}] raw bytes ({} bytes): {:?}", i, bytes.len(), bytes);
+                    }
+                }
+            }
+            None => {
+                println!("param[{}] is NULL", i);
+            }
+        }
+    }
+}
+
+
 pub async fn execute_sql(
     ctx: &SessionContext,
     sql: &str,
@@ -121,6 +149,7 @@ pub async fn execute_sql(
     
     let df = if let (Some(params), Some(types)) = (vec, vec0) {
         println!("params {:?}", params);
+        print_params(&params);
 
         let mut scalars = Vec::new();
 

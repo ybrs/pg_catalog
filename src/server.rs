@@ -431,44 +431,73 @@ pub async fn start_server(base_ctx: Arc<SessionContext>, addr: &str,
             register_scalar_pg_get_partkeydef(&ctx)?;
 
             
-            let df = ctx.sql("INSERT INTO pg_catalog.pg_database (
-                oid,
-                datname,
-                datdba,
-                encoding,
-                datcollate,
-                datctype,
-                datistemplate,
-                datallowconn,
-                datconnlimit,
-            
-                datfrozenxid,
-                datminmxid,
-                dattablespace,
-                datacl
-            ) VALUES (
-                27734,
-                'pgtry',
-                27735,
-                6,
-                'C',
-                'C',
-                false,
-                true,
-                -1,
-            
-                726,
-                1,
-                1663,
-                '{=Tc/dbuser,dbuser=CTc/dbuser}'
-            );
-            ").await?;
-            // df.show().await?;
-
-            let df = ctx.sql("SELECT datname FROM pg_catalog.pg_database").await?;
+            let df = ctx.sql("SELECT datname FROM pg_catalog.pg_database where datname='pgtry'").await?;
+            if df.count().await? == 0 {
+                let df = ctx.sql("INSERT INTO pg_catalog.pg_database (
+                    oid,
+                    datname,
+                    datdba,
+                    encoding,
+                    datcollate,
+                    datctype,
+                    datistemplate,
+                    datallowconn,
+                    datconnlimit,
+                    datfrozenxid,
+                    datminmxid,
+                    dattablespace,
+                    datacl
+                ) VALUES (
+                    27734,
+                    'pgtry',
+                    27735,
+                    6,
+                    'C',
+                    'C',
+                    false,
+                    true,
+                    -1,
+                
+                    726,
+                    1,
+                    1663,
+                    '{=Tc/dbuser,dbuser=CTc/dbuser}'
+                );
+                ").await?;
+                df.show().await?;
+    
+            }
+            let df = ctx.sql("select datname from pg_catalog.pg_database").await?;
             df.show().await?;
-                        
 
+
+            // Adding some tables
+            let df = ctx.sql("INSERT INTO pg_catalog.pg_class (
+                oid, relname, relnamespace, relkind, reltuples, reltype
+            ) VALUES (
+                50010, 'users', 2200, 'r', 0, 50011
+            )").await?;
+            df.show().await?;
+
+
+            let df = ctx.sql("INSERT INTO pg_catalog.pg_type (
+                oid, typname, typrelid, typlen, typcategory
+            ) VALUES (
+                50011, '_users', 50010, -1, 'C'
+            )").await?;
+            df.show().await?;
+
+            let df = ctx.sql("
+                INSERT INTO pg_catalog.pg_attribute (
+                    attrelid, attnum, attname, atttypid, atttypmod, attnotnull, attisdropped
+                ) VALUES
+                (50010, 1, 'id',   23, -1, false, false),    -- int4
+                (50010, 2, 'name', 25, -1, false, false);    -- text
+            ").await?;
+            df.show().await?;
+
+
+            dbg!(ctx.state().scalar_functions().keys());
 
             let factory = Arc::new(DatafusionBackendFactory {
                 handler: Arc::new(DatafusionBackend::new(Arc::clone(&ctx))),

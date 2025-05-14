@@ -262,32 +262,102 @@ pub fn register_scalar_format_type(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
+// pub fn register_scalar_pg_get_expr(ctx: &SessionContext) -> Result<()> {
+//     use arrow::array::{ArrayRef, StringBuilder};
+//     use arrow::array::cast::as_string_array;
+//     use arrow::datatypes::DataType as ArrowDataType;
+//     use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
+
+//     let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
+//         let arrays = ColumnarValue::values_to_arrays(args)?;
+//         let exprs  = as_string_array(&arrays[0]);
+//         let mut b = StringBuilder::with_capacity(exprs.len(), 64 * exprs.len());
+//         for i in 0..exprs.len() {
+//             if exprs.is_null(i) { b.append_null(); } else { b.append_value(exprs.value(i)); }
+//         }
+//         Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
+//     };
+//     let f = Arc::new(fun);
+
+//     // 2-argument signature (Utf8, Int32)
+//     ctx.register_udf(create_udf(
+//         "pg_catalog.pg_get_expr",
+//         vec![ArrowDataType::Utf8, ArrowDataType::Int32],
+//         ArrowDataType::Utf8,
+//         Volatility::Immutable,
+//         f.clone(),
+//     ));
+
+//     // // 3-argument signature (Utf8, Int32, Boolean)
+//     // ctx.register_udf(create_udf(
+//     //     "pg_catalog.pg_get_expr",
+//     //     vec![ArrowDataType::Utf8, ArrowDataType::Int32, ArrowDataType::Boolean],
+//     //     ArrowDataType::Utf8,
+//     //     Volatility::Immutable,
+//     //     f,
+//     // ));
+
+//     Ok(())
+// }
 
 pub fn register_scalar_pg_get_expr(ctx: &SessionContext) -> Result<()> {
-    let ctx_arc = Arc::new(ctx.clone());
-    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
-        let arrays = ColumnarValue::values_to_arrays(args)?;
-        let exprs = as_string_array(&arrays[0]);
-        let mut builder = StringBuilder::new();
-        for i in 0..exprs.len() {
-            if exprs.is_null(i) {
-                builder.append_null();
-            } else {
-                builder.append_value(exprs.value(i));
+    use arrow::array::{ArrayRef, StringBuilder, cast::as_string_array};
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::{
+        ColumnarValue, ScalarFunctionArgs, ScalarUDFImpl, Signature,
+        TypeSignature, Volatility, ScalarUDF,
+    };
+    use std::sync::Arc;
+
+    #[derive(Debug)]
+    struct PgGetExpr {
+        sig: Signature,
+    }
+
+    impl PgGetExpr {
+        fn new() -> Self {
+            Self {
+                sig: Signature::one_of(
+                    vec![
+                        TypeSignature::Exact(vec![DataType::Utf8, DataType::Int32]),
+                        TypeSignature::Exact(vec![
+                            DataType::Utf8,
+                            DataType::Int32,
+                            DataType::Boolean,
+                        ]),
+                    ],
+                    Volatility::Immutable,
+                ),
             }
         }
-        Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
-    };
-    let udf = create_udf(
-        "pg_catalog.pg_get_expr",
-        vec![ArrowDataType::Utf8, ArrowDataType::Int64],
-        ArrowDataType::Utf8,
-        Volatility::Immutable,
-        Arc::new(fun),
-    );
-    ctx_arc.register_udf(udf);
+    }
+
+    
+    impl ScalarUDFImpl for PgGetExpr {
+        fn as_any(&self) -> &dyn std::any::Any { self }
+        fn name(&self) -> &str { "pg_catalog.pg_get_expr" }
+        fn signature(&self) -> &Signature { &self.sig }
+        fn return_type(&self, _t: &[DataType]) -> Result<DataType> { Ok(DataType::Utf8) }
+
+
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            let arrays = ColumnarValue::values_to_arrays(&args.args)?;   // borrow as slice
+            let exprs  = as_string_array(&arrays[0]);                  // need the ?
+            let mut b  = StringBuilder::with_capacity(exprs.len(), 32 * exprs.len());
+            for i in 0..exprs.len() {
+                if exprs.is_null(i) { b.append_null(); } else { b.append_value(exprs.value(i)); }
+            }
+            Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
+        }
+
+    }
+
+    ctx.register_udf(ScalarUDF::new_from_impl(PgGetExpr::new()));
     Ok(())
 }
+
+
+
 
 pub fn register_scalar_pg_get_partkeydef(ctx: &SessionContext) -> Result<()> {
     let ctx_arc = Arc::new(ctx.clone());
