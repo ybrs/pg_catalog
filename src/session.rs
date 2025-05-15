@@ -1,26 +1,18 @@
 use arrow::array::{Int32Array, StringArray};
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 
-use datafusion::catalog::CatalogProvider;
 use datafusion::catalog::SchemaProvider;
 
 use datafusion::catalog::memory::{MemoryCatalogProvider, MemorySchemaProvider};
-use datafusion::datasource::{MemTable, TableProvider, TableType};
-use datafusion::datasource::provider::TableProviderFilterPushDown;
+use datafusion::datasource::{MemTable};
 use datafusion::execution::context::SessionContext;
-use datafusion::logical_expr::Expr;
-use datafusion::physical_plan::ExecutionPlan;
-use datafusion::error::Result;
-use async_trait::async_trait;
 use arrow::record_batch::RecordBatch;
 
 use serde::Deserialize;
-use serde_json::json;
 use serde_yaml;
 
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
-use std::ops::Deref;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use pgwire::api::Type;

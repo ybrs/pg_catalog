@@ -12,7 +12,7 @@ use datafusion::prelude::*;
 use std::sync::Arc;
 use datafusion::execution::SessionState;
 use datafusion::logical_expr::{ColumnarValue, Volatility};
-use arrow::array::{as_string_array, Array, ArrayRef, StringBuilder};
+use arrow::array::{Array, ArrayRef, StringBuilder};
 use futures::executor::block_on;
 use tokio::task::block_in_place;
 use arrow::datatypes::DataType as ArrowDataType;
@@ -162,7 +162,7 @@ pub fn register_scalar_pg_tablespace_location(ctx: &SessionContext) -> Result<()
         ArrowDataType::Utf8,
         Volatility::Immutable,
         {
-            std::sync::Arc::new(move |args| {
+            std::sync::Arc::new(move |_args| {
                 Ok(ColumnarValue::Scalar(ScalarValue::Utf8(None)))
             })
         },
@@ -234,58 +234,6 @@ pub fn register_scalar_format_type(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-
-// pub async fn register_scalar_format_type_with_lookup(ctx: &SessionContext) -> Result<()> {
-//     use arrow::array::{ArrayRef, Int32Array, StringArray, StringBuilder};
-//     use arrow::datatypes::DataType;
-//     use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
-//     use std::sync::Arc;
-
-//     // Build a HashMap<oid,i32 -> typname> once
-//     let mut map = std::collections::HashMap::<i32, String>::new();
-//     if let Some(tbl) = ctx.table("pg_catalog.pg_type") {
-//         let batches = tbl.collect().await?;
-//         for b in &batches {
-//             let oid = b
-//                 .column_by_name("oid")
-//                 .and_then(|c| c.as_any().downcast_ref::<Int32Array>())
-//                 .unwrap();
-//             let name = b
-//                 .column_by_name("typname")
-//                 .and_then(|c| c.as_any().downcast_ref::<StringArray>())
-//                 .unwrap();
-//             for i in 0..b.num_rows() {
-//                 if !oid.is_null(i) && !name.is_null(i) {
-//                     map.insert(oid.value(i), name.value(i).to_string());
-//                 }
-//             }
-//         }
-//     }
-
-//     // closure used by the UDF
-//     let fun = Arc::new(move |args: &[ColumnarValue]| -> Result<ColumnarValue> {
-//         let oid = match &args[0] {
-//             ColumnarValue::Scalar(ScalarValue::Int32(Some(v))) => *v,
-//             ColumnarValue::Array(arr) => {
-//                 let a = arr.as_any().downcast_ref::<Int32Array>().unwrap();
-//                 if a.is_null(0) { 0 } else { a.value(0) }
-//             }
-//             _ => 0,
-//         };
-//         let typname = map.get(&oid).cloned().unwrap_or_else(|| "text".into());
-//         Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(typname))))
-//     });
-
-//     ctx.register_udf(create_udf(
-//         "pg_catalog.format_type",
-//         vec![DataType::Int32, DataType::Int32],
-//         DataType::Utf8,
-//         Volatility::Stable,
-//         fun,
-//     ));
-//     Ok(())
-// }
-
 pub fn register_scalar_pg_get_expr(ctx: &SessionContext) -> Result<()> {
     use arrow::array::{ArrayRef, StringBuilder, cast::as_string_array};
     use arrow::datatypes::DataType;
@@ -351,7 +299,7 @@ pub fn register_scalar_pg_get_partkeydef(ctx: &SessionContext) -> Result<()> {
         let arrays = ColumnarValue::values_to_arrays(args)?;
         let oids = as_int64_array(&arrays[0])?;
         let mut builder = StringBuilder::new();
-        for i in 0..oids.len() {
+        for _i in 0..oids.len() {
             builder.append_null();
         }
         Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
@@ -473,7 +421,6 @@ pub fn register_scalar_array_to_string(ctx: &SessionContext) -> Result<()> {
     use arrow::datatypes::{DataType, Field};
     use datafusion::logical_expr::{ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature, Volatility};
     use std::sync::Arc;
-    use arrow::datatypes::ArrowNativeType;
 
     fn build_list<O: OffsetSizeTrait>(
         arr: ArrayRef,
@@ -668,7 +615,6 @@ mod tests {
     use datafusion::catalog::memory::{MemoryCatalogProvider, MemorySchemaProvider};
     use datafusion::datasource::MemTable;
     use datafusion::error::Result;
-    use datafusion::prelude::*;
     use std::sync::Arc;
     use datafusion::catalog::{CatalogProvider, SchemaProvider};
 
@@ -687,7 +633,7 @@ mod tests {
 
 
     async fn make_ctx() -> Result<SessionContext> {
-        let mut config = datafusion::execution::context::SessionConfig::new()
+        let config = datafusion::execution::context::SessionConfig::new()
             .with_default_catalog_and_schema("public", "pg_catalog");
 
         let ctx = SessionContext::new_with_config(config);

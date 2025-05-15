@@ -4,13 +4,13 @@ mod clean_duplicate_columns;
 mod server;
 mod user_functions;
 mod db_table;
+// mod planner_extension;
+mod scalar_to_cte;
 
 use std::env;
 use std::sync::Arc;
-use arrow::util::pretty;
-use datafusion::prelude::SessionContext;
 use crate::server::start_server;
-use crate::session::{get_base_session_context, execute_sql};
+use crate::session::{get_base_session_context};
 
 async fn run() -> anyhow::Result<()> {
     let args: Vec<String> = env::args().collect();
@@ -48,7 +48,7 @@ async fn run() -> anyhow::Result<()> {
     let address = format!("{}:{}", host, port);
 
 
-    let (ctx, log) = get_base_session_context(schema_path, default_catalog.clone(), default_schema.clone()).await?;
+    let (ctx, _log) = get_base_session_context(schema_path, default_catalog.clone(), default_schema.clone()).await?;
     // let results = execute_sql(&ctx, sql.as_str()).await?;
     // pretty::print_batches(&results)?;
     // print_execution_log(log.clone());
