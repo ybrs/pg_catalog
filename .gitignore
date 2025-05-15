@@ -4,3 +4,4 @@ postgres-17/
 .DS_Store
 postgres-data
 venv/
+run_genp.py

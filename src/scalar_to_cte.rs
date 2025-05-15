@@ -137,118 +137,190 @@ mod visitor {
     }
 }
 
+////////////////////////////////////////////////////////////////
+/// Mutating rewriter  – Phase-3 skeleton
+////////////////////////////////////////////////////////////////
 mod rewriter {
     use super::*;
 
+    #[derive(Debug)]
+    struct PendingRewrite<'a> {
+        expr_slot : &'a mut Expr,   
+        info      : CorrelatedInfo, 
+    }
+
+    #[derive(Debug)]
+    struct CorrelatedInfo {
+        cte_ident : Ident,
+        subquery  : Box<Query>,
+        /* TODO(ph3)
+        outer_refs: Vec<Ident>,
+        is_exists : bool,
+        */
+    }
+
     #[derive(Default)]
-    pub struct ScalarToCte {
-        pub converted: usize,
-        cte_counter:   usize,
+    pub(super) struct ScalarToCte {
+        pub converted : usize,
+        cte_counter   : usize,
+    }
+
+
+    fn make_from_entry(alias: &Ident) -> TableWithJoins {
+        let q = super::parse_sql(&format!("SELECT * FROM {alias}")).unwrap();
+        if let Statement::Query(q) = q {
+            if let SetExpr::Select(sel) = q.body.as_ref() {
+                return sel.from[0].clone();
+            }
+        }
+        unreachable!("template changed")
     }
 
     impl ScalarToCte {
-        pub fn new() -> Self {
-            Self::default()
+        pub fn new() -> Self { Self::default() }
+
+        /* ---------- helpers ---------- */
+
+
+        fn make_from_entry(alias: &Ident) -> TableWithJoins {
+            let tmpl = super::parse_sql(&format!("SELECT * FROM {alias}")).unwrap();
+            if let Statement::Query(q) = tmpl {
+                if let SetExpr::Select(sel) = q.body.as_ref() {
+                    return sel.from[0].clone();
+                }
+            }
+            unreachable!("template changed")
         }
 
-        /* ─────── helpers ─────── */
-        fn fresh_cte_name(&mut self) -> Ident {
+        fn make_cross_join(alias: &Ident) -> Join {
+            // dummy base table so we can grab the Join node
+            let tmp = super::parse_sql(&format!("SELECT * FROM x CROSS JOIN {alias}"))
+                .expect("parser");
+            if let Statement::Query(q) = tmp {
+                if let SetExpr::Select(sel) = q.body.as_ref() {
+                    return sel.from[0].joins[0].clone();
+                }
+            }
+            unreachable!("template shape changed")
+        }
+    
+
+        fn fresh_name(&mut self) -> Ident {
             self.cte_counter += 1;
             Ident::new(format!("__cte{}", self.cte_counter))
         }
 
-        /// Parse a dummy `WITH x AS (SELECT 1) SELECT 1`
-        /// and return a *blank* `With` node whose tokens are intact.
         fn blank_with() -> With {
-            let stmt = super::parse_sql("WITH x AS (SELECT 1) SELECT 1")
-                .expect("parser must succeed");
-            if let Statement::Query(q) = stmt {
-                let mut w = q.with.expect("template has WITH");
-                w.cte_tables.clear();
-                w
-            } else {
-                unreachable!()
+            let stmt = super::parse_sql("WITH x AS (SELECT 1) SELECT 1").unwrap();
+            match stmt {
+                Statement::Query(q) => {
+                    let mut w = q.with.unwrap();
+                    w.cte_tables.clear();
+                    w
+                }
+                _ => unreachable!(),
             }
         }
 
-        /// Same trick, but returns a ready-made `Cte` which we then patch.
         fn make_cte(alias: &Ident, subq: Box<Query>) -> Cte {
-            let tmpl = format!("WITH {alias} AS (SELECT 1) SELECT 1");
-            let stmt = super::parse_sql(&tmpl).expect("parser");
-            let mut cte = if let Statement::Query(q) = stmt {
-                q.with.expect("WITH").cte_tables.into_iter().next().unwrap()
-            } else {
-                unreachable!()
+            let s = super::parse_sql(&format!("WITH {alias} AS (SELECT 1) SELECT 1")).unwrap();
+            let mut cte = match s {
+                Statement::Query(q) => q.with.unwrap().cte_tables.into_iter().next().unwrap(),
+                _ => unreachable!(),
             };
             cte.alias.name = alias.clone();
             cte.query      = subq;
             cte
         }
 
-        /// ensure outer `WITH` exists and return mut-ref
-        fn ensure_with<'a>(&mut self, with_opt: &'a mut Option<With>) -> &'a mut With {
-            if with_opt.is_none() {
-                *with_opt = Some(Self::blank_with());
+        fn ensure_with<'a>(&mut self, w: &'a mut Option<With>) -> &'a mut With {
+            if w.is_none() {
+                *w = Some(Self::blank_with());
             }
-            with_opt.as_mut().unwrap()
+            w.as_mut().unwrap()
         }
 
-        /// rewrite a scalar subquery → CTE and return replacement expr
-        fn rewrite_scalar_expr(
-            &mut self,
-            outer_with: &mut Option<With>,
-            scalar: &Expr,
-        ) -> Expr {
-            let subq = match scalar {
-                Expr::Subquery(q) => q.clone(),
-                _ => return scalar.clone(),
-            };
+        /* ---------- phase-3 steps ---------- */
 
-            let cte_ident = self.fresh_cte_name();
-
-            // push into WITH
-            let with_clause = self.ensure_with(outer_with);
-            with_clause
-                .cte_tables
-                .push(Self::make_cte(&cte_ident, subq));
-
-            self.converted += 1;
-
-            // replace reference in SELECT list
-            Expr::CompoundIdentifier(vec![cte_ident, Ident::new("col")])
+        /// trivial (no correlation yet)
+        fn analyse_scalar(&mut self, e: &Expr) -> Option<CorrelatedInfo> {
+            match e {
+                Expr::Subquery(q) => Some(CorrelatedInfo{
+                    cte_ident : self.fresh_name(),
+                    subquery  : q.clone(),
+                }),
+                _ => None,
+            }
         }
 
-        /* ─────── mut-visitors ─────── */
+        fn push_cte(&mut self, outer_with: &mut Option<With>, info: &CorrelatedInfo) {
+            let w = self.ensure_with(outer_with);
+            w.cte_tables.push(Self::make_cte(&info.cte_ident, info.subquery.clone()));
+        }
+        
+        fn add_join(&mut self, sel: &mut Select, info: &CorrelatedInfo) {
+            if sel.from.is_empty() {
+                sel.from.push(Self::make_from_entry(&info.cte_ident));
+            } else {
+                sel.from[0].joins.push(Self::make_cross_join(&info.cte_ident));
+            }
+        }
 
-        pub fn visit_statement_mut(&mut self, stmt: &mut Statement) {
-            if let Statement::Query(q) = stmt {
+        fn make_ref(info: &CorrelatedInfo) -> Expr {
+            Expr::CompoundIdentifier(vec![
+                info.cte_ident.clone(),
+                Ident::new("col")
+            ])
+        }
+
+    
+        /* ---------- mut-visitor ---------- */
+
+        pub fn visit_statement_mut(&mut self, s: &mut Statement) {
+            if let Statement::Query(q) = s {
                 self.visit_query_mut(q);
             }
         }
 
-        fn visit_query_mut(&mut self, query: &mut Box<Query>) {
-            if let SetExpr::Select(sel) = query.body.as_mut() {
-                self.visit_select_mut(&mut query.with, sel);
+        fn visit_query_mut(&mut self, q: &mut Box<Query>) {
+            if let SetExpr::Select(sel) = q.body.as_mut() {
+                self.visit_select_mut(&mut q.with, sel);
             }
         }
 
-        fn visit_select_mut(
-            &mut self,
-            outer_with: &mut Option<With>,
-            select:     &mut Select,
-        ) {
-            for item in &mut select.projection {
-                match item {
-                    SelectItem::UnnamedExpr(expr)
-                    | SelectItem::ExprWithAlias { expr, .. } => {
-                        if matches!(expr, Expr::Subquery(_)) {
-                            *expr = self.rewrite_scalar_expr(outer_with, expr);
-                        }
+        fn visit_select_mut(&mut self, w: &mut Option<With>, sel: &mut Select) {
+
+            // ---------- 1st pass: collect what needs rewriting ----------
+            let mut collected = Vec::<(usize, CorrelatedInfo)>::new();
+            for (idx, item) in sel.projection.iter().enumerate() {
+                if let SelectItem::UnnamedExpr(e)
+                | SelectItem::ExprWithAlias { expr: e, .. } = item
+                {
+                    if let Some(info) = self.analyse_scalar(e) {
+                        collected.push((idx, info));
                     }
-                    _ => {}
                 }
             }
+
+            // ---------- 2nd pass: inject CTEs & JOINs ----------
+            for (_, info) in &collected {
+                self.push_cte(w, info);
+                self.add_join(sel, info);
+            }
+
+            // ---------- 3rd pass: patch projection expressions ----------
+            for (idx, info) in collected {
+                if let SelectItem::UnnamedExpr(e)
+                | SelectItem::ExprWithAlias { expr: e, .. } =
+                    &mut sel.projection[idx]
+                {
+                    *e = Self::make_ref(&info);
+                    self.converted += 1;
+                }
+            }
+
         }
+    
     }
 }
 
@@ -317,6 +389,27 @@ mod tests {
         // make sure original top-level columns still there
         assert!(out.sql.starts_with("WITH"));
         assert!(out.sql.contains("SELECT a, __cte1.col")); // rough check
+        Ok(())
+    }
+
+    #[test]
+    fn scalar_becomes_join() -> Result<()> {
+        let q = "SELECT (SELECT 1) FROM t";
+        let out = rewrite(q)?;
+        println!("scalar_becomes_join {:?}", out);
+        assert_eq!(out.converted, 1);
+        assert!(out.sql.contains("WITH"));
+        assert!(out.sql.contains("JOIN"));
+        Ok(())
+    }
+
+    #[test]
+    fn cte_is_injected() -> Result<()> {
+        let q = "SELECT (SELECT 42)";
+        let out = rewrite(q)?;
+        assert_eq!(out.converted, 1);
+        assert!(out.sql.starts_with("WITH"));
+        assert!(out.sql.contains("__cte1"));
         Ok(())
     }
 
