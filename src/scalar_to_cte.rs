@@ -153,27 +153,56 @@ mod rewriter {
     struct CorrelatedInfo {
         cte_ident : Ident,
         subquery  : Box<Query>,
-        /* TODO(ph3)
-        outer_refs: Vec<Ident>,
-        is_exists : bool,
-        */
+        on_pairs  : Vec<EqPair>,
     }
+
+    // ------------------------------------------------------------
+    // ★ Correlation discovery utilities
+    // ------------------------------------------------------------
+
+    /// `t1.id = t2.id`  →  `(outer=id, inner=id)`
+    #[derive(Debug, Clone)]
+    struct EqPair {
+        outer: Vec<Ident>,
+        inner: Vec<Ident>,
+    }
+
+    /// walk a boolean expression and collect `outer = inner` pairs
+    fn collect_eq_pairs(e: &Expr, outer_alias: &Ident, out: &mut Vec<EqPair>) {
+        match e {
+            Expr::BinaryOp { op: BinaryOperator::And, left, right } => {
+                collect_eq_pairs(left, outer_alias, out);
+                collect_eq_pairs(right, outer_alias, out);
+            }
+            Expr::BinaryOp { op: BinaryOperator::Eq, left, right } => {
+                let (l, r) = (as_path(left), as_path(right));
+                match (l.first(), r.first()) {
+                    (Some(a), Some(b)) if a == outer_alias && b != outer_alias => {
+                        out.push(EqPair { outer: l, inner: r });
+                    }
+                    (Some(a), Some(b)) if b == outer_alias && a != outer_alias => {
+                        out.push(EqPair { outer: r, inner: l });
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// helper – CompoundIdentifier to Vec<Ident>, otherwise []
+    fn as_path(e: &Expr) -> Vec<Ident> {
+        match e {
+            Expr::CompoundIdentifier(p) => p.clone(),
+            _ => vec![],
+        }
+    }
+
 
     #[derive(Default)]
     pub(super) struct ScalarToCte {
         pub converted : usize,
         cte_counter   : usize,
-    }
-
-
-    fn make_from_entry(alias: &Ident) -> TableWithJoins {
-        let q = super::parse_sql(&format!("SELECT * FROM {alias}")).unwrap();
-        if let Statement::Query(q) = q {
-            if let SetExpr::Select(sel) = q.body.as_ref() {
-                return sel.from[0].clone();
-            }
-        }
-        unreachable!("template changed")
     }
 
     impl ScalarToCte {
@@ -204,6 +233,19 @@ mod rewriter {
             unreachable!("template shape changed")
         }
     
+        fn make_left_join(alias: &Ident) -> Join {
+            let tmp = super::parse_sql(&format!(
+                "SELECT * FROM x LEFT JOIN {alias} ON true"
+            ))
+            .expect("parser");
+        
+            if let Statement::Query(q) = tmp {
+                if let SetExpr::Select(sel) = q.body.as_ref() {
+                    return sel.from[0].joins[0].clone();
+                }
+            }
+            unreachable!("template shape changed")
+        }
 
         fn fresh_name(&mut self) -> Ident {
             self.cte_counter += 1;
@@ -239,17 +281,22 @@ mod rewriter {
             }
             w.as_mut().unwrap()
         }
-
-        /* ---------- phase-3 steps ---------- */
-
-        /// trivial (no correlation yet)
-        fn analyse_scalar(&mut self, e: &Expr) -> Option<CorrelatedInfo> {
-            match e {
-                Expr::Subquery(q) => Some(CorrelatedInfo{
+        fn analyse_scalar(&mut self, e: &Expr, outer_alias: &Ident) -> Option<CorrelatedInfo> {
+            let Expr::Subquery(sub) = e else { return None };
+        
+            // we only support plain SELECT sub-queries for now
+            if let SetExpr::Select(inner_sel) = sub.body.as_ref() {
+                let mut pairs = Vec::<EqPair>::new();
+                if let Some(pred) = &inner_sel.selection {
+                    collect_eq_pairs(pred, outer_alias, &mut pairs);
+                }
+                Some(CorrelatedInfo{
                     cte_ident : self.fresh_name(),
-                    subquery  : q.clone(),
-                }),
-                _ => None,
+                    subquery  : sub.clone(),
+                    on_pairs  : pairs,
+                })
+            } else {
+                None
             }
         }
 
@@ -262,9 +309,12 @@ mod rewriter {
             if sel.from.is_empty() {
                 sel.from.push(Self::make_from_entry(&info.cte_ident));
             } else {
-                sel.from[0].joins.push(Self::make_cross_join(&info.cte_ident));
+                sel.from[0]
+                    .joins
+                    .push(self.build_left_join(&info.cte_ident, &info.on_pairs));
             }
         }
+        
 
         fn make_ref(info: &CorrelatedInfo) -> Expr {
             Expr::CompoundIdentifier(vec![
@@ -273,7 +323,46 @@ mod rewriter {
             ])
         }
 
-    
+
+        fn build_left_join(&self, alias: &Ident, pairs: &[EqPair]) -> Join {
+            let mut join = Self::make_left_join(alias);
+        
+            if !pairs.is_empty() {
+                // helper: replace first identifier in a path with the CTE alias
+                let rewrite_inner = |path: &Vec<Ident>| -> Expr {
+                    let mut new = path.clone();
+                    new[0] = alias.clone();
+                    Expr::CompoundIdentifier(new)
+                };
+        
+                // first equality
+                let first = &pairs[0];
+                let mut on_expr = Expr::BinaryOp {
+                    left  : Box::new(Expr::CompoundIdentifier(first.outer.clone())),
+                    op    : BinaryOperator::Eq,
+                    right : Box::new(rewrite_inner(&first.inner)),
+                };
+        
+                // AND-chain the rest
+                for p in &pairs[1..] {
+                    let eq = Expr::BinaryOp {
+                        left  : Box::new(Expr::CompoundIdentifier(p.outer.clone())),
+                        op    : BinaryOperator::Eq,
+                        right : Box::new(rewrite_inner(&p.inner)),
+                    };
+                    on_expr = Expr::BinaryOp {
+                        left  : Box::new(on_expr),
+                        op    : BinaryOperator::And,
+                        right : Box::new(eq),
+                    };
+                }
+        
+                join.join_operator = JoinOperator::LeftOuter(JoinConstraint::On(on_expr));
+            }
+            join
+        }
+        
+
         /* ---------- mut-visitor ---------- */
 
         pub fn visit_statement_mut(&mut self, s: &mut Statement) {
@@ -289,6 +378,22 @@ mod rewriter {
         }
 
         fn visit_select_mut(&mut self, w: &mut Option<With>, sel: &mut Select) {
+            // ---------- outer alias (very first table name / alias) ----------
+            let outer_alias: Ident = sel
+            .from
+            .get(0)
+            .and_then(|twj| match &twj.relation {
+                // explicit alias  →  use it
+                TableFactor::Table { alias: Some(a), .. }
+                | TableFactor::Derived { alias: Some(a), .. } => Some(a.name.clone()),
+                // otherwise   first identifier of the table name
+                TableFactor::Table { name, .. } => match name.0.first() {
+                    Some(ObjectNamePart::Identifier(id)) => Some(id.clone()),
+                    _ => None,
+                },
+                _ => None,
+            })
+            .unwrap_or_else(|| Ident::new("_outer"));
 
             // ---------- 1st pass: collect what needs rewriting ----------
             let mut collected = Vec::<(usize, CorrelatedInfo)>::new();
@@ -296,7 +401,7 @@ mod rewriter {
                 if let SelectItem::UnnamedExpr(e)
                 | SelectItem::ExprWithAlias { expr: e, .. } = item
                 {
-                    if let Some(info) = self.analyse_scalar(e) {
+                    if let Some(info) = self.analyse_scalar(e, &outer_alias) {
                         collected.push((idx, info));
                     }
                 }
@@ -410,6 +515,17 @@ mod tests {
         assert_eq!(out.converted, 1);
         assert!(out.sql.starts_with("WITH"));
         assert!(out.sql.contains("__cte1"));
+        Ok(())
+    }
+
+
+    #[test]
+    fn rewrite_equality_join() -> Result<()> {
+        let q = "SELECT (SELECT max(b) FROM t2 WHERE t2.id = t1.id) FROM t1";
+        let out = rewrite(q)?;
+        println!("rewrite_equality_join {:?}", out);
+        assert!(out.sql.contains("LEFT OUTER JOIN __cte1"));
+        assert!(out.sql.contains("t1.id = __cte1.id"));
         Ok(())
     }
 
