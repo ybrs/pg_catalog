@@ -153,7 +153,7 @@ mod rewriter {
     struct CorrelatedInfo {
         cte_ident : Ident,
         subquery  : Box<Query>,
-        on_pairs  : Vec<EqPair>,
+        on_pairs  : Vec<CorrPred>,
     }
 
     // ------------------------------------------------------------
@@ -167,21 +167,38 @@ mod rewriter {
         inner: Vec<Ident>,
     }
 
+    /// One correlated comparison: `t1.x <> t2.y`
+    #[derive(Debug, Clone)]
+    struct CorrPred {
+        outer: Vec<Ident>,
+        inner: Vec<Ident>,
+        op   : BinaryOperator,        // =  <>  <  <=  >  >=
+    }
+
     /// walk a boolean expression and collect `outer = inner` pairs
-    fn collect_eq_pairs(e: &Expr, outer_alias: &Ident, out: &mut Vec<EqPair>) {
+    fn collect_corr_preds(e: &Expr, outer_alias: &Ident, out: &mut Vec<CorrPred>) {
         match e {
             Expr::BinaryOp { op: BinaryOperator::And, left, right } => {
-                collect_eq_pairs(left, outer_alias, out);
-                collect_eq_pairs(right, outer_alias, out);
+                collect_corr_preds(left,  outer_alias, out);
+                collect_corr_preds(right, outer_alias, out);
             }
-            Expr::BinaryOp { op: BinaryOperator::Eq, left, right } => {
+
+            Expr::BinaryOp { op, left, right }
+                if matches!(op,
+                    BinaryOperator::Eq
+                  | BinaryOperator::NotEq
+                  | BinaryOperator::Lt
+                  | BinaryOperator::LtEq
+                  | BinaryOperator::Gt
+                  | BinaryOperator::GtEq) =>
+            {
                 let (l, r) = (as_path(left), as_path(right));
                 match (l.first(), r.first()) {
                     (Some(a), Some(b)) if a == outer_alias && b != outer_alias => {
-                        out.push(EqPair { outer: l, inner: r });
+                        out.push(CorrPred { outer: l, inner: r, op: op.clone() });
                     }
                     (Some(a), Some(b)) if b == outer_alias && a != outer_alias => {
-                        out.push(EqPair { outer: r, inner: l });
+                            out.push(CorrPred { outer: r, inner: l, op: op.clone() });
                     }
                     _ => {}
                 }
@@ -286,9 +303,9 @@ mod rewriter {
         
             // we only support plain SELECT sub-queries for now
             if let SetExpr::Select(inner_sel) = sub.body.as_ref() {
-                let mut pairs = Vec::<EqPair>::new();
+                let mut pairs = Vec::<CorrPred>::new();
                 if let Some(pred) = &inner_sel.selection {
-                    collect_eq_pairs(pred, outer_alias, &mut pairs);
+                    collect_corr_preds(pred, outer_alias, &mut pairs);
                 }
                 Some(CorrelatedInfo{
                     cte_ident : self.fresh_name(),
@@ -324,7 +341,7 @@ mod rewriter {
         }
 
 
-        fn build_left_join(&self, alias: &Ident, pairs: &[EqPair]) -> Join {
+        fn build_left_join(&self, alias: &Ident, pairs: &[CorrPred]) -> Join {
             let mut join = Self::make_left_join(alias);
         
             if !pairs.is_empty() {
@@ -339,7 +356,7 @@ mod rewriter {
                 let first = &pairs[0];
                 let mut on_expr = Expr::BinaryOp {
                     left  : Box::new(Expr::CompoundIdentifier(first.outer.clone())),
-                    op    : BinaryOperator::Eq,
+                    op    : first.op.clone(),
                     right : Box::new(rewrite_inner(&first.inner)),
                 };
         
@@ -347,7 +364,7 @@ mod rewriter {
                 for p in &pairs[1..] {
                     let eq = Expr::BinaryOp {
                         left  : Box::new(Expr::CompoundIdentifier(p.outer.clone())),
-                        op    : BinaryOperator::Eq,
+                        op    : p.op.clone(),
                         right : Box::new(rewrite_inner(&p.inner)),
                     };
                     on_expr = Expr::BinaryOp {
@@ -528,5 +545,23 @@ mod tests {
         assert!(out.sql.contains("t1.id = __cte1.id"));
         Ok(())
     }
+
+    #[test]
+    fn rewrite_inequality_join() -> Result<()> {
+        let q = "
+            SELECT (SELECT min(b.val)
+                    FROM   t2
+                    WHERE  t2.id  = t1.id
+                    AND  t2.val <> t1.val)
+            FROM t1";
+        let out = rewrite(q)?;
+        println!("rewrite_inequality_join {:?}", out);
+
+        assert!(out.sql.contains("LEFT OUTER JOIN __cte1"));
+        assert!(out.sql.contains("t1.id = __cte1.id"));
+        assert!(out.sql.contains("t2.val <> t1.val") || out.sql.contains("__cte1.val <>"));
+        Ok(())
+    }
+
 
 }
