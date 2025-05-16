@@ -154,6 +154,7 @@ mod rewriter {
         cte_ident : Ident,
         subquery  : Box<Query>,
         on_pairs  : Vec<CorrPred>,
+        orig_alias: Option<Ident>,
     }
 
     // ------------------------------------------------------------
@@ -298,8 +299,18 @@ mod rewriter {
             }
             w.as_mut().unwrap()
         }
-        fn analyse_scalar(&mut self, e: &Expr, outer_alias: &Ident) -> Option<CorrelatedInfo> {
-            let Expr::Subquery(sub) = e else { return None };
+        fn analyse_scalar(&mut self,
+            sel_item : &SelectItem,  
+            outer_alias: &Ident) -> Option<CorrelatedInfo> {
+            
+            let expr = match sel_item {
+                SelectItem::UnnamedExpr(e)
+                | SelectItem::ExprWithAlias { expr: e, .. } => e,
+                _ => return None,
+            };
+        
+            let Expr::Subquery(sub) = expr else { return None };
+
         
             // we only support plain SELECT sub-queries for now
             if let SetExpr::Select(inner_sel) = sub.body.as_ref() {
@@ -311,6 +322,10 @@ mod rewriter {
                     cte_ident : self.fresh_name(),
                     subquery  : sub.clone(),
                     on_pairs  : pairs,
+                    orig_alias: match sel_item {
+                        SelectItem::ExprWithAlias { alias, .. } => Some(alias.clone()),
+                        _ => None,
+                    },
                 })
             } else {
                 None
@@ -418,7 +433,7 @@ mod rewriter {
                 if let SelectItem::UnnamedExpr(e)
                 | SelectItem::ExprWithAlias { expr: e, .. } = item
                 {
-                    if let Some(info) = self.analyse_scalar(e, &outer_alias) {
+                    if let Some(info) = self.analyse_scalar(item, &outer_alias) {
                         collected.push((idx, info));
                     }
                 }
@@ -432,13 +447,20 @@ mod rewriter {
 
             // ---------- 3rd pass: patch projection expressions ----------
             for (idx, info) in collected {
-                if let SelectItem::UnnamedExpr(e)
-                | SelectItem::ExprWithAlias { expr: e, .. } =
-                    &mut sel.projection[idx]
-                {
-                    *e = Self::make_ref(&info);
-                    self.converted += 1;
-                }
+                let replacement_expr = Self::make_ref(&info);
+            
+                sel.projection[idx] = if let Some(alias) = info.orig_alias {
+                    SelectItem::ExprWithAlias {
+                        expr : replacement_expr,
+                        alias,
+                    }
+                } else {
+                    SelectItem::ExprWithAlias {
+                        expr : replacement_expr,
+                        alias: Ident::new(format!("subq{}", self.converted + 1)),
+                    }
+                };
+                self.converted += 1;
             }
 
         }
@@ -560,6 +582,24 @@ mod tests {
         assert!(out.sql.contains("LEFT OUTER JOIN __cte1"));
         assert!(out.sql.contains("t1.id = __cte1.id"));
         assert!(out.sql.contains("t2.val <> t1.val") || out.sql.contains("__cte1.val <>"));
+        Ok(())
+    }
+
+
+    #[test]
+    fn keeps_explicit_alias() -> Result<()> {
+        let q = "SELECT (SELECT 1) AS answer";
+        let out = rewrite(q)?;
+        println!("keeps_explicit_alias {:?}", out);
+        assert!(out.sql.contains("answer"));      // alias survived
+        Ok(())
+    }
+    
+    #[test]
+    fn synthesises_alias_when_missing() -> Result<()> {
+        let q = "SELECT (SELECT 1)";
+        let out = rewrite(q)?;
+        assert!(out.sql.contains("subq1"));       // our synthetic alias
         Ok(())
     }
 
