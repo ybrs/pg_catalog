@@ -1,4 +1,52 @@
 #![allow(unused_imports)]
+/*───────────────────────────────────────────────────────────────────────────────
+  Scalar-subquery-to-CTE re-writer
+  ──────────────────────────────────────────────────────────────────────────────
+
+  WHY WE BUILT IT
+  ═══════════════
+  DataFusion’s logical plan *hates* correlated scalar sub-queries:
+    • they prevent predicate push-down and join re-ordering,
+    • they’re rewritten into a naïve “pull up every row, evaluate per row”
+      execution which is disastrously slow on large tables.
+
+  Turning…
+
+      SELECT …,
+             (SELECT max(b)
+              FROM   t2
+              WHERE  t2.id = t1.id)      -- correlated scalar
+      FROM t1
+
+  …into…
+
+      WITH __cte1 AS (
+          SELECT max(b), t2.id           -- key(s) & scalar value
+          FROM   t2
+          GROUP BY t2.id
+      )
+      SELECT …,
+             __cte1.col                  -- scalar becomes simple column ref
+      FROM t1
+      LEFT JOIN __cte1 ON t1.id = __cte1.id
+
+  removes the correlation barrier: the optimiser sees only joins + a WITH
+  block, all of which it already handles well.
+
+  PARKING-LOT – IDEAS / TODOS
+  ═══════════════════════════
+    1. EXISTS / NOT EXISTS   ─ rewrite into semi-/anti-joins.
+    2. UNION / INTERSECT     ─ support set-ops inside the scalar sub-query.
+    3. Complex projections   ─ sub-queries embedded in wider expressions.
+    4. General “outer-only” predicates (t1.x > 10, t1.flag = 1, …).
+    5. Multiple scalars in one expression (cte1.col + cte2.col).
+    6. Stable synthetic alias numbering across nested rewrites.
+    7. Avoid name clashes if inner query already exposes a `col` column.
+    8. Cache helper template parses for speed.
+    9. Pretty printer for the resulting SQL (line breaks, indent).
+   10. Deep-nesting unit tests (scalar within scalar within …).
+
+  ─────────────────────────────────────────────────────────────────────────────*/
 
 use sqlparser::ast::*;
 use sqlparser::dialect::GenericDialect;
