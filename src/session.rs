@@ -146,10 +146,12 @@ pub async fn execute_sql(
     let sql = rewrite_schema_qualified_text(&sql);
     let sql = replace_regclass(&sql);
     let sql = rewrite_regtype_cast(&sql);
+
+    let (sql, aliases) = alias_all_columns(&sql);
+
     println!("sql before rewrite {:?}", sql);
     let sql = rewrite_subquery_as_cte(&sql);
     println!("sql after rewrite {:?}", sql);
-    let (sql, aliases) = alias_all_columns_dummy(&sql);
     
     let df = if let (Some(params), Some(types)) = (vec, vec0) {
         println!("params {:?}", params);

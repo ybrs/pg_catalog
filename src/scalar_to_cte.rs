@@ -450,6 +450,49 @@ mod rewriter {
                     Self::strip_corr_filters(inner_sel,
                                                 &info.on_pairs,
                                                 &info.outer_alias);
+
+
+                    /* --------------------------------------------------------
+                     * 1.  Ensure the *scalar value* itself is exposed
+                     *     as  col  inside the CTE so the outer query
+                     *     can safely reference  __cteN.col
+                     * --------------------------------------------------------*/
+                    // ---- make the first projection look like  expr AS col --------------
+                    if let Some(SelectItem::UnnamedExpr(expr)) = inner_sel.projection.first().cloned() {
+                        // overwrite the first entry in-place
+                        inner_sel.projection[0] = SelectItem::ExprWithAlias {
+                            expr,
+                            alias: Ident::new("col"),
+                        };
+                    }
+
+                    
+                    // helper – add "col_path" unless already there
+                    let mut ensure_proj = |path: &Vec<Ident>| {
+                        let already = inner_sel.projection.iter().any(|item| {
+                            matches!(item,
+                                SelectItem::UnnamedExpr(
+                                    Expr::CompoundIdentifier(p)) if p == path)
+                        });
+                        if !already {
+                            inner_sel.projection.push(
+                                SelectItem::UnnamedExpr(
+                                    Expr::CompoundIdentifier(path.clone()))
+                            );
+                        }
+                    };
+                    
+                    // ---- gather every inner-side column that will be used by the JOIN ----
+                    let mut need: Vec<Vec<Ident>> = Vec::new();
+                    for p in &info.on_pairs {
+                        if !need.contains(&p.inner) {
+                            need.push(p.inner.clone());
+                        }
+                    }
+
+
+                    for p in need { ensure_proj(&p); }
+
             }
         
             // ★ use *subq* we just cleaned, not the original
@@ -491,13 +534,11 @@ mod rewriter {
             }
 
         }
-        
-        
-
+             
         fn make_ref(info: &CorrelatedInfo) -> Expr {
             Expr::CompoundIdentifier(vec![
                 info.cte_ident.clone(),
-                Ident::new("col")
+                Ident::new("col"),
             ])
         }
 
@@ -509,7 +550,8 @@ mod rewriter {
                 outer_only : &[Expr],
         ) -> Join {
             let mut join = Self::make_left_join(alias);
-        
+            let mut on_expr: Option<Expr> = None;
+
             if !pairs.is_empty() {
                 // helper: replace first identifier in a path with the CTE alias
                 let rewrite_inner = |path: &Vec<Ident>| -> Expr {
@@ -520,7 +562,7 @@ mod rewriter {
         
                 // first equality
                 let first = &pairs[0];
-                let mut on_expr = Expr::BinaryOp {
+                let mut expr = Expr::BinaryOp {
                     left  : Box::new(Expr::CompoundIdentifier(first.outer.clone())),
                     op    : first.op.clone(),
                     right : Box::new(rewrite_inner(&first.inner)),
@@ -533,27 +575,28 @@ mod rewriter {
                         op    : p.op.clone(),
                         right : Box::new(rewrite_inner(&p.inner)),
                     };
-                    on_expr = Expr::BinaryOp {
-                        left  : Box::new(on_expr),
+                    expr = Expr::BinaryOp {
+                        left  : Box::new(expr),
                         op    : BinaryOperator::And,
                         right : Box::new(eq),
                     };
                 }
         
-                join.join_operator = JoinOperator::LeftOuter(JoinConstraint::On(on_expr));
+                on_expr = Some(expr);
             }
 
             // -------- outer‑only predicates (t1.flag etc.) -----
-            for p in outer_only {
-                let rhs = p.clone();                // already references outer table
-                on_expr = match on_expr {
+            /* ---------- outer-only predicates (t1.flag …) ---------- */
+            for pred in outer_only {
+                on_expr = Some(match on_expr.take() {
                     Some(current) => Expr::BinaryOp {
                         left  : Box::new(current),
                         op    : BinaryOperator::And,
-                        right : Box::new(rhs),
+                        right : Box::new(pred.clone()),
                     },
-                    None => rhs,
-                };
+                    None => pred.clone(),
+                });
+
             }
             
             // If we built anything, replace the default `ON true`
@@ -823,4 +866,101 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn cte_projects_join_key() -> Result<()> {
+        let q = "
+            SELECT (SELECT count(*)          -- scalar sub-query
+                    FROM   t2
+                    WHERE  t2.id = t1.id)    -- correlated predicate
+            FROM t1";
+    
+        let out = rewrite(q)?;
+        let sql = out.sql;
+    
+        // 1) the inner column appears in the CTE SELECT-list
+        assert!(
+            sql.contains("SELECT t2.id") || sql.contains(", t2.id"),
+            "join key t2.id not projected by CTE"
+        );
+    
+        // 2) the ON-clause uses the projected column
+        assert!(
+            sql.contains("t1.id = __cte1.id"),
+            "join predicate not rewritten with CTE column"
+        );
+        Ok(())
+    }
+    
+    #[test]
+    fn cte_projects_multiple_keys() -> Result<()> {
+        let q = "
+            SELECT (SELECT 1
+                    FROM   t2
+                    WHERE  t2.x = t1.x
+                    AND    t2.y <> t1.y)     -- two different columns
+            FROM t1";
+
+        let out = rewrite(q)?;
+        let sql = out.sql;
+
+        // Both columns must be selected by the CTE
+        for col in ["t2.x", "t2.y"] {
+            assert!(
+                sql.contains(col),
+                "{col} not projected by CTE"
+            );
+        }
+
+        // And appear (rewritten) inside the JOIN
+        assert!(sql.contains("t1.x = __cte1.x"),  "x predicate missing");
+        assert!(
+            sql.contains("t1.y <> __cte1.y") || sql.contains("__cte1.y <> t1.y"),
+            "y predicate missing"
+        );
+        Ok(())
+    }
+
+    // ---- full pg_catalog style query --------------------------------------------------
+    // Ensures
+    //   * scalar value is exposed as __cte1.col
+    //   * every join-key column is projected by its CTE
+    #[test]
+    fn pg_catalog_query_ok() -> Result<()> {
+        let q = r#"
+            SELECT a.attname,
+                   pg_catalog.format_type(a.atttypid, a.atttypmod),
+                   (SELECT pg_catalog.pg_get_expr(d.adbin, d.adrelid, true)
+                    FROM pg_catalog.pg_attrdef d
+                    WHERE d.adrelid = a.attrelid
+                      AND d.adnum   = a.attnum
+                      AND a.atthasdef),
+                   a.attnotnull,
+                   (SELECT c.collname
+                    FROM pg_catalog.pg_collation c,
+                         pg_catalog.pg_type      t
+                    WHERE c.oid = a.attcollation
+                      AND t.oid = a.atttypid
+                      AND a.attcollation <> t.typcollation) AS attcollation,
+                   a.attidentity,
+                   a.attgenerated
+            FROM pg_catalog.pg_attribute a
+            WHERE a.attrelid = '50010'
+              AND a.attnum  > 0
+              AND NOT a.attisdropped;
+        "#;
+    
+        let sql = rewrite(q)?.sql;
+    
+        // scalar exposed
+        assert!(sql.contains("__cte1.col"), "scalar alias 'col' missing");
+    
+        // join-key columns projected by CTEs
+        for k in ["d.adrelid", "d.adnum", "c.oid", "t.oid", "t.typcollation"] {
+            assert!(
+                sql.contains(k),
+                "{k} not projected inside CTE"
+            );
+        }
+        Ok(())
+    }
 }
