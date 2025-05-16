@@ -31,6 +31,11 @@ pub fn rewrite(sql: &str) -> Result<RewriteOutcome> {
     })
 }
 
+pub fn rewrite_subquery_as_cte(sql: &str) -> String {
+    let out = rewrite(sql);
+    out.unwrap().sql
+}
+
 fn parse_sql(sql: &str) -> Result<Statement> {
     let dialect = GenericDialect {};
     let mut statements = Parser::parse_sql(&dialect, sql)
@@ -216,6 +221,51 @@ mod rewriter {
         }
     }
 
+    /// flatten `a AND b AND c` → `[a, b, c]`
+    fn split_and(e: &Expr) -> Vec<Expr> {
+        match e {
+            Expr::BinaryOp {
+                op: BinaryOperator::And,
+                left,
+                right,
+            } => {
+                let mut v = split_and(left);
+                v.extend(split_and(right));
+                v
+            }
+            other => vec![other.clone()],
+        }
+    }
+
+    /// rebuild AND-chain; returns `None` if `parts` is empty
+    fn build_and(mut parts: Vec<Expr>) -> Option<Expr> {
+        match parts.len() {
+            0 => None,
+            1 => Some(parts.pop().unwrap()),
+            _ => {
+                let right = parts.pop().unwrap();
+                let left  = build_and(parts).unwrap();
+                Some(Expr::BinaryOp {
+                    left : Box::new(left),
+                    op   : BinaryOperator::And,
+                    right: Box::new(right),
+                })
+            }
+        }
+    }
+
+    /// does this boolean expression represent *exactly* the same
+    /// correlated predicate that we lifted into `pairs`?
+    fn is_same_pred(e: &Expr, p: &CorrPred) -> bool {
+        if let Expr::BinaryOp { op, left, right } = e {
+            if op == &p.op {
+                return  (as_path(left)  == p.outer && as_path(right) == p.inner)
+                    || (as_path(right) == p.outer && as_path(left)  == p.inner);
+            }
+        }
+        false
+    }
+
 
     #[derive(Default)]
     pub(super) struct ScalarToCte {
@@ -334,9 +384,18 @@ mod rewriter {
 
         fn push_cte(&mut self, outer_with: &mut Option<With>, info: &CorrelatedInfo) {
             let w = self.ensure_with(outer_with);
-            w.cte_tables.push(Self::make_cte(&info.cte_ident, info.subquery.clone()));
-        }
         
+            // --- clone & strip correlated filters ------------------
+            let mut subq = (*info.subquery).clone();
+            if let SetExpr::Select(inner_sel) = subq.body.as_mut() {
+                Self::strip_corr_filters(inner_sel, &info.on_pairs);
+            }
+        
+            // ★ use *subq* we just cleaned, not the original
+            w.cte_tables
+                .push(Self::make_cte(&info.cte_ident, Box::new(subq)));  
+        }
+
         fn add_join(&mut self, sel: &mut Select, info: &CorrelatedInfo) {
             if sel.from.is_empty() {
                 sel.from.push(Self::make_from_entry(&info.cte_ident));
@@ -346,6 +405,19 @@ mod rewriter {
                     .push(self.build_left_join(&info.cte_ident, &info.on_pairs));
             }
         }
+
+        fn strip_corr_filters(sel: &mut Select, pairs: &[CorrPred]) {
+            if let Some(pred) = &sel.selection {
+                let mut keep: Vec<Expr> = vec![];
+                for conjunct in split_and(pred) {          // helper to de-AND
+                    if !pairs.iter().any(|p| is_same_pred(&conjunct, p)) {
+                        keep.push(conjunct);
+                    }
+                }
+                sel.selection = build_and(keep);           // None if empty
+            }
+        }
+        
         
 
         fn make_ref(info: &CorrelatedInfo) -> Expr {
@@ -599,9 +671,37 @@ mod tests {
     fn synthesises_alias_when_missing() -> Result<()> {
         let q = "SELECT (SELECT 1)";
         let out = rewrite(q)?;
+        println!("synthesises_alias_when_missing {:?}", out);
         assert!(out.sql.contains("subq1"));       // our synthetic alias
         Ok(())
     }
 
+    #[test]
+    fn cte_strips_correlated_filters() -> Result<()> {
+        let q = "SELECT (SELECT 1 FROM t2 WHERE t2.id = t1.id AND t2.flag = 'Y') FROM t1";
+        let out = rewrite(q)?;
 
+        println!("cte_strips_correlated_filters {:?} : ", out);
+        
+        let sql = out.sql;
+    
+        // 1) CTE body must *not* reference the outer table
+        assert!(
+            !sql.contains("t1.id"),
+            "outer predicate leaked into CTE"
+        );
+    
+        // 2) join ON-clause must contain the lifted predicate
+        assert!(
+            sql.contains("t1.id = __cte1.id"),
+            "lifted predicate missing from JOIN"
+        );
+    
+        // 3) the non-correlated filter must still be inside the CTE
+        assert!(
+            sql.contains("flag = 'Y'"),
+            "local filter should stay inside CTE"
+        );
+        Ok(())
+    }
 }

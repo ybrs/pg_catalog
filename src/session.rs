@@ -1,4 +1,4 @@
-use arrow::array::{Int32Array, StringArray};
+use arrow::array::{new_empty_array, Int32Array, StringArray};
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 
 use datafusion::catalog::SchemaProvider;
@@ -18,6 +18,7 @@ use std::sync::{Arc, Mutex};
 use pgwire::api::Type;
 use crate::clean_duplicate_columns::alias_all_columns;
 use crate::replace::{regclass_udfs, replace_regclass, replace_set_command_with_namespace, rewrite_pg_custom_operator, rewrite_regtype_cast, rewrite_schema_qualified_text, strip_default_collate};
+use crate::scalar_to_cte::rewrite_subquery_as_cte;
 use bytes::Bytes;
 
 use datafusion::scalar::ScalarValue;
@@ -128,20 +129,27 @@ pub fn print_params(params: &Vec<Option<Bytes>>) {
 }
 
 
+pub fn alias_all_columns_dummy(sql: &str) -> (String, HashMap<String, String>) {
+    (sql.to_owned(), HashMap::new())
+}
+
 pub async fn execute_sql(
     ctx: &SessionContext,
     sql: &str,
     vec: Option<Vec<Option<Bytes>>>,
     vec0: Option<Vec<Type>>,
 ) -> datafusion::error::Result<(Vec<RecordBatch>, Arc<Schema>)> {
+    println!("original sql {:?}", sql);
     let sql = replace_set_command_with_namespace(&sql);
     let sql = strip_default_collate(&sql);
     let sql = rewrite_pg_custom_operator(&sql);
     let sql = rewrite_schema_qualified_text(&sql);
     let sql = replace_regclass(&sql);
     let sql = rewrite_regtype_cast(&sql);
-    let (sql, aliases) = alias_all_columns(&sql);
-
+    println!("sql before rewrite {:?}", sql);
+    let sql = rewrite_subquery_as_cte(&sql);
+    println!("sql after rewrite {:?}", sql);
+    let (sql, aliases) = alias_all_columns_dummy(&sql);
     
     let df = if let (Some(params), Some(types)) = (vec, vec0) {
         println!("params {:?}", params);
