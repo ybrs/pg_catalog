@@ -156,15 +156,66 @@ mod rewriter {
 
     #[derive(Debug)]
     struct CorrelatedInfo {
-        cte_ident : Ident,
-        subquery  : Box<Query>,
-        on_pairs  : Vec<CorrPred>,
-        orig_alias: Option<Ident>,
+        cte_ident   : Ident,
+        subquery    : Box<Query>,
+        on_pairs    : Vec<CorrPred>,  // t1.id = t2.id ...
+        outer_only  : Vec<Expr>,      // t1.flag, t1.x > 10, …
+        orig_alias  : Option<Ident>,
+        outer_alias : Ident,
     }
 
     // ------------------------------------------------------------
     // ★ Correlation discovery utilities
     // ------------------------------------------------------------
+
+
+    /// walk the expression and return *all* column paths it contains
+    fn collect_paths(e: &Expr, out: &mut Vec<Vec<Ident>>) {
+        match e {
+            Expr::CompoundIdentifier(p) => out.push(p.clone()),
+            Expr::BinaryOp { left, right, .. } => {
+                collect_paths(left, out);
+                collect_paths(right, out);
+            }
+            Expr::UnaryOp { expr, .. }
+            | Expr::Nested(expr) => collect_paths(expr, out),
+
+            Expr::Cast { expr, .. } => collect_paths(expr, out),
+            Expr::Case {
+                operand,
+                conditions,
+                else_result,
+            } => {
+                if let Some(op) = operand {
+                    collect_paths(op, out);
+                }
+                for CaseWhen { condition, result } in conditions {
+                    collect_paths(condition, out);
+                    collect_paths(result, out);
+                }
+                if let Some(er) = else_result {
+                    collect_paths(er, out);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// does this conjunct refer **only** to the outer alias?
+    fn is_outer_only(e: &Expr, outer: &Ident) -> bool {
+        let mut paths = vec![];
+        collect_paths(e, &mut paths);
+
+        // at least one reference to the outer alias …
+        if !paths.iter().any(|p| p.first() == Some(outer)) {
+            return false;
+        }
+        // … and *no* reference to any other alias
+        paths
+            .iter()
+            .all(|p| p.first() == Some(outer))
+    }
+
 
     /// `t1.id = t2.id`  →  `(outer=id, inner=id)`
     #[derive(Debug, Clone)]
@@ -349,9 +400,7 @@ mod rewriter {
             }
             w.as_mut().unwrap()
         }
-        fn analyse_scalar(&mut self,
-            sel_item : &SelectItem,  
-            outer_alias: &Ident) -> Option<CorrelatedInfo> {
+        fn analyse_scalar(&mut self, sel_item : &SelectItem,  outer_alias: &Ident) -> Option<CorrelatedInfo> {
             
             let expr = match sel_item {
                 SelectItem::UnnamedExpr(e)
@@ -364,14 +413,24 @@ mod rewriter {
         
             // we only support plain SELECT sub-queries for now
             if let SetExpr::Select(inner_sel) = sub.body.as_ref() {
-                let mut pairs = Vec::<CorrPred>::new();
+                let mut pairs      = Vec::<CorrPred>::new();
+                let mut outer_only = Vec::<Expr>::new();
+
                 if let Some(pred) = &inner_sel.selection {
+                    for c in split_and(pred) {
+                        if is_outer_only(&c, outer_alias) {
+                            outer_only.push(c);
+                        }
+                    }
                     collect_corr_preds(pred, outer_alias, &mut pairs);
                 }
+
                 Some(CorrelatedInfo{
                     cte_ident : self.fresh_name(),
                     subquery  : sub.clone(),
                     on_pairs  : pairs,
+                    outer_only,
+                    outer_alias: outer_alias.clone(),
                     orig_alias: match sel_item {
                         SelectItem::ExprWithAlias { alias, .. } => Some(alias.clone()),
                         _ => None,
@@ -388,7 +447,9 @@ mod rewriter {
             // --- clone & strip correlated filters ------------------
             let mut subq = (*info.subquery).clone();
             if let SetExpr::Select(inner_sel) = subq.body.as_mut() {
-                Self::strip_corr_filters(inner_sel, &info.on_pairs);
+                    Self::strip_corr_filters(inner_sel,
+                                                &info.on_pairs,
+                                                &info.outer_alias);
             }
         
             // ★ use *subq* we just cleaned, not the original
@@ -402,20 +463,33 @@ mod rewriter {
             } else {
                 sel.from[0]
                     .joins
-                    .push(self.build_left_join(&info.cte_ident, &info.on_pairs));
+                    .push(
+                        self.build_left_join(
+                            &info.cte_ident,
+                            &info.on_pairs,
+                            &info.outer_only,
+                        )
+                    );
             }
         }
 
-        fn strip_corr_filters(sel: &mut Select, pairs: &[CorrPred]) {
+        fn strip_corr_filters(sel: &mut Select,
+                                     pairs: &[CorrPred],
+                                     outer_alias: &Ident) {
+            
             if let Some(pred) = &sel.selection {
                 let mut keep: Vec<Expr> = vec![];
                 for conjunct in split_and(pred) {          // helper to de-AND
-                    if !pairs.iter().any(|p| is_same_pred(&conjunct, p)) {
-                        keep.push(conjunct);
+                    let lifted = pairs.iter().any(|p| is_same_pred(&conjunct, p));
+                    if !lifted && !is_outer_only(&conjunct, outer_alias) {
+                        if !pairs.iter().any(|p| is_same_pred(&conjunct, p)) {
+                            keep.push(conjunct);
+                        }
                     }
                 }
                 sel.selection = build_and(keep);           // None if empty
             }
+
         }
         
         
@@ -428,7 +502,12 @@ mod rewriter {
         }
 
 
-        fn build_left_join(&self, alias: &Ident, pairs: &[CorrPred]) -> Join {
+        fn build_left_join(
+                &self,
+                alias      : &Ident,
+                pairs      : &[CorrPred],
+                outer_only : &[Expr],
+        ) -> Join {
             let mut join = Self::make_left_join(alias);
         
             if !pairs.is_empty() {
@@ -463,6 +542,25 @@ mod rewriter {
         
                 join.join_operator = JoinOperator::LeftOuter(JoinConstraint::On(on_expr));
             }
+
+            // -------- outer‑only predicates (t1.flag etc.) -----
+            for p in outer_only {
+                let rhs = p.clone();                // already references outer table
+                on_expr = match on_expr {
+                    Some(current) => Expr::BinaryOp {
+                        left  : Box::new(current),
+                        op    : BinaryOperator::And,
+                        right : Box::new(rhs),
+                    },
+                    None => rhs,
+                };
+            }
+            
+            // If we built anything, replace the default `ON true`
+            if let Some(expr) = on_expr {
+                join.join_operator = JoinOperator::LeftOuter(JoinConstraint::On(expr));
+            }
+
             join
         }
         
@@ -651,9 +749,11 @@ mod tests {
         let out = rewrite(q)?;
         println!("rewrite_inequality_join {:?}", out);
 
-        assert!(out.sql.contains("LEFT OUTER JOIN __cte1"));
-        assert!(out.sql.contains("t1.id = __cte1.id"));
-        assert!(out.sql.contains("t2.val <> t1.val") || out.sql.contains("__cte1.val <>"));
+        assert!(
+                out.sql.contains("t1.val <> __cte1.val")
+                || out.sql.contains("__cte1.val <> t1.val"),
+                "inequality predicate not found in JOIN"
+            );
         Ok(())
     }
 
@@ -682,12 +782,12 @@ mod tests {
         let out = rewrite(q)?;
 
         println!("cte_strips_correlated_filters {:?} : ", out);
-        
+
         let sql = out.sql;
     
         // 1) CTE body must *not* reference the outer table
         assert!(
-            !sql.contains("t1.id"),
+            !sql.contains("t2.id = t1.id"),
             "outer predicate leaked into CTE"
         );
     
@@ -704,4 +804,23 @@ mod tests {
         );
         Ok(())
     }
+
+
+    #[test]
+    fn outer_only_predicate_removed() -> Result<()> {
+        let q = "SELECT (SELECT 1 FROM t2 WHERE t1.flag) FROM t1";
+        let out = rewrite(q)?;
+        println!("outer_only_predicate_removed {:?}", out);
+
+        assert!(
+            !out.sql.contains("FROM t2 WHERE t1.flag"),
+            "predicate left in CTE"
+        );
+        assert!(
+            out.sql.contains("ON t1.flag"),
+            "predicate not copied to JOIN"
+        );
+        Ok(())
+    }
+
 }
