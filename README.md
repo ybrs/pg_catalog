@@ -80,6 +80,17 @@ Or use DBeaver/psql to introspect the schema.
 
 ---
 
+## Testing
+
+Functional tests are written in Python and executed with [pytest](https://docs.pytest.org/).
+After installing the dependencies from `requirements.txt`, run:
+
+```bash
+pytest
+```
+
+---
+
 ## License
 
 Licensed under either of:
