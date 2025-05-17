@@ -17,12 +17,12 @@ def server():
         "--port", "5444",
     ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
-    for _ in range(30):
+    for _ in range(8):
         try:
             with psycopg.connect(CONN_STR):
                 break
         except Exception:
-            time.sleep(1)
+            time.sleep(5)
     else:
         proc.terminate()
         raise RuntimeError("server failed to start")
