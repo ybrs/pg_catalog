@@ -95,6 +95,14 @@ at your option.
 
 Pull requests are welcome. Contributions that improve PostgreSQL compatibility or support new clients are especially appreciated.
 
+Before submitting a change please run the Rust unit tests and the Python functional
+tests:
+
+```bash
+cargo test
+pytest
+```
+
 ---
 
 ## Acknowledgments
