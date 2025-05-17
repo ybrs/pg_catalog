@@ -41,6 +41,52 @@ pub struct DatafusionBackend {
     query_parser: Arc<NoopQueryParser>,
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use arrow::array::{ArrayRef, BooleanArray, Int32Array};
+    use arrow::datatypes::{Field, Schema};
+    use futures::StreamExt;
+
+    #[test]
+    fn test_batch_to_row_stream_types_and_nulls() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("flag", DataType::Boolean, true),
+            Field::new("num", DataType::Int32, true),
+        ]));
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(BooleanArray::from(vec![Some(true), None])) as ArrayRef,
+                Arc::new(Int32Array::from(vec![Some(42), None])) as ArrayRef,
+            ],
+        )
+        .unwrap();
+
+        let info = batch_to_field_info(&batch, &Format::UnifiedText).unwrap();
+        assert_eq!(info[0].datatype(), &Type::BOOL);
+        assert_eq!(info[1].datatype(), &Type::INT4);
+
+        let rows = futures::executor::block_on(
+            batch_to_row_stream(&batch, Arc::new(info)).collect::<Vec<_>>(),
+        );
+        assert_eq!(rows.len(), 2);
+
+        let row0 = rows[0].as_ref().unwrap();
+        assert_eq!(row0.field_count, 2);
+        let buf = &row0.data;
+        assert_eq!(&buf[0..4], &1i32.to_be_bytes());
+        assert_eq!(buf[4], b't');
+        assert_eq!(&buf[5..9], &2i32.to_be_bytes());
+        assert_eq!(&buf[9..11], b"42");
+
+        let row1 = rows[1].as_ref().unwrap();
+        let buf = &row1.data;
+        assert_eq!(&buf[0..4], &(-1i32).to_be_bytes());
+        assert_eq!(&buf[4..8], &(-1i32).to_be_bytes());
+    }
+}
+
 
 impl DatafusionBackend {
     pub fn new(ctx: Arc<SessionContext>) -> Self {
@@ -112,13 +158,24 @@ impl AuthSource for DummyAuthSource {
     }
 }
 
+fn arrow_to_pg_type(dt: &DataType) -> Type {
+    match dt {
+        DataType::Boolean => Type::BOOL,
+        DataType::Int32 => Type::INT4,
+        DataType::Int64 => Type::INT8,
+        DataType::Int16 => Type::INT2,
+        DataType::Utf8 | DataType::Utf8View | DataType::LargeUtf8 => Type::TEXT,
+        _ => Type::TEXT,
+    }
+}
+
 fn batch_to_field_info(batch: &RecordBatch, format: &Format) -> PgWireResult<Vec<FieldInfo>> {
     Ok(batch.schema().fields().iter().enumerate().map(|(idx, f)| {
         FieldInfo::new(
             f.name().to_string(),
             None,
             None,
-            Type::TEXT, // TODO: We return everything as TEXT for simplicity
+            arrow_to_pg_type(f.data_type()),
             format.format_for(idx),
         )
     }).collect())
@@ -134,37 +191,69 @@ fn batch_to_row_stream(batch: &RecordBatch, schema: Arc<Vec<FieldInfo>>) -> impl
             //     println!("col {:?} type {:?}", col, col.data_type());
             // }
 
-            if col.is_null(row_idx) {
-                encoder.encode_field::<Option<&str>>(&None).unwrap();
-            } else {
-                let value = match col.data_type() {
-                    arrow::datatypes::DataType::Utf8 => {
-                        let array = col.as_any().downcast_ref::<StringArray>().unwrap();
+            match col.data_type() {
+                DataType::Utf8 => {
+                    let array = col.as_any().downcast_ref::<StringArray>().unwrap();
+                    let value = if col.is_null(row_idx) {
+                        None::<String>
+                    } else {
                         Some(array.value(row_idx).to_string())
-                    }
-                    arrow::datatypes::DataType::Utf8View => {
-                        let array = col.as_any().downcast_ref::<StringViewArray>().unwrap();
+                    };
+                    encoder.encode_field(&value).unwrap();
+                }
+                DataType::Utf8View => {
+                    let array = col.as_any().downcast_ref::<StringViewArray>().unwrap();
+                    let value = if col.is_null(row_idx) {
+                        None::<String>
+                    } else {
                         Some(array.value(row_idx).to_string())
-                    }
-                    arrow::datatypes::DataType::LargeUtf8 => {
-                        let array = col.as_any().downcast_ref::<LargeStringArray>().unwrap();
+                    };
+                    encoder.encode_field(&value).unwrap();
+                }
+                DataType::LargeUtf8 => {
+                    let array = col.as_any().downcast_ref::<LargeStringArray>().unwrap();
+                    let value = if col.is_null(row_idx) {
+                        None::<String>
+                    } else {
                         Some(array.value(row_idx).to_string())
+                    };
+                    encoder.encode_field(&value).unwrap();
+                }
+                DataType::Int32 => {
+                    let array = col.as_any().downcast_ref::<Int32Array>().unwrap();
+                    let value = if col.is_null(row_idx) {
+                        None::<i32>
+                    } else {
+                        Some(array.value(row_idx))
+                    };
+                    encoder.encode_field(&value).unwrap();
+                }
+                DataType::Int64 => {
+                    let array = col.as_any().downcast_ref::<Int64Array>().unwrap();
+                    let value = if col.is_null(row_idx) {
+                        None::<i64>
+                    } else {
+                        Some(array.value(row_idx))
+                    };
+                    encoder.encode_field(&value).unwrap();
+                }
+                DataType::Boolean => {
+                    let array = col.as_any().downcast_ref::<BooleanArray>().unwrap();
+                    let value = if col.is_null(row_idx) {
+                        None::<bool>
+                    } else {
+                        Some(array.value(row_idx))
+                    };
+                    encoder.encode_field(&value).unwrap();
+                }
+                _ => {
+                    if col.is_null(row_idx) {
+                        encoder.encode_field::<Option<&str>>(&None).unwrap();
+                    } else {
+                        let value = Some(format!("[unsupported {}]", col.data_type()));
+                        encoder.encode_field(&value).unwrap();
                     }
-                    arrow::datatypes::DataType::Int32 => {
-                        let array = col.as_any().downcast_ref::<Int32Array>().unwrap();
-                        Some(array.value(row_idx).to_string())
-                    }
-                    arrow::datatypes::DataType::Int64 => {
-                        let array = col.as_any().downcast_ref::<Int64Array>().unwrap();
-                        Some(array.value(row_idx).to_string())
-                    }
-                    arrow::datatypes::DataType::Boolean => {
-                        let array = col.as_any().downcast_ref::<BooleanArray>().unwrap();
-                        Some(array.value(row_idx).to_string())
-                    }
-                    _ => Some(format!("[unsupported {}]", col.data_type())),
-                };
-                encoder.encode_field(&value).unwrap();
+                }
             }
         }
         rows.push(encoder.finish());
