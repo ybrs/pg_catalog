@@ -171,14 +171,22 @@ pub async fn execute_sql(
                     let v = i32::from_be_bytes(bytes[..].try_into().unwrap());
                     ScalarValue::Int32(Some(v))
                 }
-                (Some(bytes), Type::VARCHAR) => {
+                (Some(bytes), Type::VARCHAR)
+                | (Some(bytes), Type::TEXT)
+                | (Some(bytes), Type::BPCHAR)
+                | (Some(bytes), Type::NAME)
+                | (Some(bytes), Type::UNKNOWN) => {
                     let s = String::from_utf8(bytes.to_vec()).unwrap();
                     ScalarValue::Utf8(Some(s))
                 }
                 (None, Type::INT2) => ScalarValue::Int16(None),
                 (None, Type::INT8) => ScalarValue::Int64(None),
                 (None, Type::INT4) => ScalarValue::Int32(None),
-                (None, Type::VARCHAR) => ScalarValue::Utf8(None),
+                (None, Type::VARCHAR)
+                | (None, Type::TEXT)
+                | (None, Type::BPCHAR)
+                | (None, Type::NAME)
+                | (None, Type::UNKNOWN) => ScalarValue::Utf8(None),
                 (some, other_type) => {
                     panic!("unsupported param {:?} type {:?}", some, other_type);
                 }
