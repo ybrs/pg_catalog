@@ -142,13 +142,13 @@ pub async fn execute_sql(
     vec: Option<Vec<Option<Bytes>>>,
     vec0: Option<Vec<Type>>,
 ) -> datafusion::error::Result<(Vec<RecordBatch>, Arc<Schema>)> {
-    let sql = replace_set_command_with_namespace(&sql);
-    let sql = strip_default_collate(&sql);
-    let sql = rewrite_pg_custom_operator(&sql);
-    let sql = rewrite_schema_qualified_text(&sql);
-    let sql = replace_regclass(&sql);
-    let sql = rewrite_regtype_cast(&sql);
-    let (sql, aliases) = alias_all_columns(&sql);
+    let sql = replace_set_command_with_namespace(&sql)?;
+    let sql = strip_default_collate(&sql)?;
+    let sql = rewrite_pg_custom_operator(&sql)?;
+    let sql = rewrite_schema_qualified_text(&sql)?;
+    let sql = replace_regclass(&sql)?;
+    let sql = rewrite_regtype_cast(&sql)?;
+    let (sql, aliases) = alias_all_columns(&sql)?;
 
     
     let df = if let (Some(params), Some(types)) = (vec, vec0) {

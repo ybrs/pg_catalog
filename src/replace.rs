@@ -46,9 +46,12 @@ fn add_namespace_to_set_command(obj: &mut ObjectName) {
     }
 }
 
-pub fn replace_set_command_with_namespace(sql: &str) -> String {
+use datafusion::error::{DataFusionError, Result};
+
+pub fn replace_set_command_with_namespace(sql: &str) -> Result<String> {
     let dialect = PostgreSqlDialect {};
-    let mut statements = Parser::parse_sql(&dialect, sql).unwrap();
+    let mut statements = Parser::parse_sql(&dialect, sql)
+        .map_err(|e| DataFusionError::External(Box::new(e)))?;
 
     visit_statements_mut(&mut statements, |stmt| {
         if let Statement::SetVariable { variables, .. } = stmt {
@@ -60,14 +63,14 @@ pub fn replace_set_command_with_namespace(sql: &str) -> String {
         ControlFlow::<()>::Continue(())
     });
 
-    statements
+    Ok(statements
         .into_iter()
         .map(|s| s.to_string())
         .collect::<Vec<_>>()
-        .join("; ")
+        .join("; "))
 }
 
-pub fn replace_regclass(sql: &str) -> String {
+pub fn replace_regclass(sql: &str) -> Result<String> {
     fn make_fn(name: &str, lit: &str) -> Expr {
         Expr::Function(Function {
             name: ObjectName(vec![ObjectNamePart::Identifier(Ident::new(name))]),
@@ -91,7 +94,8 @@ pub fn replace_regclass(sql: &str) -> String {
     }
 
     let dialect = PostgreSqlDialect {};
-    let mut statements = Parser::parse_sql(&dialect, sql).unwrap();
+    let mut statements = Parser::parse_sql(&dialect, sql)
+        .map_err(|e| DataFusionError::External(Box::new(e)))?;
 
     visit_statements_mut(&mut statements, |stmt| {
         visit_expressions_mut(stmt, |expr| {
@@ -150,22 +154,23 @@ pub fn replace_regclass(sql: &str) -> String {
         ControlFlow::Continue(())
     });
 
-    statements
+    Ok(statements
         .into_iter()
         .map(|s| s.to_string())
         .collect::<Vec<_>>()
-        .join(" ")
+        .join(" "))
 }
 
 
-pub fn rewrite_pg_custom_operator(sql: &str) -> String {
+pub fn rewrite_pg_custom_operator(sql: &str) -> Result<String> {
     use sqlparser::ast::{visit_expressions_mut, visit_statements_mut, BinaryOperator, Expr};
     use sqlparser::dialect::PostgreSqlDialect;
     use sqlparser::parser::Parser;
     use std::ops::ControlFlow;
 
     let dialect = PostgreSqlDialect {};
-    let mut statements = Parser::parse_sql(&dialect, sql).unwrap();
+    let mut statements = Parser::parse_sql(&dialect, sql)
+        .map_err(|e| DataFusionError::External(Box::new(e)))?;
 
     visit_statements_mut(&mut statements, |stmt| {
         visit_expressions_mut(stmt, |expr| {
@@ -185,14 +190,14 @@ pub fn rewrite_pg_custom_operator(sql: &str) -> String {
 
     });
 
-    statements
+    Ok(statements
         .into_iter()
         .map(|s| s.to_string())
         .collect::<Vec<_>>()
-        .join(" ")
+        .join(" "))
 }
 
-pub fn rewrite_schema_qualified_text(sql: &str) -> String {
+pub fn rewrite_schema_qualified_text(sql: &str) -> Result<String> {
     fn is_pg_text(name: &ObjectName) -> bool {
         name.0.len() == 2
             && matches!((&name.0[0], &name.0[1]),
@@ -204,7 +209,8 @@ pub fn rewrite_schema_qualified_text(sql: &str) -> String {
     }
 
     let dialect = PostgreSqlDialect {};
-    let mut stmts = Parser::parse_sql(&dialect, sql).unwrap();
+    let mut stmts = Parser::parse_sql(&dialect, sql)
+        .map_err(|e| DataFusionError::External(Box::new(e)))?;
 
     visit_statements_mut(&mut stmts, |stmt| {
         visit_expressions_mut(stmt, |e| {
@@ -220,11 +226,15 @@ pub fn rewrite_schema_qualified_text(sql: &str) -> String {
         ControlFlow::Continue(())
     });
 
-    stmts.into_iter().map(|s| s.to_string()).collect::<Vec<_>>().join(" ")
+    Ok(stmts
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join(" "))
 }
 
 
-pub fn rewrite_schema_qualified_custom_types(sql: &str) -> String {
+pub fn rewrite_schema_qualified_custom_types(sql: &str) -> Result<String> {
     use sqlparser::ast::{visit_expressions_mut, visit_statements_mut,
                          DataType, Expr, ObjectName, ObjectNamePart};
     use sqlparser::dialect::PostgreSqlDialect;
@@ -244,7 +254,8 @@ pub fn rewrite_schema_qualified_custom_types(sql: &str) -> String {
     }
 
     let dialect = PostgreSqlDialect {};
-    let mut stmts = Parser::parse_sql(&dialect, sql).unwrap();
+    let mut stmts = Parser::parse_sql(&dialect, sql)
+        .map_err(|e| DataFusionError::External(Box::new(e)))?;
 
     visit_statements_mut(&mut stmts, |stmt| {
         visit_expressions_mut(stmt, |e| {
@@ -260,13 +271,17 @@ pub fn rewrite_schema_qualified_custom_types(sql: &str) -> String {
         ControlFlow::Continue(())
     });
 
-    stmts.into_iter().map(|s| s.to_string()).collect::<Vec<_>>().join(" ")
+    Ok(stmts
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join(" "))
 }
 
 
 /// Replace casts to regtype / pg_catalog.regtype with TEXT,
 /// or drop them entirely if they are immediately followed by a TEXT cast.
-pub fn rewrite_regtype_cast(sql: &str) -> String {
+pub fn rewrite_regtype_cast(sql: &str) -> Result<String> {
     use sqlparser::ast::{
         visit_expressions_mut, visit_statements_mut, DataType, Expr, ObjectName,
         ObjectNamePart,
@@ -296,7 +311,8 @@ pub fn rewrite_regtype_cast(sql: &str) -> String {
     }
 
     let dialect = PostgreSqlDialect {};
-    let mut stmts = Parser::parse_sql(&dialect, sql).unwrap();
+    let mut stmts = Parser::parse_sql(&dialect, sql)
+        .map_err(|e| DataFusionError::External(Box::new(e)))?;
 
     visit_statements_mut(&mut stmts, |stmt| {
         visit_expressions_mut(stmt, |e| {
@@ -312,15 +328,15 @@ pub fn rewrite_regtype_cast(sql: &str) -> String {
         ControlFlow::Continue(())
     });
 
-    stmts
+    Ok(stmts
         .into_iter()
         .map(|s| s.to_string())
         .collect::<Vec<_>>()
-        .join("; ")
+        .join("; "))
 }
 
 
-pub fn strip_default_collate(sql: &str) -> String {
+pub fn strip_default_collate(sql: &str) -> Result<String> {
     /// we are dropping default collate, since datafusion doesnt support collates. 
     /// and it's kinda safe. there is only default collate. 
     use sqlparser::ast::{
@@ -343,7 +359,8 @@ pub fn strip_default_collate(sql: &str) -> String {
     }
 
     let dialect = PostgreSqlDialect {};
-    let mut statements = Parser::parse_sql(&dialect, sql).unwrap();
+    let mut statements = Parser::parse_sql(&dialect, sql)
+        .map_err(|e| DataFusionError::External(Box::new(e)))?;
 
     visit_statements_mut(&mut statements, |stmt| {
         visit_expressions_mut(stmt, |e| {
@@ -357,11 +374,11 @@ pub fn strip_default_collate(sql: &str) -> String {
         ControlFlow::Continue(())
     });
 
-    statements
+    Ok(statements
         .into_iter()
         .map(|s| s.to_string())
         .collect::<Vec<_>>()
-        .join("; ")
+        .join("; "))
 }
 
 
@@ -378,7 +395,7 @@ mod tests {
             ("SELECT y::pg_catalog.regtype::text", "SELECT y::TEXT::TEXT"),
         ];
         for (input, expected) in cases {
-            assert_eq!(rewrite_regtype_cast(input), expected);
+            assert_eq!(rewrite_regtype_cast(input).unwrap(), expected);
         }
         Ok(())
     }
@@ -401,7 +418,7 @@ mod tests {
     
         for (input, expected) in cases {
             assert_eq!(
-                rewrite_schema_qualified_custom_types(input),
+                rewrite_schema_qualified_custom_types(input).unwrap(),
                 expected,
                 "Failed for input: {}",
                 input
@@ -429,7 +446,7 @@ mod tests {
         ];
 
         for (input, expected) in cases {
-            let transformed = replace_regclass(input);
+            let transformed = replace_regclass(input).unwrap();
             assert_eq!(transformed, expected, "Failed for input: {}", input);
         }
         Ok(())
@@ -444,7 +461,7 @@ mod tests {
             "WITH q AS (SELECT 'b'::TEXT) SELECT * FROM q"),
         ];
         for (input, expected) in cases {
-            assert_eq!(rewrite_schema_qualified_text(input), expected);
+            assert_eq!(rewrite_schema_qualified_text(input).unwrap(), expected);
         }
         Ok(())
     }
@@ -462,7 +479,7 @@ mod tests {
             ),
         ];
         for (input, expected) in cases {
-            let transformed = rewrite_pg_custom_operator(input);
+            let transformed = rewrite_pg_custom_operator(input).unwrap();
             assert_eq!(transformed, expected);
         }
         Ok(())
@@ -491,7 +508,7 @@ mod tests {
         ];
 
         for (input, expected) in cases {
-            let transformed = strip_default_collate(input);
+            let transformed = strip_default_collate(input).unwrap();
             assert_eq!(transformed, expected, "Failed for input: {}", input);
         }
         Ok(())
@@ -520,7 +537,7 @@ mod tests {
         ];
 
         for (input, expected) in cases {
-            let transformed = replace_regclass(input);
+            let transformed = replace_regclass(input).unwrap();
             assert_eq!(transformed, expected, "Failed for input: {}", input);
         }
 
@@ -530,18 +547,18 @@ mod tests {
     #[test]
     fn test_set_show_query_rewrite() -> Result<(), Box<dyn Error>> {
         assert_eq!(
-            replace_set_command_with_namespace("SET application_name = 'x'"),
+            replace_set_command_with_namespace("SET application_name = 'x'").unwrap(),
             "SET pg_catalog.application_name = 'x'"
         );
         assert_eq!(
-            replace_set_command_with_namespace("SELECT foo FROM bar"),
+            replace_set_command_with_namespace("SELECT foo FROM bar").unwrap(),
             "SELECT foo FROM bar"
         );
 
         assert_eq!(
             replace_set_command_with_namespace(
                 "SET LOCAL work_mem TO '4MB'"
-            ),
+            ).unwrap(),
             "SET LOCAL pg_catalog.work_mem = '4MB'"
         );
         Ok(())

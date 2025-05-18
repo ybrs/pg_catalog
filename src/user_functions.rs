@@ -659,6 +659,40 @@ pub fn register_scalar_array_to_string(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
+pub fn register_pggetone(ctx: &SessionContext) -> Result<()> {
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::{
+        ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature,
+        Volatility,
+    };
+
+    #[derive(Debug)]
+    struct PgGetOne { sig: Signature }
+
+    impl PgGetOne {
+        fn new() -> Self {
+            Self { sig: Signature::any(1, Volatility::Stable) }
+        }
+    }
+
+    impl ScalarUDFImpl for PgGetOne {
+        fn as_any(&self) -> &dyn std::any::Any { self }
+        fn name(&self) -> &str { "pggetone" }
+        fn signature(&self) -> &Signature { &self.sig }
+        fn return_type(&self, arg_types: &[DataType]) -> Result<DataType> {
+            Ok(arg_types.get(0).cloned().unwrap_or(DataType::Null))
+        }
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            Ok(args.args.into_iter().next().unwrap())
+        }
+    }
+
+    let udf = ScalarUDF::new_from_impl(PgGetOne::new())
+        .with_aliases(["pg_catalog.pggetone"]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
