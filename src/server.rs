@@ -31,7 +31,7 @@ use datafusion::{
 
 use crate::replace::{regclass_udfs, replace_set_command_with_namespace};
 use crate::session::{execute_sql, ClientOpts};
-use crate::user_functions::{register_current_schema, register_scalar_array_to_string, register_scalar_format_type, register_scalar_pg_encoding_to_char, register_scalar_pg_get_expr, register_scalar_pg_get_partkeydef, register_scalar_pg_get_userbyid, register_scalar_pg_table_is_visible, register_scalar_pg_tablespace_location, register_scalar_regclass_oid};
+use crate::user_functions::{register_current_schema, register_pggetone, register_scalar_array_to_string, register_scalar_format_type, register_scalar_pg_encoding_to_char, register_scalar_pg_get_expr, register_scalar_pg_get_partkeydef, register_scalar_pg_get_userbyid, register_scalar_pg_table_is_visible, register_scalar_pg_tablespace_location, register_scalar_regclass_oid};
 use tokio::net::TcpStream;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
@@ -577,6 +577,7 @@ pub async fn start_server(base_ctx: Arc<SessionContext>, addr: &str,
             register_scalar_pg_get_userbyid(&ctx)?;
             register_scalar_pg_encoding_to_char(&ctx)?;
             register_scalar_array_to_string(&ctx)?;
+            register_pggetone(&ctx)?;
             
             let df = ctx.sql("SELECT datname FROM pg_catalog.pg_database where datname='pgtry'").await?;
             if df.count().await? == 0 {

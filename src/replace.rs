@@ -48,7 +48,10 @@ fn add_namespace_to_set_command(obj: &mut ObjectName) {
 
 pub fn replace_set_command_with_namespace(sql: &str) -> String {
     let dialect = PostgreSqlDialect {};
-    let mut statements = Parser::parse_sql(&dialect, sql).unwrap();
+    let mut statements = match Parser::parse_sql(&dialect, sql) {
+        Ok(stmts) => stmts,
+        Err(_) => return sql.to_string(),
+    };
 
     visit_statements_mut(&mut statements, |stmt| {
         if let Statement::SetVariable { variables, .. } = stmt {
@@ -91,7 +94,10 @@ pub fn replace_regclass(sql: &str) -> String {
     }
 
     let dialect = PostgreSqlDialect {};
-    let mut statements = Parser::parse_sql(&dialect, sql).unwrap();
+    let mut statements = match Parser::parse_sql(&dialect, sql) {
+        Ok(stmts) => stmts,
+        Err(_) => return sql.to_string(),
+    };
 
     visit_statements_mut(&mut statements, |stmt| {
         visit_expressions_mut(stmt, |expr| {
@@ -165,7 +171,10 @@ pub fn rewrite_pg_custom_operator(sql: &str) -> String {
     use std::ops::ControlFlow;
 
     let dialect = PostgreSqlDialect {};
-    let mut statements = Parser::parse_sql(&dialect, sql).unwrap();
+    let mut statements = match Parser::parse_sql(&dialect, sql) {
+        Ok(stmts) => stmts,
+        Err(_) => return sql.to_string(),
+    };
 
     visit_statements_mut(&mut statements, |stmt| {
         visit_expressions_mut(stmt, |expr| {
@@ -204,7 +213,10 @@ pub fn rewrite_schema_qualified_text(sql: &str) -> String {
     }
 
     let dialect = PostgreSqlDialect {};
-    let mut stmts = Parser::parse_sql(&dialect, sql).unwrap();
+    let mut stmts = match Parser::parse_sql(&dialect, sql) {
+        Ok(s) => s,
+        Err(_) => return sql.to_string(),
+    };
 
     visit_statements_mut(&mut stmts, |stmt| {
         visit_expressions_mut(stmt, |e| {
@@ -244,7 +256,10 @@ pub fn rewrite_schema_qualified_custom_types(sql: &str) -> String {
     }
 
     let dialect = PostgreSqlDialect {};
-    let mut stmts = Parser::parse_sql(&dialect, sql).unwrap();
+    let mut stmts = match Parser::parse_sql(&dialect, sql) {
+        Ok(s) => s,
+        Err(_) => return sql.to_string(),
+    };
 
     visit_statements_mut(&mut stmts, |stmt| {
         visit_expressions_mut(stmt, |e| {
@@ -296,7 +311,10 @@ pub fn rewrite_regtype_cast(sql: &str) -> String {
     }
 
     let dialect = PostgreSqlDialect {};
-    let mut stmts = Parser::parse_sql(&dialect, sql).unwrap();
+    let mut stmts = match Parser::parse_sql(&dialect, sql) {
+        Ok(s) => s,
+        Err(_) => return sql.to_string(),
+    };
 
     visit_statements_mut(&mut stmts, |stmt| {
         visit_expressions_mut(stmt, |e| {
@@ -343,7 +361,10 @@ pub fn strip_default_collate(sql: &str) -> String {
     }
 
     let dialect = PostgreSqlDialect {};
-    let mut statements = Parser::parse_sql(&dialect, sql).unwrap();
+    let mut statements = match Parser::parse_sql(&dialect, sql) {
+        Ok(stmts) => stmts,
+        Err(_) => return sql.to_string(),
+    };
 
     visit_statements_mut(&mut statements, |stmt| {
         visit_expressions_mut(stmt, |e| {

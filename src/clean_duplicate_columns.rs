@@ -131,7 +131,10 @@ fn walk_query(query: &mut Query, counter: &mut usize, alias_map: &mut HashMap<St
 
 pub fn alias_all_columns(sql: &str) -> (String, HashMap<String, String>){
     let dialect = PostgreSqlDialect {};
-    let mut statements = Parser::parse_sql(&dialect, sql).unwrap();
+    let mut statements = match Parser::parse_sql(&dialect, sql) {
+        Ok(s) => s,
+        Err(_) => return (sql.to_string(), HashMap::new()),
+    };
 
     let mut alias_map = HashMap::new();
     let mut counter = 1;
