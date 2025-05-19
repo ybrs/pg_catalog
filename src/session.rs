@@ -26,6 +26,7 @@ use std::sync::{Arc, Mutex};
 use pgwire::api::Type;
 use crate::clean_duplicate_columns::alias_all_columns;
 use crate::replace::{regclass_udfs, replace_regclass, replace_set_command_with_namespace, rewrite_pg_custom_operator, rewrite_regtype_cast, rewrite_schema_qualified_text, strip_default_collate};
+use crate::scalar_to_cte::rewrite_subquery_as_cte;
 use bytes::Bytes;
 
 use datafusion::scalar::ScalarValue;
@@ -149,7 +150,7 @@ pub async fn execute_sql(
     let sql = replace_regclass(&sql)?;
     let sql = rewrite_regtype_cast(&sql)?;
     let (sql, aliases) = alias_all_columns(&sql)?;
-
+    let sql = rewrite_subquery_as_cte(&sql);
     
     let df = if let (Some(params), Some(types)) = (vec, vec0) {
         println!("params {:?}", params);

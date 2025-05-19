@@ -4,6 +4,8 @@ mod clean_duplicate_columns;
 mod server;
 mod user_functions;
 mod db_table;
+mod logical_plan_rules;
+mod scalar_to_cte;
 
 use std::env;
 use std::sync::Arc;
