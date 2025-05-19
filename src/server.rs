@@ -4,7 +4,7 @@ use async_trait::async_trait;
 use datafusion::prelude::SessionConfig;
 use futures::{stream};
 use futures::Stream;
-
+use arrow::array::Array;
 use pgwire::api::auth::{AuthSource, DefaultServerParameterProvider, LoginInfo, Password};
 use pgwire::api::auth::md5pass::{hash_md5_password, Md5PasswordAuthStartupHandler};
 use pgwire::api::copy::NoopCopyHandler;
@@ -18,7 +18,7 @@ use pgwire::messages::data::DataRow;
 use pgwire::tokio::process_socket;
 use tokio::net::{TcpListener};
 
-use arrow::array::{BooleanArray, Int32Array, Int64Array, LargeStringArray, StringArray, StringViewArray};
+use arrow::array::{BooleanArray, Int32Array, Int64Array, LargeStringArray, ListArray, StringArray, StringViewArray};
 use arrow::record_batch::RecordBatch;
 use datafusion::execution::context::SessionContext;
 
@@ -160,12 +160,16 @@ impl AuthSource for DummyAuthSource {
 
 fn arrow_to_pg_type(dt: &DataType) -> Type {
     match dt {
-        DataType::Boolean => Type::BOOL,
-        DataType::Int32 => Type::INT4,
-        DataType::Int64 => Type::INT8,
-        DataType::Int16 => Type::INT2,
-        DataType::Utf8 | DataType::Utf8View | DataType::LargeUtf8 => Type::TEXT,
-        _ => Type::TEXT,
+        DataType::Boolean           => Type::BOOL,
+        DataType::Int16             => Type::INT2,
+        DataType::Int32             => Type::INT4,
+        DataType::Int64             => Type::INT8,
+        DataType::Utf8
+        | DataType::Utf8View
+        | DataType::LargeUtf8       => Type::TEXT,
+        DataType::List(inner) if matches!(inner.data_type(), DataType::Utf8)
+                                   => Type::TEXT_ARRAY,        // NEW
+        _                           => Type::TEXT,
     }
 }
 
@@ -245,6 +249,27 @@ fn batch_to_row_stream(batch: &RecordBatch, schema: Arc<Vec<FieldInfo>>) -> impl
                         Some(array.value(row_idx))
                     };
                     encoder.encode_field(&value).unwrap();
+                }
+                DataType::List(inner) if matches!(inner.data_type(), DataType::Utf8) => {
+                    let list = col.as_any().downcast_ref::<ListArray>().unwrap();
+                
+                    if list.is_null(row_idx) {
+                        let none: Option<Vec<Option<String>>> = None;
+                        encoder.encode_field(&none).unwrap();
+                    } else {
+                        let inner = list.value(row_idx);                       // keep ArrayRef alive
+                        let sa = inner.as_any().downcast_ref::<StringArray>().unwrap();
+                
+                        let mut v = Vec::with_capacity(sa.len());
+                        for i in 0..sa.len() {
+                            if sa.is_null(i) {
+                                v.push(None);
+                            } else {
+                                v.push(Some(sa.value(i).to_owned()));
+                            }
+                        }
+                        encoder.encode_field(&v).unwrap();
+                    }
                 }
                 _ => {
                     if col.is_null(row_idx) {

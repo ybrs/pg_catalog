@@ -728,7 +728,16 @@ pub fn register_pg_get_array(ctx: &SessionContext) -> Result<()> {
                 }
                 ColumnarValue::Array(arr) => {
                     let list_arr = SingleRowListArrayBuilder::new(arr).build_list_array();
-                    Ok(ColumnarValue::Scalar(ScalarValue::List(Arc::new(list_arr))))
+                    println!("list_arr {:?}", list_arr);
+                    // here it is 
+                    // list_arr ListArray
+                    // [
+                    // StringArray
+                    // [
+                    // "pg_statistic",
+                    // ],
+                    // ]
+                    Ok(ColumnarValue::Array(Arc::new(list_arr)))  
                 }
             }
         }
