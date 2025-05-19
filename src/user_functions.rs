@@ -12,7 +12,8 @@ use datafusion::prelude::*;
 use std::sync::Arc;
 use datafusion::execution::SessionState;
 use datafusion::logical_expr::{ColumnarValue, Volatility};
-use arrow::array::{as_string_array, Array, ArrayRef, StringBuilder};
+use arrow::array::{as_string_array, Array, ArrayRef, StringBuilder, ListArray};
+use datafusion::common::utils::SingleRowListArrayBuilder;
 use futures::executor::block_on;
 use tokio::task::block_in_place;
 use arrow::datatypes::DataType as ArrowDataType;
@@ -693,6 +694,52 @@ pub fn register_pggetone(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
+pub fn register_pg_get_array(ctx: &SessionContext) -> Result<()> {
+    use arrow::datatypes::{DataType, Field};
+    use datafusion::logical_expr::{
+        ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature,
+        Volatility,
+    };
+
+    #[derive(Debug)]
+    struct PgGetArray { sig: Signature }
+
+    impl PgGetArray {
+        fn new() -> Self {
+            Self { sig: Signature::any(1, Volatility::Stable) }
+        }
+    }
+
+    impl ScalarUDFImpl for PgGetArray {
+        fn as_any(&self) -> &dyn std::any::Any { self }
+        fn name(&self) -> &str { "pg_get_array" }
+        fn signature(&self) -> &Signature { &self.sig }
+        fn return_type(&self, arg_types: &[DataType]) -> Result<DataType> {
+            let inner = arg_types.get(0).cloned().unwrap_or(DataType::Null);
+            Ok(DataType::List(Arc::new(Field::new("item", inner, true))) )
+        }
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            let arg = args.args.into_iter().next().unwrap();
+            match arg {
+                ColumnarValue::Scalar(s) => {
+                    let dt = s.data_type();
+                    let list = ScalarValue::new_list_from_iter(std::iter::once(s), &dt, true);
+                    Ok(ColumnarValue::Scalar(ScalarValue::List(list)))
+                }
+                ColumnarValue::Array(arr) => {
+                    let list_arr = SingleRowListArrayBuilder::new(arr).build_list_array();
+                    Ok(ColumnarValue::Scalar(ScalarValue::List(Arc::new(list_arr))))
+                }
+            }
+        }
+    }
+
+    let udf = ScalarUDF::new_from_impl(PgGetArray::new())
+        .with_aliases(["pg_catalog.pg_get_array"]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -728,6 +775,7 @@ mod tests {
         ctx.register_udtf("regclass_oid", Arc::new(RegClassOidFunc));
         register_scalar_regclass_oid(&ctx)?;
         register_pggetone(&ctx)?;
+        register_pg_get_array(&ctx)?;
         let relname = StringArray::from(vec!["pg_constraint", "demo"]);
         let oid = Int64Array::from(vec![2606i64, 9999i64]);
         let batch = RecordBatch::try_new(
@@ -845,6 +893,50 @@ mod tests {
             .downcast_ref::<StringArray>()
             .unwrap();
         assert_eq!(col.value(0), "pg_constraint");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_pg_get_array_constant() -> Result<()> {
+        let ctx = make_ctx().await?;
+        let batches = ctx
+            .sql("SELECT pg_get_array('hello') AS v;")
+            .await?
+            .collect()
+            .await?;
+        let list = batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<ListArray>()
+            .unwrap();
+        let inner = list.value(0);
+        let inner = inner
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap();
+        assert_eq!(inner.value(0), "hello");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_pg_get_array_subquery() -> Result<()> {
+        let ctx = make_ctx().await?;
+        let batches = ctx
+            .sql("SELECT pg_get_array((SELECT relname FROM pg_catalog.pg_class LIMIT 1)) AS v;")
+            .await?
+            .collect()
+            .await?;
+        let list = batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<ListArray>()
+            .unwrap();
+        let inner = list.value(0);
+        let inner = inner
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap();
+        assert_eq!(inner.value(0), "pg_constraint");
         Ok(())
     }
 

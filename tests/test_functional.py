@@ -64,3 +64,10 @@ def test_pggetone_subquery(server):
         cur.execute("SELECT pggetone((select relname FROM pg_catalog.pg_class LIMIT 1))")
         row = cur.fetchone()
         assert row[0] is not None
+
+def test_pg_get_array_subquery(server):
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT pg_get_array((SELECT relname FROM pg_catalog.pg_class LIMIT 1))")
+        row = cur.fetchone()
+        assert row[0] is not None
