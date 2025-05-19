@@ -659,6 +659,40 @@ pub fn register_scalar_array_to_string(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
+pub fn register_pggetone(ctx: &SessionContext) -> Result<()> {
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::{
+        ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature,
+        Volatility,
+    };
+
+    #[derive(Debug)]
+    struct PgGetOne { sig: Signature }
+
+    impl PgGetOne {
+        fn new() -> Self {
+            Self { sig: Signature::any(1, Volatility::Stable) }
+        }
+    }
+
+    impl ScalarUDFImpl for PgGetOne {
+        fn as_any(&self) -> &dyn std::any::Any { self }
+        fn name(&self) -> &str { "pggetone" }
+        fn signature(&self) -> &Signature { &self.sig }
+        fn return_type(&self, arg_types: &[DataType]) -> Result<DataType> {
+            Ok(arg_types.get(0).cloned().unwrap_or(DataType::Null))
+        }
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            Ok(args.args.into_iter().next().unwrap())
+        }
+    }
+
+    let udf = ScalarUDF::new_from_impl(PgGetOne::new())
+        .with_aliases(["pg_catalog.pggetone"]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -693,6 +727,7 @@ mod tests {
         let ctx = SessionContext::new_with_config(config);
         ctx.register_udtf("regclass_oid", Arc::new(RegClassOidFunc));
         register_scalar_regclass_oid(&ctx)?;
+        register_pggetone(&ctx)?;
         let relname = StringArray::from(vec!["pg_constraint", "demo"]);
         let oid = Int64Array::from(vec![2606i64, 9999i64]);
         let batch = RecordBatch::try_new(
@@ -776,6 +811,23 @@ mod tests {
             .collect()
             .await?;
         assert!(batches[0].column(0).as_any().downcast_ref::<Int64Array>().unwrap().is_null(0));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_pggetone_subquery() -> Result<()> {
+        let ctx = make_ctx().await?;
+        let batches = ctx
+            .sql("SELECT pggetone((select relname FROM pg_catalog.pg_class LIMIT 1))")
+            .await?
+            .collect()
+            .await?;
+        let col = batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap();
+        assert_eq!(col.value(0), "pg_constraint");
         Ok(())
     }
 
