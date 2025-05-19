@@ -727,6 +727,7 @@ mod tests {
         let ctx = SessionContext::new_with_config(config);
         ctx.register_udtf("regclass_oid", Arc::new(RegClassOidFunc));
         register_scalar_regclass_oid(&ctx)?;
+        register_pggetone(&ctx)?;
         let relname = StringArray::from(vec!["pg_constraint", "demo"]);
         let oid = Int64Array::from(vec![2606i64, 9999i64]);
         let batch = RecordBatch::try_new(
@@ -810,6 +811,40 @@ mod tests {
             .collect()
             .await?;
         assert!(batches[0].column(0).as_any().downcast_ref::<Int64Array>().unwrap().is_null(0));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_pggetone_constant() -> Result<()> {
+        let ctx = make_ctx().await?;
+        let batches = ctx
+            .sql("SELECT pggetone('hello') AS v;")
+            .await?
+            .collect()
+            .await?;
+        let col = batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap();
+        assert_eq!(col.value(0), "hello");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_pggetone_subquery() -> Result<()> {
+        let ctx = make_ctx().await?;
+        let batches = ctx
+            .sql("SELECT pggetone((SELECT relname FROM pg_catalog.pg_class LIMIT 1)) AS v;")
+            .await?
+            .collect()
+            .await?;
+        let col = batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap();
+        assert_eq!(col.value(0), "pg_constraint");
         Ok(())
     }
 
