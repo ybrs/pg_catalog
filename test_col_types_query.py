@@ -34,7 +34,7 @@ class TestPsycopgQueries(unittest.TestCase):
                 "127.0.0.1",
                 "--port",
                 str(port),
-            ], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             conninfo = f"host=127.0.0.1 port={port} dbname=postgres password=pencil sslmode=disable"
             for _ in range(8):
                 try:

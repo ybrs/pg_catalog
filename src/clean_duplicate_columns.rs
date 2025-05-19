@@ -1,4 +1,5 @@
 use sqlparser::ast::*;
+use datafusion::error::{DataFusionError, Result};
 use sqlparser::dialect::PostgreSqlDialect;
 use sqlparser::parser::Parser;
 use std::collections::{HashMap};
@@ -129,9 +130,10 @@ fn walk_query(query: &mut Query, counter: &mut usize, alias_map: &mut HashMap<St
     }
 }
 
-pub fn alias_all_columns(sql: &str) -> (String, HashMap<String, String>){
+pub fn alias_all_columns(sql: &str) -> Result<(String, HashMap<String, String>)>{
     let dialect = PostgreSqlDialect {};
-    let mut statements = Parser::parse_sql(&dialect, sql).unwrap();
+    let mut statements = Parser::parse_sql(&dialect, sql)
+        .map_err(|e| DataFusionError::External(Box::new(e)))?;
 
     let mut alias_map = HashMap::new();
     let mut counter = 1;
@@ -151,7 +153,7 @@ pub fn alias_all_columns(sql: &str) -> (String, HashMap<String, String>){
 
     println!("result: {:?} alias_map: {:?}", res, alias_map);
 
-    (res, alias_map)
+    Ok((res, alias_map))
 }
 
 #[cfg(test)]
@@ -274,7 +276,7 @@ mod tests {
         ];
 
         for (input, expected_substrings, expected_alias_map) in cases {
-            let (transformed, aliases) = alias_all_columns(input);
+            let (transformed, aliases) = alias_all_columns(input).unwrap();
             for expected in expected_substrings {
                 assert!(
                     transformed.contains(expected),
