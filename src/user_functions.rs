@@ -571,6 +571,25 @@ pub fn register_scalar_array_to_string(ctx: &SessionContext) -> Result<()> {
                     }
                     Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
                 }
+                ColumnarValue::Scalar(ScalarValue::List(list)) => {
+                    if list.is_null(0) {
+                        return Ok(ColumnarValue::Scalar(ScalarValue::Utf8(None)));
+                    }
+
+                    let elem = list.value(0);
+                    let sa   = elem.as_any().downcast_ref::<StringArray>().unwrap();
+
+                    let mut parts = Vec::new();
+                    for i in 0..sa.len() {
+                        if sa.is_null(i) {
+                            if let Some(ref nr) = null_rep { parts.push(nr.clone()); }
+                        } else {
+                            parts.push(sa.value(i).to_string());
+                        }
+                    }
+                    let joined = parts.join(&delim);
+                    Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(joined))))
+                }
                 ColumnarValue::Scalar(ScalarValue::Utf8(Some(s))) => {
                     let mut b = StringBuilder::with_capacity(1, s.len());
                     b.append_value(s);
@@ -722,17 +741,17 @@ pub fn register_pg_get_array(ctx: &SessionContext) -> Result<()> {
             let arg = args.args.into_iter().next().unwrap();
             match arg {
                 ColumnarValue::Scalar(s) => {
-                    let dt = s.data_type();
-                    let list = ScalarValue::new_list_from_iter(std::iter::once(s), &dt, true);
-                    Ok(ColumnarValue::Scalar(ScalarValue::List(list)))
+                    let dt   = s.data_type();
+                    let arr  = ScalarValue::new_list_from_iter(std::iter::once(s), &dt, true);
+                    Ok(ColumnarValue::Scalar(ScalarValue::List(arr)))
                 }
                 ColumnarValue::Array(arr) => {
                     let scalars = (0..arr.len())
                         .map(|i| ScalarValue::try_from_array(&arr, i))
                         .collect::<Result<Vec<_>>>()?;
-                    let dt = arr.data_type().clone();
-                    let list = ScalarValue::new_list_from_iter(scalars.into_iter(), &dt, true);
-                    Ok(ColumnarValue::Scalar(datafusion::scalar::ScalarValue::List(list)))
+                    let dt   = arr.data_type().clone();
+                    let arr  = ScalarValue::new_list_from_iter(scalars.into_iter(), &dt, true);
+                    Ok(ColumnarValue::Scalar(ScalarValue::List(arr)))
                 }
             }
         }
