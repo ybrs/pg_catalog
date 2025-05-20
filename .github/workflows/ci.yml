@@ -29,6 +29,9 @@ jobs:
       - name: Run cargo tests
         run: cargo test --all --verbose
 
+      - name: Run python tests
+        run: pytest -s
+
       - name: Run rust coverage
         run: |
           cargo install cargo-tarpaulin
@@ -39,5 +42,3 @@ jobs:
           name: tarpaulin-report
           path: cobertura.xml
 
-      - name: Run python tests
-        run: pytest -q
