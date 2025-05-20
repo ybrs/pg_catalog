@@ -299,10 +299,46 @@ mod rewriter {
         outer: Vec<Ident>,
         inner: Vec<Ident>,
         op   : BinaryOperator,        // =  <>  <  <=  >  >=
+        is_any : bool,            // true  ↔  came from  oid = ANY(arr)
     }
 
     /// walk a boolean expression and collect `outer = inner` pairs
     fn collect_corr_preds(e: &Expr, outer_alias: &Ident, out: &mut Vec<CorrPred>) {
+
+        if let Expr::AnyOp {
+            left,
+            compare_op: BinaryOperator::Eq,
+            right,
+            ..
+        } = e
+        {
+            let l = as_path(left);
+            let r = as_path(right);
+    
+            match (l.first(), r.first()) {
+                //  oid  = ANY(pol.polroles)
+                (Some(a), Some(b)) if b == outer_alias && a != outer_alias => {
+                    out.push(CorrPred {
+                        outer: r,
+                        inner: l,
+                        op:    BinaryOperator::Eq,   // keep the operator
+                        is_any: true
+                    });
+                }
+                //  ANY(pol.xxx) = oid   (unlikely, but symmetrical)
+                (Some(a), Some(b)) if a == outer_alias && b != outer_alias => {
+                    out.push(CorrPred {
+                        outer: l,
+                        inner: r,
+                        op:    BinaryOperator::Eq,
+                        is_any: true
+                    });
+                }
+                _ => {}
+            }
+            return;     // already handled – don’t fall through
+        }
+
         match e {
             Expr::BinaryOp { op: BinaryOperator::And, left, right } => {
                 collect_corr_preds(left,  outer_alias, out);
@@ -321,10 +357,10 @@ mod rewriter {
                 let (l, r) = (as_path(left), as_path(right));
                 match (l.first(), r.first()) {
                     (Some(a), Some(b)) if a == outer_alias && b != outer_alias => {
-                        out.push(CorrPred { outer: l, inner: r, op: op.clone() });
+                        out.push(CorrPred { outer: l, inner: r, op: op.clone(), is_any: false });
                     }
                     (Some(a), Some(b)) if b == outer_alias && a != outer_alias => {
-                            out.push(CorrPred { outer: r, inner: l, op: op.clone() });
+                            out.push(CorrPred { outer: r, inner: l, op: op.clone(), is_any: false });
                     }
                     _ => {}
                 }
@@ -337,10 +373,12 @@ mod rewriter {
     fn as_path(e: &Expr) -> Vec<Ident> {
         match e {
             Expr::CompoundIdentifier(p) => p.clone(),
+            // make "id" look like ["id"]  (needed for  id = ANY(t.arr) )
+            Expr::Identifier(id)        => vec![id.clone()],
             _ => vec![],
         }
     }
-
+    
     /// flatten `a AND b AND c` → `[a, b, c]`
     fn split_and(e: &Expr) -> Vec<Expr> {
         match e {
@@ -383,6 +421,22 @@ mod rewriter {
                     || (as_path(right) == p.outer && as_path(left)  == p.inner);
             }
         }
+
+        if let Expr::AnyOp {
+            left,
+            compare_op: BinaryOperator::Eq,
+            right,
+            ..
+        } = e
+        {
+            return p.is_any
+            && (
+                (as_path(left)  == p.inner && as_path(right) == p.outer)
+             || (as_path(right) == p.inner && as_path(left)  == p.outer)
+            );
+        }
+    
+        
         false
     }
 
@@ -670,71 +724,191 @@ mod rewriter {
         }
 
 
-        fn build_left_join(
-                &self,
-                alias      : &Ident,
-                pairs      : &[CorrPred],
-                outer_only : &[Expr],
-        ) -> Join {
-            let mut join = Self::make_left_join(alias);
-            let mut on_expr: Option<Expr> = None;
+        // fn build_left_join(
+        //         &self,
+        //         alias      : &Ident,
+        //         pairs      : &[CorrPred],
+        //         outer_only : &[Expr],
+        // ) -> Join {
+        //     let mut join = Self::make_left_join(alias);
+        //     let mut on_expr: Option<Expr> = None;
 
-            if !pairs.is_empty() {
-                // helper: replace first identifier in a path with the CTE alias
-                let rewrite_inner = |path: &Vec<Ident>| -> Expr {
-                    let mut new = path.clone();
-                    new[0] = alias.clone();
-                    Expr::CompoundIdentifier(new)
-                };
+        //     if !pairs.is_empty() {
+        //         // helper: replace first identifier in a path with the CTE alias
+        //         let rewrite_inner = |path: &Vec<Ident>| -> Expr {
+        //             let mut new = path.clone();
+        //             new[0] = alias.clone();
+        //             Expr::CompoundIdentifier(new)
+        //         };
         
-                // first equality
-                let first = &pairs[0];
-                let mut expr = Expr::BinaryOp {
-                    left  : Box::new(Expr::CompoundIdentifier(first.outer.clone())),
-                    op    : first.op.clone(),
-                    right : Box::new(rewrite_inner(&first.inner)),
-                };
-        
-                // AND-chain the rest
-                for p in &pairs[1..] {
-                    let eq = Expr::BinaryOp {
-                        left  : Box::new(Expr::CompoundIdentifier(p.outer.clone())),
-                        op    : p.op.clone(),
-                        right : Box::new(rewrite_inner(&p.inner)),
-                    };
-                    expr = Expr::BinaryOp {
-                        left  : Box::new(expr),
-                        op    : BinaryOperator::And,
-                        right : Box::new(eq),
-                    };
-                }
-        
-                on_expr = Some(expr);
-            }
+        //         // first equality
+        //         let first = &pairs[0];
+        //         let mut expr = Expr::BinaryOp {
+        //             left  : Box::new(Expr::CompoundIdentifier(first.outer.clone())),
+        //             op    : first.op.clone(),
+        //             right : Box::new(rewrite_inner(&first.inner)),
+        //         };
 
-            // -------- outer‑only predicates (t1.flag etc.) -----
-            /* ---------- outer-only predicates (t1.flag …) ---------- */
-            for pred in outer_only {
-                on_expr = Some(match on_expr.take() {
-                    Some(current) => Expr::BinaryOp {
-                        left  : Box::new(current),
-                        op    : BinaryOperator::And,
-                        right : Box::new(pred.clone()),
-                    },
-                    None => pred.clone(),
-                });
+        //         let mut expr_opt : Option<Expr> = None;
 
-            }
+        //         for p in pairs {
+        //             let new = if p.is_any {
+        //                 // __cteN.oid  = ANY(pol.roles)
+        //                 Expr::AnyOp {
+        //                     left        : Box::new(rewrite_inner(&p.inner)),
+        //                     compare_op  : p.op.clone(),          // always =
+        //                     right       : Box::new(
+        //                         Expr::CompoundIdentifier(p.outer.clone())
+        //                     ),
+        //                     is_some     : false,
+        //                 }
+        //             } else {
+        //                 // plain binary comparison
+        //                 Expr::BinaryOp {
+        //                     left  : Box::new(
+        //                         Expr::CompoundIdentifier(p.outer.clone())
+        //                     ),
+        //                     op    : p.op.clone(),
+        //                     right : Box::new(rewrite_inner(&p.inner)),
+        //                 }
+        //             };
+                
+        //             expr_opt = Some(match expr_opt {
+        //                 None          => new,
+        //                 Some(prev)    => Expr::BinaryOp {
+        //                     left  : Box::new(prev),
+        //                     op    : BinaryOperator::And,
+        //                     right : Box::new(new),
+        //                 },
+        //             });
+        //         }           
+
+        //         // AND-chain the rest
+        //         for p in &pairs[1..] {
+        //             let eq = Expr::BinaryOp {
+        //                 left  : Box::new(Expr::CompoundIdentifier(p.outer.clone())),
+        //                 op    : p.op.clone(),
+        //                 right : Box::new(rewrite_inner(&p.inner)),
+        //             };
+        //             expr = Expr::BinaryOp {
+        //                 left  : Box::new(expr),
+        //                 op    : BinaryOperator::And,
+        //                 right : Box::new(eq),
+        //             };
+        //         }
+
+        //         // ---------- extra   inner = ANY(outer_array)  -------------
+        //         if pairs.is_empty() && !outer_only.is_empty() {
+        //             // nothing to join on yet – build from the ANY() predicate
+        //             let pred = &outer_only[0];                 // there is only one
+        //             if let Expr::AnyOp { .. } = pred {
+        //                 expr = pred.clone();                   // use as-is
+        //             }
+        //         }
+        
+        //         on_expr = Some(expr);
+        //     }
+
+        //     // -------- outer‑only predicates (t1.flag etc.) -----
+        //     /* ---------- outer-only predicates (t1.flag …) ---------- */
+        //     for pred in outer_only {
+        //         on_expr = Some(match on_expr.take() {
+        //             Some(current) => Expr::BinaryOp {
+        //                 left  : Box::new(current),
+        //                 op    : BinaryOperator::And,
+        //                 right : Box::new(pred.clone()),
+        //             },
+        //             None => pred.clone(),
+        //         });
+
+        //     }
             
-            // If we built anything, replace the default `ON true`
-            if let Some(expr) = on_expr {
-                join.join_operator = JoinOperator::LeftOuter(JoinConstraint::On(expr));
-            }
+        //     // If we built anything, replace the default `ON true`
+        //     if let Some(expr) = expr_opt {
+        //         join.join_operator = JoinOperator::LeftOuter(JoinConstraint::On(expr));
+        //     }
 
-            join
-        }
+        //     join
+        // }
         
-
+        fn build_left_join(
+            &self,
+            alias      : &Ident,
+            pairs      : &[CorrPred],
+            outer_only : &[Expr],
+    ) -> Join {
+        let mut join = Self::make_left_join(alias);
+    
+        // helper:   t2.id  →  __cteN.id
+        let rewrite_inner = |path: &Vec<Ident>| -> Expr {
+            let mut new = path.clone();
+            let first   = new[0].clone();      // remember the column
+            new[0] = alias.clone();            //  ⟶  __cteN …
+            if new.len() == 1 {                // add “id” back:  __cteN.id
+                new.push(first);
+            }
+            Expr::CompoundIdentifier(new)
+        };
+    
+        // -------------------------------------------------------------
+        // 1. build ON-predicate from the correlated comparisons
+        // -------------------------------------------------------------
+        let mut on : Option<Expr> = None;
+    
+        for p in pairs {
+            let pred = if p.is_any {
+                // __cteN.oid = ANY(pol.roles)
+                Expr::AnyOp {
+                    left        : Box::new(rewrite_inner(&p.inner)),
+                    compare_op  : p.op.clone(),         // always “=”
+                    right       : Box::new(
+                                    Expr::CompoundIdentifier(p.outer.clone())),
+                    is_some     : false,
+                }
+            } else {
+                // plain binary comparison  ( =  <>  <  … )
+                Expr::BinaryOp {
+                    left  : Box::new(
+                                Expr::CompoundIdentifier(p.outer.clone())),
+                    op    : p.op.clone(),
+                    right : Box::new(rewrite_inner(&p.inner)),
+                }
+            };
+    
+            on = Some(match on {
+                None        => pred,
+                Some(cur)   => Expr::BinaryOp {
+                    left  : Box::new(cur),
+                    op    : BinaryOperator::And,
+                    right : Box::new(pred),
+                },
+            });
+        }
+    
+        // -------------------------------------------------------------
+        // 2. tack on the “outer-only” predicates (t1.flag, …)
+        // -------------------------------------------------------------
+        for pred in outer_only {
+            on = Some(match on {
+                None        => pred.clone(),
+                Some(cur)   => Expr::BinaryOp {
+                    left  : Box::new(cur),
+                    op    : BinaryOperator::And,
+                    right : Box::new(pred.clone()),
+                },
+            });
+        }
+    
+        // -------------------------------------------------------------
+        // 3. install the ON-clause (defaults to “true” if we built none)
+        // -------------------------------------------------------------
+        if let Some(expr) = on {
+            join.join_operator = JoinOperator::LeftOuter(JoinConstraint::On(expr));
+        }
+    
+        join
+    }
+    
         /* ---------- mut-visitor ---------- */
 
         pub fn visit_statement_mut(&mut self, s: &mut Statement) {
@@ -891,7 +1065,6 @@ mod tests {
     fn rewrite_single_scalar_to_cte() -> Result<()> {
         let sql = "SELECT (SELECT 1) AS x";
         let out = rewrite(sql)?;
-        println!("out ---> {:?}", out);
         assert_eq!(out.converted, 1);
         assert!(out.sql.contains("WITH"));
         assert!(out.sql.contains("__cte1"));
@@ -903,7 +1076,6 @@ mod tests {
     fn rewrite_preserves_other_columns() -> Result<()> {
         let sql = "SELECT a, (SELECT 2) AS two FROM t";
         let out = rewrite(sql)?;
-        println!("out 2---> {:?}", out);
         // make sure original top-level columns still there
         assert!(out.sql.starts_with("WITH"));
         assert!(out.sql.contains("SELECT a, __cte1.col")); // rough check
@@ -1140,5 +1312,40 @@ mod tests {
         assert!(s.contains("pg_get_array(__cte1.col"), "function arg not rewritten");
         Ok(())
     }
+
+    #[test]
+    fn rewrite_eq_any_predicate() -> Result<()> {
+        // ────────────────────────────────────────────────────────────────
+        // outer             :  t(arr  INT[])
+        // inner correlated  :  SELECT id FROM x WHERE id = ANY(t.arr)
+        // ────────────────────────────────────────────────────────────────
+        let sql = r#"
+            SELECT (SELECT id
+                    FROM   x
+                    WHERE  id = ANY(t.arr)
+                   )
+            FROM t"#;
+    
+        let out = rewrite(sql)?;
+        let s   = out.sql;
+        
+        println!("rewrite_eq_any_predicate {:?}", s);
+
+        // 1) we created a CTE
+        assert!(s.starts_with("WITH __cte1"), "no CTE injected");
+    
+        // 2) the join is LEFT and contains the ANY() predicate
+        assert!(
+            (s.contains("LEFT OUTER JOIN __cte1") || s.contains("LEFT JOIN __cte1"))
+            && s.contains("__cte1.id = ANY(t.arr)"),
+            "correlated ANY() predicate missing from JOIN"
+        );
+    
+        // 3) the scalar ref was replaced by __cte1.col
+        assert!(s.contains("SELECT __cte1.col"), "scalar not rewritten");
+    
+        Ok(())
+    }
+
 
 }
