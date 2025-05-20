@@ -85,6 +85,18 @@ mod tests {
         assert_eq!(&buf[0..4], &(-1i32).to_be_bytes());
         assert_eq!(&buf[4..8], &(-1i32).to_be_bytes());
     }
+
+    #[test]
+    fn test_arrow_to_pg_type() {
+        assert_eq!(arrow_to_pg_type(&DataType::Boolean), Type::BOOL);
+        assert_eq!(arrow_to_pg_type(&DataType::Int32), Type::INT4);
+        assert_eq!(arrow_to_pg_type(&DataType::Int64), Type::INT8);
+        assert_eq!(arrow_to_pg_type(&DataType::Int16), Type::INT2);
+        assert_eq!(arrow_to_pg_type(&DataType::Utf8), Type::TEXT);
+        assert_eq!(arrow_to_pg_type(&DataType::Utf8View), Type::TEXT);
+        assert_eq!(arrow_to_pg_type(&DataType::LargeUtf8), Type::TEXT);
+        assert_eq!(arrow_to_pg_type(&DataType::Float32), Type::TEXT);
+    }
 }
 
 
