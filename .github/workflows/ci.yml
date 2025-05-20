@@ -36,6 +36,7 @@ jobs:
         run: |
           cargo install cargo-tarpaulin
           cargo tarpaulin --out Xml --timeout 120
+          
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
