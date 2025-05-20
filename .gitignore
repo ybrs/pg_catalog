@@ -7,3 +7,6 @@ venv/
 *.pyc
 run_genp.py
 pgapply_patch.py
+llm_apply_patch.py
+llm_diff_to_diff.py
+temp.txt

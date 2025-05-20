@@ -147,6 +147,27 @@ mod visitor {
                 Expr::Subquery(_) => self.scalars.push(expr.clone()),
                 Expr::Exists { .. } => self.scalars.push(expr.clone()), 
 
+                Expr::Function(func) => {
+                    if let FunctionArguments::List(list) = &func.args {
+                        for arg in &list.args {
+                            match arg {
+                                // unnamed argument
+                                FunctionArg::Unnamed(FunctionArgExpr::Expr(expr_box))
+                                // named argument ( …, name := <expr> )
+                                | FunctionArg::Named {
+                                    arg: FunctionArgExpr::Expr(expr_box),
+                                    ..
+                                } => {
+                                    // `expr_box` is `&Box<Expr>` — just pass it
+                                    self.visit_expr(expr_box);
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+                
+
                 // Binary
                 Expr::BinaryOp { left, right, .. } => {
                     self.visit_expr(left);
@@ -376,7 +397,64 @@ mod rewriter {
         pub fn new() -> Self { Self::default() }
 
         /* ---------- helpers ---------- */
+        // ────────────────────────────────────────────────────────────────
+        // Recursively rewrite every Expr in-place and lift scalar
+        // sub-queries to CTEs.
+        // ────────────────────────────────────────────────────────────────
+        fn rewrite_expr(
+            &mut self,
+            expr: &mut Expr,
+            outer_alias: &Ident,
+            w: &mut Option<With>,
+            sel: &mut Select,
+        ) {
+            match expr {
+                // ───────────── scalar sub-query → CTE ─────────────
+                Expr::Subquery(_) => {
+                    let fake = SelectItem::UnnamedExpr(expr.clone());
+                    if let Some(info) = self.analyse_scalar(&fake, outer_alias) {
+                        self.push_cte(w, &info);
+                        self.add_join(sel, &info);
 
+                        *expr = Self::make_ref(&info);
+                        self.converted += 1;
+                    }
+                }
+
+                // ───────────── recurse into children ───────────────
+                Expr::Function(func) => {
+                    if let FunctionArguments::List(list) = &mut func.args {
+                        for arg in &mut list.args {
+                            if let FunctionArg::Unnamed(FunctionArgExpr::Expr(boxed))
+                            | FunctionArg::Named { arg: FunctionArgExpr::Expr(boxed), .. } = arg
+                            {
+                                self.rewrite_expr(boxed, outer_alias, w, sel);
+                            }
+                        }
+                    }
+                }
+                Expr::BinaryOp { left, right, .. } => {
+                    self.rewrite_expr(left,  outer_alias, w, sel);
+                    self.rewrite_expr(right, outer_alias, w, sel);
+                }
+                Expr::Nested(inner)        => self.rewrite_expr(inner, outer_alias, w, sel),
+                Expr::UnaryOp { expr, .. } => self.rewrite_expr(expr, outer_alias, w, sel),
+                Expr::Cast { expr, .. }    => self.rewrite_expr(expr, outer_alias, w, sel),
+                Expr::Case { operand, conditions, else_result, .. } => {
+                    if let Some(op) = operand {
+                        self.rewrite_expr(op, outer_alias, w, sel);
+                    }
+                    for CaseWhen { condition, result } in conditions {
+                        self.rewrite_expr(condition, outer_alias, w, sel);
+                        self.rewrite_expr(result,    outer_alias, w, sel);
+                    }
+                    if let Some(er) = else_result {
+                        self.rewrite_expr(er, outer_alias, w, sel);
+                    }
+                }
+                _ => {}
+            }
+        }
 
         fn make_from_entry(alias: &Ident) -> TableWithJoins {
             let tmpl = super::parse_sql(&format!("SELECT * FROM {alias}")).unwrap();
@@ -448,6 +526,7 @@ mod rewriter {
             }
             w.as_mut().unwrap()
         }
+
         fn analyse_scalar(&mut self, sel_item : &SelectItem,  outer_alias: &Ident) -> Option<CorrelatedInfo> {
             
             let expr = match sel_item {
@@ -671,6 +750,7 @@ mod rewriter {
         }
 
         fn visit_select_mut(&mut self, w: &mut Option<With>, sel: &mut Select) {
+
             // ---------- outer alias (very first table name / alias) ----------
             let outer_alias: Ident = sel
             .from
@@ -687,6 +767,39 @@ mod rewriter {
                 _ => None,
             })
             .unwrap_or_else(|| Ident::new("_outer"));
+
+
+            // ---------- recurse into every projection expr first ----------
+
+
+            // 1) Move everything out – ends the &mut borrow immediately.
+            let drained: Vec<SelectItem> = sel.projection.drain(..).collect();
+
+            // 2) Rewrite while we own the items; we can pass &mut sel freely.
+            let mut new_proj = Vec::with_capacity(drained.len());
+            for mut item in drained {
+                if let SelectItem::UnnamedExpr(ref mut expr)
+                    | SelectItem::ExprWithAlias { ref mut expr, .. } = item
+                {
+                    let before = self.converted;
+
+                    self.rewrite_expr(expr, &outer_alias, w, sel);
+
+                    if self.converted > before {
+                        if let SelectItem::UnnamedExpr(e) = item {
+                            item = SelectItem::ExprWithAlias {
+                                expr: e,
+                                alias: Ident::new(format!("subq{}", self.converted)),
+                            };
+                        }
+                    }                    
+                }
+                new_proj.push(item);
+            }
+
+            // 3) Put the list back.
+            sel.projection = new_proj;
+
 
             // ---------- 1st pass: collect what needs rewriting ----------
             let mut collected = Vec::<(usize, CorrelatedInfo)>::new();
@@ -1011,4 +1124,21 @@ mod tests {
         }
         Ok(())
     }
+
+    #[test]
+    fn rewrite_scalar_inside_function() -> Result<()> {
+        let sql = "
+            SELECT pg_catalog.pg_get_array(
+                    (SELECT rolname FROM pg_catalog.pg_roles ORDER BY 1)
+                )";
+        let out = rewrite(sql)?;
+        let s   = out.sql;
+
+        assert!(out.converted >= 1, "no scalar was rewritten");
+        assert!(s.starts_with("WITH"),               "missing WITH");
+        assert!(s.contains("__cte1"),                "missing CTE name");
+        assert!(s.contains("pg_get_array(__cte1.col"), "function arg not rewritten");
+        Ok(())
+    }
+
 }
