@@ -32,12 +32,12 @@ jobs:
       - name: Run rust coverage
         run: |
           cargo install cargo-tarpaulin
-          cargo tarpaulin --out Xml --out Text --timeout 120
-      # - name: Upload coverage artifact
-      #   uses: actions/upload-artifact@v3
-      #   with:
-      #     name: tarpaulin-report
-      #     path: cobertura.xml
+          cargo tarpaulin --out Xml --timeout 120
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tarpaulin-report
+          path: cobertura.xml
 
       - name: Run python tests
         run: pytest -q
