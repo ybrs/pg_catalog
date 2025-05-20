@@ -727,17 +727,12 @@ pub fn register_pg_get_array(ctx: &SessionContext) -> Result<()> {
                     Ok(ColumnarValue::Scalar(ScalarValue::List(list)))
                 }
                 ColumnarValue::Array(arr) => {
-                    let list_arr = SingleRowListArrayBuilder::new(arr).build_list_array();
-                    println!("list_arr {:?}", list_arr);
-                    // here it is 
-                    // list_arr ListArray
-                    // [
-                    // StringArray
-                    // [
-                    // "pg_statistic",
-                    // ],
-                    // ]
-                    Ok(ColumnarValue::Array(Arc::new(list_arr)))  
+                    let scalars = (0..arr.len())
+                        .map(|i| ScalarValue::try_from_array(&arr, i))
+                        .collect::<Result<Vec<_>>>()?;
+                    let dt = arr.data_type().clone();
+                    let list = ScalarValue::new_list_from_iter(scalars.into_iter(), &dt, true);
+                    Ok(ColumnarValue::Scalar(datafusion::scalar::ScalarValue::List(list)))
                 }
             }
         }
