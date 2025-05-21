@@ -519,31 +519,43 @@ mod rewriter {
             }
         }
 
-        fn inject_group_by(&self, sel: &mut Select) {
-            // user already has GROUP BY
-            match &sel.group_by {
-                GroupByExpr::All(_) => return,
-                GroupByExpr::Expressions(v, _) if !v.is_empty() => return,
-                _ => {}
+
+        fn has_user_group_by(g: &GroupByExpr) -> bool {
+            match g {
+                GroupByExpr::All(_)                       => true,          //  GROUP BY ALL
+                GroupByExpr::Expressions(exprs, _) if !exprs.is_empty() => true,
+                _                                         => false,
             }
-        
-            let mut has_aggr = false;
-            let mut cols     = Vec::<Expr>::new();
+        }
+
+        fn inject_group_by(&self, sel: &mut Select) {
+            // bail if user already has a GROUP BY
+            if Self::has_user_group_by(&sel.group_by) {
+                return;
+            }
+            
+            let mut has_aggr  = false;        // saw COUNT/SUM/…
+            let mut cols      = Vec::<Expr>::new();
+            let mut total_proj= 0_usize;      // how many projection items?
         
             for item in &sel.projection {
+                total_proj += 1;
                 if let SelectItem::UnnamedExpr(e)
                     | SelectItem::ExprWithAlias { expr: e, .. } = item
                 {
-                    Self::scan_expr(e, false, &mut has_aggr, &mut cols);
+                    // collects plain columns + sets has_aggr
+                    Self::scan_expr(e, /*inside_aggr*/ false, &mut has_aggr, &mut cols);
                 }
             }
         
-            if has_aggr {
+            // do we mix “plain columns” with “anything else”?
+            let mix_plain_and_other = !cols.is_empty() && cols.len() < total_proj;
+        
+            if has_aggr || mix_plain_and_other {
+                // deduplicate column list
                 let mut seen = HashSet::new();
-                let exprs: Vec<Expr> = cols
-                    .into_iter()
-                    .filter(|c| seen.insert(c.clone()))
-                    .collect();
+                let exprs: Vec<Expr> =
+                    cols.into_iter().filter(|c| seen.insert(c.clone())).collect();
         
                 sel.group_by = GroupByExpr::Expressions(exprs, Vec::new());
             }
