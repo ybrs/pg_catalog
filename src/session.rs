@@ -550,6 +550,41 @@ public:
         assert!(Arc::ptr_eq(batch.column(1), renamed.column(1)));
     }
 
+
+    #[test]
+    fn test_parse_schema_text_array() {
+        use arrow::array::{ListArray};
+        let yaml = r#"
+public:
+  myschema:
+    cfgtable:
+      type: table
+      schema:
+        cfg: _text
+      rows:
+        - cfg:
+            - "x"
+            - "y"
+"#;
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        std::io::Write::write_all(&mut file, yaml.as_bytes()).unwrap();
+
+        let parsed = parse_schema_file(file.path().to_str().unwrap());
+        let myschema = parsed.get("public").unwrap().get("myschema").unwrap();
+        let (schema_ref, batches) = myschema.get("cfgtable").unwrap();
+
+        let field = &schema_ref.fields()[0];
+        assert!(matches!(field.data_type(), DataType::List(_)));
+
+        let batch = &batches[0];
+        let list = batch.column(0).as_any().downcast_ref::<ListArray>().unwrap();
+        let binding = list.value(0);
+        let inner = binding.as_any().downcast_ref::<StringArray>().unwrap();
+        assert_eq!(inner.value(0), "x");
+        assert_eq!(inner.value(1), "y");
+    }
+
+
     #[test]
     fn test_rename_columns_partial() {
         let schema = Arc::new(Schema::new(vec![
