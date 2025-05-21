@@ -18,11 +18,30 @@ jobs:
           profile: minimal
           override: true
 
+      - name: Cache cargo registry and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+  
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
@@ -36,7 +55,7 @@ jobs:
         run: |
           cargo install cargo-tarpaulin
           cargo tarpaulin --out Xml --timeout 120
-          
+
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
         with:
