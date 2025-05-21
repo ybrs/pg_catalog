@@ -68,6 +68,15 @@ def test_pggetone_subquery(server):
 def test_pg_get_array_subquery(server):
     with psycopg.connect(CONN_STR) as conn:
         cur = conn.cursor()
+        cur.execute("SELECT relname FROM pg_catalog.pg_class LIMIT 1")
+        expected = cur.fetchone()[0]
+
         cur.execute("SELECT pg_get_array((SELECT relname FROM pg_catalog.pg_class LIMIT 1))")
-        row = cur.fetchone()
-        assert row[0] is not None
+        raw = cur.pgresult.get_value(0, 0).decode()
+
+        if raw.startswith('"') and raw.endswith('"'):
+            raw = raw[1:-1]
+
+        assert raw.startswith("{") and raw.endswith("}")
+        items = raw[1:-1].split(',') if raw != '{}' else []
+        assert items == [expected]
