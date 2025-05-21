@@ -19,7 +19,7 @@ public:
         foreign_table_catalog: varchar(64)
         foreign_table_schema: varchar(64)
         foreign_table_name: varchar(64)
-        ftoptions: varchar(256)
+        ftoptions: _text
         foreign_server_catalog: varchar(64)
         foreign_server_name: varchar(64)
         authorization_identifier: varchar(64)

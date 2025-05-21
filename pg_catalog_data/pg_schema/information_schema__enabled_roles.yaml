@@ -9,7 +9,7 @@ public:
       pg_types:
         role_name: name
       rows:
-      - role_name: aybarsb
+      - role_name: abadur
       - role_name: pg_database_owner
       - role_name: pg_read_all_data
       - role_name: pg_write_all_data

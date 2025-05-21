@@ -20,7 +20,7 @@ public:
         datlocale: varchar(256)
         daticurules: varchar(256)
         datcollversion: varchar(256)
-        datacl: varchar(256)
+        datacl: _text
       pg_types:
         oid: oid
         datname: name
@@ -53,8 +53,8 @@ public:
         datfrozenxid: '730'
         datminmxid: '1'
         dattablespace: 1663
-        datcollate: C
-        datctype: UTF-8
+        datcollate: nl_NL.UTF-8
+        datctype: nl_NL.UTF-8
         datlocale: null
         daticurules: null
         datcollversion: null
@@ -71,12 +71,12 @@ public:
         datfrozenxid: '730'
         datminmxid: '1'
         dattablespace: 1663
-        datcollate: C
-        datctype: UTF-8
+        datcollate: nl_NL.UTF-8
+        datctype: nl_NL.UTF-8
         datlocale: null
         daticurules: null
         datcollversion: null
-        datacl: '[''=c/aybarsb'', ''aybarsb=CTc/aybarsb'']'
+        datacl: '[''=c/abadur'', ''abadur=CTc/abadur'']'
       - oid: 4
         datname: template0
         datdba: 10
@@ -89,9 +89,9 @@ public:
         datfrozenxid: '730'
         datminmxid: '1'
         dattablespace: 1663
-        datcollate: C
-        datctype: UTF-8
+        datcollate: nl_NL.UTF-8
+        datctype: nl_NL.UTF-8
         datlocale: null
         daticurules: null
         datcollversion: null
-        datacl: '[''=c/aybarsb'', ''aybarsb=CTc/aybarsb'']'
+        datacl: '[''=c/abadur'', ''abadur=CTc/abadur'']'

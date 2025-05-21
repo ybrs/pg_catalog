@@ -10,7 +10,7 @@ public:
         stxowner: int
         stxkeys: varchar(256)
         stxstattarget: int
-        stxkind: varchar(256)
+        stxkind: _text
         stxexprs: varchar(256)
       pg_types:
         oid: oid

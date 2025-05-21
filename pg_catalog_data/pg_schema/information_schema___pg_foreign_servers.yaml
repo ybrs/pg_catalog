@@ -14,7 +14,7 @@ public:
         \ (pg_has_role(s.srvowner, 'USAGE'::text) OR has_server_privilege(s.oid, 'USAGE'::text));"
       schema:
         oid: int
-        srvoptions: varchar(256)
+        srvoptions: _text
         foreign_server_catalog: varchar(64)
         foreign_server_name: varchar(64)
         foreign_data_wrapper_catalog: varchar(64)

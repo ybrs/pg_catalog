@@ -19,6 +19,8 @@ PG_TYPE_MAPPING = {
 }
 
 def map_pg_type(pg_type):
+    if pg_type.startswith("_"):
+        return "_text"
     return PG_TYPE_MAPPING.get(pg_type, "varchar(256)")
 
 def fetch_objects(conn, schema):

@@ -15,7 +15,7 @@ public:
         trusted: boolean
         relocatable: boolean
         schema: varchar(64)
-        requires: varchar(256)
+        requires: _text
         comment: varchar(256)
       pg_types:
         name: name

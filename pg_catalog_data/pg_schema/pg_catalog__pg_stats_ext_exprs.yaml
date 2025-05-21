@@ -64,12 +64,12 @@ public:
         avg_width: int
         n_distinct: float
         most_common_vals: varchar(256)
-        most_common_freqs: varchar(256)
+        most_common_freqs: _text
         histogram_bounds: varchar(256)
         correlation: float
         most_common_elems: varchar(256)
-        most_common_elem_freqs: varchar(256)
-        elem_count_histogram: varchar(256)
+        most_common_elem_freqs: _text
+        elem_count_histogram: _text
       pg_types:
         schemaname: name
         tablename: name

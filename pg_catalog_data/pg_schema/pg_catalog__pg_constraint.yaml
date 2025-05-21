@@ -21,13 +21,13 @@ public:
         conislocal: boolean
         coninhcount: int
         connoinherit: boolean
-        conkey: varchar(256)
-        confkey: varchar(256)
-        conpfeqop: varchar(256)
-        conppeqop: varchar(256)
-        conffeqop: varchar(256)
-        confdelsetcols: varchar(256)
-        conexclop: varchar(256)
+        conkey: _text
+        confkey: _text
+        conpfeqop: _text
+        conppeqop: _text
+        conffeqop: _text
+        confdelsetcols: _text
+        conexclop: _text
         conbin: varchar(256)
       pg_types:
         oid: oid
@@ -2917,15 +2917,15 @@ public:
         confdelsetcols: null
         conexclop: null
         conbin: null
-      - oid: 12690
+      - oid: 12797
         conname: cardinal_number_domain_check
-        connamespace: 12675
+        connamespace: 12782
         contype: c
         condeferrable: false
         condeferred: false
         convalidated: true
         conrelid: 0
-        contypid: 12689
+        contypid: 12796
         conindid: 0
         conparentid: 0
         confrelid: 0
@@ -2947,15 +2947,15 @@ public:
           -1 :collation 0 :location -1} {CONST :consttype 23 :consttypmod -1 :constcollid
           0 :constlen 4 :constbyval true :constisnull false :location -1 :constvalue
           4 [ 0 0 0 0 0 0 0 0 ]}) :location -1}'
-      - oid: 12703
+      - oid: 12810
         conname: yes_or_no_check
-        connamespace: 12675
+        connamespace: 12782
         contype: c
         condeferrable: false
         condeferred: false
         convalidated: true
         conrelid: 0
-        contypid: 12702
+        contypid: 12809
         conindid: 0
         conparentid: 0
         confrelid: 0

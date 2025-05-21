@@ -88,10 +88,10 @@ public:
         numbackends: 0
         xact_commit: 0
         xact_rollback: 0
-        blks_read: 78
-        blks_hit: 323493
-        tup_returned: 217298
-        tup_fetched: 129271
+        blks_read: 107
+        blks_hit: 244932
+        tup_returned: 181081
+        tup_fetched: 107248
         tup_inserted: 27
         tup_updated: 4
         tup_deleted: 0
@@ -114,12 +114,12 @@ public:
       - datid: 5
         datname: postgres
         numbackends: 1
-        xact_commit: 3538
-        xact_rollback: 12
-        blks_read: 757
-        blks_hit: 1215184
-        tup_returned: 4056074
-        tup_fetched: 710804
+        xact_commit: 30
+        xact_rollback: 7
+        blks_read: 1322
+        blks_hit: 947437
+        tup_returned: 2240201
+        tup_fetched: 613719
         tup_inserted: 0
         tup_updated: 0
         tup_deleted: 0
@@ -131,24 +131,24 @@ public:
         checksum_last_failure: null
         blk_read_time: 0.0
         blk_write_time: 0.0
-        session_time: 289301987.885
-        active_time: 3534.85
-        idle_in_transaction_time: 172682.712
-        sessions: 14
+        session_time: 125518.762
+        active_time: 5267.173
+        idle_in_transaction_time: 118250.707
+        sessions: 8
         sessions_abandoned: 0
         sessions_fatal: 0
-        sessions_killed: 1
+        sessions_killed: 0
         stats_reset: null
       - datid: 1
         datname: template1
         numbackends: 0
-        xact_commit: 4418
+        xact_commit: 936
         xact_rollback: 0
-        blks_read: 804
-        blks_hit: 211503
-        tup_returned: 1623749
-        tup_fetched: 51900
-        tup_inserted: 16342
+        blks_read: 890
+        blks_hit: 85204
+        tup_returned: 83945
+        tup_fetched: 28320
+        tup_inserted: 16449
         tup_updated: 765
         tup_deleted: 34
         conflicts: 0

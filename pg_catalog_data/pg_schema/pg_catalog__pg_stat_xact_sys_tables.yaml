@@ -190,18 +190,6 @@ public:
         n_tup_del: 0
         n_tup_hot_upd: 0
         n_tup_newpage_upd: 0
-      - relid: 12863
-        schemaname: information_schema
-        relname: sql_implementation_info
-        seq_scan: 0
-        seq_tup_read: 0
-        idx_scan: null
-        idx_tup_fetch: null
-        n_tup_ins: 0
-        n_tup_upd: 0
-        n_tup_del: 0
-        n_tup_hot_upd: 0
-        n_tup_newpage_upd: 0
       - relid: 6106
         schemaname: pg_catalog
         relname: pg_publication_rel
@@ -358,6 +346,30 @@ public:
         n_tup_del: 0
         n_tup_hot_upd: 0
         n_tup_newpage_upd: 0
+      - relid: 12980
+        schemaname: information_schema
+        relname: sql_sizing
+        seq_scan: 0
+        seq_tup_read: 0
+        idx_scan: null
+        idx_tup_fetch: null
+        n_tup_ins: 0
+        n_tup_upd: 0
+        n_tup_del: 0
+        n_tup_hot_upd: 0
+        n_tup_newpage_upd: 0
+      - relid: 12978
+        schemaname: pg_toast
+        relname: pg_toast_12975
+        seq_scan: 0
+        seq_tup_read: 0
+        idx_scan: 0
+        idx_tup_fetch: 0
+        n_tup_ins: 0
+        n_tup_upd: 0
+        n_tup_del: 0
+        n_tup_hot_upd: 0
+        n_tup_newpage_upd: 0
       - relid: 3576
         schemaname: pg_catalog
         relname: pg_transform
@@ -394,30 +406,6 @@ public:
         n_tup_del: 0
         n_tup_hot_upd: 0
         n_tup_newpage_upd: 0
-      - relid: 12876
-        schemaname: pg_toast
-        relname: pg_toast_12873
-        seq_scan: 0
-        seq_tup_read: 0
-        idx_scan: 0
-        idx_tup_fetch: 0
-        n_tup_ins: 0
-        n_tup_upd: 0
-        n_tup_del: 0
-        n_tup_hot_upd: 0
-        n_tup_newpage_upd: 0
-      - relid: 12871
-        schemaname: pg_toast
-        relname: pg_toast_12868
-        seq_scan: 0
-        seq_tup_read: 0
-        idx_scan: 0
-        idx_tup_fetch: 0
-        n_tup_ins: 0
-        n_tup_upd: 0
-        n_tup_del: 0
-        n_tup_hot_upd: 0
-        n_tup_newpage_upd: 0
       - relid: 2604
         schemaname: pg_catalog
         relname: pg_attrdef
@@ -425,6 +413,18 @@ public:
         seq_tup_read: 0
         idx_scan: 0
         idx_tup_fetch: 0
+        n_tup_ins: 0
+        n_tup_upd: 0
+        n_tup_del: 0
+        n_tup_hot_upd: 0
+        n_tup_newpage_upd: 0
+      - relid: 12970
+        schemaname: information_schema
+        relname: sql_implementation_info
+        seq_scan: 0
+        seq_tup_read: 0
+        idx_scan: null
+        idx_tup_fetch: null
         n_tup_ins: 0
         n_tup_upd: 0
         n_tup_del: 0
@@ -485,18 +485,6 @@ public:
         seq_tup_read: 0
         idx_scan: 0
         idx_tup_fetch: 0
-        n_tup_ins: 0
-        n_tup_upd: 0
-        n_tup_del: 0
-        n_tup_hot_upd: 0
-        n_tup_newpage_upd: 0
-      - relid: 12868
-        schemaname: information_schema
-        relname: sql_parts
-        seq_scan: 0
-        seq_tup_read: 0
-        idx_scan: null
-        idx_tup_fetch: null
         n_tup_ins: 0
         n_tup_upd: 0
         n_tup_del: 0
@@ -622,6 +610,18 @@ public:
         n_tup_del: 0
         n_tup_hot_upd: 0
         n_tup_newpage_upd: 0
+      - relid: 12965
+        schemaname: information_schema
+        relname: sql_features
+        seq_scan: 0
+        seq_tup_read: 0
+        idx_scan: null
+        idx_tup_fetch: null
+        n_tup_ins: 0
+        n_tup_upd: 0
+        n_tup_del: 0
+        n_tup_hot_upd: 0
+        n_tup_newpage_upd: 0
       - relid: 2612
         schemaname: pg_catalog
         relname: pg_language
@@ -641,18 +641,6 @@ public:
         seq_tup_read: 0
         idx_scan: 0
         idx_tup_fetch: 0
-        n_tup_ins: 0
-        n_tup_upd: 0
-        n_tup_del: 0
-        n_tup_hot_upd: 0
-        n_tup_newpage_upd: 0
-      - relid: 12873
-        schemaname: information_schema
-        relname: sql_sizing
-        seq_scan: 0
-        seq_tup_read: 0
-        idx_scan: null
-        idx_tup_fetch: null
         n_tup_ins: 0
         n_tup_upd: 0
         n_tup_del: 0
@@ -746,8 +734,8 @@ public:
         schemaname: pg_catalog
         relname: pg_collation
         seq_scan: 1
-        seq_tup_read: 271
-        idx_scan: 969
+        seq_tup_read: 378
+        idx_scan: 980
         idx_tup_fetch: 250
         n_tup_ins: 0
         n_tup_upd: 0
@@ -759,6 +747,18 @@ public:
         relname: pg_extension
         seq_scan: 3
         seq_tup_read: 3
+        idx_scan: 0
+        idx_tup_fetch: 0
+        n_tup_ins: 0
+        n_tup_upd: 0
+        n_tup_del: 0
+        n_tup_hot_upd: 0
+        n_tup_newpage_upd: 0
+      - relid: 12968
+        schemaname: pg_toast
+        relname: pg_toast_12965
+        seq_scan: 0
+        seq_tup_read: 0
         idx_scan: 0
         idx_tup_fetch: 0
         n_tup_ins: 0
@@ -826,6 +826,18 @@ public:
         n_tup_del: 0
         n_tup_hot_upd: 0
         n_tup_newpage_upd: 0
+      - relid: 12973
+        schemaname: pg_toast
+        relname: pg_toast_12970
+        seq_scan: 0
+        seq_tup_read: 0
+        idx_scan: 0
+        idx_tup_fetch: 0
+        n_tup_ins: 0
+        n_tup_upd: 0
+        n_tup_del: 0
+        n_tup_hot_upd: 0
+        n_tup_newpage_upd: 0
       - relid: 3596
         schemaname: pg_catalog
         relname: pg_seclabel
@@ -854,18 +866,6 @@ public:
         schemaname: pg_catalog
         relname: pg_event_trigger
         seq_scan: 1
-        seq_tup_read: 0
-        idx_scan: 0
-        idx_tup_fetch: 0
-        n_tup_ins: 0
-        n_tup_upd: 0
-        n_tup_del: 0
-        n_tup_hot_upd: 0
-        n_tup_newpage_upd: 0
-      - relid: 12861
-        schemaname: pg_toast
-        relname: pg_toast_12858
-        seq_scan: 0
         seq_tup_read: 0
         idx_scan: 0
         idx_tup_fetch: 0
@@ -1102,18 +1102,6 @@ public:
         n_tup_del: 0
         n_tup_hot_upd: 0
         n_tup_newpage_upd: 0
-      - relid: 12866
-        schemaname: pg_toast
-        relname: pg_toast_12863
-        seq_scan: 0
-        seq_tup_read: 0
-        idx_scan: 0
-        idx_tup_fetch: 0
-        n_tup_ins: 0
-        n_tup_upd: 0
-        n_tup_del: 0
-        n_tup_hot_upd: 0
-        n_tup_newpage_upd: 0
       - relid: 2610
         schemaname: pg_catalog
         relname: pg_index
@@ -1138,9 +1126,21 @@ public:
         n_tup_del: 0
         n_tup_hot_upd: 0
         n_tup_newpage_upd: 0
-      - relid: 12858
+      - relid: 12983
+        schemaname: pg_toast
+        relname: pg_toast_12980
+        seq_scan: 0
+        seq_tup_read: 0
+        idx_scan: 0
+        idx_tup_fetch: 0
+        n_tup_ins: 0
+        n_tup_upd: 0
+        n_tup_del: 0
+        n_tup_hot_upd: 0
+        n_tup_newpage_upd: 0
+      - relid: 12975
         schemaname: information_schema
-        relname: sql_features
+        relname: sql_parts
         seq_scan: 0
         seq_tup_read: 0
         idx_scan: null

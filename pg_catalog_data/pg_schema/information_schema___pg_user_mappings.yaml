@@ -10,7 +10,7 @@ public:
         \ = um.umserver;"
       schema:
         oid: int
-        umoptions: varchar(256)
+        umoptions: _text
         umuser: int
         authorization_identifier: varchar(64)
         foreign_server_catalog: varchar(64)

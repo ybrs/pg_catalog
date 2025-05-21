@@ -22,94 +22,94 @@ public:
         applied: bool
         error: text
       rows:
-      - sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+      - sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
         sourceline: 65
         seqno: 1
         name: max_connections
         setting: '100'
         applied: true
         error: null
-      - sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+      - sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
         sourceline: 129
         seqno: 2
         name: shared_buffers
         setting: 128MB
         applied: true
         error: null
-      - sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+      - sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
         sourceline: 152
         seqno: 3
         name: dynamic_shared_memory_type
         setting: posix
         applied: true
         error: null
-      - sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+      - sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
         sourceline: 257
         seqno: 4
         name: max_wal_size
         setting: 1GB
         applied: true
         error: null
-      - sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+      - sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
         sourceline: 258
         seqno: 5
         name: min_wal_size
         setting: 80MB
         applied: true
         error: null
-      - sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+      - sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
         sourceline: 622
         seqno: 6
         name: log_timezone
         setting: Europe/Amsterdam
         applied: true
         error: null
-      - sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+      - sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
         sourceline: 736
         seqno: 7
         name: datestyle
-        setting: iso, mdy
+        setting: iso, dmy
         applied: true
         error: null
-      - sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+      - sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
         sourceline: 738
         seqno: 8
         name: timezone
         setting: Europe/Amsterdam
         applied: true
         error: null
-      - sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+      - sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
         sourceline: 752
         seqno: 9
         name: lc_messages
-        setting: C
+        setting: nl_NL.UTF-8
         applied: true
         error: null
-      - sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+      - sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
         sourceline: 754
         seqno: 10
         name: lc_monetary
-        setting: C
+        setting: nl_NL.UTF-8
         applied: true
         error: null
-      - sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+      - sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
         sourceline: 755
         seqno: 11
         name: lc_numeric
-        setting: C
+        setting: nl_NL.UTF-8
         applied: true
         error: null
-      - sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+      - sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
         sourceline: 756
         seqno: 12
         name: lc_time
-        setting: C
+        setting: nl_NL.UTF-8
         applied: true
         error: null
-      - sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+      - sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
         sourceline: 762
         seqno: 13
         name: default_text_search_config
-        setting: pg_catalog.simple
+        setting: pg_catalog.dutch
         applied: true
         error: null

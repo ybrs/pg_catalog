@@ -32,7 +32,8 @@ use bytes::Bytes;
 use datafusion::scalar::ScalarValue;
 use crate::user_functions::{register_scalar_format_type, register_scalar_pg_tablespace_location, register_scalar_regclass_oid};
 use datafusion::common::{config_err, config::ConfigEntry};
-
+use arrow::array::{Int64Array, BooleanArray,
+    ListBuilder, ArrayRef};
 use datafusion::common::config::{ConfigExtension, ExtensionOptions};
 use crate::db_table::{map_pg_type, ObservableMemTable, ScanTrace};
 
@@ -331,6 +332,27 @@ fn build_table(def: TableDef) -> (SchemaRef, Vec<RecordBatch>) {
                             .map(|v| v.as_bool())
                             .collect::<Vec<_>>()
                     )),
+                    DataType::List(inner) if inner.data_type() == &DataType::Utf8 => {
+                        let mut builder = ListBuilder::new(StringBuilder::new());
+                        for v in col_data {
+                            if let Some(items) = v.as_array() {
+                                for item in items {
+                                    match item.as_str() {
+                                        Some(s) => builder.values().append_value(s),
+                                        None    => builder.values().append_null(),
+                                    }
+                                }
+                                builder.append(true);
+                            } else if v.is_null() {
+                                builder.append(false);
+                            } else {
+                                builder.values().append_value(v.to_string());
+                                builder.append(true);
+                            }
+                        }
+                        Arc::new(builder.finish())
+                    },
+
                     _ => Arc::new(StringArray::from(
                         col_data.into_iter()
                             .map(|v| Some(v.to_string()))
@@ -443,5 +465,152 @@ pub async fn get_base_session_context(schema_path: &String, default_catalog:Stri
 
 
     Ok((ctx, log))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::NamedTempFile;
+    use std::io::Write;
+    use arrow::array::{Int32Array, StringArray};
+    use arrow::datatypes::DataType;
+    use arrow::array::{ArrayRef};
+
+    #[test]
+    fn test_parse_schema_file() {
+        let yaml = r#"
+public:
+  myschema:
+    employees:
+      type: table
+      schema:
+        id: int
+        name: varchar
+      rows:
+        - id: 1
+          name: Alice
+        - id: 2
+          name: Bob
+"#;
+
+        let mut file = NamedTempFile::new().unwrap();
+        write!(file, "{}", yaml).unwrap();
+
+        let parsed = parse_schema_file(file.path().to_str().unwrap());
+
+        let myschema = parsed.get("public").unwrap().get("myschema").unwrap();
+        let (schema_ref, batches) = myschema.get("employees").unwrap();
+
+        let fields = schema_ref.fields();
+        assert_eq!(fields.len(), 2);
+        assert_eq!(fields[0].name(), "id");
+        assert_eq!(fields[0].data_type(), &DataType::Int32);
+        assert_eq!(fields[1].name(), "name");
+        assert_eq!(fields[1].data_type(), &DataType::Utf8);
+
+        assert_eq!(batches.len(), 1);
+        let batch = &batches[0];
+        assert_eq!(batch.num_rows(), 2);
+
+        let id_array = batch.column(0).as_any().downcast_ref::<Int32Array>().unwrap();
+        assert_eq!(id_array.value(0), 1);
+        assert_eq!(id_array.value(1), 2);
+
+        let name_array = batch.column(1).as_any().downcast_ref::<StringArray>().unwrap();
+        assert_eq!(name_array.value(0), "Alice");
+        assert_eq!(name_array.value(1), "Bob");
+    }
+
+    #[test]
+    fn test_rename_columns_all() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("a", DataType::Int32, true),
+            Field::new("b", DataType::Utf8, true),
+        ]));
+
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(Int32Array::from(vec![1, 2])) as ArrayRef,
+                Arc::new(StringArray::from(vec!["x", "y"])) as ArrayRef,
+            ],
+        )
+        .unwrap();
+
+        let mut map = HashMap::new();
+        map.insert("a".to_string(), "alpha".to_string());
+        map.insert("b".to_string(), "beta".to_string());
+
+        let renamed = rename_columns(&batch, &map);
+
+        assert_eq!(renamed.schema().field(0).name(), "alpha");
+        assert_eq!(renamed.schema().field(1).name(), "beta");
+
+        assert!(Arc::ptr_eq(batch.column(0), renamed.column(0)));
+        assert!(Arc::ptr_eq(batch.column(1), renamed.column(1)));
+    }
+
+
+    #[test]
+    fn test_parse_schema_text_array() {
+        use arrow::array::{ListArray};
+        let yaml = r#"
+public:
+  myschema:
+    cfgtable:
+      type: table
+      schema:
+        cfg: _text
+      rows:
+        - cfg:
+            - "x"
+            - "y"
+"#;
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        std::io::Write::write_all(&mut file, yaml.as_bytes()).unwrap();
+
+        let parsed = parse_schema_file(file.path().to_str().unwrap());
+        let myschema = parsed.get("public").unwrap().get("myschema").unwrap();
+        let (schema_ref, batches) = myschema.get("cfgtable").unwrap();
+
+        let field = &schema_ref.fields()[0];
+        assert!(matches!(field.data_type(), DataType::List(_)));
+
+        let batch = &batches[0];
+        let list = batch.column(0).as_any().downcast_ref::<ListArray>().unwrap();
+        let binding = list.value(0);
+        let inner = binding.as_any().downcast_ref::<StringArray>().unwrap();
+        assert_eq!(inner.value(0), "x");
+        assert_eq!(inner.value(1), "y");
+    }
+
+
+    #[test]
+    fn test_rename_columns_partial() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int32, false),
+            Field::new("name", DataType::Utf8, false),
+        ]));
+
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(Int32Array::from(vec![1, 2, 3])) as ArrayRef,
+                Arc::new(StringArray::from(vec!["Alice", "Bob", "Carol"])) as ArrayRef,
+            ],
+        )
+        .unwrap();
+
+        let mut map = HashMap::new();
+        map.insert("name".to_string(), "username".to_string());
+
+        let renamed = rename_columns(&batch, &map);
+
+        assert_eq!(renamed.schema().field(0).name(), "id");
+        assert_eq!(renamed.schema().field(1).name(), "username");
+
+        assert!(Arc::ptr_eq(batch.column(0), renamed.column(0)));
+        assert!(Arc::ptr_eq(batch.column(1), renamed.column(1)));
+    }
 }
 

@@ -12,7 +12,7 @@ public:
         nspname: varchar(64)
         relname: varchar(64)
         attname: varchar(64)
-        attfdwoptions: varchar(256)
+        attfdwoptions: _text
       pg_types:
         nspname: name
         relname: name

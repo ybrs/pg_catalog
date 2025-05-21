@@ -7,7 +7,7 @@ public:
         classoid: int
         objsubid: int
         privtype: varchar(256)
-        initprivs: varchar(256)
+        initprivs: _text
       pg_types:
         objoid: oid
         classoid: oid
@@ -19,1112 +19,1112 @@ public:
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'']'
       - objoid: 1247
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 3118
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 1260
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'']'
       - objoid: 12005
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'']'
       - objoid: 12000
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 3429
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'']'
       - objoid: 12114
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'']'
       - objoid: 12104
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=rw/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=rw/abadur'']'
       - objoid: 12110
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'']'
       - objoid: 12138
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''pg_read_all_stats=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''pg_read_all_stats=r/abadur'']'
       - objoid: 12118
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'']'
       - objoid: 12130
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'']'
       - objoid: 12134
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''pg_read_all_stats=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''pg_read_all_stats=r/abadur'']'
       - objoid: 12033
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 1418
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'']'
       - objoid: 12209
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12339
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'']'
       - objoid: 6100
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'']'
       - objoid: 1249
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 1255
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 1259
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 2604
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12214
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12218
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 2606
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 2611
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 2610
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 2617
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 2753
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 2616
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 2601
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 2602
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 2603
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 2612
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 2995
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 2600
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 3381
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 2618
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 2620
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 3466
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 2609
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 2605
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 3501
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 2615
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 2607
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 2608
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 1262
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 2964
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 1213
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 1261
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 1214
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 2396
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 3602
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 3603
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 3600
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 3601
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 3764
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 3079
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 2328
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 1417
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 3256
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 6000
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 826
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 3394
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 3596
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 3592
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 3456
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 6243
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 3350
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 3541
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 3576
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 2224
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 6104
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 6237
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 6106
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 6102
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12010
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12014
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12018
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12023
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12028
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12038
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12043
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12048
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12053
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12058
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12063
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12068
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12073
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12077
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12081
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12085
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12090
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12095
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12099
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12122
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12126
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12142
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12147
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12166
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12152
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12157
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12161
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12170
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12175
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12179
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12183
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12188
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12192
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12196
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12201
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12205
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12222
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12227
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12232
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12236
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12240
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12244
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12249
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12253
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12257
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12262
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12266
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12271
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12275
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12280
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12285
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12289
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12293
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12297
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12301
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12305
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12310
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12315
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12320
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12325
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12329
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12334
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12343
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 12347
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'', ''=r/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'', ''=r/abadur'']'
       - objoid: 2613
         classoid: 1259
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=arwdDxtm/aybarsb'']'
+        initprivs: '[''abadur=arwdDxtm/abadur'']'
       - objoid: 6100
         classoid: 1259
         objsubid: 1
         privtype: i
-        initprivs: '[''=r/aybarsb'']'
+        initprivs: '[''=r/abadur'']'
       - objoid: 6100
         classoid: 1259
         objsubid: 2
         privtype: i
-        initprivs: '[''=r/aybarsb'']'
+        initprivs: '[''=r/abadur'']'
       - objoid: 6100
         classoid: 1259
         objsubid: 3
         privtype: i
-        initprivs: '[''=r/aybarsb'']'
+        initprivs: '[''=r/abadur'']'
       - objoid: 6100
         classoid: 1259
         objsubid: 4
         privtype: i
-        initprivs: '[''=r/aybarsb'']'
+        initprivs: '[''=r/abadur'']'
       - objoid: 6100
         classoid: 1259
         objsubid: 5
         privtype: i
-        initprivs: '[''=r/aybarsb'']'
+        initprivs: '[''=r/abadur'']'
       - objoid: 6100
         classoid: 1259
         objsubid: 6
         privtype: i
-        initprivs: '[''=r/aybarsb'']'
+        initprivs: '[''=r/abadur'']'
       - objoid: 6100
         classoid: 1259
         objsubid: 7
         privtype: i
-        initprivs: '[''=r/aybarsb'']'
+        initprivs: '[''=r/abadur'']'
       - objoid: 6100
         classoid: 1259
         objsubid: 8
         privtype: i
-        initprivs: '[''=r/aybarsb'']'
+        initprivs: '[''=r/abadur'']'
       - objoid: 6100
         classoid: 1259
         objsubid: 9
         privtype: i
-        initprivs: '[''=r/aybarsb'']'
+        initprivs: '[''=r/abadur'']'
       - objoid: 6100
         classoid: 1259
         objsubid: 10
         privtype: i
-        initprivs: '[''=r/aybarsb'']'
+        initprivs: '[''=r/abadur'']'
       - objoid: 6100
         classoid: 1259
         objsubid: 11
         privtype: i
-        initprivs: '[''=r/aybarsb'']'
+        initprivs: '[''=r/abadur'']'
       - objoid: 6100
         classoid: 1259
         objsubid: 12
         privtype: i
-        initprivs: '[''=r/aybarsb'']'
+        initprivs: '[''=r/abadur'']'
       - objoid: 6100
         classoid: 1259
         objsubid: 13
         privtype: i
-        initprivs: '[''=r/aybarsb'']'
+        initprivs: '[''=r/abadur'']'
       - objoid: 6100
         classoid: 1259
         objsubid: 15
         privtype: i
-        initprivs: '[''=r/aybarsb'']'
+        initprivs: '[''=r/abadur'']'
       - objoid: 6100
         classoid: 1259
         objsubid: 16
         privtype: i
-        initprivs: '[''=r/aybarsb'']'
+        initprivs: '[''=r/abadur'']'
       - objoid: 6100
         classoid: 1259
         objsubid: 17
         privtype: i
-        initprivs: '[''=r/aybarsb'']'
+        initprivs: '[''=r/abadur'']'
       - objoid: 6100
         classoid: 1259
         objsubid: 18
         privtype: i
-        initprivs: '[''=r/aybarsb'']'
+        initprivs: '[''=r/abadur'']'
       - objoid: 767
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 765
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 2274
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 3776
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 3777
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 6170
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 6232
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 3401
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 6250
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 3098
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 2848
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 6305
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 3071
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 3072
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 2622
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 2621
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 3801
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'', ''pg_monitor=X/abadur'']'
       - objoid: 3826
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 6208
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 3293
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 3828
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 6209
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 3827
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 3295
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 3307
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 2625
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 3297
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 3800
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'', ''pg_monitor=X/abadur'']'
       - objoid: 3400
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 6012
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 6003
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 6004
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 6013
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 6008
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 6009
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 6007
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 6006
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 6010
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 6014
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 3354
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'', ''pg_monitor=X/abadur'']'
       - objoid: 5029
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'', ''pg_monitor=X/abadur'']'
       - objoid: 5030
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'', ''pg_monitor=X/abadur'']'
       - objoid: 6270
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'', ''pg_monitor=X/abadur'']'
       - objoid: 6272
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'', ''pg_monitor=X/abadur'']'
       - objoid: 5031
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'', ''pg_monitor=X/abadur'']'
       - objoid: 2623
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 4543
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 3436
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 3775
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 6230
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 764
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 2624
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 6005
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 6011
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 2172
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 2739
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 2307
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 3353
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'', ''pg_monitor=X/abadur'']'
       - objoid: 6271
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'', ''pg_monitor=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'', ''pg_monitor=X/abadur'']'
       - objoid: 3329
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'']'
       - objoid: 5052
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'', ''pg_read_all_stats=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'', ''pg_read_all_stats=X/abadur'']'
       - objoid: 2282
         classoid: 1255
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=X/aybarsb'', ''pg_read_all_stats=X/aybarsb'']'
+        initprivs: '[''abadur=X/abadur'', ''pg_read_all_stats=X/abadur'']'
       - objoid: 11
         classoid: 2615
         objsubid: 0
         privtype: i
-        initprivs: '[''aybarsb=UC/aybarsb'', ''=U/aybarsb'']'
+        initprivs: '[''abadur=UC/abadur'', ''=U/abadur'']'
       - objoid: 2200
         classoid: 2615
         objsubid: 0

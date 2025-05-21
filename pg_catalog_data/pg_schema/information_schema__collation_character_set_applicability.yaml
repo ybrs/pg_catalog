@@ -64,6 +64,18 @@ public:
         character_set_name: UTF8
       - collation_catalog: postgres
         collation_schema: pg_catalog
+        collation_name: fa_IR
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: ca_AD.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
         collation_name: en_NZ
         character_set_catalog: null
         character_set_schema: null
@@ -71,6 +83,12 @@ public:
       - collation_catalog: postgres
         collation_schema: pg_catalog
         collation_name: nl_NL.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: lv_LV.UTF-8
         character_set_catalog: null
         character_set_schema: null
         character_set_name: UTF8
@@ -89,6 +107,18 @@ public:
       - collation_catalog: postgres
         collation_schema: pg_catalog
         collation_name: bg_BG
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: en_HK
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: es_MX.UTF-8
         character_set_catalog: null
         character_set_schema: null
         character_set_name: UTF8
@@ -130,7 +160,19 @@ public:
         character_set_name: UTF8
       - collation_catalog: postgres
         collation_schema: pg_catalog
+        collation_name: sv_FI.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
         collation_name: sk_SK
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: se_NO.UTF-8
         character_set_catalog: null
         character_set_schema: null
         character_set_name: UTF8
@@ -190,6 +232,24 @@ public:
         character_set_name: UTF8
       - collation_catalog: postgres
         collation_schema: pg_catalog
+        collation_name: en_ZA.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: ca_IT
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: fa_IR.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
         collation_name: af_ZA.UTF-8
         character_set_catalog: null
         character_set_schema: null
@@ -208,6 +268,12 @@ public:
         character_set_name: UTF8
       - collation_catalog: postgres
         collation_schema: pg_catalog
+        collation_name: ar_AE
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
         collation_name: en_NZ.UTF-8
         character_set_catalog: null
         character_set_schema: null
@@ -215,6 +281,18 @@ public:
       - collation_catalog: postgres
         collation_schema: pg_catalog
         collation_name: fi_FI.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: hi_IN.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: C.UTF-8
         character_set_catalog: null
         character_set_schema: null
         character_set_name: UTF8
@@ -245,6 +323,12 @@ public:
       - collation_catalog: postgres
         collation_schema: pg_catalog
         collation_name: en_AU.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: ar_MA
         character_set_catalog: null
         character_set_schema: null
         character_set_name: UTF8
@@ -310,7 +394,49 @@ public:
         character_set_name: UTF8
       - collation_catalog: postgres
         collation_schema: pg_catalog
+        collation_name: se_FI.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
         collation_name: zh_TW
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: es_CR
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: sr_RS
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: nb_NO
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: ar_JO
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: ca_AD
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: en_IN.UTF-8
         character_set_catalog: null
         character_set_schema: null
         character_set_name: UTF8
@@ -352,6 +478,12 @@ public:
         character_set_name: UTF8
       - collation_catalog: postgres
         collation_schema: pg_catalog
+        collation_name: ca_FR.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
         collation_name: fr_CH
         character_set_catalog: null
         character_set_schema: null
@@ -376,7 +508,19 @@ public:
         character_set_name: UTF8
       - collation_catalog: postgres
         collation_schema: pg_catalog
+        collation_name: hi_IN
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
         collation_name: sv_SE.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: se_NO
         character_set_catalog: null
         character_set_schema: null
         character_set_name: UTF8
@@ -395,6 +539,18 @@ public:
       - collation_catalog: postgres
         collation_schema: pg_catalog
         collation_name: sl_SI
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: ar_QA
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: en_IN
         character_set_catalog: null
         character_set_schema: null
         character_set_name: UTF8
@@ -424,13 +580,31 @@ public:
         character_set_name: UTF8
       - collation_catalog: postgres
         collation_schema: pg_catalog
+        collation_name: nb_NO.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
         collation_name: nl_NL
         character_set_catalog: null
         character_set_schema: null
         character_set_name: UTF8
       - collation_catalog: postgres
         collation_schema: pg_catalog
+        collation_name: se_FI
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
         collation_name: hy_AM
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: ar_JO.UTF-8
         character_set_catalog: null
         character_set_schema: null
         character_set_name: UTF8
@@ -448,7 +622,19 @@ public:
         character_set_name: UTF8
       - collation_catalog: postgres
         collation_schema: pg_catalog
+        collation_name: ar_AE.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
         collation_name: ru_RU.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: sr_RS.UTF-8
         character_set_catalog: null
         character_set_schema: null
         character_set_name: UTF8
@@ -472,6 +658,12 @@ public:
         character_set_name: UTF8
       - collation_catalog: postgres
         collation_schema: pg_catalog
+        collation_name: ar_SA
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
         collation_name: it_CH.UTF-8
         character_set_catalog: null
         character_set_schema: null
@@ -479,6 +671,18 @@ public:
       - collation_catalog: postgres
         collation_schema: pg_catalog
         collation_name: en_GB
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: ga_IE.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: ga_IE
         character_set_catalog: null
         character_set_schema: null
         character_set_name: UTF8
@@ -496,13 +700,37 @@ public:
         character_set_name: UTF8
       - collation_catalog: postgres
         collation_schema: pg_catalog
+        collation_name: es_MX
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
         collation_name: lt_LT.UTF-8
         character_set_catalog: null
         character_set_schema: null
         character_set_name: UTF8
       - collation_catalog: postgres
         collation_schema: pg_catalog
+        collation_name: en_ZA
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
         collation_name: is_IS.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: en_HK.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: en_SG
         character_set_catalog: null
         character_set_schema: null
         character_set_name: UTF8
@@ -515,6 +743,30 @@ public:
       - collation_catalog: postgres
         collation_schema: pg_catalog
         collation_name: el_GR.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: en_PH
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: ar_MA.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: lv_LV
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: es_AR
         character_set_catalog: null
         character_set_schema: null
         character_set_name: UTF8
@@ -533,6 +785,12 @@ public:
       - collation_catalog: postgres
         collation_schema: pg_catalog
         collation_name: uk_UA.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: ca_FR
         character_set_catalog: null
         character_set_schema: null
         character_set_name: UTF8
@@ -580,13 +838,49 @@ public:
         character_set_name: UTF8
       - collation_catalog: postgres
         collation_schema: pg_catalog
+        collation_name: ar_EG
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
         collation_name: fr_FR.UTF-8
         character_set_catalog: null
         character_set_schema: null
         character_set_name: UTF8
       - collation_catalog: postgres
         collation_schema: pg_catalog
+        collation_name: mn_MN.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: mn_MN
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
         collation_name: ko_KR.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: ar_QA.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: es_AR.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: nn_NO
         character_set_catalog: null
         character_set_schema: null
         character_set_name: UTF8
@@ -628,6 +922,18 @@ public:
         character_set_name: UTF8
       - collation_catalog: postgres
         collation_schema: pg_catalog
+        collation_name: ar_EG.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: ca_IT.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
         collation_name: en_IE
         character_set_catalog: null
         character_set_schema: null
@@ -635,6 +941,12 @@ public:
       - collation_catalog: postgres
         collation_schema: pg_catalog
         collation_name: pl_PL
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: en_PH.UTF-8
         character_set_catalog: null
         character_set_schema: null
         character_set_name: UTF8
@@ -664,7 +976,19 @@ public:
         character_set_name: UTF8
       - collation_catalog: postgres
         collation_schema: pg_catalog
+        collation_name: nn_NO.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
         collation_name: es_ES.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: en_SG.UTF-8
         character_set_catalog: null
         character_set_schema: null
         character_set_name: UTF8
@@ -676,7 +1000,19 @@ public:
         character_set_name: UTF8
       - collation_catalog: postgres
         collation_schema: pg_catalog
+        collation_name: sv_FI
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
         collation_name: tr_TR.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: fa_AF
         character_set_catalog: null
         character_set_schema: null
         character_set_name: UTF8
@@ -688,7 +1024,25 @@ public:
         character_set_name: UTF8
       - collation_catalog: postgres
         collation_schema: pg_catalog
+        collation_name: ar_SA.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
         collation_name: lt_LT
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: es_CR.UTF-8
+        character_set_catalog: null
+        character_set_schema: null
+        character_set_name: UTF8
+      - collation_catalog: postgres
+        collation_schema: pg_catalog
+        collation_name: fa_AF.UTF-8
         character_set_catalog: null
         character_set_schema: null
         character_set_name: UTF8

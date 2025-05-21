@@ -13,7 +13,7 @@ public:
         pubname: varchar(64)
         schemaname: varchar(64)
         tablename: varchar(64)
-        attnames: varchar(256)
+        attnames: _text
         rowfilter: varchar(256)
       pg_types:
         pubname: name

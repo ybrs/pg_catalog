@@ -15,9 +15,9 @@ def server():
         "--default-schema", "public",
         "--host", "127.0.0.1",
         "--port", "5444",
-    ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    ], text=True)
 
-    for _ in range(8):
+    for _ in range(12):
         try:
             with psycopg.connect(CONN_STR):
                 break

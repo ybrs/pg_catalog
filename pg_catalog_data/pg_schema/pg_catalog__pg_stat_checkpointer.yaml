@@ -30,12 +30,12 @@ public:
         buffers_written: int8
         stats_reset: timestamptz
       rows:
-      - num_timed: 351
+      - num_timed: 2
         num_requested: 1
         restartpoints_timed: 0
         restartpoints_req: 0
         restartpoints_done: 0
-        write_time: 4580.0
-        sync_time: 3.0
+        write_time: 4568.0
+        sync_time: 4.0
         buffers_written: 45
-        stats_reset: '2025-04-26T01:03:02.788083+02:00'
+        stats_reset: '2025-05-21T13:14:40.486669+02:00'

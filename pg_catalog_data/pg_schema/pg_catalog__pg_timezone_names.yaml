@@ -1039,6 +1039,10 @@ public:
         abbrev: HDT
         utc_offset: -1 day, 15:00:00
         is_dst: true
+      - name: America/Coyhaique
+        abbrev: '-03'
+        utc_offset: -1 day, 21:00:00
+        is_dst: false
       - name: America/Thunder_Bay
         abbrev: EDT
         utc_offset: -1 day, 20:00:00

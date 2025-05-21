@@ -30,21 +30,21 @@ public:
       rows:
       - catalog_name: postgres
         schema_name: information_schema
-        schema_owner: aybarsb
+        schema_owner: abadur
         default_character_set_catalog: null
         default_character_set_schema: null
         default_character_set_name: null
         sql_path: null
       - catalog_name: postgres
         schema_name: pg_catalog
-        schema_owner: aybarsb
+        schema_owner: abadur
         default_character_set_catalog: null
         default_character_set_schema: null
         default_character_set_name: null
         sql_path: null
       - catalog_name: postgres
         schema_name: pg_toast
-        schema_owner: aybarsb
+        schema_owner: abadur
         default_character_set_catalog: null
         default_character_set_schema: null
         default_character_set_name: null

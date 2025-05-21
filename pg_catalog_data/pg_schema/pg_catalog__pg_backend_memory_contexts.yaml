@@ -34,9 +34,9 @@ public:
         level: 0
         total_bytes: 97792
         total_nblocks: 5
-        free_bytes: 5368
-        free_chunks: 8
-        used_bytes: 92424
+        free_bytes: 5344
+        free_chunks: 7
+        used_bytes: 92448
       - name: Record information cache
         ident: null
         parent: TopMemoryContext
@@ -250,9 +250,9 @@ public:
         level: 1
         total_bytes: 4243600
         total_nblocks: 13
-        free_bytes: 2041952
+        free_bytes: 2041696
         free_chunks: 6
-        used_bytes: 2201648
+        used_bytes: 2201904
       - name: CachedPlan
         ident: "\n            SELECT column_name, udt_name\n            FROM information_schema.columns\n\
           \            WHERE table_schema = $1 AND table_name = $2\n            ORDER\
@@ -1318,9 +1318,9 @@ public:
         level: 1
         total_bytes: 8192
         total_nblocks: 1
-        free_bytes: 7200
+        free_bytes: 7184
         free_chunks: 0
-        used_bytes: 992
+        used_bytes: 1008
       - name: LOCALLOCK hash
         ident: null
         parent: TopMemoryContext
@@ -1336,9 +1336,9 @@ public:
         level: 1
         total_bytes: 24576
         total_nblocks: 2
-        free_bytes: 11992
-        free_chunks: 5
-        used_bytes: 12584
+        free_bytes: 12856
+        free_chunks: 7
+        used_bytes: 11720
       - name: GUC hash table
         ident: null
         parent: GUCMemoryContext

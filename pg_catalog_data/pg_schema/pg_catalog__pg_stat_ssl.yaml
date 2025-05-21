@@ -30,7 +30,7 @@ public:
         client_serial: numeric
         issuer_dn: text
       rows:
-      - pid: 15906
+      - pid: 15730
         ssl: false
         version: null
         cipher: null

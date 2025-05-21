@@ -12,7 +12,7 @@ public:
       schema:
         oid: int
         fdwowner: int
-        fdwoptions: varchar(256)
+        fdwoptions: _text
         foreign_data_wrapper_catalog: varchar(64)
         foreign_data_wrapper_name: varchar(64)
         authorization_identifier: varchar(64)

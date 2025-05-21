@@ -3407,8 +3407,8 @@ public:
         indoption: 0 0
         indexprs: null
         indpred: null
-      - indexrelid: 12862
-        indrelid: 12861
+      - indexrelid: 12969
+        indrelid: 12968
         indnatts: 2
         indnkeyatts: 2
         indisunique: true
@@ -3428,8 +3428,8 @@ public:
         indoption: 0 0
         indexprs: null
         indpred: null
-      - indexrelid: 12867
-        indrelid: 12866
+      - indexrelid: 12974
+        indrelid: 12973
         indnatts: 2
         indnkeyatts: 2
         indisunique: true
@@ -3449,8 +3449,8 @@ public:
         indoption: 0 0
         indexprs: null
         indpred: null
-      - indexrelid: 12872
-        indrelid: 12871
+      - indexrelid: 12979
+        indrelid: 12978
         indnatts: 2
         indnkeyatts: 2
         indisunique: true
@@ -3470,8 +3470,8 @@ public:
         indoption: 0 0
         indexprs: null
         indpred: null
-      - indexrelid: 12877
-        indrelid: 12876
+      - indexrelid: 12984
+        indrelid: 12983
         indnatts: 2
         indnkeyatts: 2
         indisunique: true
