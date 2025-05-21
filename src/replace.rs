@@ -384,9 +384,10 @@ pub fn strip_default_collate(sql: &str) -> Result<String> {
 /// Re-write  ARRAY( <sub-query> )
 ///        ⟶  pg_catalog.pg_get_array( ( <sub-query> ) )
 ///
-/// • no regexes – uses `sqlparser` AST
-/// • only the `array( … )` form with ONE argument is accepted
-/// • any other shape causes an explicit `Err(DataFusionError::Plan(..))`
+/// • no regexes – uses `sqlparser` AST  
+/// • only the `array( … )` form with ONE argument is accepted  
+/// • any other shape causes an explicit `Err(DataFusionError::Plan(..))`  
+/// • **if nothing matches we just pass the SQL back untouched**
 pub fn rewrite_array_subquery(sql: &str) -> Result<String> {
     use sqlparser::ast::{
         visit_expressions_mut, visit_statements_mut, Expr, Function, FunctionArg,
@@ -403,12 +404,19 @@ pub fn rewrite_array_subquery(sql: &str) -> Result<String> {
 
     let mut rewritten_any = false;
 
-    /* run the statement- and expression-level visitors */
+    /* --------------------------------------------------------- */
     let flow: ControlFlow<DataFusionError, ()> =
         visit_statements_mut(&mut stmts, |stmt| {
             let inner = visit_expressions_mut(stmt, |expr| {
+                /* ── 1️⃣  bail out on ARRAY[...] literals ─────────────── */
+                if let Expr::Array(_) = expr {
+                    return ControlFlow::Break(DataFusionError::Plan(
+                        "array literals (ARRAY[...] syntax) are not handled by rewrite_array_subquery".into(),
+                    ));
+                }
+
+                /* ── 2️⃣  handle ARRAY( … ) rewrites ─────────────────── */
                 if let Expr::Function(func) = expr {
-                    /* recognise  array( … ) ------------------------------------ */
                     let base_name = func
                         .name
                         .0
@@ -418,9 +426,9 @@ pub fn rewrite_array_subquery(sql: &str) -> Result<String> {
                         .unwrap_or_default();
 
                     if base_name == "array" {
-                        /* -------- extract THE single argument ------------------ */
+                        /* extract exactly one argument */
                         let arg_expr: Expr = match &func.args {
-                            /* ARRAY( <expr> )  – list version */
+                            /* list form */
                             FunctionArguments::List(FunctionArgumentList { args, .. }) => {
                                 if args.len() != 1 {
                                     return ControlFlow::Break(DataFusionError::Plan(
@@ -436,10 +444,10 @@ pub fn rewrite_array_subquery(sql: &str) -> Result<String> {
                                     }
                                 }
                             }
-                            /* ARRAY( SELECT … ) – sub-query version */
-                            FunctionArguments::Subquery(q) => Expr::Subquery(Box::new(
-                                (**q).clone(),
-                            )),
+                            /* sub-query form */
+                            FunctionArguments::Subquery(q) => {
+                                Expr::Subquery(Box::new((**q).clone()))
+                            }
                             _ => {
                                 return ControlFlow::Break(DataFusionError::Plan(
                                     "ARRAY() with unsupported argument form".into(),
@@ -447,13 +455,13 @@ pub fn rewrite_array_subquery(sql: &str) -> Result<String> {
                             }
                         };
 
-                        /* wrap it in (…)  →  Expr::Nested */
+                        /* add parentheses only when necessary */
                         let wrapped = match &arg_expr {
                             Expr::Subquery(_) | Expr::Nested(_) => arg_expr.clone(),
                             _                                    => Expr::Nested(Box::new(arg_expr.clone())),
                         };
-                        
-                        /* build pg_catalog.pg_get_array( ( … ) ) */
+
+                        /* build pg_catalog.pg_get_array( wrapped ) */
                         *expr = Expr::Function(Function {
                             name: ObjectName(vec![
                                 ObjectNamePart::Identifier(Ident::new("pg_catalog")),
@@ -462,7 +470,9 @@ pub fn rewrite_array_subquery(sql: &str) -> Result<String> {
                             args: FunctionArguments::List(FunctionArgumentList {
                                 duplicate_treatment: None,
                                 clauses: vec![],
-                                args: vec![FunctionArg::Unnamed(FunctionArgExpr::Expr(wrapped))],
+                                args: vec![FunctionArg::Unnamed(
+                                    FunctionArgExpr::Expr(wrapped),
+                                )],
                             }),
                             over: None,
                             filter: None,
@@ -478,33 +488,29 @@ pub fn rewrite_array_subquery(sql: &str) -> Result<String> {
                 ControlFlow::Continue(())
             });
 
-            /* propagate expression-level errors */
             match inner {
                 ControlFlow::Break(e)     => ControlFlow::Break(e),
                 ControlFlow::Continue(()) => ControlFlow::Continue(()),
             }
         });
 
-    /* bubble visitor error (if any) to the caller */
+    /* propagate any error triggered above */
     if let ControlFlow::Break(err) = flow {
         return Err(err);
     }
 
-    /* nothing matched → explicit error */
+    /* nothing matched – just echo input back verbatim */
     if !rewritten_any {
-        return Err(DataFusionError::Plan(
-            "rewrite_array_subquery: no ARRAY(sub-query) pattern found".into(),
-        ));
+        return Ok(sql.to_owned());
     }
 
-    /* serialise back to SQL */
+    /* serialise mutated AST */
     Ok(stmts
         .into_iter()
         .map(|s| s.to_string())
         .collect::<Vec<_>>()
         .join("; "))
 }
-
 
 
 #[cfg(test)]
@@ -697,6 +703,11 @@ mod tests {
         let out_sql = rewrite_array_subquery(in_sql).unwrap();
         println!("test_rewrite_array_subquery {}", out_sql);
         assert_eq!(out_sql, expect);
+
+        let in_sql = "select 1";
+        let out_sql = rewrite_array_subquery(in_sql).unwrap();
+        assert_eq!(in_sql, out_sql);
+
     
         /* ARRAY with more than one arg – rejected */
         let bad_sql = "SELECT array(x, y)";

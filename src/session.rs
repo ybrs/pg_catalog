@@ -25,7 +25,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use pgwire::api::Type;
 use crate::clean_duplicate_columns::alias_all_columns;
-use crate::replace::{regclass_udfs, replace_regclass, replace_set_command_with_namespace, rewrite_pg_custom_operator, rewrite_regtype_cast, rewrite_schema_qualified_text, strip_default_collate};
+use crate::replace::{regclass_udfs, replace_regclass, replace_set_command_with_namespace, rewrite_array_subquery, rewrite_pg_custom_operator, rewrite_regtype_cast, rewrite_schema_qualified_text, strip_default_collate};
 use crate::scalar_to_cte::rewrite_subquery_as_cte;
 use bytes::Bytes;
 
@@ -146,6 +146,7 @@ pub async fn execute_sql(
 ) -> datafusion::error::Result<(Vec<RecordBatch>, Arc<Schema>)> {
     let sql = replace_set_command_with_namespace(&sql)?;
     let sql = strip_default_collate(&sql)?;
+    let sql = rewrite_array_subquery(&sql).unwrap();
     let sql = rewrite_pg_custom_operator(&sql)?;
     let sql = rewrite_schema_qualified_text(&sql)?;
     let sql = replace_regclass(&sql)?;
