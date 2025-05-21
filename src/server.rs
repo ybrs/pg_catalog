@@ -582,7 +582,7 @@ pub async fn start_server(base_ctx: Arc<SessionContext>, addr: &str,
         
             register_scalar_regclass_oid(&ctx)?;
             register_scalar_pg_tablespace_location(&ctx)?;
-            register_current_schema(&ctx);
+            register_current_schema(&ctx)?;
             register_scalar_format_type(&ctx)?;
             register_scalar_pg_get_expr(&ctx)?;
             register_scalar_pg_get_partkeydef(&ctx)?;
