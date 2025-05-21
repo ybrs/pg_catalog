@@ -1,4 +1,4 @@
-use arrow::array::{as_string_array, Array, ArrayRef, ListArray, StringBuilder};
+use arrow::array::{as_string_array, Array, ArrayRef, BooleanBuilder, ListArray, StringBuilder};
 use arrow::datatypes::DataType as ArrowDataType;
 use async_trait::async_trait;
 use datafusion::arrow::array::Int64Array;
@@ -374,6 +374,47 @@ pub fn register_scalar_pg_get_partkeydef(ctx: &SessionContext) -> Result<()> {
     ctx_arc.register_udf(udf);
     Ok(())
 }
+
+pub fn register_pg_get_statisticsobjdef_columns(ctx: &SessionContext) -> Result<()> {
+    let ctx_arc = Arc::new(ctx.clone());
+    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
+        let arrays = ColumnarValue::values_to_arrays(args)?;
+        let oids = as_int64_array(&arrays[0])?;
+        let mut builder = StringBuilder::new();
+        for i in 0..oids.len() {
+            builder.append_null();
+        }
+        Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
+    };
+    let udf = create_udf(
+        "pg_catalog.pg_get_statisticsobjdef_columns",
+        vec![ArrowDataType::Int64],
+        ArrowDataType::Utf8,
+        Volatility::Immutable,
+        Arc::new(fun),
+    );
+    ctx_arc.register_udf(udf);
+    Ok(())
+}
+
+pub fn register_pg_relation_is_publishable(ctx: &SessionContext) -> Result<()> {
+    let ctx_arc = Arc::new(ctx.clone());
+    for dt in [ArrowDataType::Int64, ArrowDataType::Utf8] {
+        let fun = |_args: &[ColumnarValue]| -> Result<ColumnarValue> {
+            Ok(ColumnarValue::Scalar(ScalarValue::Boolean(Some(true))))
+        };
+        let udf = create_udf(
+            "pg_catalog.pg_relation_is_publishable",
+            vec![dt.clone()],
+            ArrowDataType::Boolean,
+            Volatility::Immutable,
+            Arc::new(fun),
+        );
+        ctx_arc.register_udf(udf);
+    }
+    Ok(())
+}
+
 
 pub fn register_current_schema(ctx: &SessionContext) -> Result<()> {
     // TODO: this always returns public
@@ -768,63 +809,6 @@ pub fn register_pg_get_one(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-pub fn register_pg_get_array_scalar(ctx: &SessionContext) -> Result<()> {
-    use arrow::datatypes::{DataType, Field};
-    use datafusion::logical_expr::{
-        ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, Volatility,
-    };
-
-    #[derive(Debug)]
-    struct PgGetArray {
-        sig: Signature,
-    }
-
-    impl PgGetArray {
-        fn new() -> Self {
-            Self {
-                sig: Signature::any(1, Volatility::Stable),
-            }
-        }
-    }
-
-    impl ScalarUDFImpl for PgGetArray {
-        fn as_any(&self) -> &dyn std::any::Any {
-            self
-        }
-        fn name(&self) -> &str {
-            "pg_get_array"
-        }
-        fn signature(&self) -> &Signature {
-            &self.sig
-        }
-        fn return_type(&self, arg_types: &[DataType]) -> Result<DataType> {
-            let inner = arg_types.get(0).cloned().unwrap_or(DataType::Null);
-            Ok(DataType::List(Arc::new(Field::new("item", inner, true))))
-        }
-        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
-            let arg = args.args.into_iter().next().unwrap();
-            match arg {
-                ColumnarValue::Scalar(s) => {
-                    let dt = s.data_type();
-                    let arr = ScalarValue::new_list_from_iter(std::iter::once(s), &dt, true);
-                    Ok(ColumnarValue::Scalar(ScalarValue::List(arr)))
-                }
-                ColumnarValue::Array(arr) => {
-                    let scalars = (0..arr.len())
-                        .map(|i| ScalarValue::try_from_array(&arr, i))
-                        .collect::<Result<Vec<_>>>()?;
-                    let dt = arr.data_type().clone();
-                    let arr = ScalarValue::new_list_from_iter(scalars.into_iter(), &dt, true);
-                    Ok(ColumnarValue::Scalar(ScalarValue::List(arr)))
-                }
-            }
-        }
-    }
-
-    let udf = ScalarUDF::new_from_impl(PgGetArray::new()).with_aliases(["pg_catalog.pg_get_array"]);
-    ctx.register_udf(udf);
-    Ok(())
-}
 
 #[derive(Debug)]
 struct ArrayCollector {
@@ -904,7 +888,7 @@ pub fn register_pg_get_array(ctx: &SessionContext) -> Result<()> {
         // the datatype of the *first* argument as planned for this agg-call
         let dt = args
             .exprs
-            .first()                                           // pg_get_array takes exactly one arg
+            .first()                          // pg_get_array takes exactly one arg
             .ok_or_else(|| DataFusionError::Internal(
                 "pg_get_array expects one argument".into()
             ))?
