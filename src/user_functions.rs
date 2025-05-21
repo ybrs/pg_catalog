@@ -726,7 +726,7 @@ pub fn register_scalar_array_to_string(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-pub fn register_pggetone(ctx: &SessionContext) -> Result<()> {
+pub fn register_pg_get_one(ctx: &SessionContext) -> Result<()> {
     use arrow::datatypes::DataType;
     use datafusion::logical_expr::{
         ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, Volatility,
@@ -750,7 +750,7 @@ pub fn register_pggetone(ctx: &SessionContext) -> Result<()> {
             self
         }
         fn name(&self) -> &str {
-            "pggetone"
+            "pg_get_one"
         }
         fn signature(&self) -> &Signature {
             &self.sig
@@ -763,7 +763,7 @@ pub fn register_pggetone(ctx: &SessionContext) -> Result<()> {
         }
     }
 
-    let udf = ScalarUDF::new_from_impl(PgGetOne::new()).with_aliases(["pg_catalog.pggetone"]);
+    let udf = ScalarUDF::new_from_impl(PgGetOne::new()).with_aliases(["pg_catalog.pg_get_one"]);
     ctx.register_udf(udf);
     Ok(())
 }
@@ -965,7 +965,7 @@ mod tests {
         let ctx = SessionContext::new_with_config(config);
         ctx.register_udtf("regclass_oid", Arc::new(RegClassOidFunc));
         register_scalar_regclass_oid(&ctx)?;
-        register_pggetone(&ctx)?;
+        register_pg_get_one(&ctx)?;
         register_pg_get_array(&ctx)?;
         let relname = StringArray::from(vec!["pg_constraint", "demo"]);
         let oid = Int64Array::from(vec![2606i64, 9999i64]);
@@ -1078,7 +1078,7 @@ mod tests {
     async fn test_pggetone_constant() -> Result<()> {
         let ctx = make_ctx().await?;
         let batches = ctx
-            .sql("SELECT pggetone('hello') AS v;")
+            .sql("SELECT pg_get_one('hello') AS v;")
             .await?
             .collect()
             .await?;
@@ -1095,7 +1095,7 @@ mod tests {
     async fn test_pggetone_subquery() -> Result<()> {
         let ctx = make_ctx().await?;
         let batches = ctx
-            .sql("SELECT pggetone((SELECT relname FROM pg_catalog.pg_class LIMIT 1)) AS v;")
+            .sql("SELECT pg_get_one((SELECT relname FROM pg_catalog.pg_class LIMIT 1)) AS v;")
             .await?
             .collect()
             .await?;

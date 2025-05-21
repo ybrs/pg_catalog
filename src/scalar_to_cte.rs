@@ -473,7 +473,7 @@ mod rewriter {
                         .unwrap_or_default();
                 
                     // is this an aggregate we need to regard specially?
-                    let is_aggr = ["count", "sum", "avg", "min", "max", "pg_get_array"]
+                    let is_aggr = ["count", "sum", "avg", "min", "max", "pg_get_array", "array"]
                         .contains(&base_name.as_str());
                 
                     if is_aggr {
@@ -484,7 +484,8 @@ mod rewriter {
                     if let FunctionArguments::List(list) = &f.args {
                         for arg in &list.args {
                             if let FunctionArg::Unnamed(FunctionArgExpr::Expr(bx)) = arg {
-                                Self::scan_expr(bx, /*inside_aggr=*/ true, has_aggr, cols);
+                                let new_inside = inside_aggr || is_aggr; 
+                                Self::scan_expr(bx, new_inside, has_aggr, cols);
                             }
                         }
                     }
