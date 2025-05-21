@@ -410,9 +410,7 @@ pub fn rewrite_array_subquery(sql: &str) -> Result<String> {
             let inner = visit_expressions_mut(stmt, |expr| {
                 /* ── 1️⃣  bail out on ARRAY[...] literals ─────────────── */
                 if let Expr::Array(_) = expr {
-                    return ControlFlow::Break(DataFusionError::Plan(
-                        "array literals (ARRAY[...] syntax) are not handled by rewrite_array_subquery".into(),
-                    ));
+                    return ControlFlow::Continue(());
                 }
 
                 /* ── 2️⃣  handle ARRAY( … ) rewrites ─────────────────── */
@@ -715,8 +713,9 @@ mod tests {
     
         /* array literal is *not* touched */
         let lit_sql = "SELECT ARRAY[1,2,3]";
-        assert!(rewrite_array_subquery(lit_sql).is_err());
-    
+        let out_sql = rewrite_array_subquery(lit_sql).unwrap();
+        assert_eq!(lit_sql, out_sql);
+
         Ok(())
     }
 
