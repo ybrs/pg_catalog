@@ -445,3 +445,57 @@ pub async fn get_base_session_context(schema_path: &String, default_catalog:Stri
     Ok((ctx, log))
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::NamedTempFile;
+    use std::io::Write;
+    use arrow::array::{Int32Array, StringArray};
+    use arrow::datatypes::DataType;
+
+    #[test]
+    fn test_parse_schema_file() {
+        let yaml = r#"
+public:
+  myschema:
+    employees:
+      type: table
+      schema:
+        id: int
+        name: varchar
+      rows:
+        - id: 1
+          name: Alice
+        - id: 2
+          name: Bob
+"#;
+
+        let mut file = NamedTempFile::new().unwrap();
+        write!(file, "{}", yaml).unwrap();
+
+        let parsed = parse_schema_file(file.path().to_str().unwrap());
+
+        let myschema = parsed.get("public").unwrap().get("myschema").unwrap();
+        let (schema_ref, batches) = myschema.get("employees").unwrap();
+
+        let fields = schema_ref.fields();
+        assert_eq!(fields.len(), 2);
+        assert_eq!(fields[0].name(), "id");
+        assert_eq!(fields[0].data_type(), &DataType::Int32);
+        assert_eq!(fields[1].name(), "name");
+        assert_eq!(fields[1].data_type(), &DataType::Utf8);
+
+        assert_eq!(batches.len(), 1);
+        let batch = &batches[0];
+        assert_eq!(batch.num_rows(), 2);
+
+        let id_array = batch.column(0).as_any().downcast_ref::<Int32Array>().unwrap();
+        assert_eq!(id_array.value(0), 1);
+        assert_eq!(id_array.value(1), 2);
+
+        let name_array = batch.column(1).as_any().downcast_ref::<StringArray>().unwrap();
+        assert_eq!(name_array.value(0), "Alice");
+        assert_eq!(name_array.value(1), "Bob");
+    }
+}
+
