@@ -6,7 +6,7 @@ public:
         oid: int
         umuser: int
         umserver: int
-        umoptions: varchar(256)
+        umoptions: _text
       pg_types:
         oid: oid
         umuser: oid

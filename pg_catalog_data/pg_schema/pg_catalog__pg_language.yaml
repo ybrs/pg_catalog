@@ -11,7 +11,7 @@ public:
         lanplcallfoid: int
         laninline: int
         lanvalidator: int
-        lanacl: varchar(256)
+        lanacl: _text
       pg_types:
         oid: oid
         lanname: name
@@ -50,12 +50,12 @@ public:
         laninline: 0
         lanvalidator: 2248
         lanacl: null
-      - oid: 13029
+      - oid: 13136
         lanname: plpgsql
         lanowner: 10
         lanispl: true
         lanpltrusted: true
-        lanplcallfoid: 13026
-        laninline: 13027
-        lanvalidator: 13028
+        lanplcallfoid: 13133
+        laninline: 13134
+        lanvalidator: 13135
         lanacl: null

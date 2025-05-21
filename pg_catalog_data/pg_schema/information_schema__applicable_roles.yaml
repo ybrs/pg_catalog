@@ -22,7 +22,7 @@ public:
         role_name: name
         is_grantable: varchar
       rows:
-      - grantee: aybarsb
+      - grantee: abadur
         role_name: pg_database_owner
         is_grantable: 'NO'
       - grantee: pg_monitor

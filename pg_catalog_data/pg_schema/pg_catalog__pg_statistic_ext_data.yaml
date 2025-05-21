@@ -8,7 +8,7 @@ public:
         stxdndistinct: varchar(256)
         stxddependencies: varchar(256)
         stxdmcv: varchar(256)
-        stxdexpr: varchar(256)
+        stxdexpr: _text
       pg_types:
         stxoid: oid
         stxdinherit: bool

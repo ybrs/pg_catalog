@@ -6,7 +6,7 @@ public:
         oid: int
         nspname: varchar(64)
         nspowner: int
-        nspacl: varchar(256)
+        nspacl: _text
       pg_types:
         oid: oid
         nspname: name
@@ -20,12 +20,12 @@ public:
       - oid: 11
         nspname: pg_catalog
         nspowner: 10
-        nspacl: '[''aybarsb=UC/aybarsb'', ''=U/aybarsb'']'
+        nspacl: '[''abadur=UC/abadur'', ''=U/abadur'']'
       - oid: 2200
         nspname: public
         nspowner: 6171
         nspacl: '[''pg_database_owner=UC/pg_database_owner'', ''=U/pg_database_owner'']'
-      - oid: 12675
+      - oid: 12782
         nspname: information_schema
         nspowner: 10
-        nspacl: '[''aybarsb=UC/aybarsb'', ''=U/aybarsb'']'
+        nspacl: '[''abadur=UC/abadur'', ''=U/abadur'']'

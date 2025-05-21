@@ -9,7 +9,7 @@ public:
         evtowner: int
         evtfoid: int
         evtenabled: varchar(256)
-        evttags: varchar(256)
+        evttags: _text
       pg_types:
         oid: oid
         evtname: name

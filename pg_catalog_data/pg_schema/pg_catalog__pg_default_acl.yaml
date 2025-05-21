@@ -7,7 +7,7 @@ public:
         defaclrole: int
         defaclnamespace: int
         defaclobjtype: varchar(256)
-        defaclacl: varchar(256)
+        defaclacl: _text
       pg_types:
         oid: oid
         defaclrole: oid

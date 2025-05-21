@@ -28,16 +28,16 @@ public:
         statistics_schemaname: varchar(64)
         statistics_name: varchar(64)
         statistics_owner: varchar(64)
-        attnames: varchar(256)
-        exprs: varchar(256)
-        kinds: varchar(256)
+        attnames: _text
+        exprs: _text
+        kinds: _text
         inherited: boolean
         n_distinct: varchar(256)
         dependencies: varchar(256)
-        most_common_vals: varchar(256)
-        most_common_val_nulls: varchar(256)
-        most_common_freqs: varchar(256)
-        most_common_base_freqs: varchar(256)
+        most_common_vals: _text
+        most_common_val_nulls: _text
+        most_common_freqs: _text
+        most_common_base_freqs: _text
       pg_types:
         schemaname: name
         tablename: name

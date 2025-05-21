@@ -19,7 +19,7 @@ public:
         subconninfo: varchar(256)
         subslotname: varchar(64)
         subsynccommit: varchar(256)
-        subpublications: varchar(256)
+        subpublications: _text
         suborigin: varchar(256)
       pg_types:
         oid: oid

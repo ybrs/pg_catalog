@@ -18,7 +18,7 @@ use pgwire::messages::data::DataRow;
 use pgwire::tokio::process_socket;
 use tokio::net::{TcpListener};
 
-use arrow::array::{BooleanArray, Int32Array, Int64Array, LargeStringArray, StringArray, StringViewArray};
+use arrow::array::{Array, BooleanArray, Int32Array, Int64Array, LargeStringArray, ListArray, StringArray, StringViewArray};
 use arrow::record_batch::RecordBatch;
 use datafusion::execution::context::SessionContext;
 
@@ -171,15 +171,36 @@ impl AuthSource for DummyAuthSource {
 }
 
 fn arrow_to_pg_type(dt: &DataType) -> Type {
+    use arrow::datatypes::DataType::*;
+
     match dt {
-        DataType::Boolean => Type::BOOL,
-        DataType::Int32 => Type::INT4,
-        DataType::Int64 => Type::INT8,
-        DataType::Int16 => Type::INT2,
-        DataType::Utf8 | DataType::Utf8View | DataType::LargeUtf8 => Type::TEXT,
-        _ => Type::TEXT,
+        Boolean        => Type::BOOL,
+        Int16          => Type::INT2,
+        Int32          => Type::INT4,
+        Int64          => Type::INT8,
+        Utf8 | Utf8View | LargeUtf8 => Type::TEXT,
+
+        // ── arrays ───────────────────────────────────────────────
+        List(inner) => match inner.data_type() {
+            Utf8               => Type::TEXT_ARRAY,   // text[]
+            Int32              => Type::INT4_ARRAY,   // int4[]
+            Int64              => Type::INT8_ARRAY,   // int8[]
+            Boolean            => Type::BOOL_ARRAY,   // bool[]
+            // add more element types here as you need them
+            other => panic!(
+                "arrow_to_pg_type: no pgwire::Type for list<{other:?}>"
+            ),
+        },
+
+        // anything else – send as plain text so the client can at
+        // least see something instead of us mangling it away
+        other => {
+            eprintln!("arrow_to_pg_type: mapping {other:?} to TEXT");
+            Type::TEXT
+        }
     }
 }
+
 
 fn batch_to_field_info(batch: &RecordBatch, format: &Format) -> PgWireResult<Vec<FieldInfo>> {
     Ok(batch.schema().fields().iter().enumerate().map(|(idx, f)| {
@@ -258,6 +279,27 @@ fn batch_to_row_stream(batch: &RecordBatch, schema: Arc<Vec<FieldInfo>>) -> impl
                     };
                     encoder.encode_field(&value).unwrap();
                 }
+
+                DataType::List(inner) if inner.data_type() == &DataType::Utf8 => {
+                    let list = col.as_any().downcast_ref::<ListArray>().unwrap();
+                    let value = if list.is_null(row_idx) {
+                        None::<String>
+                    } else {
+                        let arr = list.value(row_idx);
+                        let sa  = arr.as_any().downcast_ref::<StringArray>().unwrap();
+                        let mut items = Vec::with_capacity(sa.len());
+                        for i in 0..sa.len() {
+                            if sa.is_null(i) {
+                                items.push("NULL".to_string());
+                            } else {
+                                items.push(sa.value(i).replace('"', r#"\""#));
+                            }
+                        }
+                        Some(format!("{{{}}}", items.join(",")))
+                    };
+                    encoder.encode_field(&value).unwrap();
+                }
+                                
                 _ => {
                     if col.is_null(row_idx) {
                         encoder.encode_field::<Option<&str>>(&None).unwrap();

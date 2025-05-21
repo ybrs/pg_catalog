@@ -22,7 +22,7 @@ public:
         tablename: varchar(64)
         policyname: varchar(64)
         permissive: varchar(256)
-        roles: varchar(256)
+        roles: _text
         cmd: varchar(256)
         qual: varchar(256)
         with_check: varchar(256)

@@ -132,7 +132,7 @@ public:
         privilege_type: varchar
         is_grantable: varchar
       rows:
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -140,7 +140,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -148,7 +148,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -156,7 +156,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -164,7 +164,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -172,7 +172,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -180,7 +180,23 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: fa_IR
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: ca_AD.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -188,7 +204,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -196,7 +212,15 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: lv_LV.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -204,7 +228,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -212,7 +236,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -220,7 +244,23 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: en_HK
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: es_MX.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -228,7 +268,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -236,7 +276,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -244,7 +284,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -252,7 +292,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -260,7 +300,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -268,7 +308,15 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: sv_FI.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -276,7 +324,15 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: se_NO.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -284,7 +340,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -292,7 +348,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -300,7 +356,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -308,7 +364,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -316,7 +372,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -324,7 +380,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -332,7 +388,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -340,7 +396,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -348,7 +404,31 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: en_ZA.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: ca_IT
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: fa_IR.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -356,7 +436,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -364,7 +444,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -372,7 +452,15 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: ar_AE
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -380,7 +468,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -388,7 +476,23 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: hi_IN.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: C.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -396,7 +500,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -404,7 +508,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -412,7 +516,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -420,7 +524,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -428,7 +532,15 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: ar_MA
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -436,7 +548,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -444,7 +556,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -452,7 +564,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -460,7 +572,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -468,7 +580,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -476,7 +588,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -484,7 +596,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -492,7 +604,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -500,7 +612,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -508,7 +620,15 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: se_FI.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -516,7 +636,55 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: es_CR
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: sr_RS
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: nb_NO
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: ar_JO
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: ca_AD
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: en_IN.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -524,7 +692,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -532,7 +700,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -540,7 +708,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -548,7 +716,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -556,7 +724,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -564,7 +732,15 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: ca_FR.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -572,7 +748,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -580,7 +756,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -588,7 +764,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -596,7 +772,15 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: hi_IN
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -604,7 +788,15 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: se_NO
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -612,7 +804,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -620,7 +812,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -628,7 +820,23 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: ar_QA
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: en_IN
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -636,7 +844,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -644,7 +852,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -652,7 +860,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -660,7 +868,15 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: nb_NO.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -668,7 +884,15 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: se_FI
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -676,7 +900,15 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: ar_JO.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -684,7 +916,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -692,7 +924,15 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: ar_AE.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -700,7 +940,15 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: sr_RS.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -708,7 +956,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -716,7 +964,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -724,7 +972,15 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: ar_SA
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -732,7 +988,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -740,7 +996,23 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: ga_IE.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: ga_IE
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -748,7 +1020,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -756,7 +1028,15 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: es_MX
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -764,7 +1044,15 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: en_ZA
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -772,7 +1060,23 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: en_HK.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: en_SG
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -780,7 +1084,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -788,7 +1092,39 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: en_PH
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: ar_MA.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: lv_LV
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: es_AR
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -796,7 +1132,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -804,7 +1140,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -812,7 +1148,15 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: ca_FR
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -820,7 +1164,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -828,7 +1172,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -836,7 +1180,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -844,7 +1188,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -852,7 +1196,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -860,7 +1204,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -868,7 +1212,15 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: ar_EG
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -876,7 +1228,23 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: mn_MN.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: mn_MN
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -884,7 +1252,31 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: ar_QA.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: es_AR.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: nn_NO
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -892,7 +1284,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -900,7 +1292,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -908,7 +1300,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -916,7 +1308,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -924,7 +1316,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -932,7 +1324,23 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: ar_EG.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: ca_IT.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -940,7 +1348,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -948,7 +1356,15 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: en_PH.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -956,7 +1372,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -964,7 +1380,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -972,7 +1388,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -980,7 +1396,15 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: nn_NO.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -988,7 +1412,15 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: en_SG.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -996,7 +1428,15 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: sv_FI
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -1004,7 +1444,15 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: fa_AF
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -1012,7 +1460,15 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: ar_SA.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -1020,7 +1476,23 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: es_CR.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
+        grantee: PUBLIC
+        object_catalog: postgres
+        object_schema: pg_catalog
+        object_name: fa_AF.UTF-8
+        object_type: COLLATION
+        privilege_type: USAGE
+        is_grantable: 'NO'
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: pg_catalog
@@ -1028,7 +1500,7 @@ public:
         object_type: COLLATION
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: information_schema
@@ -1036,15 +1508,15 @@ public:
         object_type: DOMAIN
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
-        grantee: aybarsb
+      - grantor: abadur
+        grantee: abadur
         object_catalog: postgres
         object_schema: information_schema
         object_name: cardinal_number
         object_type: DOMAIN
         privilege_type: USAGE
         is_grantable: 'YES'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: information_schema
@@ -1052,15 +1524,15 @@ public:
         object_type: DOMAIN
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
-        grantee: aybarsb
+      - grantor: abadur
+        grantee: abadur
         object_catalog: postgres
         object_schema: information_schema
         object_name: character_data
         object_type: DOMAIN
         privilege_type: USAGE
         is_grantable: 'YES'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: information_schema
@@ -1068,15 +1540,15 @@ public:
         object_type: DOMAIN
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
-        grantee: aybarsb
+      - grantor: abadur
+        grantee: abadur
         object_catalog: postgres
         object_schema: information_schema
         object_name: sql_identifier
         object_type: DOMAIN
         privilege_type: USAGE
         is_grantable: 'YES'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: information_schema
@@ -1084,15 +1556,15 @@ public:
         object_type: DOMAIN
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
-        grantee: aybarsb
+      - grantor: abadur
+        grantee: abadur
         object_catalog: postgres
         object_schema: information_schema
         object_name: time_stamp
         object_type: DOMAIN
         privilege_type: USAGE
         is_grantable: 'YES'
-      - grantor: aybarsb
+      - grantor: abadur
         grantee: PUBLIC
         object_catalog: postgres
         object_schema: information_schema
@@ -1100,8 +1572,8 @@ public:
         object_type: DOMAIN
         privilege_type: USAGE
         is_grantable: 'NO'
-      - grantor: aybarsb
-        grantee: aybarsb
+      - grantor: abadur
+        grantee: abadur
         object_catalog: postgres
         object_schema: information_schema
         object_name: yes_or_no

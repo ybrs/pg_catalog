@@ -23,171 +23,171 @@ public:
         dictowner: 10
         dicttemplate: 3727
         dictinitoption: null
-      - oid: 12619
+      - oid: 12726
         dictname: arabic_stem
         dictnamespace: 11
         dictowner: 10
-        dicttemplate: 12618
+        dicttemplate: 12725
         dictinitoption: language = 'arabic'
-      - oid: 12621
+      - oid: 12728
         dictname: armenian_stem
         dictnamespace: 11
         dictowner: 10
-        dicttemplate: 12618
+        dicttemplate: 12725
         dictinitoption: language = 'armenian'
-      - oid: 12623
+      - oid: 12730
         dictname: basque_stem
         dictnamespace: 11
         dictowner: 10
-        dicttemplate: 12618
+        dicttemplate: 12725
         dictinitoption: language = 'basque'
-      - oid: 12625
+      - oid: 12732
         dictname: catalan_stem
         dictnamespace: 11
         dictowner: 10
-        dicttemplate: 12618
+        dicttemplate: 12725
         dictinitoption: language = 'catalan'
-      - oid: 12627
+      - oid: 12734
         dictname: danish_stem
         dictnamespace: 11
         dictowner: 10
-        dicttemplate: 12618
+        dicttemplate: 12725
         dictinitoption: language = 'danish', stopwords = 'danish'
-      - oid: 12629
+      - oid: 12736
         dictname: dutch_stem
         dictnamespace: 11
         dictowner: 10
-        dicttemplate: 12618
+        dicttemplate: 12725
         dictinitoption: language = 'dutch', stopwords = 'dutch'
-      - oid: 12631
+      - oid: 12738
         dictname: english_stem
         dictnamespace: 11
         dictowner: 10
-        dicttemplate: 12618
+        dicttemplate: 12725
         dictinitoption: language = 'english', stopwords = 'english'
-      - oid: 12633
+      - oid: 12740
         dictname: finnish_stem
         dictnamespace: 11
         dictowner: 10
-        dicttemplate: 12618
+        dicttemplate: 12725
         dictinitoption: language = 'finnish', stopwords = 'finnish'
-      - oid: 12635
+      - oid: 12742
         dictname: french_stem
         dictnamespace: 11
         dictowner: 10
-        dicttemplate: 12618
+        dicttemplate: 12725
         dictinitoption: language = 'french', stopwords = 'french'
-      - oid: 12637
+      - oid: 12744
         dictname: german_stem
         dictnamespace: 11
         dictowner: 10
-        dicttemplate: 12618
+        dicttemplate: 12725
         dictinitoption: language = 'german', stopwords = 'german'
-      - oid: 12639
+      - oid: 12746
         dictname: greek_stem
         dictnamespace: 11
         dictowner: 10
-        dicttemplate: 12618
+        dicttemplate: 12725
         dictinitoption: language = 'greek'
-      - oid: 12641
+      - oid: 12748
         dictname: hindi_stem
         dictnamespace: 11
         dictowner: 10
-        dicttemplate: 12618
+        dicttemplate: 12725
         dictinitoption: language = 'hindi'
-      - oid: 12643
+      - oid: 12750
         dictname: hungarian_stem
         dictnamespace: 11
         dictowner: 10
-        dicttemplate: 12618
+        dicttemplate: 12725
         dictinitoption: language = 'hungarian', stopwords = 'hungarian'
-      - oid: 12645
+      - oid: 12752
         dictname: indonesian_stem
         dictnamespace: 11
         dictowner: 10
-        dicttemplate: 12618
+        dicttemplate: 12725
         dictinitoption: language = 'indonesian'
-      - oid: 12647
+      - oid: 12754
         dictname: irish_stem
         dictnamespace: 11
         dictowner: 10
-        dicttemplate: 12618
+        dicttemplate: 12725
         dictinitoption: language = 'irish'
-      - oid: 12649
+      - oid: 12756
         dictname: italian_stem
         dictnamespace: 11
         dictowner: 10
-        dicttemplate: 12618
+        dicttemplate: 12725
         dictinitoption: language = 'italian', stopwords = 'italian'
-      - oid: 12651
+      - oid: 12758
         dictname: lithuanian_stem
         dictnamespace: 11
         dictowner: 10
-        dicttemplate: 12618
+        dicttemplate: 12725
         dictinitoption: language = 'lithuanian'
-      - oid: 12653
+      - oid: 12760
         dictname: nepali_stem
         dictnamespace: 11
         dictowner: 10
-        dicttemplate: 12618
+        dicttemplate: 12725
         dictinitoption: language = 'nepali', stopwords = 'nepali'
-      - oid: 12655
+      - oid: 12762
         dictname: norwegian_stem
         dictnamespace: 11
         dictowner: 10
-        dicttemplate: 12618
+        dicttemplate: 12725
         dictinitoption: language = 'norwegian', stopwords = 'norwegian'
-      - oid: 12657
+      - oid: 12764
         dictname: portuguese_stem
         dictnamespace: 11
         dictowner: 10
-        dicttemplate: 12618
+        dicttemplate: 12725
         dictinitoption: language = 'portuguese', stopwords = 'portuguese'
-      - oid: 12659
+      - oid: 12766
         dictname: romanian_stem
         dictnamespace: 11
         dictowner: 10
-        dicttemplate: 12618
+        dicttemplate: 12725
         dictinitoption: language = 'romanian'
-      - oid: 12661
+      - oid: 12768
         dictname: russian_stem
         dictnamespace: 11
         dictowner: 10
-        dicttemplate: 12618
+        dicttemplate: 12725
         dictinitoption: language = 'russian', stopwords = 'russian'
-      - oid: 12663
+      - oid: 12770
         dictname: serbian_stem
         dictnamespace: 11
         dictowner: 10
-        dicttemplate: 12618
+        dicttemplate: 12725
         dictinitoption: language = 'serbian'
-      - oid: 12665
+      - oid: 12772
         dictname: spanish_stem
         dictnamespace: 11
         dictowner: 10
-        dicttemplate: 12618
+        dicttemplate: 12725
         dictinitoption: language = 'spanish', stopwords = 'spanish'
-      - oid: 12667
+      - oid: 12774
         dictname: swedish_stem
         dictnamespace: 11
         dictowner: 10
-        dicttemplate: 12618
+        dicttemplate: 12725
         dictinitoption: language = 'swedish', stopwords = 'swedish'
-      - oid: 12669
+      - oid: 12776
         dictname: tamil_stem
         dictnamespace: 11
         dictowner: 10
-        dicttemplate: 12618
+        dicttemplate: 12725
         dictinitoption: language = 'tamil'
-      - oid: 12671
+      - oid: 12778
         dictname: turkish_stem
         dictnamespace: 11
         dictowner: 10
-        dicttemplate: 12618
+        dicttemplate: 12725
         dictinitoption: language = 'turkish', stopwords = 'turkish'
-      - oid: 12673
+      - oid: 12780
         dictname: yiddish_stem
         dictnamespace: 11
         dictowner: 10
-        dicttemplate: 12618
+        dicttemplate: 12725
         dictinitoption: language = 'yiddish'

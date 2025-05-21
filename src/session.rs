@@ -32,7 +32,8 @@ use bytes::Bytes;
 use datafusion::scalar::ScalarValue;
 use crate::user_functions::{register_scalar_format_type, register_scalar_pg_tablespace_location, register_scalar_regclass_oid};
 use datafusion::common::{config_err, config::ConfigEntry};
-
+use arrow::array::{Int64Array, BooleanArray,
+    ListBuilder, ArrayRef};
 use datafusion::common::config::{ConfigExtension, ExtensionOptions};
 use crate::db_table::{map_pg_type, ObservableMemTable, ScanTrace};
 
@@ -331,6 +332,27 @@ fn build_table(def: TableDef) -> (SchemaRef, Vec<RecordBatch>) {
                             .map(|v| v.as_bool())
                             .collect::<Vec<_>>()
                     )),
+                    DataType::List(inner) if inner.data_type() == &DataType::Utf8 => {
+                        let mut builder = ListBuilder::new(StringBuilder::new());
+                        for v in col_data {
+                            if let Some(items) = v.as_array() {
+                                for item in items {
+                                    match item.as_str() {
+                                        Some(s) => builder.values().append_value(s),
+                                        None    => builder.values().append_null(),
+                                    }
+                                }
+                                builder.append(true);
+                            } else if v.is_null() {
+                                builder.append(false);
+                            } else {
+                                builder.values().append_value(v.to_string());
+                                builder.append(true);
+                            }
+                        }
+                        Arc::new(builder.finish())
+                    },
+
                     _ => Arc::new(StringArray::from(
                         col_data.into_iter()
                             .map(|v| Some(v.to_string()))
