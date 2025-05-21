@@ -5,7 +5,7 @@ public:
       schema:
         ftrelid: int
         ftserver: int
-        ftoptions: varchar(256)
+        ftoptions: _text
       pg_types:
         ftrelid: oid
         ftserver: oid

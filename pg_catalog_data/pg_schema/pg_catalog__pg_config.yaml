@@ -11,31 +11,31 @@ public:
         setting: text
       rows:
       - name: BINDIR
-        setting: /Users/aybarsb/projects/pg_catalog/postgres-17/bin
+        setting: /Users/abadur/projects/query/postgres-17/bin
       - name: DOCDIR
-        setting: /Users/aybarsb/projects/pg_catalog/postgres-17/share/doc
+        setting: /Users/abadur/projects/query/postgres-17/share/doc
       - name: HTMLDIR
-        setting: /Users/aybarsb/projects/pg_catalog/postgres-17/share/doc
+        setting: /Users/abadur/projects/query/postgres-17/share/doc
       - name: INCLUDEDIR
-        setting: /Users/aybarsb/projects/pg_catalog/postgres-17/include
+        setting: /Users/abadur/projects/query/postgres-17/include
       - name: PKGINCLUDEDIR
-        setting: /Users/aybarsb/projects/pg_catalog/postgres-17/include
+        setting: /Users/abadur/projects/query/postgres-17/include
       - name: INCLUDEDIR-SERVER
-        setting: /Users/aybarsb/projects/pg_catalog/postgres-17/include/server
+        setting: /Users/abadur/projects/query/postgres-17/include/server
       - name: LIBDIR
-        setting: /Users/aybarsb/projects/pg_catalog/postgres-17/lib
+        setting: /Users/abadur/projects/query/postgres-17/lib
       - name: PKGLIBDIR
-        setting: /Users/aybarsb/projects/pg_catalog/postgres-17/lib
+        setting: /Users/abadur/projects/query/postgres-17/lib
       - name: LOCALEDIR
-        setting: /Users/aybarsb/projects/pg_catalog/postgres-17/share/locale
+        setting: /Users/abadur/projects/query/postgres-17/share/locale
       - name: MANDIR
-        setting: /Users/aybarsb/projects/pg_catalog/postgres-17/share/man
+        setting: /Users/abadur/projects/query/postgres-17/share/man
       - name: SHAREDIR
-        setting: /Users/aybarsb/projects/pg_catalog/postgres-17/share
+        setting: /Users/abadur/projects/query/postgres-17/share
       - name: SYSCONFDIR
-        setting: /Users/aybarsb/projects/pg_catalog/postgres-17/etc
+        setting: /Users/abadur/projects/query/postgres-17/etc
       - name: PGXS
-        setting: /Users/aybarsb/projects/pg_catalog/postgres-17/lib/pgxs/src/makefiles/pgxs.mk
+        setting: /Users/abadur/projects/query/postgres-17/lib/pgxs/src/makefiles/pgxs.mk
       - name: CONFIGURE
         setting: ' ''--prefix'' ''/Users/runner/work/postgresql-binaries/postgresql-binaries/postgresql-17.4.0-aarch64-apple-darwin''
           ''--enable-integer-datetimes'' ''--enable-option-checking=fatal'' ''--without-icu''

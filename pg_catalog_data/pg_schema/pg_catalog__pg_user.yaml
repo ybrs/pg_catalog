@@ -14,7 +14,7 @@ public:
         usebypassrls: boolean
         passwd: varchar(256)
         valuntil: varchar(256)
-        useconfig: varchar(256)
+        useconfig: _text
       pg_types:
         usename: name
         usesysid: oid
@@ -26,7 +26,7 @@ public:
         valuntil: timestamptz
         useconfig: _text
       rows:
-      - usename: aybarsb
+      - usename: abadur
         usesysid: 10
         usecreatedb: true
         usesuper: true
@@ -34,4 +34,6 @@ public:
         usebypassrls: true
         passwd: '********'
         valuntil: null
-        useconfig: null
+        useconfig:
+            - "search_path=pg_catalog"
+            - "application_name=myapp"

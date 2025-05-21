@@ -6,8 +6,8 @@ public:
         oid: int
         spcname: varchar(64)
         spcowner: int
-        spcacl: varchar(256)
-        spcoptions: varchar(256)
+        spcacl: _text
+        spcoptions: _text
       pg_types:
         oid: oid
         spcname: name

@@ -35,7 +35,7 @@ public:
         tmplnamespace: 11
         tmplinit: thesaurus_init
         tmpllexize: thesaurus_lexize
-      - oid: 12618
+      - oid: 12725
         tmplname: snowball
         tmplnamespace: 11
         tmplinit: dsnowball_init

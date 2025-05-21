@@ -8,8 +8,8 @@ public:
         fdwowner: int
         fdwhandler: int
         fdwvalidator: int
-        fdwacl: varchar(256)
-        fdwoptions: varchar(256)
+        fdwacl: _text
+        fdwoptions: _text
       pg_types:
         oid: oid
         fdwname: name

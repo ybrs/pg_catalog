@@ -23,7 +23,7 @@ public:
       - implementation_info_id: '10004'
         implementation_info_name: COLLATING SEQUENCE
         integer_value: null
-        character_value: null
+        character_value: nl_NL.UTF-8
         comments: null
       - implementation_info_id: '23'
         implementation_info_name: CURSOR COMMIT BEHAVIOR

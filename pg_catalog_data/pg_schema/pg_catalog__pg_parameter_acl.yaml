@@ -5,7 +5,7 @@ public:
       schema:
         oid: int
         parname: varchar(256)
-        paracl: varchar(256)
+        paracl: _text
       pg_types:
         oid: oid
         parname: text

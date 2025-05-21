@@ -21,7 +21,7 @@ public:
         rolpassword: varchar(256)
         rolvaliduntil: varchar(256)
         rolbypassrls: boolean
-        rolconfig: varchar(256)
+        rolconfig: _text
         oid: int
       pg_types:
         rolname: name
@@ -38,7 +38,7 @@ public:
         rolconfig: _text
         oid: oid
       rows:
-      - rolname: aybarsb
+      - rolname: abadur
         rolsuper: true
         rolinherit: true
         rolcreaterole: true

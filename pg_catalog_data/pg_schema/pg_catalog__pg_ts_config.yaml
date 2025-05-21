@@ -20,142 +20,142 @@ public:
         cfgnamespace: 11
         cfgowner: 10
         cfgparser: 3722
-      - oid: 12620
+      - oid: 12727
         cfgname: arabic
         cfgnamespace: 11
         cfgowner: 10
         cfgparser: 3722
-      - oid: 12622
+      - oid: 12729
         cfgname: armenian
         cfgnamespace: 11
         cfgowner: 10
         cfgparser: 3722
-      - oid: 12624
+      - oid: 12731
         cfgname: basque
         cfgnamespace: 11
         cfgowner: 10
         cfgparser: 3722
-      - oid: 12626
+      - oid: 12733
         cfgname: catalan
         cfgnamespace: 11
         cfgowner: 10
         cfgparser: 3722
-      - oid: 12628
+      - oid: 12735
         cfgname: danish
         cfgnamespace: 11
         cfgowner: 10
         cfgparser: 3722
-      - oid: 12630
+      - oid: 12737
         cfgname: dutch
         cfgnamespace: 11
         cfgowner: 10
         cfgparser: 3722
-      - oid: 12632
+      - oid: 12739
         cfgname: english
         cfgnamespace: 11
         cfgowner: 10
         cfgparser: 3722
-      - oid: 12634
+      - oid: 12741
         cfgname: finnish
         cfgnamespace: 11
         cfgowner: 10
         cfgparser: 3722
-      - oid: 12636
+      - oid: 12743
         cfgname: french
         cfgnamespace: 11
         cfgowner: 10
         cfgparser: 3722
-      - oid: 12638
+      - oid: 12745
         cfgname: german
         cfgnamespace: 11
         cfgowner: 10
         cfgparser: 3722
-      - oid: 12640
+      - oid: 12747
         cfgname: greek
         cfgnamespace: 11
         cfgowner: 10
         cfgparser: 3722
-      - oid: 12642
+      - oid: 12749
         cfgname: hindi
         cfgnamespace: 11
         cfgowner: 10
         cfgparser: 3722
-      - oid: 12644
+      - oid: 12751
         cfgname: hungarian
         cfgnamespace: 11
         cfgowner: 10
         cfgparser: 3722
-      - oid: 12646
+      - oid: 12753
         cfgname: indonesian
         cfgnamespace: 11
         cfgowner: 10
         cfgparser: 3722
-      - oid: 12648
+      - oid: 12755
         cfgname: irish
         cfgnamespace: 11
         cfgowner: 10
         cfgparser: 3722
-      - oid: 12650
+      - oid: 12757
         cfgname: italian
         cfgnamespace: 11
         cfgowner: 10
         cfgparser: 3722
-      - oid: 12652
+      - oid: 12759
         cfgname: lithuanian
         cfgnamespace: 11
         cfgowner: 10
         cfgparser: 3722
-      - oid: 12654
+      - oid: 12761
         cfgname: nepali
         cfgnamespace: 11
         cfgowner: 10
         cfgparser: 3722
-      - oid: 12656
+      - oid: 12763
         cfgname: norwegian
         cfgnamespace: 11
         cfgowner: 10
         cfgparser: 3722
-      - oid: 12658
+      - oid: 12765
         cfgname: portuguese
         cfgnamespace: 11
         cfgowner: 10
         cfgparser: 3722
-      - oid: 12660
+      - oid: 12767
         cfgname: romanian
         cfgnamespace: 11
         cfgowner: 10
         cfgparser: 3722
-      - oid: 12662
+      - oid: 12769
         cfgname: russian
         cfgnamespace: 11
         cfgowner: 10
         cfgparser: 3722
-      - oid: 12664
+      - oid: 12771
         cfgname: serbian
         cfgnamespace: 11
         cfgowner: 10
         cfgparser: 3722
-      - oid: 12666
+      - oid: 12773
         cfgname: spanish
         cfgnamespace: 11
         cfgowner: 10
         cfgparser: 3722
-      - oid: 12668
+      - oid: 12775
         cfgname: swedish
         cfgnamespace: 11
         cfgowner: 10
         cfgparser: 3722
-      - oid: 12670
+      - oid: 12777
         cfgname: tamil
         cfgnamespace: 11
         cfgowner: 10
         cfgparser: 3722
-      - oid: 12672
+      - oid: 12779
         cfgname: turkish
         cfgnamespace: 11
         cfgowner: 10
         cfgparser: 3722
-      - oid: 12674
+      - oid: 12781
         cfgname: yiddish
         cfgnamespace: 11
         cfgowner: 10

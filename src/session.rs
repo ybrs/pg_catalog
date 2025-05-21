@@ -32,7 +32,8 @@ use bytes::Bytes;
 use datafusion::scalar::ScalarValue;
 use crate::user_functions::{register_scalar_format_type, register_scalar_pg_tablespace_location, register_scalar_regclass_oid};
 use datafusion::common::{config_err, config::ConfigEntry};
-
+use arrow::array::{Int64Array, BooleanArray,
+    ListBuilder, ArrayRef};
 use datafusion::common::config::{ConfigExtension, ExtensionOptions};
 use crate::db_table::{map_pg_type, ObservableMemTable, ScanTrace};
 
@@ -331,6 +332,27 @@ fn build_table(def: TableDef) -> (SchemaRef, Vec<RecordBatch>) {
                             .map(|v| v.as_bool())
                             .collect::<Vec<_>>()
                     )),
+                    DataType::List(inner) if inner.data_type() == &DataType::Utf8 => {
+                        let mut builder = ListBuilder::new(StringBuilder::new());
+                        for v in col_data {
+                            if let Some(items) = v.as_array() {
+                                for item in items {
+                                    match item.as_str() {
+                                        Some(s) => builder.values().append_value(s),
+                                        None    => builder.values().append_null(),
+                                    }
+                                }
+                                builder.append(true);
+                            } else if v.is_null() {
+                                builder.append(false);
+                            } else {
+                                builder.values().append_value(v.to_string());
+                                builder.append(true);
+                            }
+                        }
+                        Arc::new(builder.finish())
+                    },
+
                     _ => Arc::new(StringArray::from(
                         col_data.into_iter()
                             .map(|v| Some(v.to_string()))
@@ -527,6 +549,41 @@ public:
         assert!(Arc::ptr_eq(batch.column(0), renamed.column(0)));
         assert!(Arc::ptr_eq(batch.column(1), renamed.column(1)));
     }
+
+
+    #[test]
+    fn test_parse_schema_text_array() {
+        use arrow::array::{ListArray};
+        let yaml = r#"
+public:
+  myschema:
+    cfgtable:
+      type: table
+      schema:
+        cfg: _text
+      rows:
+        - cfg:
+            - "x"
+            - "y"
+"#;
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        std::io::Write::write_all(&mut file, yaml.as_bytes()).unwrap();
+
+        let parsed = parse_schema_file(file.path().to_str().unwrap());
+        let myschema = parsed.get("public").unwrap().get("myschema").unwrap();
+        let (schema_ref, batches) = myschema.get("cfgtable").unwrap();
+
+        let field = &schema_ref.fields()[0];
+        assert!(matches!(field.data_type(), DataType::List(_)));
+
+        let batch = &batches[0];
+        let list = batch.column(0).as_any().downcast_ref::<ListArray>().unwrap();
+        let binding = list.value(0);
+        let inner = binding.as_any().downcast_ref::<StringArray>().unwrap();
+        assert_eq!(inner.value(0), "x");
+        assert_eq!(inner.value(1), "y");
+    }
+
 
     #[test]
     fn test_rename_columns_partial() {

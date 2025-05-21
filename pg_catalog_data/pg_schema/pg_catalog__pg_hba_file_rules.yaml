@@ -12,12 +12,12 @@ public:
         file_name: varchar(256)
         line_number: int
         type: varchar(256)
-        database: varchar(256)
-        user_name: varchar(256)
+        database: _text
+        user_name: _text
         address: varchar(256)
         netmask: varchar(256)
         auth_method: varchar(256)
-        options: varchar(256)
+        options: _text
         error: varchar(256)
       pg_types:
         rule_number: int4
@@ -33,7 +33,7 @@ public:
         error: text
       rows:
       - rule_number: 1
-        file_name: /Users/aybarsb/projects/pg_catalog/postgres-data/pg_hba.conf
+        file_name: /Users/abadur/projects/query/postgres-data/pg_hba.conf
         line_number: 117
         type: local
         database: '[''all'']'
@@ -44,7 +44,7 @@ public:
         options: null
         error: null
       - rule_number: 2
-        file_name: /Users/aybarsb/projects/pg_catalog/postgres-data/pg_hba.conf
+        file_name: /Users/abadur/projects/query/postgres-data/pg_hba.conf
         line_number: 119
         type: host
         database: '[''all'']'
@@ -55,7 +55,7 @@ public:
         options: null
         error: null
       - rule_number: 3
-        file_name: /Users/aybarsb/projects/pg_catalog/postgres-data/pg_hba.conf
+        file_name: /Users/abadur/projects/query/postgres-data/pg_hba.conf
         line_number: 121
         type: host
         database: '[''all'']'
@@ -66,7 +66,7 @@ public:
         options: null
         error: null
       - rule_number: 4
-        file_name: /Users/aybarsb/projects/pg_catalog/postgres-data/pg_hba.conf
+        file_name: /Users/abadur/projects/query/postgres-data/pg_hba.conf
         line_number: 124
         type: local
         database: '[''replication'']'
@@ -77,7 +77,7 @@ public:
         options: null
         error: null
       - rule_number: 5
-        file_name: /Users/aybarsb/projects/pg_catalog/postgres-data/pg_hba.conf
+        file_name: /Users/abadur/projects/query/postgres-data/pg_hba.conf
         line_number: 125
         type: host
         database: '[''replication'']'
@@ -88,7 +88,7 @@ public:
         options: null
         error: null
       - rule_number: 6
-        file_name: /Users/aybarsb/projects/pg_catalog/postgres-data/pg_hba.conf
+        file_name: /Users/abadur/projects/query/postgres-data/pg_hba.conf
         line_number: 126
         type: host
         database: '[''replication'']'

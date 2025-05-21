@@ -89,7 +89,7 @@ mod tests {
         ctx.register_catalog("public", catalog.clone());
 
         let schema = Arc::new(MemorySchemaProvider::new());
-        catalog.register_schema("pg_catalog", schema.clone());
+        catalog.register_schema("pg_catalog", schema.clone())?;
 
         let table = MemTable::try_new(batch.schema(), vec![vec![batch]])?;
 

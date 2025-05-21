@@ -17583,239 +17583,239 @@ public:
         classoid: 1255
         objsubid: 0
         description: implementation of <> operator
-      - objoid: 12618
+      - objoid: 12725
         classoid: 3764
         objsubid: 0
         description: snowball stemmer
-      - objoid: 12619
+      - objoid: 12726
         classoid: 3600
         objsubid: 0
         description: snowball stemmer for arabic language
-      - objoid: 12620
+      - objoid: 12727
         classoid: 3602
         objsubid: 0
         description: configuration for arabic language
-      - objoid: 12621
+      - objoid: 12728
         classoid: 3600
         objsubid: 0
         description: snowball stemmer for armenian language
-      - objoid: 12622
+      - objoid: 12729
         classoid: 3602
         objsubid: 0
         description: configuration for armenian language
-      - objoid: 12623
+      - objoid: 12730
         classoid: 3600
         objsubid: 0
         description: snowball stemmer for basque language
-      - objoid: 12624
+      - objoid: 12731
         classoid: 3602
         objsubid: 0
         description: configuration for basque language
-      - objoid: 12625
+      - objoid: 12732
         classoid: 3600
         objsubid: 0
         description: snowball stemmer for catalan language
-      - objoid: 12626
+      - objoid: 12733
         classoid: 3602
         objsubid: 0
         description: configuration for catalan language
-      - objoid: 12627
+      - objoid: 12734
         classoid: 3600
         objsubid: 0
         description: snowball stemmer for danish language
-      - objoid: 12628
+      - objoid: 12735
         classoid: 3602
         objsubid: 0
         description: configuration for danish language
-      - objoid: 12629
+      - objoid: 12736
         classoid: 3600
         objsubid: 0
         description: snowball stemmer for dutch language
-      - objoid: 12630
+      - objoid: 12737
         classoid: 3602
         objsubid: 0
         description: configuration for dutch language
-      - objoid: 12631
+      - objoid: 12738
         classoid: 3600
         objsubid: 0
         description: snowball stemmer for english language
-      - objoid: 12632
+      - objoid: 12739
         classoid: 3602
         objsubid: 0
         description: configuration for english language
-      - objoid: 12633
+      - objoid: 12740
         classoid: 3600
         objsubid: 0
         description: snowball stemmer for finnish language
-      - objoid: 12634
+      - objoid: 12741
         classoid: 3602
         objsubid: 0
         description: configuration for finnish language
-      - objoid: 12635
+      - objoid: 12742
         classoid: 3600
         objsubid: 0
         description: snowball stemmer for french language
-      - objoid: 12636
+      - objoid: 12743
         classoid: 3602
         objsubid: 0
         description: configuration for french language
-      - objoid: 12637
+      - objoid: 12744
         classoid: 3600
         objsubid: 0
         description: snowball stemmer for german language
-      - objoid: 12638
+      - objoid: 12745
         classoid: 3602
         objsubid: 0
         description: configuration for german language
-      - objoid: 12639
+      - objoid: 12746
         classoid: 3600
         objsubid: 0
         description: snowball stemmer for greek language
-      - objoid: 12640
+      - objoid: 12747
         classoid: 3602
         objsubid: 0
         description: configuration for greek language
-      - objoid: 12641
+      - objoid: 12748
         classoid: 3600
         objsubid: 0
         description: snowball stemmer for hindi language
-      - objoid: 12642
+      - objoid: 12749
         classoid: 3602
         objsubid: 0
         description: configuration for hindi language
-      - objoid: 12643
+      - objoid: 12750
         classoid: 3600
         objsubid: 0
         description: snowball stemmer for hungarian language
-      - objoid: 12644
+      - objoid: 12751
         classoid: 3602
         objsubid: 0
         description: configuration for hungarian language
-      - objoid: 12645
+      - objoid: 12752
         classoid: 3600
         objsubid: 0
         description: snowball stemmer for indonesian language
-      - objoid: 12646
+      - objoid: 12753
         classoid: 3602
         objsubid: 0
         description: configuration for indonesian language
-      - objoid: 12647
+      - objoid: 12754
         classoid: 3600
         objsubid: 0
         description: snowball stemmer for irish language
-      - objoid: 12648
+      - objoid: 12755
         classoid: 3602
         objsubid: 0
         description: configuration for irish language
-      - objoid: 12649
+      - objoid: 12756
         classoid: 3600
         objsubid: 0
         description: snowball stemmer for italian language
-      - objoid: 12650
+      - objoid: 12757
         classoid: 3602
         objsubid: 0
         description: configuration for italian language
-      - objoid: 12651
+      - objoid: 12758
         classoid: 3600
         objsubid: 0
         description: snowball stemmer for lithuanian language
-      - objoid: 12652
+      - objoid: 12759
         classoid: 3602
         objsubid: 0
         description: configuration for lithuanian language
-      - objoid: 12653
+      - objoid: 12760
         classoid: 3600
         objsubid: 0
         description: snowball stemmer for nepali language
-      - objoid: 12654
+      - objoid: 12761
         classoid: 3602
         objsubid: 0
         description: configuration for nepali language
-      - objoid: 12655
+      - objoid: 12762
         classoid: 3600
         objsubid: 0
         description: snowball stemmer for norwegian language
-      - objoid: 12656
+      - objoid: 12763
         classoid: 3602
         objsubid: 0
         description: configuration for norwegian language
-      - objoid: 12657
+      - objoid: 12764
         classoid: 3600
         objsubid: 0
         description: snowball stemmer for portuguese language
-      - objoid: 12658
+      - objoid: 12765
         classoid: 3602
         objsubid: 0
         description: configuration for portuguese language
-      - objoid: 12659
+      - objoid: 12766
         classoid: 3600
         objsubid: 0
         description: snowball stemmer for romanian language
-      - objoid: 12660
+      - objoid: 12767
         classoid: 3602
         objsubid: 0
         description: configuration for romanian language
-      - objoid: 12661
+      - objoid: 12768
         classoid: 3600
         objsubid: 0
         description: snowball stemmer for russian language
-      - objoid: 12662
+      - objoid: 12769
         classoid: 3602
         objsubid: 0
         description: configuration for russian language
-      - objoid: 12663
+      - objoid: 12770
         classoid: 3600
         objsubid: 0
         description: snowball stemmer for serbian language
-      - objoid: 12664
+      - objoid: 12771
         classoid: 3602
         objsubid: 0
         description: configuration for serbian language
-      - objoid: 12665
+      - objoid: 12772
         classoid: 3600
         objsubid: 0
         description: snowball stemmer for spanish language
-      - objoid: 12666
+      - objoid: 12773
         classoid: 3602
         objsubid: 0
         description: configuration for spanish language
-      - objoid: 12667
+      - objoid: 12774
         classoid: 3600
         objsubid: 0
         description: snowball stemmer for swedish language
-      - objoid: 12668
+      - objoid: 12775
         classoid: 3602
         objsubid: 0
         description: configuration for swedish language
-      - objoid: 12669
+      - objoid: 12776
         classoid: 3600
         objsubid: 0
         description: snowball stemmer for tamil language
-      - objoid: 12670
+      - objoid: 12777
         classoid: 3602
         objsubid: 0
         description: configuration for tamil language
-      - objoid: 12671
+      - objoid: 12778
         classoid: 3600
         objsubid: 0
         description: snowball stemmer for turkish language
-      - objoid: 12672
+      - objoid: 12779
         classoid: 3602
         objsubid: 0
         description: configuration for turkish language
-      - objoid: 12673
+      - objoid: 12780
         classoid: 3600
         objsubid: 0
         description: snowball stemmer for yiddish language
-      - objoid: 12674
+      - objoid: 12781
         classoid: 3602
         objsubid: 0
         description: configuration for yiddish language
-      - objoid: 13025
+      - objoid: 13132
         classoid: 3079
         objsubid: 0
         description: PL/pgSQL procedural language
-      - objoid: 13029
+      - objoid: 13136
         classoid: 2612
         objsubid: 0
         description: PL/pgSQL procedural language

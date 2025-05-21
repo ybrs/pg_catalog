@@ -21,7 +21,7 @@ public:
         source: varchar(256)
         min_val: varchar(256)
         max_val: varchar(256)
-        enumvals: varchar(256)
+        enumvals: _text
         boot_val: varchar(256)
         reset_val: varchar(256)
         sourcefile: varchar(256)
@@ -904,7 +904,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: config_file
-        setting: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+        setting: /Users/abadur/projects/query/postgres-data/postgresql.conf
         unit: null
         category: File Locations
         short_desc: Sets the server's main configuration file.
@@ -916,7 +916,7 @@ public:
         max_val: null
         enumvals: null
         boot_val: null
-        reset_val: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+        reset_val: /Users/abadur/projects/query/postgres-data/postgresql.conf
         sourcefile: null
         sourceline: null
         pending_restart: false
@@ -1046,7 +1046,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: data_directory
-        setting: /Users/aybarsb/projects/pg_catalog/postgres-data
+        setting: /Users/abadur/projects/query/postgres-data
         unit: null
         category: File Locations
         short_desc: Sets the server's data directory.
@@ -1058,7 +1058,7 @@ public:
         max_val: null
         enumvals: null
         boot_val: null
-        reset_val: /Users/aybarsb/projects/pg_catalog/postgres-data
+        reset_val: /Users/abadur/projects/query/postgres-data
         sourcefile: null
         sourceline: null
         pending_restart: false
@@ -1099,7 +1099,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: DateStyle
-        setting: ISO, MDY
+        setting: ISO, DMY
         unit: null
         category: Client Connection Defaults / Locale and Formatting
         short_desc: Sets the display format for date and time values.
@@ -1111,8 +1111,8 @@ public:
         max_val: null
         enumvals: null
         boot_val: ISO, MDY
-        reset_val: ISO, MDY
-        sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+        reset_val: ISO, DMY
+        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
         sourceline: 736
         pending_restart: false
       - name: deadlock_timeout
@@ -1344,7 +1344,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: default_text_search_config
-        setting: pg_catalog.simple
+        setting: pg_catalog.dutch
         unit: null
         category: Client Connection Defaults / Locale and Formatting
         short_desc: Sets default text search configuration.
@@ -1356,8 +1356,8 @@ public:
         max_val: null
         enumvals: null
         boot_val: pg_catalog.simple
-        reset_val: pg_catalog.simple
-        sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+        reset_val: pg_catalog.dutch
+        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
         sourceline: 762
         pending_restart: false
       - name: default_toast_compression
@@ -1462,7 +1462,7 @@ public:
         enumvals: '[''posix'', ''sysv'', ''mmap'']'
         boot_val: posix
         reset_val: posix
-        sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
         sourceline: 152
         pending_restart: false
       - name: effective_cache_size
@@ -2233,7 +2233,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: hba_file
-        setting: /Users/aybarsb/projects/pg_catalog/postgres-data/pg_hba.conf
+        setting: /Users/abadur/projects/query/postgres-data/pg_hba.conf
         unit: null
         category: File Locations
         short_desc: Sets the server's "hba" configuration file.
@@ -2245,7 +2245,7 @@ public:
         max_val: null
         enumvals: null
         boot_val: null
-        reset_val: /Users/aybarsb/projects/pg_catalog/postgres-data/pg_hba.conf
+        reset_val: /Users/abadur/projects/query/postgres-data/pg_hba.conf
         sourcefile: null
         sourceline: null
         pending_restart: false
@@ -2354,7 +2354,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: ident_file
-        setting: /Users/aybarsb/projects/pg_catalog/postgres-data/pg_ident.conf
+        setting: /Users/abadur/projects/query/postgres-data/pg_ident.conf
         unit: null
         category: File Locations
         short_desc: Sets the server's "ident" configuration file.
@@ -2366,7 +2366,7 @@ public:
         max_val: null
         enumvals: null
         boot_val: null
-        reset_val: /Users/aybarsb/projects/pg_catalog/postgres-data/pg_ident.conf
+        reset_val: /Users/abadur/projects/query/postgres-data/pg_ident.conf
         sourcefile: null
         sourceline: null
         pending_restart: false
@@ -2760,7 +2760,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: lc_messages
-        setting: C
+        setting: nl_NL.UTF-8
         unit: null
         category: Client Connection Defaults / Locale and Formatting
         short_desc: Sets the language in which messages are displayed.
@@ -2772,12 +2772,12 @@ public:
         max_val: null
         enumvals: null
         boot_val: ''
-        reset_val: C
-        sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+        reset_val: nl_NL.UTF-8
+        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
         sourceline: 752
         pending_restart: false
       - name: lc_monetary
-        setting: C
+        setting: nl_NL.UTF-8
         unit: null
         category: Client Connection Defaults / Locale and Formatting
         short_desc: Sets the locale for formatting monetary amounts.
@@ -2789,12 +2789,12 @@ public:
         max_val: null
         enumvals: null
         boot_val: C
-        reset_val: C
-        sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+        reset_val: nl_NL.UTF-8
+        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
         sourceline: 754
         pending_restart: false
       - name: lc_numeric
-        setting: C
+        setting: nl_NL.UTF-8
         unit: null
         category: Client Connection Defaults / Locale and Formatting
         short_desc: Sets the locale for formatting numbers.
@@ -2806,12 +2806,12 @@ public:
         max_val: null
         enumvals: null
         boot_val: C
-        reset_val: C
-        sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+        reset_val: nl_NL.UTF-8
+        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
         sourceline: 755
         pending_restart: false
       - name: lc_time
-        setting: C
+        setting: nl_NL.UTF-8
         unit: null
         category: Client Connection Defaults / Locale and Formatting
         short_desc: Sets the locale for formatting date and time values.
@@ -2823,8 +2823,8 @@ public:
         max_val: null
         enumvals: null
         boot_val: C
-        reset_val: C
-        sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+        reset_val: nl_NL.UTF-8
+        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
         sourceline: 756
         pending_restart: false
       - name: listen_addresses
@@ -3456,7 +3456,7 @@ public:
         enumvals: null
         boot_val: GMT
         reset_val: Europe/Amsterdam
-        sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
         sourceline: 622
         pending_restart: false
       - name: log_transaction_sample_rate
@@ -3579,7 +3579,7 @@ public:
         enumvals: null
         boot_val: '100'
         reset_val: '100'
-        sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
         sourceline: 65
         pending_restart: false
       - name: max_files_per_process
@@ -3987,7 +3987,7 @@ public:
         enumvals: null
         boot_val: '1024'
         reset_val: '1024'
-        sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
         sourceline: 257
         pending_restart: false
       - name: max_worker_processes
@@ -4074,7 +4074,7 @@ public:
         enumvals: null
         boot_val: '80'
         reset_val: '80'
-        sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
         sourceline: 258
         pending_restart: false
       - name: multixact_member_buffers
@@ -4893,7 +4893,7 @@ public:
         enumvals: null
         boot_val: '16384'
         reset_val: '16384'
-        sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
         sourceline: 129
         pending_restart: false
       - name: shared_memory_size
@@ -5620,7 +5620,7 @@ public:
         enumvals: null
         boot_val: GMT
         reset_val: Europe/Amsterdam
-        sourcefile: /Users/aybarsb/projects/pg_catalog/postgres-data/postgresql.conf
+        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
         sourceline: 738
         pending_restart: false
       - name: timezone_abbreviations

@@ -32,13 +32,13 @@ public:
       rows:
       - specific_catalog: postgres
         specific_schema: information_schema
-        specific_name: _pg_char_octet_length_12681
+        specific_name: _pg_char_octet_length_12788
         routine_catalog: postgres
         routine_schema: information_schema
-        routine_name: _pg_char_max_length_12680
+        routine_name: _pg_char_max_length_12787
       - specific_catalog: postgres
         specific_schema: information_schema
-        specific_name: _pg_index_position_12677
+        specific_name: _pg_index_position_12784
         routine_catalog: postgres
         routine_schema: information_schema
-        routine_name: _pg_expandarray_12676
+        routine_name: _pg_expandarray_12783

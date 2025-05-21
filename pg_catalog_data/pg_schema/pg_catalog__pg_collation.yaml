@@ -102,6 +102,30 @@ public:
         collicurules: null
         collversion: null
       - oid: 12351
+        collname: fa_IR
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: fa_IR
+        collctype: fa_IR
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12352
+        collname: ca_AD.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: ca_AD.UTF-8
+        collctype: ca_AD.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12353
         collname: en_NZ
         collnamespace: 11
         collowner: 10
@@ -113,7 +137,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12352
+      - oid: 12354
+        collname: en_SG.ISO8859-1
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 8
+        collcollate: en_SG.ISO8859-1
+        collctype: en_SG.ISO8859-1
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12355
         collname: nl_NL.UTF-8
         collnamespace: 11
         collowner: 10
@@ -125,7 +161,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12353
+      - oid: 12356
+        collname: lv_LV.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: lv_LV.UTF-8
+        collctype: lv_LV.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12357
         collname: pt_BR.UTF-8
         collnamespace: 11
         collowner: 10
@@ -137,7 +185,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12354
+      - oid: 12358
+        collname: ca_FR.ISO8859-15
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 16
+        collcollate: ca_FR.ISO8859-15
+        collctype: ca_FR.ISO8859-15
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12359
         collname: fr_CH.ISO8859-15
         collnamespace: 11
         collowner: 10
@@ -149,7 +209,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12355
+      - oid: 12360
         collname: eu_ES.ISO8859-15
         collnamespace: 11
         collowner: 10
@@ -161,7 +221,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12356
+      - oid: 12361
         collname: af_ZA
         collnamespace: 11
         collowner: 10
@@ -173,7 +233,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12357
+      - oid: 12362
         collname: bg_BG
         collnamespace: 11
         collowner: 10
@@ -185,7 +245,43 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12358
+      - oid: 12363
+        collname: en_IE.ISO8859-1
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 8
+        collcollate: en_IE.ISO8859-1
+        collctype: en_IE.ISO8859-1
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12364
+        collname: en_HK
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: en_HK
+        collctype: en_HK
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12365
+        collname: es_MX.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: es_MX.UTF-8
+        collctype: es_MX.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12366
         collname: cs_CZ.UTF-8
         collnamespace: 11
         collowner: 10
@@ -197,7 +293,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12359
+      - oid: 12367
         collname: fi_FI
         collnamespace: 11
         collowner: 10
@@ -209,7 +305,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12360
+      - oid: 12368
         collname: zh_CN.UTF-8
         collnamespace: 11
         collowner: 10
@@ -221,7 +317,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12361
+      - oid: 12369
         collname: eu_ES
         collnamespace: 11
         collowner: 10
@@ -233,7 +329,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12362
+      - oid: 12370
         collname: sk_SK.ISO8859-2
         collnamespace: 11
         collowner: 10
@@ -245,7 +341,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12363
+      - oid: 12371
         collname: nl_BE
         collnamespace: 11
         collowner: 10
@@ -257,7 +353,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12364
+      - oid: 12372
         collname: fr_BE
         collnamespace: 11
         collowner: 10
@@ -269,7 +365,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12365
+      - oid: 12373
+        collname: sv_FI.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: sv_FI.UTF-8
+        collctype: sv_FI.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12374
         collname: sk_SK
         collnamespace: 11
         collowner: 10
@@ -281,7 +389,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12366
+      - oid: 12375
+        collname: se_NO.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: se_NO.UTF-8
+        collctype: se_NO.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12376
         collname: en_US.UTF-8
         collnamespace: 11
         collowner: 10
@@ -293,7 +413,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12367
+      - oid: 12377
+        collname: nb_NO.ISO8859-15
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 16
+        collcollate: nb_NO.ISO8859-15
+        collctype: nb_NO.ISO8859-15
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12378
         collname: en_NZ.ISO8859-1
         collnamespace: 11
         collowner: 10
@@ -305,7 +437,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12368
+      - oid: 12379
         collname: de_CH
         collnamespace: 11
         collowner: 10
@@ -317,7 +449,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12369
+      - oid: 12380
         collname: sk_SK.UTF-8
         collnamespace: 11
         collowner: 10
@@ -329,7 +461,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12370
+      - oid: 12381
         collname: de_DE.UTF-8
         collnamespace: 11
         collowner: 10
@@ -341,7 +473,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12371
+      - oid: 12382
         collname: am_ET.UTF-8
         collnamespace: 11
         collowner: 10
@@ -353,7 +485,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12372
+      - oid: 12383
         collname: zh_HK
         collnamespace: 11
         collowner: 10
@@ -365,7 +497,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12373
+      - oid: 12384
         collname: be_BY.UTF-8
         collnamespace: 11
         collowner: 10
@@ -377,7 +509,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12374
+      - oid: 12385
         collname: uk_UA
         collnamespace: 11
         collowner: 10
@@ -389,7 +521,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12375
+      - oid: 12386
         collname: pt_PT.ISO8859-1
         collnamespace: 11
         collowner: 10
@@ -401,7 +533,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12376
+      - oid: 12387
         collname: en_US
         collnamespace: 11
         collowner: 10
@@ -413,7 +545,31 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12377
+      - oid: 12388
+        collname: en_ZA.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: en_ZA.UTF-8
+        collctype: en_ZA.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12389
+        collname: ca_IT
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: ca_IT
+        collctype: ca_IT
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12390
         collname: nl_BE.ISO8859-15
         collnamespace: 11
         collowner: 10
@@ -425,7 +581,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12378
+      - oid: 12391
+        collname: fa_IR.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: fa_IR.UTF-8
+        collctype: fa_IR.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12392
         collname: de_AT.ISO8859-1
         collnamespace: 11
         collowner: 10
@@ -437,7 +605,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12379
+      - oid: 12393
         collname: hr_HR.ISO8859-2
         collnamespace: 11
         collowner: 10
@@ -449,7 +617,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12380
+      - oid: 12394
         collname: fr_FR.ISO8859-1
         collnamespace: 11
         collowner: 10
@@ -461,7 +629,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12381
+      - oid: 12395
         collname: af_ZA.UTF-8
         collnamespace: 11
         collowner: 10
@@ -473,7 +641,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12382
+      - oid: 12396
         collname: am_ET
         collnamespace: 11
         collowner: 10
@@ -485,7 +653,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12383
+      - oid: 12397
+        collname: sv_FI.ISO8859-1
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 8
+        collcollate: sv_FI.ISO8859-1
+        collctype: sv_FI.ISO8859-1
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12398
         collname: fi_FI.ISO8859-1
         collnamespace: 11
         collowner: 10
@@ -497,7 +677,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12384
+      - oid: 12399
         collname: ro_RO.UTF-8
         collnamespace: 11
         collowner: 10
@@ -509,7 +689,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12385
+      - oid: 12400
+        collname: ar_AE
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: ar_AE
+        collctype: ar_AE
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12401
         collname: af_ZA.ISO8859-15
         collnamespace: 11
         collowner: 10
@@ -521,7 +713,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12386
+      - oid: 12402
         collname: en_NZ.UTF-8
         collnamespace: 11
         collowner: 10
@@ -533,7 +725,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12387
+      - oid: 12403
         collname: fi_FI.UTF-8
         collnamespace: 11
         collowner: 10
@@ -545,7 +737,31 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12388
+      - oid: 12404
+        collname: hi_IN.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: hi_IN.UTF-8
+        collctype: hi_IN.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12405
+        collname: C.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: C.UTF-8
+        collctype: C.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12406
         collname: hr_HR.UTF-8
         collnamespace: 11
         collowner: 10
@@ -557,7 +773,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12389
+      - oid: 12407
         collname: da_DK.UTF-8
         collnamespace: 11
         collowner: 10
@@ -569,7 +785,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12390
+      - oid: 12408
         collname: ca_ES.ISO8859-1
         collnamespace: 11
         collowner: 10
@@ -581,7 +797,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12391
+      - oid: 12409
         collname: en_AU.ISO8859-15
         collnamespace: 11
         collowner: 10
@@ -593,7 +809,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12392
+      - oid: 12410
         collname: ro_RO.ISO8859-2
         collnamespace: 11
         collowner: 10
@@ -605,7 +821,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12393
+      - oid: 12411
         collname: de_AT.UTF-8
         collnamespace: 11
         collowner: 10
@@ -617,7 +833,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12394
+      - oid: 12412
         collname: pt_PT.ISO8859-15
         collnamespace: 11
         collowner: 10
@@ -629,7 +845,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12395
+      - oid: 12413
         collname: sv_SE
         collnamespace: 11
         collowner: 10
@@ -641,7 +857,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12396
+      - oid: 12414
         collname: fr_CA.ISO8859-1
         collnamespace: 11
         collowner: 10
@@ -653,7 +869,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12397
+      - oid: 12415
         collname: fr_BE.ISO8859-1
         collnamespace: 11
         collowner: 10
@@ -665,7 +881,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12398
+      - oid: 12416
         collname: en_US.ISO8859-15
         collnamespace: 11
         collowner: 10
@@ -677,7 +893,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12399
+      - oid: 12417
         collname: it_CH.ISO8859-1
         collnamespace: 11
         collowner: 10
@@ -689,7 +905,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12400
+      - oid: 12418
         collname: en_NZ.ISO8859-15
         collnamespace: 11
         collowner: 10
@@ -701,7 +917,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12401
+      - oid: 12419
         collname: en_AU.UTF-8
         collnamespace: 11
         collowner: 10
@@ -713,7 +929,31 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12402
+      - oid: 12420
+        collname: ar_MA
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: ar_MA
+        collctype: ar_MA
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12421
+        collname: lv_LV.ISO8859-13
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 14
+        collcollate: lv_LV.ISO8859-13
+        collctype: lv_LV.ISO8859-13
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12422
         collname: de_AT.ISO8859-15
         collnamespace: 11
         collowner: 10
@@ -725,7 +965,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12403
+      - oid: 12423
         collname: af_ZA.ISO8859-1
         collnamespace: 11
         collowner: 10
@@ -737,7 +977,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12404
+      - oid: 12424
         collname: hu_HU.UTF-8
         collnamespace: 11
         collowner: 10
@@ -749,7 +989,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12405
+      - oid: 12425
+        collname: ca_AD.ISO8859-1
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 8
+        collcollate: ca_AD.ISO8859-1
+        collctype: ca_AD.ISO8859-1
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12426
         collname: et_EE.UTF-8
         collnamespace: 11
         collowner: 10
@@ -761,7 +1013,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12406
+      - oid: 12427
+        collname: es_AR.ISO8859-1
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 8
+        collcollate: es_AR.ISO8859-1
+        collctype: es_AR.ISO8859-1
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12428
         collname: he_IL.UTF-8
         collnamespace: 11
         collowner: 10
@@ -773,7 +1037,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12407
+      - oid: 12429
         collname: uk_UA.KOI8-U
         collnamespace: 11
         collowner: 10
@@ -785,7 +1049,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12408
+      - oid: 12430
+        collname: uk_UA.CP1251
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 23
+        collcollate: uk_UA.CP1251
+        collctype: uk_UA.CP1251
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12431
         collname: be_BY
         collnamespace: 11
         collowner: 10
@@ -797,7 +1073,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12409
+      - oid: 12432
         collname: kk_KZ
         collnamespace: 11
         collowner: 10
@@ -809,7 +1085,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12410
+      - oid: 12433
         collname: hu_HU.ISO8859-2
         collnamespace: 11
         collowner: 10
@@ -821,7 +1097,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12411
+      - oid: 12434
         collname: it_CH
         collnamespace: 11
         collowner: 10
@@ -833,7 +1109,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12412
+      - oid: 12435
         collname: pt_BR
         collnamespace: 11
         collowner: 10
@@ -845,7 +1121,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12413
+      - oid: 12436
         collname: ko_KR
         collnamespace: 11
         collowner: 10
@@ -857,7 +1133,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12414
+      - oid: 12437
         collname: it_IT
         collnamespace: 11
         collowner: 10
@@ -869,7 +1145,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12415
+      - oid: 12438
         collname: fr_BE.UTF-8
         collnamespace: 11
         collowner: 10
@@ -881,7 +1157,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12416
+      - oid: 12439
         collname: ru_RU.ISO8859-5
         collnamespace: 11
         collowner: 10
@@ -893,7 +1169,31 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12417
+      - oid: 12440
+        collname: et_EE.ISO8859-1
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 8
+        collcollate: et_EE.ISO8859-1
+        collctype: et_EE.ISO8859-1
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12441
+        collname: se_FI.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: se_FI.UTF-8
+        collctype: se_FI.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12442
         collname: zh_TW
         collnamespace: 11
         collowner: 10
@@ -905,7 +1205,43 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12418
+      - oid: 12443
+        collname: es_CR
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: es_CR
+        collctype: es_CR
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12444
+        collname: sr_RS
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: sr_RS
+        collctype: sr_RS
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12445
+        collname: nb_NO
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: nb_NO
+        collctype: nb_NO
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12446
         collname: zh_CN.GB2312
         collnamespace: 11
         collowner: 10
@@ -917,7 +1253,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12419
+      - oid: 12447
         collname: no_NO.ISO8859-15
         collnamespace: 11
         collowner: 10
@@ -929,7 +1265,43 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12420
+      - oid: 12448
+        collname: ar_JO
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: ar_JO
+        collctype: ar_JO
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12449
+        collname: sv_FI.ISO8859-15
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 16
+        collcollate: sv_FI.ISO8859-15
+        collctype: sv_FI.ISO8859-15
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12450
+        collname: ca_AD
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: ca_AD
+        collctype: ca_AD
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12451
         collname: de_DE.ISO8859-15
         collnamespace: 11
         collowner: 10
@@ -941,7 +1313,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12421
+      - oid: 12452
+        collname: en_IN.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: en_IN.UTF-8
+        collctype: en_IN.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12453
         collname: en_CA
         collnamespace: 11
         collowner: 10
@@ -953,7 +1337,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12422
+      - oid: 12454
         collname: fr_CH.UTF-8
         collnamespace: 11
         collowner: 10
@@ -965,7 +1349,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12423
+      - oid: 12455
         collname: sl_SI.UTF-8
         collnamespace: 11
         collowner: 10
@@ -977,7 +1361,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12424
+      - oid: 12456
         collname: uk_UA.ISO8859-5
         collnamespace: 11
         collowner: 10
@@ -989,7 +1373,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12425
+      - oid: 12457
         collname: pt_PT
         collnamespace: 11
         collowner: 10
@@ -1001,7 +1385,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12426
+      - oid: 12458
         collname: hr_HR
         collnamespace: 11
         collowner: 10
@@ -1013,7 +1397,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12427
+      - oid: 12459
         collname: cs_CZ
         collnamespace: 11
         collowner: 10
@@ -1025,7 +1409,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12428
+      - oid: 12460
+        collname: ca_FR.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: ca_FR.UTF-8
+        collctype: ca_FR.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12461
         collname: fr_CH
         collnamespace: 11
         collowner: 10
@@ -1037,7 +1433,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12429
+      - oid: 12462
         collname: he_IL
         collnamespace: 11
         collowner: 10
@@ -1049,7 +1445,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12430
+      - oid: 12463
+        collname: en_HK.ISO8859-1
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 8
+        collcollate: en_HK.ISO8859-1
+        collctype: en_HK.ISO8859-1
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12464
         collname: fr_CA
         collnamespace: 11
         collowner: 10
@@ -1061,7 +1469,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12431
+      - oid: 12465
+        collname: en_IE.ISO8859-15
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 16
+        collcollate: en_IE.ISO8859-15
+        collctype: en_IE.ISO8859-15
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12466
         collname: pl_PL.UTF-8
         collnamespace: 11
         collowner: 10
@@ -1073,7 +1493,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12432
+      - oid: 12467
+        collname: hi_IN
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: hi_IN
+        collctype: hi_IN
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12468
         collname: sr_YU.ISO8859-5
         collnamespace: 11
         collowner: 10
@@ -1085,7 +1517,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12433
+      - oid: 12469
         collname: be_BY.CP1251
         collnamespace: 11
         collowner: 10
@@ -1097,7 +1529,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12434
+      - oid: 12470
         collname: sr_YU.ISO8859-2
         collnamespace: 11
         collowner: 10
@@ -1109,7 +1541,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12435
+      - oid: 12471
         collname: sv_SE.UTF-8
         collnamespace: 11
         collowner: 10
@@ -1121,7 +1553,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12436
+      - oid: 12472
+        collname: se_NO
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: se_NO
+        collctype: se_NO
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12473
         collname: sr_YU.UTF-8
         collnamespace: 11
         collowner: 10
@@ -1133,7 +1577,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12437
+      - oid: 12474
         collname: de_CH.UTF-8
         collnamespace: 11
         collowner: 10
@@ -1145,7 +1589,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12438
+      - oid: 12475
         collname: sl_SI
         collnamespace: 11
         collowner: 10
@@ -1157,7 +1601,31 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12439
+      - oid: 12476
+        collname: ar_QA
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: ar_QA
+        collctype: ar_QA
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12477
+        collname: en_IN
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: en_IN
+        collctype: en_IN
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12478
         collname: pt_PT.UTF-8
         collnamespace: 11
         collowner: 10
@@ -1169,7 +1637,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12440
+      - oid: 12479
         collname: ro_RO
         collnamespace: 11
         collowner: 10
@@ -1181,7 +1649,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12441
+      - oid: 12480
         collname: ja_JP
         collnamespace: 11
         collowner: 10
@@ -1193,7 +1661,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12442
+      - oid: 12481
         collname: zh_CN
         collnamespace: 11
         collowner: 10
@@ -1205,7 +1673,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12443
+      - oid: 12482
         collname: fr_CH.ISO8859-1
         collnamespace: 11
         collowner: 10
@@ -1217,7 +1685,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12444
+      - oid: 12483
         collname: ko_KR.eucKR
         collnamespace: 11
         collowner: 10
@@ -1229,7 +1697,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12445
+      - oid: 12484
+        collname: nn_NO.ISO8859-1
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 8
+        collcollate: nn_NO.ISO8859-1
+        collctype: nn_NO.ISO8859-1
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12485
         collname: be_BY.ISO8859-5
         collnamespace: 11
         collowner: 10
@@ -1241,7 +1721,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12446
+      - oid: 12486
         collname: nl_NL.ISO8859-15
         collnamespace: 11
         collowner: 10
@@ -1253,7 +1733,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12447
+      - oid: 12487
         collname: en_GB.ISO8859-1
         collnamespace: 11
         collowner: 10
@@ -1265,7 +1745,31 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12448
+      - oid: 12488
+        collname: nb_NO.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: nb_NO.UTF-8
+        collctype: nb_NO.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12489
+        collname: ca_FR.ISO8859-1
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 8
+        collcollate: ca_FR.ISO8859-1
+        collctype: ca_FR.ISO8859-1
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12490
         collname: is_IS.ISO8859-1
         collnamespace: 11
         collowner: 10
@@ -1277,7 +1781,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12449
+      - oid: 12491
         collname: ru_RU.CP866
         collnamespace: 11
         collowner: 10
@@ -1289,7 +1793,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12450
+      - oid: 12492
         collname: nl_NL
         collnamespace: 11
         collowner: 10
@@ -1301,7 +1805,31 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12451
+      - oid: 12493
+        collname: ca_IT.ISO8859-15
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 16
+        collcollate: ca_IT.ISO8859-15
+        collctype: ca_IT.ISO8859-15
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12494
+        collname: se_FI
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: se_FI
+        collctype: se_FI
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12495
         collname: fr_CA.ISO8859-15
         collnamespace: 11
         collowner: 10
@@ -1313,7 +1841,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12452
+      - oid: 12496
         collname: sv_SE.ISO8859-15
         collnamespace: 11
         collowner: 10
@@ -1325,7 +1853,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12453
+      - oid: 12497
         collname: hy_AM
         collnamespace: 11
         collowner: 10
@@ -1337,7 +1865,31 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12454
+      - oid: 12498
+        collname: es_MX.ISO8859-1
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 8
+        collcollate: es_MX.ISO8859-1
+        collctype: es_MX.ISO8859-1
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12499
+        collname: ar_JO.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: ar_JO.UTF-8
+        collctype: ar_JO.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12500
         collname: en_CA.ISO8859-15
         collnamespace: 11
         collowner: 10
@@ -1349,7 +1901,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12455
+      - oid: 12501
         collname: en_US.ISO8859-1
         collnamespace: 11
         collowner: 10
@@ -1361,7 +1913,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12456
+      - oid: 12502
         collname: ca_ES.UTF-8
         collnamespace: 11
         collowner: 10
@@ -1373,7 +1925,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12457
+      - oid: 12503
         collname: ru_RU.CP1251
         collnamespace: 11
         collowner: 10
@@ -1385,7 +1937,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12458
+      - oid: 12504
         collname: en_GB.UTF-8
         collnamespace: 11
         collowner: 10
@@ -1397,7 +1949,31 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12459
+      - oid: 12505
+        collname: ar_AE.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: ar_AE.UTF-8
+        collctype: ar_AE.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12506
+        collname: sr_RS.ISO8859-5
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 25
+        collcollate: sr_RS.ISO8859-5
+        collctype: sr_RS.ISO8859-5
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12507
         collname: ru_RU.UTF-8
         collnamespace: 11
         collowner: 10
@@ -1409,7 +1985,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12460
+      - oid: 12508
+        collname: sr_RS.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: sr_RS.UTF-8
+        collctype: sr_RS.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12509
         collname: eu_ES.UTF-8
         collnamespace: 11
         collowner: 10
@@ -1421,7 +2009,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12461
+      - oid: 12510
         collname: es_ES.ISO8859-1
         collnamespace: 11
         collowner: 10
@@ -1433,7 +2021,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12462
+      - oid: 12511
         collname: hu_HU
         collnamespace: 11
         collowner: 10
@@ -1445,7 +2033,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12463
+      - oid: 12512
         collname: el_GR.ISO8859-7
         collnamespace: 11
         collowner: 10
@@ -1457,7 +2045,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12464
+      - oid: 12513
         collname: en_AU
         collnamespace: 11
         collowner: 10
@@ -1469,7 +2057,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12465
+      - oid: 12514
+        collname: ar_SA
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: ar_SA
+        collctype: ar_SA
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12515
         collname: it_CH.UTF-8
         collnamespace: 11
         collowner: 10
@@ -1481,7 +2081,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12466
+      - oid: 12516
         collname: en_GB
         collnamespace: 11
         collowner: 10
@@ -1493,7 +2093,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12467
+      - oid: 12517
         collname: sl_SI.ISO8859-2
         collnamespace: 11
         collowner: 10
@@ -1505,7 +2105,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12468
+      - oid: 12518
         collname: ru_RU.KOI8-R
         collnamespace: 11
         collowner: 10
@@ -1517,7 +2117,31 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12469
+      - oid: 12519
+        collname: ga_IE.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: ga_IE.UTF-8
+        collctype: ga_IE.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12520
+        collname: ga_IE
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: ga_IE
+        collctype: ga_IE
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12521
         collname: nl_BE.UTF-8
         collnamespace: 11
         collowner: 10
@@ -1529,7 +2153,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12470
+      - oid: 12522
         collname: et_EE
         collnamespace: 11
         collowner: 10
@@ -1541,7 +2165,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12471
+      - oid: 12523
         collname: fr_FR.ISO8859-15
         collnamespace: 11
         collowner: 10
@@ -1553,7 +2177,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12472
+      - oid: 12524
         collname: cs_CZ.ISO8859-2
         collnamespace: 11
         collowner: 10
@@ -1565,7 +2189,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12473
+      - oid: 12525
+        collname: es_MX
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: es_MX
+        collctype: es_MX
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12526
         collname: lt_LT.UTF-8
         collnamespace: 11
         collowner: 10
@@ -1577,7 +2213,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12474
+      - oid: 12527
+        collname: en_ZA
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: en_ZA
+        collctype: en_ZA
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12528
         collname: pl_PL.ISO8859-2
         collnamespace: 11
         collowner: 10
@@ -1589,7 +2237,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12475
+      - oid: 12529
         collname: fr_BE.ISO8859-15
         collnamespace: 11
         collowner: 10
@@ -1601,7 +2249,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12476
+      - oid: 12530
         collname: is_IS.UTF-8
         collnamespace: 11
         collowner: 10
@@ -1613,7 +2261,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12477
+      - oid: 12531
         collname: tr_TR.ISO8859-9
         collnamespace: 11
         collowner: 10
@@ -1625,7 +2273,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12478
+      - oid: 12532
         collname: da_DK.ISO8859-1
         collnamespace: 11
         collowner: 10
@@ -1637,7 +2285,31 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12479
+      - oid: 12533
+        collname: en_HK.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: en_HK.UTF-8
+        collctype: en_HK.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12534
+        collname: en_ZA.ISO8859-1
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 8
+        collcollate: en_ZA.ISO8859-1
+        collctype: en_ZA.ISO8859-1
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12535
         collname: lt_LT.ISO8859-4
         collnamespace: 11
         collowner: 10
@@ -1649,7 +2321,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12480
+      - oid: 12536
         collname: lt_LT.ISO8859-13
         collnamespace: 11
         collowner: 10
@@ -1661,7 +2333,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12481
+      - oid: 12537
+        collname: en_SG
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: en_SG
+        collctype: en_SG
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12538
         collname: zh_TW.UTF-8
         collnamespace: 11
         collowner: 10
@@ -1673,7 +2357,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12482
+      - oid: 12539
         collname: bg_BG.CP1251
         collnamespace: 11
         collowner: 10
@@ -1685,7 +2369,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12483
+      - oid: 12540
         collname: el_GR.UTF-8
         collnamespace: 11
         collowner: 10
@@ -1697,7 +2381,31 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12484
+      - oid: 12541
+        collname: en_PH
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: en_PH
+        collctype: en_PH
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12542
+        collname: ar_MA.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: ar_MA.UTF-8
+        collctype: ar_MA.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12543
         collname: da_DK.ISO8859-15
         collnamespace: 11
         collowner: 10
@@ -1709,7 +2417,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12485
+      - oid: 12544
         collname: is_IS.ISO8859-15
         collnamespace: 11
         collowner: 10
@@ -1721,7 +2429,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12486
+      - oid: 12545
         collname: no_NO.ISO8859-1
         collnamespace: 11
         collowner: 10
@@ -1733,7 +2441,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12487
+      - oid: 12546
         collname: nl_NL.ISO8859-1
         collnamespace: 11
         collowner: 10
@@ -1745,7 +2453,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12488
+      - oid: 12547
         collname: nl_BE.ISO8859-1
         collnamespace: 11
         collowner: 10
@@ -1757,7 +2465,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12489
+      - oid: 12548
         collname: sv_SE.ISO8859-1
         collnamespace: 11
         collowner: 10
@@ -1769,7 +2477,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12490
+      - oid: 12549
+        collname: lv_LV
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: lv_LV
+        collctype: lv_LV
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12550
         collname: pt_BR.ISO8859-1
         collnamespace: 11
         collowner: 10
@@ -1781,7 +2501,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12491
+      - oid: 12551
+        collname: es_AR
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: es_AR
+        collctype: es_AR
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12552
         collname: zh_CN.eucCN
         collnamespace: 11
         collowner: 10
@@ -1793,7 +2525,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12492
+      - oid: 12553
         collname: it_IT.UTF-8
         collnamespace: 11
         collowner: 10
@@ -1805,7 +2537,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12493
+      - oid: 12554
         collname: en_CA.UTF-8
         collnamespace: 11
         collowner: 10
@@ -1817,7 +2549,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12494
+      - oid: 12555
         collname: uk_UA.UTF-8
         collnamespace: 11
         collowner: 10
@@ -1829,7 +2561,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12495
+      - oid: 12556
+        collname: nn_NO.ISO8859-15
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 16
+        collcollate: nn_NO.ISO8859-15
+        collctype: nn_NO.ISO8859-15
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12557
         collname: de_CH.ISO8859-15
         collnamespace: 11
         collowner: 10
@@ -1841,7 +2585,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12496
+      - oid: 12558
+        collname: ca_FR
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: ca_FR
+        collctype: ca_FR
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12559
         collname: de_DE.ISO8859-1
         collnamespace: 11
         collowner: 10
@@ -1853,7 +2609,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12497
+      - oid: 12560
         collname: ca_ES
         collnamespace: 11
         collowner: 10
@@ -1865,7 +2621,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12498
+      - oid: 12561
         collname: sr_YU
         collnamespace: 11
         collowner: 10
@@ -1877,7 +2633,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12499
+      - oid: 12562
         collname: ru_RU
         collnamespace: 11
         collowner: 10
@@ -1889,7 +2645,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12500
+      - oid: 12563
         collname: zh_HK.UTF-8
         collnamespace: 11
         collowner: 10
@@ -1901,7 +2657,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12501
+      - oid: 12564
         collname: eu_ES.ISO8859-1
         collnamespace: 11
         collowner: 10
@@ -1913,7 +2669,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12502
+      - oid: 12565
         collname: is_IS
         collnamespace: 11
         collowner: 10
@@ -1925,7 +2681,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12503
+      - oid: 12566
         collname: bg_BG.UTF-8
         collnamespace: 11
         collowner: 10
@@ -1937,7 +2693,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12504
+      - oid: 12567
         collname: ja_JP.UTF-8
         collnamespace: 11
         collowner: 10
@@ -1949,7 +2705,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12505
+      - oid: 12568
+        collname: ar_EG
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: ar_EG
+        collctype: ar_EG
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12569
         collname: it_CH.ISO8859-15
         collnamespace: 11
         collowner: 10
@@ -1961,7 +2729,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12506
+      - oid: 12570
         collname: fr_FR.UTF-8
         collnamespace: 11
         collowner: 10
@@ -1973,7 +2741,31 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12507
+      - oid: 12571
+        collname: mn_MN.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: mn_MN.UTF-8
+        collctype: mn_MN.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12572
+        collname: mn_MN
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: mn_MN
+        collctype: mn_MN
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12573
         collname: ko_KR.UTF-8
         collnamespace: 11
         collowner: 10
@@ -1985,7 +2777,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12508
+      - oid: 12574
         collname: et_EE.ISO8859-15
         collnamespace: 11
         collowner: 10
@@ -1997,7 +2789,55 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12509
+      - oid: 12575
+        collname: ar_QA.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: ar_QA.UTF-8
+        collctype: ar_QA.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12576
+        collname: es_AR.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: es_AR.UTF-8
+        collctype: es_AR.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12577
+        collname: nn_NO
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: nn_NO
+        collctype: nn_NO
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12578
+        collname: en_ZA.ISO8859-15
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 16
+        collcollate: en_ZA.ISO8859-15
+        collctype: en_ZA.ISO8859-15
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12579
         collname: kk_KZ.UTF-8
         collnamespace: 11
         collowner: 10
@@ -2009,7 +2849,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12510
+      - oid: 12580
         collname: ca_ES.ISO8859-15
         collnamespace: 11
         collowner: 10
@@ -2021,7 +2861,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12511
+      - oid: 12581
         collname: en_IE.UTF-8
         collnamespace: 11
         collowner: 10
@@ -2033,7 +2873,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12512
+      - oid: 12582
+        collname: ca_AD.ISO8859-15
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 16
+        collcollate: ca_AD.ISO8859-15
+        collctype: ca_AD.ISO8859-15
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12583
         collname: es_ES
         collnamespace: 11
         collowner: 10
@@ -2045,7 +2897,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12513
+      - oid: 12584
         collname: de_CH.ISO8859-1
         collnamespace: 11
         collowner: 10
@@ -2057,7 +2909,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12514
+      - oid: 12585
+        collname: nb_NO.ISO8859-1
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 8
+        collcollate: nb_NO.ISO8859-1
+        collctype: nb_NO.ISO8859-1
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12586
         collname: en_CA.ISO8859-1
         collnamespace: 11
         collowner: 10
@@ -2069,7 +2933,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12515
+      - oid: 12587
         collname: es_ES.ISO8859-15
         collnamespace: 11
         collowner: 10
@@ -2081,7 +2945,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12516
+      - oid: 12588
         collname: en_AU.ISO8859-1
         collnamespace: 11
         collowner: 10
@@ -2093,7 +2957,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12517
+      - oid: 12589
         collname: el_GR
         collnamespace: 11
         collowner: 10
@@ -2105,7 +2969,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12518
+      - oid: 12590
         collname: da_DK
         collnamespace: 11
         collowner: 10
@@ -2117,7 +2981,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12519
+      - oid: 12591
         collname: no_NO
         collnamespace: 11
         collowner: 10
@@ -2129,7 +2993,31 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12520
+      - oid: 12592
+        collname: ar_EG.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: ar_EG.UTF-8
+        collctype: ar_EG.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12593
+        collname: ca_IT.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: ca_IT.UTF-8
+        collctype: ca_IT.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12594
         collname: it_IT.ISO8859-1
         collnamespace: 11
         collowner: 10
@@ -2141,7 +3029,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12521
+      - oid: 12595
         collname: en_IE
         collnamespace: 11
         collowner: 10
@@ -2153,7 +3041,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12522
+      - oid: 12596
         collname: ja_JP.eucJP
         collnamespace: 11
         collowner: 10
@@ -2165,7 +3053,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12523
+      - oid: 12597
         collname: it_IT.ISO8859-15
         collnamespace: 11
         collowner: 10
@@ -2177,7 +3065,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12524
+      - oid: 12598
         collname: pl_PL
         collnamespace: 11
         collowner: 10
@@ -2189,7 +3077,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12525
+      - oid: 12599
+        collname: en_PH.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: en_PH.UTF-8
+        collctype: en_PH.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12600
         collname: fr_CA.UTF-8
         collnamespace: 11
         collowner: 10
@@ -2201,7 +3101,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12526
+      - oid: 12601
         collname: fi_FI.ISO8859-15
         collnamespace: 11
         collowner: 10
@@ -2213,7 +3113,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12527
+      - oid: 12602
         collname: en_GB.ISO8859-15
         collnamespace: 11
         collowner: 10
@@ -2225,7 +3125,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12528
+      - oid: 12603
         collname: fr_FR
         collnamespace: 11
         collowner: 10
@@ -2237,7 +3137,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12529
+      - oid: 12604
         collname: hy_AM.UTF-8
         collnamespace: 11
         collowner: 10
@@ -2249,7 +3149,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12530
+      - oid: 12605
         collname: no_NO.UTF-8
         collnamespace: 11
         collowner: 10
@@ -2261,7 +3161,31 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12531
+      - oid: 12606
+        collname: nn_NO.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: nn_NO.UTF-8
+        collctype: nn_NO.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12607
+        collname: ca_IT.ISO8859-1
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 8
+        collcollate: ca_IT.ISO8859-1
+        collctype: ca_IT.ISO8859-1
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12608
         collname: es_ES.UTF-8
         collnamespace: 11
         collowner: 10
@@ -2273,7 +3197,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12532
+      - oid: 12609
+        collname: en_SG.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: en_SG.UTF-8
+        collctype: en_SG.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12610
         collname: de_AT
         collnamespace: 11
         collowner: 10
@@ -2285,7 +3221,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12533
+      - oid: 12611
+        collname: sv_FI
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: sv_FI
+        collctype: sv_FI
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12612
         collname: tr_TR.UTF-8
         collnamespace: 11
         collowner: 10
@@ -2297,7 +3245,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12534
+      - oid: 12613
+        collname: fa_AF
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: fa_AF
+        collctype: fa_AF
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12614
         collname: de_DE
         collnamespace: 11
         collowner: 10
@@ -2309,7 +3269,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12535
+      - oid: 12615
+        collname: ar_SA.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: ar_SA.UTF-8
+        collctype: ar_SA.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12616
         collname: lt_LT
         collnamespace: 11
         collowner: 10
@@ -2321,7 +3293,31 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12536
+      - oid: 12617
+        collname: es_CR.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: es_CR.UTF-8
+        collctype: es_CR.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12618
+        collname: fa_AF.UTF-8
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 6
+        collcollate: fa_AF.UTF-8
+        collctype: fa_AF.UTF-8
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12619
         collname: tr_TR
         collnamespace: 11
         collowner: 10
@@ -2333,7 +3329,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12537
+      - oid: 12620
         collname: af_ZA
         collnamespace: 11
         collowner: 10
@@ -2345,7 +3341,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12538
+      - oid: 12621
         collname: af_ZA
         collnamespace: 11
         collowner: 10
@@ -2357,7 +3353,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12539
+      - oid: 12622
         collname: be_BY
         collnamespace: 11
         collowner: 10
@@ -2369,7 +3365,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12540
+      - oid: 12623
         collname: be_BY
         collnamespace: 11
         collowner: 10
@@ -2381,7 +3377,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12541
+      - oid: 12624
         collname: bg_BG
         collnamespace: 11
         collowner: 10
@@ -2393,7 +3389,31 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12542
+      - oid: 12625
+        collname: ca_AD
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 8
+        collcollate: ca_AD.ISO8859-1
+        collctype: ca_AD.ISO8859-1
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12626
+        collname: ca_AD
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 16
+        collcollate: ca_AD.ISO8859-15
+        collctype: ca_AD.ISO8859-15
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12627
         collname: ca_ES
         collnamespace: 11
         collowner: 10
@@ -2405,7 +3425,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12543
+      - oid: 12628
         collname: ca_ES
         collnamespace: 11
         collowner: 10
@@ -2417,7 +3437,55 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12544
+      - oid: 12629
+        collname: ca_FR
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 8
+        collcollate: ca_FR.ISO8859-1
+        collctype: ca_FR.ISO8859-1
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12630
+        collname: ca_FR
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 16
+        collcollate: ca_FR.ISO8859-15
+        collctype: ca_FR.ISO8859-15
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12631
+        collname: ca_IT
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 8
+        collcollate: ca_IT.ISO8859-1
+        collctype: ca_IT.ISO8859-1
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12632
+        collname: ca_IT
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 16
+        collcollate: ca_IT.ISO8859-15
+        collctype: ca_IT.ISO8859-15
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12633
         collname: cs_CZ
         collnamespace: 11
         collowner: 10
@@ -2429,7 +3497,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12545
+      - oid: 12634
         collname: da_DK
         collnamespace: 11
         collowner: 10
@@ -2441,7 +3509,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12546
+      - oid: 12635
         collname: da_DK
         collnamespace: 11
         collowner: 10
@@ -2453,7 +3521,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12547
+      - oid: 12636
         collname: de_AT
         collnamespace: 11
         collowner: 10
@@ -2465,7 +3533,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12548
+      - oid: 12637
         collname: de_AT
         collnamespace: 11
         collowner: 10
@@ -2477,7 +3545,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12549
+      - oid: 12638
         collname: de_CH
         collnamespace: 11
         collowner: 10
@@ -2489,7 +3557,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12550
+      - oid: 12639
         collname: de_CH
         collnamespace: 11
         collowner: 10
@@ -2501,7 +3569,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12551
+      - oid: 12640
         collname: de_DE
         collnamespace: 11
         collowner: 10
@@ -2513,7 +3581,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12552
+      - oid: 12641
         collname: de_DE
         collnamespace: 11
         collowner: 10
@@ -2525,7 +3593,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12553
+      - oid: 12642
         collname: el_GR
         collnamespace: 11
         collowner: 10
@@ -2537,7 +3605,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12554
+      - oid: 12643
         collname: en_AU
         collnamespace: 11
         collowner: 10
@@ -2549,7 +3617,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12555
+      - oid: 12644
         collname: en_AU
         collnamespace: 11
         collowner: 10
@@ -2561,7 +3629,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12556
+      - oid: 12645
         collname: en_CA
         collnamespace: 11
         collowner: 10
@@ -2573,7 +3641,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12557
+      - oid: 12646
         collname: en_CA
         collnamespace: 11
         collowner: 10
@@ -2585,7 +3653,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12558
+      - oid: 12647
         collname: en_GB
         collnamespace: 11
         collowner: 10
@@ -2597,7 +3665,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12559
+      - oid: 12648
         collname: en_GB
         collnamespace: 11
         collowner: 10
@@ -2609,7 +3677,43 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12560
+      - oid: 12649
+        collname: en_HK
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 8
+        collcollate: en_HK.ISO8859-1
+        collctype: en_HK.ISO8859-1
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12650
+        collname: en_IE
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 8
+        collcollate: en_IE.ISO8859-1
+        collctype: en_IE.ISO8859-1
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12651
+        collname: en_IE
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 16
+        collcollate: en_IE.ISO8859-15
+        collctype: en_IE.ISO8859-15
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12652
         collname: en_NZ
         collnamespace: 11
         collowner: 10
@@ -2621,7 +3725,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12561
+      - oid: 12653
         collname: en_NZ
         collnamespace: 11
         collowner: 10
@@ -2633,7 +3737,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12562
+      - oid: 12654
+        collname: en_SG
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 8
+        collcollate: en_SG.ISO8859-1
+        collctype: en_SG.ISO8859-1
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12655
         collname: en_US
         collnamespace: 11
         collowner: 10
@@ -2645,7 +3761,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12563
+      - oid: 12656
         collname: en_US
         collnamespace: 11
         collowner: 10
@@ -2657,7 +3773,43 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12564
+      - oid: 12657
+        collname: en_ZA
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 8
+        collcollate: en_ZA.ISO8859-1
+        collctype: en_ZA.ISO8859-1
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12658
+        collname: en_ZA
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 16
+        collcollate: en_ZA.ISO8859-15
+        collctype: en_ZA.ISO8859-15
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12659
+        collname: es_AR
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 8
+        collcollate: es_AR.ISO8859-1
+        collctype: es_AR.ISO8859-1
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12660
         collname: es_ES
         collnamespace: 11
         collowner: 10
@@ -2669,7 +3821,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12565
+      - oid: 12661
         collname: es_ES
         collnamespace: 11
         collowner: 10
@@ -2681,7 +3833,31 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12566
+      - oid: 12662
+        collname: es_MX
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 8
+        collcollate: es_MX.ISO8859-1
+        collctype: es_MX.ISO8859-1
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12663
+        collname: et_EE
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 8
+        collcollate: et_EE.ISO8859-1
+        collctype: et_EE.ISO8859-1
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12664
         collname: et_EE
         collnamespace: 11
         collowner: 10
@@ -2693,7 +3869,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12567
+      - oid: 12665
         collname: eu_ES
         collnamespace: 11
         collowner: 10
@@ -2705,7 +3881,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12568
+      - oid: 12666
         collname: eu_ES
         collnamespace: 11
         collowner: 10
@@ -2717,7 +3893,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12569
+      - oid: 12667
         collname: fi_FI
         collnamespace: 11
         collowner: 10
@@ -2729,7 +3905,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12570
+      - oid: 12668
         collname: fi_FI
         collnamespace: 11
         collowner: 10
@@ -2741,7 +3917,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12571
+      - oid: 12669
         collname: fr_BE
         collnamespace: 11
         collowner: 10
@@ -2753,7 +3929,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12572
+      - oid: 12670
         collname: fr_BE
         collnamespace: 11
         collowner: 10
@@ -2765,7 +3941,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12573
+      - oid: 12671
         collname: fr_CA
         collnamespace: 11
         collowner: 10
@@ -2777,7 +3953,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12574
+      - oid: 12672
         collname: fr_CA
         collnamespace: 11
         collowner: 10
@@ -2789,7 +3965,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12575
+      - oid: 12673
         collname: fr_CH
         collnamespace: 11
         collowner: 10
@@ -2801,7 +3977,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12576
+      - oid: 12674
         collname: fr_CH
         collnamespace: 11
         collowner: 10
@@ -2813,7 +3989,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12577
+      - oid: 12675
         collname: fr_FR
         collnamespace: 11
         collowner: 10
@@ -2825,7 +4001,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12578
+      - oid: 12676
         collname: fr_FR
         collnamespace: 11
         collowner: 10
@@ -2837,7 +4013,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12579
+      - oid: 12677
         collname: hr_HR
         collnamespace: 11
         collowner: 10
@@ -2849,7 +4025,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12580
+      - oid: 12678
         collname: hu_HU
         collnamespace: 11
         collowner: 10
@@ -2861,7 +4037,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12581
+      - oid: 12679
         collname: is_IS
         collnamespace: 11
         collowner: 10
@@ -2873,7 +4049,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12582
+      - oid: 12680
         collname: is_IS
         collnamespace: 11
         collowner: 10
@@ -2885,7 +4061,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12583
+      - oid: 12681
         collname: it_CH
         collnamespace: 11
         collowner: 10
@@ -2897,7 +4073,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12584
+      - oid: 12682
         collname: it_CH
         collnamespace: 11
         collowner: 10
@@ -2909,7 +4085,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12585
+      - oid: 12683
         collname: it_IT
         collnamespace: 11
         collowner: 10
@@ -2921,7 +4097,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12586
+      - oid: 12684
         collname: it_IT
         collnamespace: 11
         collowner: 10
@@ -2933,7 +4109,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12587
+      - oid: 12685
         collname: ja_JP
         collnamespace: 11
         collowner: 10
@@ -2945,7 +4121,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12588
+      - oid: 12686
         collname: ko_KR
         collnamespace: 11
         collowner: 10
@@ -2957,7 +4133,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12589
+      - oid: 12687
         collname: lt_LT
         collnamespace: 11
         collowner: 10
@@ -2969,7 +4145,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12590
+      - oid: 12688
         collname: lt_LT
         collnamespace: 11
         collowner: 10
@@ -2981,7 +4157,43 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12591
+      - oid: 12689
+        collname: lv_LV
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 14
+        collcollate: lv_LV.ISO8859-13
+        collctype: lv_LV.ISO8859-13
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12690
+        collname: nb_NO
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 8
+        collcollate: nb_NO.ISO8859-1
+        collctype: nb_NO.ISO8859-1
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12691
+        collname: nb_NO
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 16
+        collcollate: nb_NO.ISO8859-15
+        collctype: nb_NO.ISO8859-15
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12692
         collname: nl_BE
         collnamespace: 11
         collowner: 10
@@ -2993,7 +4205,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12592
+      - oid: 12693
         collname: nl_BE
         collnamespace: 11
         collowner: 10
@@ -3005,7 +4217,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12593
+      - oid: 12694
         collname: nl_NL
         collnamespace: 11
         collowner: 10
@@ -3017,7 +4229,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12594
+      - oid: 12695
         collname: nl_NL
         collnamespace: 11
         collowner: 10
@@ -3029,7 +4241,31 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12595
+      - oid: 12696
+        collname: nn_NO
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 8
+        collcollate: nn_NO.ISO8859-1
+        collctype: nn_NO.ISO8859-1
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12697
+        collname: nn_NO
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 16
+        collcollate: nn_NO.ISO8859-15
+        collctype: nn_NO.ISO8859-15
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12698
         collname: no_NO
         collnamespace: 11
         collowner: 10
@@ -3041,7 +4277,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12596
+      - oid: 12699
         collname: no_NO
         collnamespace: 11
         collowner: 10
@@ -3053,7 +4289,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12597
+      - oid: 12700
         collname: pl_PL
         collnamespace: 11
         collowner: 10
@@ -3065,7 +4301,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12598
+      - oid: 12701
         collname: pt_BR
         collnamespace: 11
         collowner: 10
@@ -3077,7 +4313,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12599
+      - oid: 12702
         collname: pt_PT
         collnamespace: 11
         collowner: 10
@@ -3089,7 +4325,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12600
+      - oid: 12703
         collname: pt_PT
         collnamespace: 11
         collowner: 10
@@ -3101,7 +4337,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12601
+      - oid: 12704
         collname: ro_RO
         collnamespace: 11
         collowner: 10
@@ -3113,7 +4349,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12602
+      - oid: 12705
         collname: ru_RU
         collnamespace: 11
         collowner: 10
@@ -3125,7 +4361,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12603
+      - oid: 12706
         collname: ru_RU
         collnamespace: 11
         collowner: 10
@@ -3137,7 +4373,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12604
+      - oid: 12707
         collname: ru_RU
         collnamespace: 11
         collowner: 10
@@ -3149,7 +4385,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12605
+      - oid: 12708
         collname: ru_RU
         collnamespace: 11
         collowner: 10
@@ -3161,7 +4397,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12606
+      - oid: 12709
         collname: sk_SK
         collnamespace: 11
         collowner: 10
@@ -3173,7 +4409,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12607
+      - oid: 12710
         collname: sl_SI
         collnamespace: 11
         collowner: 10
@@ -3185,7 +4421,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12608
+      - oid: 12711
+        collname: sr_RS
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 25
+        collcollate: sr_RS.ISO8859-5
+        collctype: sr_RS.ISO8859-5
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12712
         collname: sr_YU
         collnamespace: 11
         collowner: 10
@@ -3197,7 +4445,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12609
+      - oid: 12713
         collname: sr_YU
         collnamespace: 11
         collowner: 10
@@ -3209,7 +4457,31 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12610
+      - oid: 12714
+        collname: sv_FI
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 8
+        collcollate: sv_FI.ISO8859-1
+        collctype: sv_FI.ISO8859-1
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12715
+        collname: sv_FI
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 16
+        collcollate: sv_FI.ISO8859-15
+        collctype: sv_FI.ISO8859-15
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12716
         collname: sv_SE
         collnamespace: 11
         collowner: 10
@@ -3221,7 +4493,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12611
+      - oid: 12717
         collname: sv_SE
         collnamespace: 11
         collowner: 10
@@ -3233,7 +4505,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12612
+      - oid: 12718
         collname: tr_TR
         collnamespace: 11
         collowner: 10
@@ -3245,7 +4517,19 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12613
+      - oid: 12719
+        collname: uk_UA
+        collnamespace: 11
+        collowner: 10
+        collprovider: c
+        collisdeterministic: true
+        collencoding: 23
+        collcollate: uk_UA.CP1251
+        collctype: uk_UA.CP1251
+        colllocale: null
+        collicurules: null
+        collversion: null
+      - oid: 12720
         collname: uk_UA
         collnamespace: 11
         collowner: 10
@@ -3257,7 +4541,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12614
+      - oid: 12721
         collname: uk_UA
         collnamespace: 11
         collowner: 10
@@ -3269,7 +4553,7 @@ public:
         colllocale: null
         collicurules: null
         collversion: null
-      - oid: 12615
+      - oid: 12722
         collname: zh_CN
         collnamespace: 11
         collowner: 10

@@ -5,7 +5,7 @@ public:
       schema:
         setdatabase: int
         setrole: int
-        setconfig: varchar(256)
+        setconfig: _text
       pg_types:
         setdatabase: oid
         setrole: oid

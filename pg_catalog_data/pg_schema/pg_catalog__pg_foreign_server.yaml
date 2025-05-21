@@ -9,8 +9,8 @@ public:
         srvfdw: int
         srvtype: varchar(256)
         srvversion: varchar(256)
-        srvacl: varchar(256)
-        srvoptions: varchar(256)
+        srvacl: _text
+        srvoptions: _text
       pg_types:
         oid: oid
         srvname: name

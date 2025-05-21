@@ -1,10 +1,5 @@
-use arrow::array::{Int32Array, StringArray};
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
-
-use datafusion::catalog::{CatalogProvider, Session};
-use datafusion::catalog::SchemaProvider;
-
-use datafusion::catalog::memory::{MemoryCatalogProvider, MemorySchemaProvider};
+use datafusion::catalog::{Session};
 use datafusion::datasource::{MemTable, TableProvider, TableType};
 use datafusion::datasource::provider::TableProviderFilterPushDown;
 use datafusion::execution::context::SessionContext;
@@ -17,42 +12,27 @@ use datafusion::error::Result;
 use async_trait::async_trait;
 use arrow::record_batch::RecordBatch;
 
-use serde::Deserialize;
 use serde_json::json;
-use serde_yaml;
 
-use std::collections::{BTreeMap, HashMap};
-use std::fs;
-use std::ops::Deref;
-use std::path::Path;
+use std::collections::{BTreeMap};
 use std::sync::{Arc, Mutex};
-use pgwire::api::Type;
-use crate::clean_duplicate_columns::alias_all_columns;
-use crate::replace::{regclass_udfs, replace_regclass, replace_set_command_with_namespace};
-use bytes::Bytes;
-
-use datafusion::scalar::ScalarValue;
-use crate::user_functions::{register_scalar_format_type, register_scalar_pg_tablespace_location, register_scalar_regclass_oid};
-use datafusion::common::{config_err, config::ConfigEntry};
-
-use datafusion::common::config::{ConfigExtension, ExtensionOptions};
 use arrow::compute::concat_batches;
 use datafusion::physical_plan::collect;
 
-
-
 pub fn map_pg_type(pg_type: &str) -> DataType {
-    match pg_type.to_lowercase().as_str() {
+    let lower = pg_type.to_lowercase();
+    if lower.ends_with("[]") || lower.starts_with('_') {
+        return DataType::List(Arc::new(Field::new("item", DataType::Utf8, true)));
+    }
+    match lower.as_str() {
         "uuid" => DataType::Utf8,
-        "int" | "integer" => DataType::Int32,
-        "bigint" => DataType::Int64,
+        "int" | "integer" | "int4" => DataType::Int32,
+        "bigint" | "int8" => DataType::Int64,
         "bool" | "boolean" => DataType::Boolean,
-        _ if pg_type.to_lowercase().starts_with("varchar") => DataType::Utf8,
+        _ if lower.starts_with("varchar") => DataType::Utf8,
         _ => DataType::Utf8,
     }
 }
-
-
 
 trait SchemaAccess {
     fn schema(&self) -> SchemaRef;
@@ -155,7 +135,7 @@ impl TableProvider for ObservableMemTable {
         let merged = match insert_op {
             InsertOp::Overwrite => concat_batches(&self.schema, &new_batches)?,
             _ => {
-                let mut guard = self.mem.batches[0].write().await;
+                let guard = self.mem.batches[0].write().await;
                 if !guard.is_empty() {
                     let mut all = vec![guard[0].clone()];
                     all.append(&mut new_batches);

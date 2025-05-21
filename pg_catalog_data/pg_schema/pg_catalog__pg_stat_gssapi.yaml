@@ -23,7 +23,7 @@ public:
         encrypted: bool
         credentials_delegated: bool
       rows:
-      - pid: 15906
+      - pid: 15730
         gss_authenticated: false
         principal: null
         encrypted: false
