@@ -1,7 +1,6 @@
 use std::sync::{Arc};
 
 use async_trait::async_trait;
-use datafusion::prelude::SessionConfig;
 use futures::{stream};
 use futures::Stream;
 use arrow::array::Array;
@@ -18,7 +17,7 @@ use pgwire::messages::data::DataRow;
 use pgwire::tokio::process_socket;
 use tokio::net::{TcpListener};
 
-use arrow::array::{Array, BooleanArray, Int32Array, Int64Array, LargeStringArray, ListArray, StringArray, StringViewArray};
+use arrow::array::{BooleanArray, Int32Array, Int64Array, LargeStringArray, ListArray, StringArray, StringViewArray};
 use arrow::record_batch::RecordBatch;
 use datafusion::execution::context::SessionContext;
 
