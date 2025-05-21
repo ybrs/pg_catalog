@@ -452,6 +452,7 @@ mod tests {
     use std::io::Write;
     use arrow::array::{Int32Array, StringArray};
     use arrow::datatypes::DataType;
+    use arrow::array::{ArrayRef};
 
     #[test]
     fn test_parse_schema_file() {
@@ -496,6 +497,63 @@ public:
         let name_array = batch.column(1).as_any().downcast_ref::<StringArray>().unwrap();
         assert_eq!(name_array.value(0), "Alice");
         assert_eq!(name_array.value(1), "Bob");
+    }
+
+    #[test]
+    fn test_rename_columns_all() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("a", DataType::Int32, true),
+            Field::new("b", DataType::Utf8, true),
+        ]));
+
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(Int32Array::from(vec![1, 2])) as ArrayRef,
+                Arc::new(StringArray::from(vec!["x", "y"])) as ArrayRef,
+            ],
+        )
+        .unwrap();
+
+        let mut map = HashMap::new();
+        map.insert("a".to_string(), "alpha".to_string());
+        map.insert("b".to_string(), "beta".to_string());
+
+        let renamed = rename_columns(&batch, &map);
+
+        assert_eq!(renamed.schema().field(0).name(), "alpha");
+        assert_eq!(renamed.schema().field(1).name(), "beta");
+
+        assert!(Arc::ptr_eq(batch.column(0), renamed.column(0)));
+        assert!(Arc::ptr_eq(batch.column(1), renamed.column(1)));
+    }
+
+    #[test]
+    fn test_rename_columns_partial() {
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int32, false),
+            Field::new("name", DataType::Utf8, false),
+        ]));
+
+        let batch = RecordBatch::try_new(
+            schema,
+            vec![
+                Arc::new(Int32Array::from(vec![1, 2, 3])) as ArrayRef,
+                Arc::new(StringArray::from(vec!["Alice", "Bob", "Carol"])) as ArrayRef,
+            ],
+        )
+        .unwrap();
+
+        let mut map = HashMap::new();
+        map.insert("name".to_string(), "username".to_string());
+
+        let renamed = rename_columns(&batch, &map);
+
+        assert_eq!(renamed.schema().field(0).name(), "id");
+        assert_eq!(renamed.schema().field(1).name(), "username");
+
+        assert!(Arc::ptr_eq(batch.column(0), renamed.column(0)));
+        assert!(Arc::ptr_eq(batch.column(1), renamed.column(1)));
     }
 }
 
