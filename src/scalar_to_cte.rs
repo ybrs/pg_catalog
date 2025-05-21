@@ -53,6 +53,8 @@ use sqlparser::dialect::GenericDialect;
 use sqlparser::parser::Parser;
 
 use datafusion::error::{DataFusionError, Result};
+use std::collections::HashSet;
+use sqlparser::ast::GroupByExpr;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RewriteOutcome {
@@ -449,6 +451,102 @@ mod rewriter {
 
     impl ScalarToCte {
         pub fn new() -> Self { Self::default() }
+
+
+        /// walk an expression tree, returning:
+        ///   * `has_aggr` – did we see any aggregate function?
+        ///   * `cols`     – top-level column references *outside* aggregates
+        fn scan_expr(e: &Expr,
+                    inside_aggr: bool,
+                    has_aggr: &mut bool,
+                    cols: &mut Vec<Expr>) {
+
+            match e {
+                Expr::Function(f) => {
+                    // ── take the unqualified function name (last identifier) ─────────
+                    let base_name = f          // ObjectName
+                        .name
+                        .0
+                        .last()
+                        .and_then(|p| p.as_ident())   // returns &Ident
+                        .map(|ident| ident.value.to_lowercase())
+                        .unwrap_or_default();
+                
+                    // is this an aggregate we need to regard specially?
+                    let is_aggr = ["count", "sum", "avg", "min", "max", "pg_get_array"]
+                        .contains(&base_name.as_str());
+                
+                    if is_aggr {
+                        *has_aggr = true;
+                    }
+                
+                    // recurse into the argument expressions
+                    if let FunctionArguments::List(list) = &f.args {
+                        for arg in &list.args {
+                            if let FunctionArg::Unnamed(FunctionArgExpr::Expr(bx)) = arg {
+                                Self::scan_expr(bx, /*inside_aggr=*/ true, has_aggr, cols);
+                            }
+                        }
+                    }
+                }
+                Expr::CompoundIdentifier(_) | Expr::Identifier(_) if !inside_aggr => {
+                    cols.push(e.clone());               // plain column
+                }
+                // recurse through the usual suspects …
+                Expr::BinaryOp { left, right, .. } => {
+                    Self::scan_expr(left,  inside_aggr, has_aggr, cols);
+                    Self::scan_expr(right, inside_aggr, has_aggr, cols);
+                }
+                Expr::Nested(inner)
+                | Expr::UnaryOp { expr: inner, .. }
+                | Expr::Cast { expr: inner, .. } => {
+                    Self::scan_expr(inner, inside_aggr, has_aggr, cols);
+                }
+                Expr::Case { operand, conditions, else_result, .. } => {
+                    if let Some(op) = operand {
+                        Self::scan_expr(op, inside_aggr, has_aggr, cols);
+                    }
+                    for CaseWhen { condition, result } in conditions {
+                        Self::scan_expr(condition, inside_aggr, has_aggr, cols);
+                        Self::scan_expr(result,    inside_aggr, has_aggr, cols);
+                    }
+                    if let Some(er) = else_result {
+                        Self::scan_expr(er, inside_aggr, has_aggr, cols);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        fn inject_group_by(&self, sel: &mut Select) {
+            // user already has GROUP BY
+            match &sel.group_by {
+                GroupByExpr::All(_) => return,
+                GroupByExpr::Expressions(v, _) if !v.is_empty() => return,
+                _ => {}
+            }
+        
+            let mut has_aggr = false;
+            let mut cols     = Vec::<Expr>::new();
+        
+            for item in &sel.projection {
+                if let SelectItem::UnnamedExpr(e)
+                    | SelectItem::ExprWithAlias { expr: e, .. } = item
+                {
+                    Self::scan_expr(e, false, &mut has_aggr, &mut cols);
+                }
+            }
+        
+            if has_aggr {
+                let mut seen = HashSet::new();
+                let exprs: Vec<Expr> = cols
+                    .into_iter()
+                    .filter(|c| seen.insert(c.clone()))
+                    .collect();
+        
+                sel.group_by = GroupByExpr::Expressions(exprs, Vec::new());
+            }
+        }
 
         /* ---------- helpers ---------- */
         // ────────────────────────────────────────────────────────────────
@@ -974,6 +1072,11 @@ mod rewriter {
             // 3) Put the list back.
             sel.projection = new_proj;
 
+            //--------------------------------------------------------------------
+            // 4) If the SELECT now mixes aggregates + plain columns,
+            //    synthesize a GROUP BY with all the plain columns.
+            //--------------------------------------------------------------------
+            self.inject_group_by(sel);
 
             // ---------- 1st pass: collect what needs rewriting ----------
             let mut collected = Vec::<(usize, CorrelatedInfo)>::new();
@@ -1344,6 +1447,34 @@ mod tests {
         // 3) the scalar ref was replaced by __cte1.col
         assert!(s.contains("SELECT __cte1.col"), "scalar not rewritten");
     
+        Ok(())
+    }
+
+
+    #[test]
+    fn injects_group_by_for_mixed_projection() -> Result<()> {
+        // ────────────────────────────────────────────────────────────────
+        // plain column  +  aggregate => we expect a GROUP BY clause
+        // ────────────────────────────────────────────────────────────────
+        let sql = r#"
+            SELECT pol.polname,
+                pg_catalog.pg_get_array(
+                    (SELECT rolname FROM pg_catalog.pg_roles ORDER BY 1)
+                ) AS roles
+            FROM pg_catalog.pg_policy AS pol"#;
+
+        let out = rewrite(sql)?;
+        let rewritten = out.sql.to_lowercase();
+        println!("injects_group_by_for_mixed_projection: {:?}", rewritten);
+        // the synthetic GROUP BY must name *exactly* the plain column we projected
+        assert!(
+            rewritten.contains("group by pol.polname"),
+            "GROUP BY clause was not injected:\n{rewritten}"
+        );
+
+        // sanity: the scalar sub-query must still have been lifted to a CTE
+        assert!(rewritten.starts_with("with __cte1"), "CTE missing");
+
         Ok(())
     }
 
