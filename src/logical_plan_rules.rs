@@ -66,7 +66,7 @@ mod tests {
 
 
     async fn make_ctx() -> Result<SessionContext> {
-        let mut config = datafusion::execution::context::SessionConfig::new()
+        let config = datafusion::execution::context::SessionConfig::new()
             .with_default_catalog_and_schema("public", "pg_catalog");
 
         let ctx = SessionContext::new_with_config(config);

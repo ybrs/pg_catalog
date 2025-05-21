@@ -12,7 +12,7 @@ use datafusion::prelude::*;
 use std::sync::Arc;
 use datafusion::execution::SessionState;
 use datafusion::logical_expr::{ColumnarValue, Volatility};
-use arrow::array::{as_string_array, Array, ArrayRef, StringBuilder, ListArray};
+use arrow::array::{Array, ArrayRef, StringBuilder, ListArray};
 use datafusion::common::utils::SingleRowListArrayBuilder;
 use futures::executor::block_on;
 use tokio::task::block_in_place;
@@ -749,7 +749,7 @@ mod tests {
     use datafusion::catalog::memory::{MemoryCatalogProvider, MemorySchemaProvider};
     use datafusion::datasource::MemTable;
     use datafusion::error::Result;
-    use datafusion::prelude::*;
+    
     use std::sync::Arc;
     use datafusion::catalog::{CatalogProvider, SchemaProvider};
 
@@ -768,7 +768,7 @@ mod tests {
 
 
     async fn make_ctx() -> Result<SessionContext> {
-        let mut config = datafusion::execution::context::SessionConfig::new()
+        let config = datafusion::execution::context::SessionConfig::new()
             .with_default_catalog_and_schema("public", "pg_catalog");
 
         let ctx = SessionContext::new_with_config(config);

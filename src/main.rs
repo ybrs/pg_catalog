@@ -9,10 +9,8 @@ mod scalar_to_cte;
 
 use std::env;
 use std::sync::Arc;
-use arrow::util::pretty;
-use datafusion::prelude::SessionContext;
 use crate::server::start_server;
-use crate::session::{get_base_session_context, execute_sql};
+use crate::session::get_base_session_context;
 
 async fn run() -> anyhow::Result<()> {
     let args: Vec<String> = env::args().collect();

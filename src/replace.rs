@@ -1,16 +1,13 @@
-use std::collections::HashMap;
 use std::ops::ControlFlow;
 use arrow::datatypes::DataType as ArrowDataType;
-use datafusion::logical_expr::{create_udf, ColumnarValue, LogicalPlan, ScalarUDF, Volatility};
+use datafusion::logical_expr::{create_udf, ColumnarValue, ScalarUDF, Volatility};
 use datafusion::scalar::ScalarValue;
 
 use sqlparser::ast::{Expr, Function, FunctionArg, FunctionArgExpr, FunctionArguments, Ident, ObjectName, ObjectNamePart, Value};
 use sqlparser::dialect::PostgreSqlDialect;
 use sqlparser::parser::{Parser};
-use std::sync::Arc;
 use datafusion::prelude::SessionContext;
 use sqlparser::ast::*;
-use async_trait::async_trait;
 use sqlparser::tokenizer::Span;
 
 /* ---------- UDF ---------- */

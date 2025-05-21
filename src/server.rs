@@ -1,7 +1,6 @@
 use std::sync::{Arc};
 
 use async_trait::async_trait;
-use datafusion::prelude::SessionConfig;
 use futures::{stream};
 use futures::Stream;
 
