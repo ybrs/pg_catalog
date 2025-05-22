@@ -5,41 +5,33 @@
 use arrow::array::{Int32Array, StringArray};
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 
-use datafusion::catalog::CatalogProvider;
 use datafusion::catalog::SchemaProvider;
 
 use datafusion::catalog::memory::{MemoryCatalogProvider, MemorySchemaProvider};
+use datafusion::common::alias;
 use datafusion::datasource::{MemTable, TableProvider, TableType};
-use datafusion::datasource::provider::TableProviderFilterPushDown;
 use datafusion::execution::context::SessionContext;
-use datafusion::logical_expr::Expr;
-use datafusion::physical_plan::ExecutionPlan;
-use datafusion::error::Result;
-use async_trait::async_trait;
 use arrow::record_batch::RecordBatch;
 
 use serde::Deserialize;
-use serde_json::json;
 use serde_yaml;
 
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
-use std::ops::Deref;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use pgwire::api::Type;
 use crate::clean_duplicate_columns::alias_all_columns;
-use crate::replace::{regclass_udfs, replace_regclass, replace_set_command_with_namespace, rewrite_pg_custom_operator, rewrite_regtype_cast, rewrite_schema_qualified_text, strip_default_collate};
+use crate::replace::{regclass_udfs, replace_regclass, replace_set_command_with_namespace, rewrite_array_subquery, rewrite_brace_array_literal, rewrite_pg_custom_operator, rewrite_regtype_cast, rewrite_schema_qualified_custom_types, rewrite_schema_qualified_text, strip_default_collate};
 use crate::scalar_to_cte::rewrite_subquery_as_cte;
 use bytes::Bytes;
 
 use datafusion::scalar::ScalarValue;
 use crate::user_functions::{register_scalar_format_type, register_scalar_pg_tablespace_location, register_scalar_regclass_oid};
 use datafusion::common::{config_err, config::ConfigEntry};
-use arrow::array::{Int64Array, BooleanArray,
-    ListBuilder, ArrayRef};
 use datafusion::common::config::{ConfigExtension, ExtensionOptions};
 use crate::db_table::{map_pg_type, ObservableMemTable, ScanTrace};
+use crate::replace_any_group_by::rewrite_group_by_for_any;
 
 
 #[derive(Default, Clone, Debug)]
@@ -141,6 +133,25 @@ pub fn print_params(params: &Vec<Option<Bytes>>) {
     }
 }
 
+pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<String, String>)>{
+    let sql = replace_set_command_with_namespace(&sql)?;
+    let sql = strip_default_collate(&sql)?;
+    let sql = rewrite_array_subquery(&sql).unwrap();
+    let sql = rewrite_brace_array_literal(&sql).unwrap();
+    let sql = rewrite_pg_custom_operator(&sql)?;
+    let sql = rewrite_schema_qualified_text(&sql)?;
+    let sql = rewrite_schema_qualified_custom_types(&sql)?;
+    let sql = replace_regclass(&sql)?;
+    let sql = rewrite_regtype_cast(&sql)?;
+    let (sql, aliases) = alias_all_columns(&sql)?;
+    let sql = rewrite_subquery_as_cte(&sql);
+
+    println!("before group by {}", sql);
+    let sql = rewrite_group_by_for_any(&sql);
+
+    return Ok((sql, aliases))
+}
+
 
 pub async fn execute_sql(
     ctx: &SessionContext,
@@ -148,15 +159,11 @@ pub async fn execute_sql(
     vec: Option<Vec<Option<Bytes>>>,
     vec0: Option<Vec<Type>>,
 ) -> datafusion::error::Result<(Vec<RecordBatch>, Arc<Schema>)> {
-    let sql = replace_set_command_with_namespace(&sql)?;
-    let sql = strip_default_collate(&sql)?;
-    let sql = rewrite_pg_custom_operator(&sql)?;
-    let sql = rewrite_schema_qualified_text(&sql)?;
-    let sql = replace_regclass(&sql)?;
-    let sql = rewrite_regtype_cast(&sql)?;
-    let (sql, aliases) = alias_all_columns(&sql)?;
-    let sql = rewrite_subquery_as_cte(&sql);
+
+    println!("input sql {:?}", sql);
     
+    let (sql, aliases) = rewrite_filters(&sql)?;
+
     let df = if let (Some(params), Some(types)) = (vec, vec0) {
         println!("params {:?}", params);
         print_params(&params);

@@ -15,7 +15,7 @@ use datafusion::{
 pub struct StripPgGetOne;
 
 impl OptimizerRule for StripPgGetOne {
-    fn name(&self) -> &str { "strip_pggetone" }
+    fn name(&self) -> &str { "strip_pg_get_one" }
 
     // ask the optimiser framework to call us bottom‑up on every node
     fn apply_order(&self) -> Option<ApplyOrder> { Some(ApplyOrder::BottomUp) }
@@ -29,7 +29,7 @@ impl OptimizerRule for StripPgGetOne {
             match e {
                 // unwrap   pggetone(<expr>)   ➜   <expr>
                 Expr::ScalarFunction(sf)
-                    if sf.func.name() == "pggetone" && sf.args.len() == 1 =>
+                    if sf.func.name() == "pg_get_one" && sf.args.len() == 1 =>
                 {
                     Ok(Transformed::yes(sf.args[0].clone()))
                 }
@@ -42,7 +42,7 @@ impl OptimizerRule for StripPgGetOne {
 
 #[cfg(test)]
 mod tests {
-    use crate::user_functions::{register_pggetone, register_scalar_regclass_oid, RegClassOidFunc};
+    use crate::user_functions::{register_pg_get_one, register_scalar_regclass_oid, RegClassOidFunc};
 
     use super::*;
     use arrow::array::{Int64Array, StringArray};
@@ -78,7 +78,7 @@ mod tests {
 
         ctx.register_udtf("regclass_oid", Arc::new(RegClassOidFunc));
         register_scalar_regclass_oid(&ctx)?;
-        register_pggetone(&ctx)?;
+        register_pg_get_one(&ctx)?;
         let relname = StringArray::from(vec!["pg_constraint", "demo"]);
         let oid = Int64Array::from(vec![2606i64, 9999i64]);
         let batch = RecordBatch::try_new(
@@ -109,7 +109,7 @@ mod tests {
         ctx.add_optimizer_rule(Arc::new(StripPgGetOne));
         let batches = ctx
             .sql(
-                "SELECT pggetone(
+                "SELECT pg_get_one(
                     (SELECT max(relname)
                     FROM pg_catalog.pg_class AS i
                     WHERE i.relname = C.relname)

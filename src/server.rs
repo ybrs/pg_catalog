@@ -5,10 +5,9 @@
 use std::sync::{Arc};
 
 use async_trait::async_trait;
-use datafusion::prelude::SessionConfig;
 use futures::{stream};
 use futures::Stream;
-
+use arrow::array::Array;
 use pgwire::api::auth::{AuthSource, DefaultServerParameterProvider, LoginInfo, Password};
 use pgwire::api::auth::md5pass::{hash_md5_password, Md5PasswordAuthStartupHandler};
 use pgwire::api::copy::NoopCopyHandler;
@@ -22,7 +21,7 @@ use pgwire::messages::data::DataRow;
 use pgwire::tokio::process_socket;
 use tokio::net::{TcpListener};
 
-use arrow::array::{Array, BooleanArray, Int32Array, Int64Array, LargeStringArray, ListArray, StringArray, StringViewArray};
+use arrow::array::{BooleanArray, Int32Array, Int64Array, LargeStringArray, ListArray, StringArray, StringViewArray};
 use arrow::record_batch::RecordBatch;
 use datafusion::execution::context::SessionContext;
 
@@ -33,9 +32,9 @@ use datafusion::{
     common::ScalarValue,
 };
 
-use crate::replace::{regclass_udfs, replace_set_command_with_namespace};
-use crate::session::{execute_sql, ClientOpts};
-use crate::user_functions::{register_current_schema, register_pggetone, register_pg_get_array, register_scalar_array_to_string, register_scalar_format_type, register_scalar_pg_encoding_to_char, register_scalar_pg_get_expr, register_scalar_pg_get_partkeydef, register_scalar_pg_get_userbyid, register_scalar_pg_table_is_visible, register_scalar_pg_tablespace_location, register_scalar_regclass_oid};
+use crate::replace::{regclass_udfs, replace_set_command_with_namespace, rewrite_array_subquery, rewrite_brace_array_literal};
+use crate::session::{execute_sql, rewrite_filters, ClientOpts};
+use crate::user_functions::{register_current_schema, register_pg_get_array, register_pg_get_one, register_pg_get_statisticsobjdef_columns, register_pg_relation_is_publishable, register_scalar_array_to_string, register_scalar_format_type, register_scalar_pg_encoding_to_char, register_scalar_pg_get_expr, register_scalar_pg_get_partkeydef, register_scalar_pg_get_userbyid, register_scalar_pg_table_is_visible, register_scalar_pg_tablespace_location, register_scalar_regclass_oid};
 use tokio::net::TcpStream;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
@@ -352,19 +351,14 @@ impl SimpleQueryHandler for DatafusionBackend {
         let mut responses = Vec::new();
 
         if results.is_empty() {
-            // TODO: we are double parsing the sql here. this shouldn't be needed.
-            // 
-            let query = replace_set_command_with_namespace(&query)
-                .map_err(|e| PgWireError::ApiError(Box::new(e)))?;
-            // zero-row result, but still need schema
-            let df = self.ctx.sql(&query).await.map_err(|e| PgWireError::ApiError(Box::new(e)))?;
-            let schema = df.schema();
+            // Prior implementation re-ran the query to obtain the schema when no
+            // rows were returned. `execute_sql` already provides the schema, so
+            // use it directly and build an empty batch from it.
+            let batch = RecordBatch::new_empty(schema.clone());
+            let field_infos = Arc::new(batch_to_field_info(&batch, &Format::UnifiedText)?);
+            let rows = batch_to_row_stream(&batch, field_infos.clone());
 
-            let batch = RecordBatch::new_empty(SchemaRef::from(schema.clone()));
-            let schema = Arc::new(batch_to_field_info(&batch, &Format::UnifiedText)?);
-            let rows = batch_to_row_stream(&batch, schema.clone());
-
-            responses.push(Response::Query(QueryResponse::new(schema, rows)));
+            responses.push(Response::Query(QueryResponse::new(field_infos, rows)));
         } else {
             for batch in results {
                 let schema = Arc::new(batch_to_field_info(&batch, &Format::UnifiedText)?);
@@ -636,9 +630,11 @@ pub async fn start_server(base_ctx: Arc<SessionContext>, addr: &str,
             register_scalar_pg_get_userbyid(&ctx)?;
             register_scalar_pg_encoding_to_char(&ctx)?;
             register_scalar_array_to_string(&ctx)?;
-            register_pggetone(&ctx)?;
+            register_pg_get_one(&ctx)?;
             register_pg_get_array(&ctx)?;
-            
+            register_pg_get_statisticsobjdef_columns(&ctx)?;
+            register_pg_relation_is_publishable(&ctx)?;
+
             let df = ctx.sql("SELECT datname FROM pg_catalog.pg_database where datname='pgtry'").await?;
             if df.count().await? == 0 {
                 let df = ctx.sql("INSERT INTO pg_catalog.pg_database (

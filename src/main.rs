@@ -10,13 +10,13 @@ mod user_functions;
 mod db_table;
 mod logical_plan_rules;
 mod scalar_to_cte;
+mod replace_any_group_by;
 
 use std::env;
 use std::sync::Arc;
-use arrow::util::pretty;
-use datafusion::prelude::SessionContext;
+// use arrow::util::pretty;
 use crate::server::start_server;
-use crate::session::{get_base_session_context, execute_sql};
+use crate::session::{get_base_session_context};
 
 async fn run() -> anyhow::Result<()> {
     let args: Vec<String> = env::args().collect();
