@@ -33,9 +33,19 @@ use crate::db_table::{map_pg_type, ObservableMemTable, ScanTrace};
 use crate::replace_any_group_by::rewrite_group_by_for_any;
 
 
-#[derive(Default, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub struct ClientOpts {
     pub application_name: String,
+    pub datestyle: String,
+}
+
+impl Default for ClientOpts {
+    fn default() -> Self {
+        Self {
+            application_name: String::new(),
+            datestyle: "ISO, MDY".to_string(),
+        }
+    }
 }
 
 
@@ -57,6 +67,10 @@ impl ExtensionOptions for ClientOpts {
                 println!("value is set!!!");
                 Ok(())
             }
+            "datestyle" => {
+                self.datestyle = value.to_string();
+                Ok(())
+            }
             "extra_float_digits" => {
                 Ok(())
             }
@@ -65,12 +79,18 @@ impl ExtensionOptions for ClientOpts {
     }
 
     fn entries(&self) -> Vec<ConfigEntry> {
-        vec![ConfigEntry {
-            // key: format!("{}.application_name", Self::PREFIX),
-            key: "application_name".to_string(),
-            value: Some(self.application_name.clone()),
-            description: "",
-        }]
+        vec![
+            ConfigEntry {
+                key: "application_name".to_string(),
+                value: Some(self.application_name.clone()),
+                description: "",
+            },
+            ConfigEntry {
+                key: "datestyle".to_string(),
+                value: Some(self.datestyle.clone()),
+                description: "",
+            },
+        ]
     }
 
 }

@@ -529,7 +529,6 @@ pub fn register_scalar_array_to_string(ctx: &SessionContext) -> Result<()> {
     use arrow::array::{
         Array, ArrayRef, GenericListArray, OffsetSizeTrait, StringArray, StringBuilder,
     };
-    use arrow::datatypes::ArrowNativeType;
     use arrow::datatypes::{DataType, Field};
     use datafusion::logical_expr::{
         ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature,

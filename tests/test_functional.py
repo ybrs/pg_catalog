@@ -94,6 +94,23 @@ def test_empty_result_schema(server):
         # OID 25 is the TEXT type returned by our server for name columns
         assert cur.description[0].type_code == 25
 
+
+def test_set_and_show_application_name(server):
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SET application_name = 'pytest'")
+        cur.execute("SHOW application_name")
+        row = cur.fetchone()
+        assert row == ("application_name", "pytest")
+
+
+def test_show_datestyle(server):
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SHOW datestyle")
+        row = cur.fetchone()
+        assert row == ("datestyle", "ISO, MDY")
+
 def test_system_columns_virtual(server):
     with psycopg.connect(CONN_STR) as conn:
         cur = conn.cursor()
