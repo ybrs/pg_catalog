@@ -15,7 +15,7 @@ fn alias_projection(select: &mut Select, counter: &mut usize, alias_map: &mut Ha
     for item in &select.projection {
         match item {
             SelectItem::UnnamedExpr(expr) => match expr {
-                Expr::Cast { expr: inner_expr, data_type, .. } => match data_type {
+                Expr::Cast { expr: _inner_expr, data_type, .. } => match data_type {
                     DataType::Regclass => {
                         let alias = format!("alias_{}", *counter);
                         *counter += 1;

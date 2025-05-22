@@ -32,9 +32,9 @@ use datafusion::{
     common::ScalarValue,
 };
 
-use crate::replace::{regclass_udfs, replace_set_command_with_namespace, rewrite_array_subquery, rewrite_brace_array_literal};
-use crate::session::{execute_sql, rewrite_filters, ClientOpts};
-use crate::user_functions::{register_current_schema, register_pg_get_array, register_pg_get_one, register_pg_get_statisticsobjdef_columns, register_pg_postmaster_start_time, register_pg_relation_is_publishable, register_scalar_array_to_string, register_scalar_format_type, register_scalar_pg_encoding_to_char, register_scalar_pg_get_expr, register_scalar_pg_get_partkeydef, register_scalar_pg_get_userbyid, register_scalar_pg_table_is_visible, register_scalar_pg_tablespace_location, register_scalar_regclass_oid};
+use crate::replace::{regclass_udfs};
+use crate::session::{execute_sql, ClientOpts};
+use crate::user_functions::{register_current_schema, register_pg_get_array, register_pg_get_one, register_pg_get_statisticsobjdef_columns, register_pg_postmaster_start_time, register_pg_relation_is_publishable, register_scalar_array_to_string, register_scalar_format_type, register_scalar_pg_age, register_scalar_pg_encoding_to_char, register_scalar_pg_get_expr, register_scalar_pg_get_partkeydef, register_scalar_pg_get_userbyid, register_scalar_pg_is_in_recovery, register_scalar_pg_table_is_visible, register_scalar_pg_tablespace_location, register_scalar_regclass_oid, register_scalar_txid_current};
 use tokio::net::TcpStream;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
@@ -126,7 +126,10 @@ impl DatafusionBackend {
             let fun = Arc::new(move |_args: &[ColumnarValue]| {
                 Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(db.clone()))))
             });
-            let udf = create_udf(KEY, vec![], DataType::Utf8, Volatility::Stable, fun);
+            let udf = create_udf(KEY, vec![], DataType::Utf8, Volatility::Stable, fun.clone());
+            self.ctx.register_udf(udf);
+            // udf.with_aliases("pg_catalog.current_database");
+            let udf = create_udf("pg_catalog.current_database", vec![], DataType::Utf8, Volatility::Stable, fun.clone());
             self.ctx.register_udf(udf);
         }
 
@@ -729,6 +732,10 @@ pub async fn start_server(base_ctx: Arc<SessionContext>, addr: &str,
             register_pg_get_statisticsobjdef_columns(&ctx)?;
             register_pg_relation_is_publishable(&ctx)?;
             register_pg_postmaster_start_time(&ctx)?;
+            register_scalar_pg_age(&ctx)?;
+            register_scalar_pg_is_in_recovery(&ctx)?;
+            register_scalar_txid_current(&ctx)?;
+
             
             let df = ctx.sql("SELECT datname FROM pg_catalog.pg_database where datname='pgtry'").await?;
             if df.count().await? == 0 {

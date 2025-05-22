@@ -7,6 +7,7 @@ public:
         nspname: varchar(64)
         nspowner: int
         nspacl: _text
+        xmin: int
       pg_types:
         oid: oid
         nspname: name
@@ -17,15 +18,19 @@ public:
         nspname: pg_toast
         nspowner: 10
         nspacl: null
+        xmin: 1
       - oid: 11
         nspname: pg_catalog
         nspowner: 10
         nspacl: '[''abadur=UC/abadur'', ''=U/abadur'']'
+        xmin: 1
       - oid: 2200
         nspname: public
         nspowner: 6171
         nspacl: '[''pg_database_owner=UC/pg_database_owner'', ''=U/pg_database_owner'']'
+        xmin: 1
       - oid: 12782
         nspname: information_schema
         nspowner: 10
         nspacl: '[''abadur=UC/abadur'', ''=U/abadur'']'
+        xmin: 1

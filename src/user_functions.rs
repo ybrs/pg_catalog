@@ -435,8 +435,8 @@ pub fn register_current_schema(ctx: &SessionContext) -> Result<()> {
                     "public".to_string(),
                 ))))
             })
-        },
-    );
+        },        
+    ).with_aliases(["pg_catalog.current_schema"]);
     ctx_arc.register_udf(udf);
     Ok(())
 }
@@ -1014,6 +1014,99 @@ pub fn register_pg_postmaster_start_time(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
+pub fn register_scalar_pg_age(ctx: &SessionContext) -> Result<()> {
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
+    use datafusion::common::ScalarValue;
+    use std::sync::Arc;
+
+    // one closure – we don’t care about the argument, just return 1
+    let fun = |_args: &[ColumnarValue]| -> Result<ColumnarValue> {
+        Ok(ColumnarValue::Scalar(ScalarValue::Int64(Some(1))))
+    };
+
+    // accept BIGINT *or* TEXT
+    for dt in [DataType::Int64, DataType::Utf8] {
+        let udf = create_udf(
+            "pg_catalog.age",      // ← exact name Postgres uses
+            vec![dt],
+            DataType::Int64,       // always returns BIGINT
+            Volatility::Stable,
+            Arc::new(fun),
+        );
+        ctx.register_udf(udf);
+    }
+    Ok(())
+}
+
+
+/// pg_catalog.pg_is_in_recovery() → BOOL
+///
+/// We don’t do physical recovery, so just return `false`.
+pub fn register_scalar_pg_is_in_recovery(ctx: &SessionContext) -> Result<()> {
+    use arrow::datatypes::DataType;
+    use datafusion::common::ScalarValue;
+    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
+    use std::sync::Arc;
+
+    let fun = |_args: &[ColumnarValue]| -> Result<ColumnarValue> {
+        Ok(ColumnarValue::Scalar(ScalarValue::Boolean(Some(false))))
+    };
+
+    // zero-argument signature
+    let udf = create_udf(
+        "pg_catalog.pg_is_in_recovery",   // full, schema-qualified name
+        vec![],                           // no arguments
+        DataType::Boolean,                // returns BOOL
+        Volatility::Stable,               // it never changes inside a session
+        Arc::new(fun),
+    );
+    ctx.register_udf(udf);
+    Ok(())
+}
+
+
+/// pg_catalog.txid_current()  →  BIGINT
+///
+/// We don’t run a real MVCC engine, so we fake a transaction counter that
+/// ticks up every time the function is invoked.
+pub fn register_scalar_txid_current(ctx: &SessionContext) -> Result<()> {
+    use arrow::datatypes::DataType;
+    use datafusion::common::ScalarValue;
+    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
+    use once_cell::sync::Lazy;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::Arc;
+
+    // global ever-increasing counter (starts at 1 just for fun)
+    static NEXT_TXID: Lazy<AtomicU64> = Lazy::new(|| AtomicU64::new(1));
+
+    let fun = |_args: &[ColumnarValue]| -> Result<ColumnarValue> {
+        let val = NEXT_TXID.fetch_add(1, Ordering::SeqCst) as i64;   // BIGINT
+        Ok(ColumnarValue::Scalar(ScalarValue::Int64(Some(val))))
+    };
+
+    let udf = create_udf(
+        "pg_catalog.txid_current",   // full, schema-qualified name
+        vec![],                      // zero arguments
+        DataType::Int64,             // returns BIGINT
+        Volatility::Stable,          // stays the same within a single statement
+        Arc::new(fun),
+    );
+    ctx.register_udf(udf);
+
+    // also expose an unqualified name
+    ctx.register_udf(create_udf(
+        "txid_current",
+        vec![],
+        DataType::Int64,
+        Volatility::Stable,
+        Arc::new(fun),
+    ));
+
+    Ok(())
+}
+
 
 
 #[cfg(test)]
@@ -1256,4 +1349,66 @@ mod tests {
         assert!(!arr.is_null(0));
         Ok(())
     }
+
+    #[tokio::test]
+    async fn test_pg_age_always_one() -> datafusion::error::Result<()> {
+        use arrow::array::Int64Array;
+        use datafusion::prelude::*;
+
+        // 1️⃣  fresh context
+        let ctx = SessionContext::new();
+
+        // 2️⃣  register the helper we just added
+        register_scalar_pg_age(&ctx)?;
+
+        // 3️⃣  run any query that invokes the function
+        let batches = ctx
+            .sql("SELECT pg_catalog.age(123::BIGINT) AS v;")
+            .await?
+            .collect()
+            .await?;
+
+        // 4️⃣  assert we got the constant 1 back
+        let arr = batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<Int64Array>()
+            .unwrap();
+
+        assert_eq!(arr.value(0), 1);
+        Ok(())
+    }
+
+
+    #[tokio::test]
+    async fn pg_is_in_recovery_always_false() -> Result<()> {
+        let ctx = SessionContext::new();
+        register_scalar_pg_is_in_recovery(&ctx)?;
+
+        let batches = ctx.sql("SELECT pg_catalog.pg_is_in_recovery()").await?
+                        .collect().await?;
+        let arr = batches[0].column(0)
+                    .as_any().downcast_ref::<arrow::array::BooleanArray>().unwrap();
+        assert_eq!(arr.value(0), false);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn txid_current_ticks_up() -> Result<()> {
+        let ctx = SessionContext::new();
+        register_scalar_txid_current(&ctx)?;
+    
+        let v1: i64 = ctx.sql("SELECT pg_catalog.txid_current()").await?
+                         .collect().await?[0].column(0)
+                         .as_any().downcast_ref::<arrow::array::Int64Array>()
+                         .unwrap().value(0);
+        let v2: i64 = ctx.sql("SELECT pg_catalog.txid_current()").await?
+                         .collect().await?[0].column(0)
+                         .as_any().downcast_ref::<arrow::array::Int64Array>()
+                         .unwrap().value(0);
+    
+        assert!(v2 == v1 + 1);
+        Ok(())
+    }
+
 }
