@@ -61,10 +61,10 @@ def test_parameter_query(server):
         row = cur.fetchone()
         assert row[0] >= 1
 
-def test_pggetone_subquery(server):
+def test_pg_get_one_subquery(server):
     with psycopg.connect(CONN_STR) as conn:
         cur = conn.cursor()
-        cur.execute("SELECT pggetone((select relname FROM pg_catalog.pg_class LIMIT 1))")
+        cur.execute("SELECT pg_get_one((select relname FROM pg_catalog.pg_class LIMIT 1))")
         row = cur.fetchone()
         assert row[0] is not None
 

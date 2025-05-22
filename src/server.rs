@@ -7,7 +7,7 @@ use std::sync::{Arc};
 use async_trait::async_trait;
 use futures::{stream};
 use futures::Stream;
-use arrow::array::Array;
+use arrow::array::{Array, Float32Array, Float64Array};
 use pgwire::api::auth::{AuthSource, DefaultServerParameterProvider, LoginInfo, Password};
 use pgwire::api::auth::md5pass::{hash_md5_password, Md5PasswordAuthStartupHandler};
 use pgwire::api::copy::NoopCopyHandler;
@@ -25,7 +25,7 @@ use arrow::array::{BooleanArray, Int32Array, Int64Array, LargeStringArray, ListA
 use arrow::record_batch::RecordBatch;
 use datafusion::execution::context::SessionContext;
 
-use arrow::datatypes::{DataType, SchemaRef};
+use arrow::datatypes::{DataType, SchemaRef, TimeUnit};
 
 use datafusion::{
     logical_expr::{create_udf, Volatility, ColumnarValue},
@@ -34,7 +34,7 @@ use datafusion::{
 
 use crate::replace::{regclass_udfs, replace_set_command_with_namespace, rewrite_array_subquery, rewrite_brace_array_literal};
 use crate::session::{execute_sql, rewrite_filters, ClientOpts};
-use crate::user_functions::{register_current_schema, register_pg_get_array, register_pg_get_one, register_pg_get_statisticsobjdef_columns, register_pg_relation_is_publishable, register_scalar_array_to_string, register_scalar_format_type, register_scalar_pg_encoding_to_char, register_scalar_pg_get_expr, register_scalar_pg_get_partkeydef, register_scalar_pg_get_userbyid, register_scalar_pg_table_is_visible, register_scalar_pg_tablespace_location, register_scalar_regclass_oid};
+use crate::user_functions::{register_current_schema, register_pg_get_array, register_pg_get_one, register_pg_get_statisticsobjdef_columns, register_pg_postmaster_start_time, register_pg_relation_is_publishable, register_scalar_array_to_string, register_scalar_format_type, register_scalar_pg_encoding_to_char, register_scalar_pg_get_expr, register_scalar_pg_get_partkeydef, register_scalar_pg_get_userbyid, register_scalar_pg_table_is_visible, register_scalar_pg_tablespace_location, register_scalar_regclass_oid};
 use tokio::net::TcpStream;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWriteExt;
@@ -182,6 +182,9 @@ fn arrow_to_pg_type(dt: &DataType) -> Type {
         Int32          => Type::INT4,
         Int64          => Type::INT8,
         Utf8 | Utf8View | LargeUtf8 => Type::TEXT,
+        Timestamp(_, _)              => Type::TIMESTAMP,
+        Float32        => Type::FLOAT4,   // real
+        Float64        => Type::FLOAT8,   // double precision
 
         // ── arrays ───────────────────────────────────────────────
         List(inner) => match inner.data_type() {
@@ -273,6 +276,81 @@ fn batch_to_row_stream(batch: &RecordBatch, schema: Arc<Vec<FieldInfo>>) -> impl
                     };
                     encoder.encode_field(&value).unwrap();
                 }
+                /* ----------  F L O A T S  ---------- */
+                DataType::Float32 => {
+                    let arr = col.as_any().downcast_ref::<Float32Array>().unwrap();
+                    let value = if col.is_null(row_idx) {
+                        None::<f32>
+                    } else {
+                        Some(arr.value(row_idx))
+                    };
+                    encoder.encode_field(&value).unwrap();
+                }
+                DataType::Float64 => {
+                    let arr = col.as_any().downcast_ref::<Float64Array>().unwrap();
+                    let value = if col.is_null(row_idx) {
+                        None::<f64>
+                    } else {
+                        Some(arr.value(row_idx))
+                    };
+                    encoder.encode_field(&value).unwrap();
+                }
+
+
+                // ---------- TIMESTAMP μs / ms / ns ----------
+                DataType::Timestamp(unit, _) => {
+                    match unit {
+                        TimeUnit::Microsecond => {
+                            use arrow::array::TimestampMicrosecondArray;
+                            let arr =
+                                col.as_any().downcast_ref::<TimestampMicrosecondArray>().unwrap();
+                            let value = if arr.is_null(row_idx) {
+                                None::<String>
+                            } else {
+                                let v = arr.value(row_idx);              // micro-seconds
+                                let secs = v / 1_000_000;
+                                let micros = (v % 1_000_000) as u32;
+                                let ts = chrono::NaiveDateTime::from_timestamp_opt(
+                                    secs, micros * 1_000).unwrap();
+                                Some(ts.format("%Y-%m-%d %H:%M:%S%.6f").to_string())
+                            };
+                            encoder.encode_field(&value).unwrap();
+                        }
+                        TimeUnit::Millisecond => {
+                            use arrow::array::TimestampMillisecondArray;
+                            let arr =
+                                col.as_any().downcast_ref::<TimestampMillisecondArray>().unwrap();
+                            let value = if arr.is_null(row_idx) {
+                                None::<String>
+                            } else {
+                                let v = arr.value(row_idx);              // milli-seconds
+                                let secs = v / 1_000;
+                                let millis = (v % 1_000) as u32;
+                                let ts = chrono::NaiveDateTime::from_timestamp_opt(
+                                    secs, millis * 1_000_000).unwrap();
+                                Some(ts.format("%Y-%m-%d %H:%M:%S%.3f").to_string())
+                            };
+                            encoder.encode_field(&value).unwrap();
+                        }
+                        TimeUnit::Nanosecond => {
+                            use arrow::array::TimestampNanosecondArray;
+                            let arr =
+                                col.as_any().downcast_ref::<TimestampNanosecondArray>().unwrap();
+                            let value = if arr.is_null(row_idx) {
+                                None::<String>
+                            } else {
+                                let v = arr.value(row_idx);              // nano-seconds
+                                let secs = v / 1_000_000_000;
+                                let nanos = (v % 1_000_000_000) as u32;
+                                let ts = chrono::NaiveDateTime::from_timestamp_opt(
+                                    secs, nanos).unwrap();
+                                Some(ts.format("%Y-%m-%d %H:%M:%S%.9f").to_string())
+                            };
+                            encoder.encode_field(&value).unwrap();
+                        }
+                        _ => unreachable!(),   // TimeUnit::Second isn’t used by Arrow today
+                    }
+                }
                 DataType::Boolean => {
                     let array = col.as_any().downcast_ref::<BooleanArray>().unwrap();
                     let value = if col.is_null(row_idx) {
@@ -337,7 +415,10 @@ impl SimpleQueryHandler for DatafusionBackend {
             return Ok(vec![Response::Execution(Tag::new("COMMIT"))]);
         } else if lowercase.starts_with("rollback") {
             return Ok(vec![Response::Execution(Tag::new("ROLLBACK"))]);
+        } else if lowercase == "" {
+            return Ok(vec![Response::Execution(Tag::new(""))]);
         }
+
 
 
         let user = client.metadata().get(pgwire::api::METADATA_USER).cloned();
@@ -367,6 +448,9 @@ impl SimpleQueryHandler for DatafusionBackend {
             }
         }
 
+        if lowercase.starts_with("set") {
+            return Ok(vec![Response::Execution(Tag::new("SET"))]);
+        }
 
         Ok(responses)
     }
@@ -392,6 +476,12 @@ impl ExtendedQueryHandler for DatafusionBackend {
     {
 
         println!("query start extended {:?} {:?}", portal.statement.statement.as_str(), portal.parameters);
+
+
+        if portal.statement.statement.trim().is_empty() {
+            return Ok(Response::Execution(Tag::new("")));
+        }
+            
 
         let _ = self.register_current_database(client);
         let _ = self.register_session_user(client);
@@ -424,6 +514,10 @@ impl ExtendedQueryHandler for DatafusionBackend {
     {
         println!("do_describe_statement");
         
+        if stmt.statement.trim().is_empty() {
+            return Ok(DescribeStatementResponse::new(vec![], vec![]));
+        }
+
         let (results, schema) = execute_sql(&self.ctx, stmt.statement.as_str(), None, None)
             .await
             .map_err(|e| PgWireError::ApiError(Box::new(e)))?;
@@ -451,11 +545,10 @@ impl ExtendedQueryHandler for DatafusionBackend {
         C: ClientInfo + Unpin + Send + Sync,
     {
 
-        // println!("do_describe_portal");
-
-        // let (results, schema) = execute_sql(&self.ctx, portal.statement.statement.as_str(), None, None)
-        //     .await
-        //     .map_err(|e| PgWireError::ApiError(Box::new(e)))?;
+        println!("do_describe_portal");
+        if portal.statement.statement.trim().is_empty() {
+            return Ok(DescribePortalResponse::new(vec![]));
+        }
 
         let (results, schema) = execute_sql(&self.ctx, portal.statement.statement.as_str(),
             Some(portal.parameters.clone()),
@@ -634,7 +727,8 @@ pub async fn start_server(base_ctx: Arc<SessionContext>, addr: &str,
             register_pg_get_array(&ctx)?;
             register_pg_get_statisticsobjdef_columns(&ctx)?;
             register_pg_relation_is_publishable(&ctx)?;
-
+            register_pg_postmaster_start_time(&ctx)?;
+            
             let df = ctx.sql("SELECT datname FROM pg_catalog.pg_database where datname='pgtry'").await?;
             if df.count().await? == 0 {
                 let df = ctx.sql("INSERT INTO pg_catalog.pg_database (

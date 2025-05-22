@@ -1,7 +1,7 @@
 // Collection of custom UDF and UDTF implementations.
 // Provides functions like oid(), pg_get_array and others so queries behave like PostgreSQL.
 // Added to extend DataFusion with features required by pg_catalog emulation.
-use arrow::array::{as_string_array, Array, ArrayRef, BooleanBuilder, ListArray, StringBuilder};
+use arrow::array::{as_string_array, Array, ArrayRef, BooleanBuilder, ListArray, StringBuilder, TimestampMicrosecondArray};
 use arrow::datatypes::DataType as ArrowDataType;
 use async_trait::async_trait;
 use datafusion::arrow::array::Int64Array;
@@ -917,6 +917,105 @@ pub fn register_pg_get_array(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
+
+#[derive(Debug)]
+struct PostmasterStartTimeTable {
+    schema: SchemaRef,
+    ts: i64,
+}
+
+#[async_trait]
+impl TableProvider for PostmasterStartTimeTable {
+    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn schema(&self) -> SchemaRef { self.schema.clone() }
+    fn table_type(&self) -> TableType { TableType::Base }
+    async fn scan(
+        &self,
+        _session: &dyn Session,
+        projection: Option<&Vec<usize>>,
+        _filters: &[Expr],
+        _limit: Option<usize>,
+    ) -> Result<Arc<dyn datafusion::physical_plan::ExecutionPlan>> {
+        let arr = TimestampMicrosecondArray::from(vec![Some(self.ts)]);
+        let batch = RecordBatch::try_new(self.schema.clone(), vec![Arc::new(arr)])?;
+        Ok(MemorySourceConfig::try_new_exec(
+            &[vec![batch]],
+            self.schema.clone(),
+            projection.cloned(),
+        )?)
+    }
+}
+
+#[derive(Debug)]
+struct PostmasterStartTimeFunc {
+    schema: SchemaRef,
+    ts: i64,
+}
+
+impl TableFunctionImpl for PostmasterStartTimeFunc {
+    fn call(&self, _exprs: &[Expr]) -> Result<Arc<dyn TableProvider>> {
+        Ok(Arc::new(PostmasterStartTimeTable {
+            schema: self.schema.clone(),
+            ts: self.ts,
+        }))
+    }
+}
+
+pub fn register_pg_postmaster_start_time(ctx: &SessionContext) -> Result<()> {
+    use arrow::datatypes::{DataType, Field, Schema, TimeUnit};
+    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
+    use std::sync::Arc;
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH).unwrap().as_micros() as i64;
+
+    let schema = Arc::new(Schema::new(vec![Field::new(
+        "pg_postmaster_start_time",
+        DataType::Timestamp(TimeUnit::Microsecond, None),
+        true,
+    )]));
+    ctx.register_udtf(
+        "pg_postmaster_start_time",
+        Arc::new(PostmasterStartTimeFunc {
+            schema: schema.clone(),
+            ts,
+        }),
+    );
+    ctx.register_udtf(
+        "pg_catalog.pg_postmaster_start_time",
+        Arc::new(PostmasterStartTimeFunc {
+            schema: schema.clone(),
+            ts,
+        }),
+    );
+    let fun = {
+        let t = ts;
+        Arc::new(move |_args: &[ColumnarValue]| -> Result<ColumnarValue> {
+            Ok(ColumnarValue::Scalar(ScalarValue::TimestampMicrosecond(
+                Some(t),
+                None,
+            )))
+        })
+    };
+    let ty = DataType::Timestamp(TimeUnit::Microsecond, None);
+    ctx.register_udf(create_udf(
+        "pg_postmaster_start_time",
+        vec![],
+        ty.clone(),
+        Volatility::Stable,
+        fun.clone(),
+    ));
+    ctx.register_udf(create_udf(
+        "pg_catalog.pg_postmaster_start_time",
+        vec![],
+        ty,
+        Volatility::Stable,
+        fun,
+    ));
+    Ok(())
+}
+
+
+
 #[cfg(test)]
 mod tests {
     use crate::scalar_to_cte::rewrite_subquery_as_cte;
@@ -1136,6 +1235,25 @@ mod tests {
         let inner = list.value(0);
         let inner = inner.as_any().downcast_ref::<StringArray>().unwrap();
         assert_eq!(inner.value(0), "pg_constraint");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_pg_postmaster_start_time_fn() -> Result<()> {
+        use arrow::array::TimestampMicrosecondArray;
+        let ctx = SessionContext::new();
+        register_pg_postmaster_start_time(&ctx)?;
+        let batches = ctx
+            .sql("SELECT pg_postmaster_start_time()")
+            .await?
+            .collect()
+            .await?;
+        let arr = batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<TimestampMicrosecondArray>()
+            .unwrap();
+        assert!(!arr.is_null(0));
         Ok(())
     }
 }
