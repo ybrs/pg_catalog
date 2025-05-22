@@ -110,3 +110,40 @@ def test_show_datestyle(server):
         cur.execute("SHOW datestyle")
         row = cur.fetchone()
         assert row == ("datestyle", "ISO, MDY")
+
+
+def test_error_logging():
+    proc = subprocess.Popen([
+        "cargo", "run", "--quiet", "--",
+        "pg_catalog_data/pg_schema",
+        "--default-catalog", "pgtry",
+        "--default-schema", "public",
+        "--host", "127.0.0.1",
+        "--port", "5445",
+    ], text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
+    for _ in range(12):
+        try:
+            with psycopg.connect("host=127.0.0.1 port=5445 dbname=pgtry user=dbuser password=pencil sslmode=disable"):
+                break
+        except Exception:
+            time.sleep(5)
+    else:
+        proc.terminate()
+        raise RuntimeError("server failed to start")
+
+    try:
+        with psycopg.connect("host=127.0.0.1 port=5445 dbname=pgtry user=dbuser password=pencil sslmode=disable") as conn:
+            cur = conn.cursor()
+            with pytest.raises(Exception):
+                cur.execute("SELECT * FROM missing_table")
+    finally:
+        proc.terminate()
+        try:
+            out, _ = proc.communicate(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+            out, _ = proc.communicate()
+
+    assert "exec_error" in out
+    assert "missing_table" in out

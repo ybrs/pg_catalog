@@ -172,7 +172,7 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
 }
 
 
-pub async fn execute_sql(
+pub async fn execute_sql_inner(
     ctx: &SessionContext,
     sql: &str,
     vec: Option<Vec<Option<Bytes>>>,
@@ -259,6 +259,24 @@ pub async fn execute_sql(
     Ok((results, schema))
 
 
+}
+
+pub async fn execute_sql(
+    ctx: &SessionContext,
+    sql: &str,
+    vec: Option<Vec<Option<Bytes>>>,
+    vec0: Option<Vec<Type>>,
+) -> datafusion::error::Result<(Vec<RecordBatch>, Arc<Schema>)> {
+    let params_for_log = vec.clone();
+    match execute_sql_inner(ctx, sql, vec, vec0).await {
+        Ok(v) => Ok(v),
+        Err(e) => {
+            println!("exec_error query: {:?}", sql);
+            println!("exec_error params: {:?}", params_for_log);
+            println!("exec_error error: {:?}", e);
+            Err(e)
+        }
+    }
 }
 
 
