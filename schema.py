@@ -1,3 +1,7 @@
+# Generates YAML descriptions of PostgreSQL schemas by querying a real server.
+# Connects using psycopg, extracts table definitions and rows, and writes them for use as test fixtures.
+# Included so the Rust code can run with a known catalog snapshot.
+
 import psycopg
 import yaml
 import sys

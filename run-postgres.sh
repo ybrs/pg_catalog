@@ -1,4 +1,7 @@
 #!/bin/bash
+# Convenience script to launch a local PostgreSQL instance used for generating schema snapshots.
+# Initializes a data directory if needed and then starts the bundled server.
+
 
 set -e
 

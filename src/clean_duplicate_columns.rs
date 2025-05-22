@@ -1,3 +1,7 @@
+// SQL transformation utilities for aliasing columns.
+// Walks parsed queries and assigns unique aliases to avoid duplicate column names.
+// Included so result sets match PostgreSQL naming expectations.
+
 use sqlparser::ast::*;
 use datafusion::error::{DataFusionError, Result};
 use sqlparser::dialect::PostgreSqlDialect;

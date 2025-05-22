@@ -1,3 +1,7 @@
+// Helpers for rewriting SQL before execution.
+// Provides small parsers and UDFs to emulate PostgreSQL behaviour (e.g., regclass casts) that DataFusion lacks.
+// Added to translate client queries into forms DataFusion understands.
+
 use std::collections::HashMap;
 use std::ops::ControlFlow;
 use arrow::datatypes::DataType as ArrowDataType;

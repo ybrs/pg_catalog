@@ -1,3 +1,7 @@
+// Collection of custom UDF and UDTF implementations.
+// Provides functions like oid(), pg_get_array and others so queries behave like PostgreSQL.
+// Added to extend DataFusion with features required by pg_catalog emulation.
+
 use async_trait::async_trait;
 use datafusion::arrow::array::Int64Array;
 use datafusion::arrow::datatypes::{DataType, Field, Schema, SchemaRef};

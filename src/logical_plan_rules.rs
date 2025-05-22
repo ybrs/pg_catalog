@@ -1,3 +1,7 @@
+// Custom optimizer rules for DataFusion.
+// Currently strips pggetone() calls so they don't block other optimizations.
+// Added to better mimic PostgreSQL planning.
+
 use datafusion::{
     common::{
         tree_node::Transformed,

@@ -1,3 +1,7 @@
+# Utility script that reads queries from a YAML file and lists the SQL functions and CASTs they use.
+# Uses sqlglot to parse each query so we can see which features are required.
+# Helps track unsupported operations.
+
 import yaml
 import sqlglot
 from sqlglot import Expression
