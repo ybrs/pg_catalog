@@ -94,7 +94,8 @@ mod tests {
         assert_eq!(arrow_to_pg_type(&DataType::Utf8), Type::TEXT);
         assert_eq!(arrow_to_pg_type(&DataType::Utf8View), Type::TEXT);
         assert_eq!(arrow_to_pg_type(&DataType::LargeUtf8), Type::TEXT);
-        assert_eq!(arrow_to_pg_type(&DataType::Float32), Type::TEXT);
+        assert_eq!(arrow_to_pg_type(&DataType::Float32), Type::FLOAT4);
+        assert_eq!(arrow_to_pg_type(&DataType::Float64), Type::FLOAT8);
     }
 }
 

@@ -34,7 +34,12 @@ def parse_parameters(detail_line):
     return params
 
 def normalize_sql(sql):
-    return sqlglot.parse_one(sql, dialect="postgres").sql()
+    try:
+        return sqlglot.parse_one(sql, dialect="postgres").sql()
+    except:
+        print(sql)
+        print("=====")
+        raise
 
 def sql_hash(sql):
     tree = sqlglot.parse_one(sql, dialect="postgres")
@@ -130,9 +135,12 @@ def save_queries_to_yaml(queries, output_file):
         yaml.dump({"tests": queries}, f, sort_keys=False, allow_unicode=True)
 
 if __name__ == "__main__":
+    import sys
+    
     input_log = "postgresql.log"
     output_yaml = "queries.yaml"
-
+    input_log = sys.argv[1]
+    output_yaml = sys.argv[2]
     queries = extract_queries_from_log(input_log)
     save_queries_to_yaml(queries, output_yaml)
 
