@@ -173,3 +173,17 @@ pub fn print_execution_log(log:Arc<Mutex<Vec<ScanTrace>>>){
 
     println!("{}", serde_json::to_string_pretty(&out).unwrap());
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_map_pg_type() {
+        assert_eq!(map_pg_type("int"), DataType::Int32);
+        assert_eq!(map_pg_type("integer"), DataType::Int32);
+        assert_eq!(map_pg_type("bigint"), DataType::Int64);
+        assert_eq!(map_pg_type("bool"), DataType::Boolean);
+        assert_eq!(map_pg_type("varchar(20)"), DataType::Utf8);
+        assert_eq!(map_pg_type("unknown"), DataType::Utf8);
+    }
+}
