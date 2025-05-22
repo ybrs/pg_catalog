@@ -34,6 +34,7 @@ pub fn map_pg_type(pg_type: &str) -> DataType {
     }
 }
 
+#[allow(dead_code)]
 trait SchemaAccess {
     fn schema(&self) -> SchemaRef;
 }
@@ -51,6 +52,7 @@ impl SchemaAccess for ScanTrace {
 
 
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct ScanTrace {
     table: String,
@@ -157,7 +159,8 @@ impl TableProvider for ObservableMemTable {
 
 }
 
-pub fn print_execution_log(log:Arc<Mutex<Vec<ScanTrace>>>){
+#[allow(dead_code)]
+pub fn print_execution_log(log:Arc<Mutex<Vec<ScanTrace>>>) {
     let out: Vec<_> = log.lock().unwrap().iter().map(|entry| {
         let columns: Vec<_> = match &entry.projection {
             Some(p) => p.iter().map(|i| entry.schema().field(*i).name().clone()).collect(),

@@ -12,7 +12,7 @@ use datafusion::prelude::*;
 use std::sync::Arc;
 use datafusion::execution::SessionState;
 use datafusion::logical_expr::{ColumnarValue, Volatility};
-use arrow::array::{as_string_array, Array, ArrayRef, StringBuilder, ListArray};
+use arrow::array::{Array, ArrayRef, StringBuilder};
 use datafusion::common::utils::SingleRowListArrayBuilder;
 use futures::executor::block_on;
 use tokio::task::block_in_place;
@@ -163,7 +163,7 @@ pub fn register_scalar_pg_tablespace_location(ctx: &SessionContext) -> Result<()
         ArrowDataType::Utf8,
         Volatility::Immutable,
         {
-            std::sync::Arc::new(move |args| {
+            std::sync::Arc::new(move |_args| {
                 Ok(ColumnarValue::Scalar(ScalarValue::Utf8(None)))
             })
         },
@@ -352,7 +352,7 @@ pub fn register_scalar_pg_get_partkeydef(ctx: &SessionContext) -> Result<()> {
         let arrays = ColumnarValue::values_to_arrays(args)?;
         let oids = as_int64_array(&arrays[0])?;
         let mut builder = StringBuilder::new();
-        for i in 0..oids.len() {
+        for _ in 0..oids.len() {
             builder.append_null();
         }
         Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
@@ -474,7 +474,6 @@ pub fn register_scalar_array_to_string(ctx: &SessionContext) -> Result<()> {
     use arrow::datatypes::{DataType, Field};
     use datafusion::logical_expr::{ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature, Volatility};
     use std::sync::Arc;
-    use arrow::datatypes::ArrowNativeType;
 
     fn build_list<O: OffsetSizeTrait>(
         arr: ArrayRef,
@@ -743,7 +742,7 @@ pub fn register_pg_get_array(ctx: &SessionContext) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use arrow::array::{Int64Array, StringArray};
+    use arrow::array::{Int64Array, StringArray, ListArray};
     use arrow::datatypes::{DataType, Field, Schema};
     use arrow::record_batch::RecordBatch;
     use datafusion::catalog::memory::{MemoryCatalogProvider, MemorySchemaProvider};

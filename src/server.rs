@@ -1,7 +1,6 @@
 use std::sync::{Arc};
 
 use async_trait::async_trait;
-use datafusion::prelude::SessionConfig;
 use futures::{stream};
 use futures::Stream;
 
@@ -343,7 +342,7 @@ impl SimpleQueryHandler for DatafusionBackend {
 
         let _ = self.register_current_database(client);
         let _ = self.register_session_user(client);
-        let (results, schema) = execute_sql(&self.ctx, query, None, None).await.map_err(|e| PgWireError::ApiError(Box::new(e)))?;
+        let (results, _schema) = execute_sql(&self.ctx, query, None, None).await.map_err(|e| PgWireError::ApiError(Box::new(e)))?;
 
         let mut responses = Vec::new();
 

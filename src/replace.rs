@@ -1,20 +1,17 @@
-use std::collections::HashMap;
 use std::ops::ControlFlow;
 use arrow::datatypes::DataType as ArrowDataType;
-use datafusion::logical_expr::{create_udf, ColumnarValue, LogicalPlan, ScalarUDF, Volatility};
+use datafusion::logical_expr::{create_udf, ColumnarValue, ScalarUDF, Volatility};
 use datafusion::scalar::ScalarValue;
 
 use sqlparser::ast::{Expr, Function, FunctionArg, FunctionArgExpr, FunctionArguments, Ident, ObjectName, ObjectNamePart, Value};
 use sqlparser::dialect::PostgreSqlDialect;
 use sqlparser::parser::{Parser};
-use std::sync::Arc;
 use datafusion::prelude::SessionContext;
 use sqlparser::ast::*;
-use async_trait::async_trait;
 use sqlparser::tokenizer::Span;
 
 /* ---------- UDF ---------- */
-pub fn regclass_udfs(ctx: &SessionContext) -> Vec<ScalarUDF> {
+pub fn regclass_udfs(_ctx: &SessionContext) -> Vec<ScalarUDF> {
     let regclass = create_udf(
         "regclass",
         vec![ArrowDataType::Utf8],
@@ -53,7 +50,7 @@ pub fn replace_set_command_with_namespace(sql: &str) -> Result<String> {
     let mut statements = Parser::parse_sql(&dialect, sql)
         .map_err(|e| DataFusionError::External(Box::new(e)))?;
 
-    visit_statements_mut(&mut statements, |stmt| {
+    let _ = visit_statements_mut(&mut statements, |stmt| {
         if let Statement::SetVariable { variables, .. } = stmt {
             match variables {
                 OneOrManyWithParens::One(obj) => add_namespace_to_set_command(obj),
@@ -97,7 +94,7 @@ pub fn replace_regclass(sql: &str) -> Result<String> {
     let mut statements = Parser::parse_sql(&dialect, sql)
         .map_err(|e| DataFusionError::External(Box::new(e)))?;
 
-    visit_statements_mut(&mut statements, |stmt| {
+    let _ = visit_statements_mut(&mut statements, |stmt| {
         visit_expressions_mut(stmt, |expr| {
             match expr {
                 /* ---------- 1. 'text'::regclass::oid ---------- */
@@ -172,8 +169,8 @@ pub fn rewrite_pg_custom_operator(sql: &str) -> Result<String> {
     let mut statements = Parser::parse_sql(&dialect, sql)
         .map_err(|e| DataFusionError::External(Box::new(e)))?;
 
-    visit_statements_mut(&mut statements, |stmt| {
-        visit_expressions_mut(stmt, |expr| {
+    let _ = visit_statements_mut(&mut statements, |stmt| {
+        let _ = visit_expressions_mut(stmt, |expr| {
             if let Expr::BinaryOp { op, .. } = expr {
                 if let BinaryOperator::PGCustomBinaryOperator(parts) = op {
                     if parts.len() == 2
@@ -212,7 +209,7 @@ pub fn rewrite_schema_qualified_text(sql: &str) -> Result<String> {
     let mut stmts = Parser::parse_sql(&dialect, sql)
         .map_err(|e| DataFusionError::External(Box::new(e)))?;
 
-    visit_statements_mut(&mut stmts, |stmt| {
+    let _ = visit_statements_mut(&mut stmts, |stmt| {
         visit_expressions_mut(stmt, |e| {
             if let Expr::Cast { data_type, .. } = e {
                 if let DataType::Custom(obj, _) = data_type {
@@ -234,6 +231,7 @@ pub fn rewrite_schema_qualified_text(sql: &str) -> Result<String> {
 }
 
 
+#[allow(dead_code)]
 pub fn rewrite_schema_qualified_custom_types(sql: &str) -> Result<String> {
     use sqlparser::ast::{visit_expressions_mut, visit_statements_mut,
                          DataType, Expr, ObjectName, ObjectNamePart};
@@ -257,7 +255,7 @@ pub fn rewrite_schema_qualified_custom_types(sql: &str) -> Result<String> {
     let mut stmts = Parser::parse_sql(&dialect, sql)
         .map_err(|e| DataFusionError::External(Box::new(e)))?;
 
-    visit_statements_mut(&mut stmts, |stmt| {
+    let _ = visit_statements_mut(&mut stmts, |stmt| {
         visit_expressions_mut(stmt, |e| {
             if let Expr::Cast { data_type, .. } = e {
                 if let DataType::Custom(obj, _) = data_type {
@@ -314,7 +312,7 @@ pub fn rewrite_regtype_cast(sql: &str) -> Result<String> {
     let mut stmts = Parser::parse_sql(&dialect, sql)
         .map_err(|e| DataFusionError::External(Box::new(e)))?;
 
-    visit_statements_mut(&mut stmts, |stmt| {
+    let _ = visit_statements_mut(&mut stmts, |stmt| {
         visit_expressions_mut(stmt, |e| {
             if let Expr::Cast { data_type, .. } = e {
                 if let DataType::Custom(obj, _) = data_type {
@@ -362,7 +360,7 @@ pub fn strip_default_collate(sql: &str) -> Result<String> {
     let mut statements = Parser::parse_sql(&dialect, sql)
         .map_err(|e| DataFusionError::External(Box::new(e)))?;
 
-    visit_statements_mut(&mut statements, |stmt| {
+    let _ = visit_statements_mut(&mut statements, |stmt| {
         visit_expressions_mut(stmt, |e| {
             if let Expr::Collate { expr, collation } = e {
                 if is_default(collation) {

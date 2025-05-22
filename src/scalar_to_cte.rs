@@ -102,10 +102,12 @@ mod visitor {
     /// Read-only walker that records every scalar sub-query appearing
     /// *directly* inside the projection list.
     #[derive(Default, Debug)]
+    #[allow(dead_code)]
     pub struct ScalarFinder {
         pub scalars: Vec<Expr>,
     }
 
+    #[allow(dead_code)]
     impl ScalarFinder {
         pub fn find(stmt: &Statement) -> Self {
             let mut this = Self::default();
@@ -197,12 +199,14 @@ mod rewriter {
     use super::*;
 
     #[derive(Debug)]
+    #[allow(dead_code)]
     struct PendingRewrite<'a> {
         expr_slot : &'a mut Expr,   
         info      : CorrelatedInfo, 
     }
 
     #[derive(Debug)]
+    #[allow(dead_code)]
     struct CorrelatedInfo {
         cte_ident   : Ident,
         subquery    : Box<Query>,
@@ -266,6 +270,7 @@ mod rewriter {
 
 
     /// `t1.id = t2.id`  →  `(outer=id, inner=id)`
+    #[allow(dead_code)]
     #[derive(Debug, Clone)]
     struct EqPair {
         outer: Vec<Ident>,
@@ -388,6 +393,7 @@ mod rewriter {
             unreachable!("template changed")
         }
 
+        #[allow(dead_code)]
         fn make_cross_join(alias: &Ident) -> Join {
             // dummy base table so we can grab the Join node
             let tmp = super::parse_sql(&format!("SELECT * FROM x CROSS JOIN {alias}"))
@@ -691,8 +697,8 @@ mod rewriter {
             // ---------- 1st pass: collect what needs rewriting ----------
             let mut collected = Vec::<(usize, CorrelatedInfo)>::new();
             for (idx, item) in sel.projection.iter().enumerate() {
-                if let SelectItem::UnnamedExpr(e)
-                | SelectItem::ExprWithAlias { expr: e, .. } = item
+                if let SelectItem::UnnamedExpr(_e)
+                | SelectItem::ExprWithAlias { expr: _e, .. } = item
                 {
                     if let Some(info) = self.analyse_scalar(item, &outer_alias) {
                         collected.push((idx, info));
