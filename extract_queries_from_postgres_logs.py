@@ -1,3 +1,7 @@
+# Parses PostgreSQL log files and extracts unique normalized queries.
+# Outputs them to a YAML file for use in tests and analysis.
+# Useful for gathering real-world workload samples.
+
 import re
 
 import sqlparse

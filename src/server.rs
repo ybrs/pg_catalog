@@ -1,3 +1,7 @@
+// TCP server exposing the DataFusion session via the PostgreSQL wire protocol.
+// Implements pgwire handlers and registers compatibility UDFs so external clients can connect.
+// Exists to test the pg_catalog emulation over real network connections.
+
 use std::sync::{Arc};
 
 use async_trait::async_trait;
