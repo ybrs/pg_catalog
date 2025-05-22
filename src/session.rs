@@ -105,6 +105,45 @@ fn rename_columns(batch: &RecordBatch, name_map: &HashMap<String, String>) -> Re
     RecordBatch::try_new(new_schema, batch.columns().to_vec()).unwrap()
 }
 
+/// Remove system columns from `batches` if they were not explicitly referenced
+/// in the original SQL statement. PostgreSQL exposes virtual system columns
+/// like `xmin` and `ctid` which are hidden from `SELECT *` results. We emulate
+/// this behaviour by checking if the SQL contains the column name. If not,
+/// the column is pruned from the result batches and schema.
+fn remove_virtual_system_columns(
+    sql: &str,
+    batches: Vec<RecordBatch>,
+    schema: Arc<Schema>,
+) -> (Vec<RecordBatch>, Arc<Schema>) {
+    let lowered = sql.to_lowercase();
+    let system_cols = ["xmin", "xmax", "ctid", "tableoid", "cmin", "cmax"];
+
+    let mut indices: Vec<usize> = Vec::new();
+    for (i, field) in schema.fields().iter().enumerate() {
+        let name = field.name().to_lowercase();
+        if !system_cols.contains(&name.as_str()) || lowered.contains(&name) {
+            indices.push(i);
+        }
+    }
+
+    if indices.len() == schema.fields().len() {
+        return (batches, schema);
+    }
+
+    let fields = indices
+        .iter()
+        .map(|i| schema.field(*i).clone())
+        .collect::<Vec<_>>();
+    let new_schema = Arc::new(Schema::new(fields));
+
+    let new_batches = batches
+        .into_iter()
+        .map(|b| b.project(&indices).unwrap())
+        .collect();
+
+    (new_batches, new_schema)
+}
+
 
 
 pub fn print_params(params: &Vec<Option<Bytes>>) {
@@ -234,7 +273,9 @@ pub async fn execute_sql(
     let results = results
         .iter()
         .map(|batch| rename_columns(batch, &aliases))
-        .collect();
+        .collect::<Vec<_>>();
+
+    let (results, schema) = remove_virtual_system_columns(&sql, results, schema);
 
     Ok((results, schema))
 
@@ -621,6 +662,44 @@ public:
 
         assert!(Arc::ptr_eq(batch.column(0), renamed.column(0)));
         assert!(Arc::ptr_eq(batch.column(1), renamed.column(1)));
+    }
+
+    #[test]
+    fn test_remove_virtual_system_columns() {
+        use arrow::array::Int32Array;
+
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("id", DataType::Int32, false),
+            Field::new("xmin", DataType::Int32, false),
+        ]));
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(Int32Array::from(vec![1])) as ArrayRef,
+                Arc::new(Int32Array::from(vec![42])) as ArrayRef,
+            ],
+        )
+        .unwrap();
+
+        let (out, out_schema) =
+            remove_virtual_system_columns("SELECT * FROM t", vec![batch.clone()], schema.clone());
+        assert_eq!(out_schema.fields().len(), 1);
+        assert_eq!(out_schema.field(0).name(), "id");
+        assert_eq!(out[0].num_columns(), 1);
+
+        // when the result already only contains the system column, it should be preserved
+        let xmin_schema = Arc::new(Schema::new(vec![Field::new("xmin", DataType::Int32, false)]));
+        let xmin_batch = RecordBatch::try_new(
+            xmin_schema.clone(),
+            vec![Arc::new(Int32Array::from(vec![42])) as ArrayRef],
+        )
+        .unwrap();
+
+        let (out, out_schema) =
+            remove_virtual_system_columns("SELECT xmin FROM t", vec![xmin_batch.clone()], xmin_schema.clone());
+        assert_eq!(out_schema.fields().len(), 1);
+        assert_eq!(out_schema.field(0).name(), "xmin");
+        assert_eq!(out[0].num_columns(), 1);
     }
 }
 

@@ -93,3 +93,17 @@ def test_empty_result_schema(server):
         assert cur.description[0].name == "relname"
         # OID 25 is the TEXT type returned by our server for name columns
         assert cur.description[0].type_code == 25
+
+def test_system_columns_virtual(server):
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT xmin FROM pg_catalog.pg_namespace LIMIT 1")
+        row = cur.fetchone()
+        assert row[0] == 1
+
+def test_system_columns_hidden_from_star(server):
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM pg_catalog.pg_namespace LIMIT 1")
+        columns = [d.name for d in cur.description]
+        assert "xmin" not in columns
