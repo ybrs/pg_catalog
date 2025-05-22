@@ -111,6 +111,20 @@ def test_show_datestyle(server):
         row = cur.fetchone()
         assert row == ("datestyle", "ISO, MDY")
 
+def test_system_columns_virtual(server):
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT xmin FROM pg_catalog.pg_namespace LIMIT 1")
+        row = cur.fetchone()
+        assert row[0] == 1
+
+def test_system_columns_hidden_from_star(server):
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM pg_catalog.pg_namespace LIMIT 1")
+        columns = [d.name for d in cur.description]
+        assert "xmin" not in columns
+
 
 def test_error_logging():
     proc = subprocess.Popen([
