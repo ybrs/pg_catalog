@@ -93,3 +93,29 @@ def test_empty_result_schema(server):
         assert cur.description[0].name == "relname"
         # OID 25 is the TEXT type returned by our server for name columns
         assert cur.description[0].type_code == 25
+
+
+def test_system_columns_hidden_in_star(server):
+    """System columns should not appear when using SELECT *."""
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM pg_catalog.pg_class LIMIT 1")
+        names = [d.name for d in cur.description]
+        for col in ["xmin", "xmax", "ctid", "tableoid", "cmin", "cmax"]:
+            assert col not in names
+
+
+def test_system_columns_explicit(server):
+    """Explicitly selecting system columns should succeed and return dummy values."""
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT xmin, xmax, ctid, tableoid, cmin, cmax FROM pg_catalog.pg_class LIMIT 1"
+        )
+        row = cur.fetchone()
+        # xmin returns a dummy value 1
+        assert row[0] == 1
+        # xmax returns NULL (None in psycopg)
+        assert row[1] is None
+        assert len(row) == 6
+

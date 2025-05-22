@@ -21,7 +21,19 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use pgwire::api::Type;
 use crate::clean_duplicate_columns::alias_all_columns;
-use crate::replace::{regclass_udfs, replace_regclass, replace_set_command_with_namespace, rewrite_array_subquery, rewrite_brace_array_literal, rewrite_pg_custom_operator, rewrite_regtype_cast, rewrite_schema_qualified_custom_types, rewrite_schema_qualified_text, strip_default_collate};
+use crate::replace::{
+    regclass_udfs,
+    replace_regclass,
+    replace_set_command_with_namespace,
+    rewrite_array_subquery,
+    rewrite_brace_array_literal,
+    rewrite_pg_custom_operator,
+    rewrite_regtype_cast,
+    rewrite_schema_qualified_custom_types,
+    rewrite_schema_qualified_text,
+    rewrite_system_columns,
+    strip_default_collate,
+};
 use crate::scalar_to_cte::rewrite_subquery_as_cte;
 use bytes::Bytes;
 
@@ -147,6 +159,7 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
 
     println!("before group by {}", sql);
     let sql = rewrite_group_by_for_any(&sql);
+    let sql = rewrite_system_columns(&sql);
 
     return Ok((sql, aliases))
 }
@@ -303,7 +316,12 @@ fn merge_schema_maps(
 }
 
 fn build_table(def: TableDef) -> (SchemaRef, Vec<RecordBatch>) {
-    let fields: Vec<Field> = def.schema.iter()
+    const SYSTEM_COLS: [&str; 6] = ["xmin", "xmax", "ctid", "tableoid", "cmin", "cmax"];
+
+    let fields: Vec<Field> = def
+        .schema
+        .iter()
+        .filter(|(col, _)| !SYSTEM_COLS.contains(&col.as_str()))
         .map(|(col, typ)| Field::new(col, map_pg_type(typ), true))
         .collect();
 

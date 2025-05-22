@@ -598,6 +598,63 @@ pub fn rewrite_brace_array_literal(sql: &str) -> Result<String> {
         .join("; "))
 }
 
+/// Replace references to system columns like `xmin`, `xmax`, `ctid`,
+/// `tableoid`, `cmin`, and `cmax` with constant values. The returned
+/// values are dummy placeholders so queries referencing these columns
+/// succeed even though the underlying tables do not contain them.
+pub fn rewrite_system_columns(sql: &str) -> String {
+    use sqlparser::ast::{visit_expressions_mut, visit_statements_mut, Expr, Ident, Value, ValueWithSpan};
+    use sqlparser::dialect::PostgreSqlDialect;
+    use sqlparser::parser::Parser;
+    use std::ops::ControlFlow;
+
+    fn replacement(name: &str) -> Expr {
+        match name.to_lowercase().as_str() {
+            "xmin" => Expr::Value(ValueWithSpan { value: Value::Number("1".into(), false), span: sqlparser::tokenizer::Span::empty() }),
+            "xmax" | "ctid" => Expr::Cast {
+                kind: sqlparser::ast::CastKind::DoubleColon,
+                expr: Box::new(Expr::Value(ValueWithSpan { value: Value::Null, span: sqlparser::tokenizer::Span::empty() })),
+                data_type: sqlparser::ast::DataType::Int8(None),
+                format: None,
+            },
+            "tableoid" | "cmin" | "cmax" => Expr::Value(ValueWithSpan { value: Value::Number("0".into(), false), span: sqlparser::tokenizer::Span::empty() }),
+            _ => unreachable!(),
+        }
+    }
+
+    let dialect = PostgreSqlDialect {};
+    let mut stmts = match Parser::parse_sql(&dialect, sql) {
+        Ok(v) => v,
+        Err(_) => return sql.to_string(),
+    };
+
+    let _ = visit_statements_mut(&mut stmts, |stmt| {
+        let _ = visit_expressions_mut(stmt, |expr| {
+            match expr {
+                Expr::Identifier(Ident { value, .. }) if matches!(value.to_lowercase().as_str(), "xmin" | "xmax" | "ctid" | "tableoid" | "cmin" | "cmax") => {
+                    *expr = replacement(value);
+                }
+                Expr::CompoundIdentifier(idents) => {
+                    if let Some(last) = idents.last() {
+                        if matches!(last.value.to_lowercase().as_str(), "xmin" | "xmax" | "ctid" | "tableoid" | "cmin" | "cmax") {
+                            *expr = replacement(&last.value);
+                        }
+                    }
+                }
+                _ => {}
+            }
+            ControlFlow::<()>::Continue(())
+        });
+        ControlFlow::<()>::Continue(())
+    });
+
+    stmts
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
 
 
 #[cfg(test)]
