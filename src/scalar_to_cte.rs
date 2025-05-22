@@ -539,14 +539,13 @@ mod rewriter {
             let mut total_proj= 0_usize;      // how many projection items?
         
             for item in &sel.projection {
-                total_proj += 1;
                 if let SelectItem::UnnamedExpr(e)
                     | SelectItem::ExprWithAlias { expr: e, .. } = item
                 {
-                    // collects plain columns + sets has_aggr
-                    Self::scan_expr(e, /*inside_aggr*/ false, &mut has_aggr, &mut cols);
+                    total_proj += 1;
+                    Self::scan_expr(e, false, &mut has_aggr, &mut cols);
                 }
-            }
+            }  
         
             // do we mix “plain columns” with “anything else”?
             let mix_plain_and_other = !cols.is_empty() && cols.len() < total_proj;
