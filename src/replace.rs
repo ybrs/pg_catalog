@@ -1,17 +1,21 @@
-use std::collections::HashMap;
 use std::ops::ControlFlow;
 use arrow::datatypes::DataType as ArrowDataType;
-use datafusion::logical_expr::{create_udf, ColumnarValue, LogicalPlan, ScalarUDF, Volatility};
+use datafusion::logical_expr::{create_udf, ColumnarValue, ScalarUDF, Volatility};
 use datafusion::scalar::ScalarValue;
 
 use sqlparser::ast::{Expr, Function, FunctionArg, FunctionArgExpr, FunctionArguments, Ident, ObjectName, ObjectNamePart, Value};
 use sqlparser::dialect::PostgreSqlDialect;
 use sqlparser::parser::{Parser};
-use std::sync::Arc;
 use datafusion::prelude::SessionContext;
 use sqlparser::ast::*;
-use async_trait::async_trait;
 use sqlparser::tokenizer::Span;
+use sqlparser::ast::{
+    visit_expressions_mut, visit_statements_mut, ValueWithSpan,
+};
+use sqlparser::ast::{Statement};
+use sqlparser::ast::OneOrManyWithParens;
+use datafusion::error::{DataFusionError, Result};
+
 
 /* ---------- UDF ---------- */
 pub fn regclass_udfs(ctx: &SessionContext) -> Vec<ScalarUDF> {
@@ -34,9 +38,6 @@ pub fn regclass_udfs(ctx: &SessionContext) -> Vec<ScalarUDF> {
     vec![regclass]
 }
 
-use sqlparser::ast::{visit_statements_mut, Statement};
-
-use sqlparser::ast::OneOrManyWithParens;
 
 fn add_namespace_to_set_command(obj: &mut ObjectName) {
     if obj.0.len() == 1 {
@@ -45,8 +46,6 @@ fn add_namespace_to_set_command(obj: &mut ObjectName) {
         obj.0.push(ident);
     }
 }
-
-use datafusion::error::{DataFusionError, Result};
 
 pub fn replace_set_command_with_namespace(sql: &str) -> Result<String> {
     let dialect = PostgreSqlDialect {};
@@ -261,7 +260,10 @@ pub fn rewrite_schema_qualified_custom_types(sql: &str) -> Result<String> {
         visit_expressions_mut(stmt, |e| {
             if let Expr::Cast { data_type, .. } = e {
                 if let DataType::Custom(obj, _) = data_type {
-                    if is_pg_type(obj, "text") || is_pg_type(obj, "regtype") {
+                    if is_pg_type(obj, "text") 
+                    || is_pg_type(obj, "regtype")
+                    || is_pg_type(obj, "regnamespace") 
+                    || is_pg_type(obj, "regclass") {
                         *data_type = DataType::Text;
                     }
                 }
@@ -381,6 +383,217 @@ pub fn strip_default_collate(sql: &str) -> Result<String> {
         .join("; "))
 }
 
+/// Re-write  ARRAY( <sub-query> )
+///        ⟶  pg_catalog.pg_get_array( ( <sub-query> ) )
+///
+/// • no regexes – uses `sqlparser` AST  
+/// • only the `array( … )` form with ONE argument is accepted  
+/// • any other shape causes an explicit `Err(DataFusionError::Plan(..))`  
+/// • **if nothing matches we just pass the SQL back untouched**
+pub fn rewrite_array_subquery(sql: &str) -> Result<String> {
+    use sqlparser::ast::{
+        visit_expressions_mut, visit_statements_mut, Expr, Function, FunctionArg,
+        FunctionArgExpr, FunctionArguments, FunctionArgumentList, Ident, ObjectName,
+        ObjectNamePart, Query,
+    };
+    use sqlparser::dialect::PostgreSqlDialect;
+    use sqlparser::parser::Parser;
+    use std::ops::ControlFlow;
+
+    let dialect = PostgreSqlDialect {};
+    let mut stmts = Parser::parse_sql(&dialect, sql)
+        .map_err(|e| DataFusionError::External(Box::new(e)))?;
+
+    let mut rewritten_any = false;
+
+    /* --------------------------------------------------------- */
+    let flow: ControlFlow<DataFusionError, ()> =
+        visit_statements_mut(&mut stmts, |stmt| {
+            let inner = visit_expressions_mut(stmt, |expr| {
+                /* ── 1️⃣  bail out on ARRAY[...] literals ─────────────── */
+                if let Expr::Array(_) = expr {
+                    return ControlFlow::Continue(());
+                }
+
+                /* ── 2️⃣  handle ARRAY( … ) rewrites ─────────────────── */
+                if let Expr::Function(func) = expr {
+                    let base_name = func
+                        .name
+                        .0
+                        .last()
+                        .and_then(|p| p.as_ident())
+                        .map(|id| id.value.to_lowercase())
+                        .unwrap_or_default();
+
+                    if base_name == "array" {
+                        /* extract exactly one argument */
+                        let arg_expr: Expr = match &func.args {
+                            /* list form */
+                            FunctionArguments::List(FunctionArgumentList { args, .. }) => {
+                                if args.len() != 1 {
+                                    return ControlFlow::Break(DataFusionError::Plan(
+                                        "ARRAY() must have exactly one argument".into(),
+                                    ));
+                                }
+                                match &args[0] {
+                                    FunctionArg::Unnamed(FunctionArgExpr::Expr(e)) => (*e).clone(),
+                                    _ => {
+                                        return ControlFlow::Break(DataFusionError::Plan(
+                                            "ARRAY() argument must be an expression".into(),
+                                        ))
+                                    }
+                                }
+                            }
+                            /* sub-query form */
+                            FunctionArguments::Subquery(q) => {
+                                Expr::Subquery(Box::new((**q).clone()))
+                            }
+                            _ => {
+                                return ControlFlow::Break(DataFusionError::Plan(
+                                    "ARRAY() with unsupported argument form".into(),
+                                ))
+                            }
+                        };
+
+                        /* add parentheses only when necessary */
+                        let wrapped = match &arg_expr {
+                            Expr::Subquery(_) | Expr::Nested(_) => arg_expr.clone(),
+                            _                                    => Expr::Nested(Box::new(arg_expr.clone())),
+                        };
+
+                        /* build pg_catalog.pg_get_array( wrapped ) */
+                        *expr = Expr::Function(Function {
+                            name: ObjectName(vec![
+                                ObjectNamePart::Identifier(Ident::new("pg_catalog")),
+                                ObjectNamePart::Identifier(Ident::new("pg_get_array")),
+                            ]),
+                            args: FunctionArguments::List(FunctionArgumentList {
+                                duplicate_treatment: None,
+                                clauses: vec![],
+                                args: vec![FunctionArg::Unnamed(
+                                    FunctionArgExpr::Expr(wrapped),
+                                )],
+                            }),
+                            over: None,
+                            filter: None,
+                            within_group: vec![],
+                            null_treatment: None,
+                            parameters: FunctionArguments::None,
+                            uses_odbc_syntax: false,
+                        });
+
+                        rewritten_any = true;
+                    }
+                }
+                ControlFlow::Continue(())
+            });
+
+            match inner {
+                ControlFlow::Break(e)     => ControlFlow::Break(e),
+                ControlFlow::Continue(()) => ControlFlow::Continue(()),
+            }
+        });
+
+    /* propagate any error triggered above */
+    if let ControlFlow::Break(err) = flow {
+        return Err(err);
+    }
+
+    /* nothing matched – just echo input back verbatim */
+    if !rewritten_any {
+        return Ok(sql.to_owned());
+    }
+
+    /* serialise mutated AST */
+    Ok(stmts
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join("; "))
+}
+
+
+/// Rewrite a Postgres array literal in curly-brace notation
+/// (`'{1,2,3}'`, `'{"a","b"}'`, …) into an `Expr::Array`, which
+/// `sqlparser` renders as `ARRAY[...]`.
+///
+///  * pure-AST rewrite – no regexes
+///  * if *nothing* matches we pass SQL back unchanged
+///  * malformed literals raise `DataFusionError::Plan`
+pub fn rewrite_brace_array_literal(sql: &str) -> Result<String> {
+    use sqlparser::ast::{
+        visit_expressions_mut, visit_statements_mut, Expr, Value, ValueWithSpan,
+    };
+    use sqlparser::dialect::PostgreSqlDialect;
+    use sqlparser::parser::Parser;
+    use std::ops::ControlFlow;
+
+    let dialect = PostgreSqlDialect {};
+    let mut stmts = Parser::parse_sql(&dialect, sql)
+        .map_err(|e| DataFusionError::External(Box::new(e)))?;
+
+    let mut rewritten_any = false;
+
+    let flow: ControlFlow<DataFusionError, ()> =
+        visit_statements_mut(&mut stmts, |stmt| {
+            let inner = visit_expressions_mut(stmt, |expr| {
+                if let Expr::Value(ValueWithSpan {
+                    value: Value::SingleQuotedString(s),
+                    ..
+                }) = expr
+                {
+                    if s.starts_with('{') && s.ends_with('}') {
+                        let inside = &s[1..s.len() - 1]; // strip the braces
+
+                        // split respecting the simple {a,b,c} grammar
+                        // (no escape handling – good enough for catalogue OIDs
+                        //  like '{0}' which is what we need right now)
+                        let items: Vec<Expr> = inside
+                        .split(',')
+                        .map(|t| {
+                            Expr::Value(ValueWithSpan {
+                                value: Value::SingleQuotedString(
+                                    t.trim_matches('"').trim().to_string(),
+                                ),
+                                span: Span::empty(),
+                            })
+                        })
+                        .collect();
+                    
+                        // build ARRAY[...]
+                        *expr = Expr::Array(Array {
+                            elem: items,
+                            named: false,          // <- `false` for the normal ARRAY[...] form
+                        });
+
+                        rewritten_any = true;
+                    }
+                }
+                ControlFlow::Continue(())
+            });
+
+            match inner {
+                ControlFlow::Break(e) => ControlFlow::Break(e),
+                ControlFlow::Continue(()) => ControlFlow::Continue(()),
+            }
+        });
+
+    if let ControlFlow::Break(err) = flow {
+        return Err(err);
+    }
+
+    if !rewritten_any {
+        return Ok(sql.to_owned());
+    }
+
+    Ok(stmts
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join("; "))
+}
+
+
 
 #[cfg(test)]
 mod tests {
@@ -410,7 +623,9 @@ mod tests {
             // simple identifier keeps ::
             ("SELECT x::pg_catalog.regtype",
              "SELECT x::TEXT"),
-    
+            ("SELECT x::pg_catalog.regclass",
+             "SELECT x::TEXT"),
+             
             // an explicit CAST stays CAST
             ("SELECT CAST(y AS pg_catalog.regtype)",
              "SELECT CAST(y AS TEXT)"),
@@ -564,6 +779,43 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn test_rewrite_array_subquery() -> Result<(), Box<dyn std::error::Error>> {
+        /* basic happy-path */
+        let in_sql  = "SELECT array(SELECT rolname FROM pg_catalog.pg_roles ORDER BY 1)";
+        let expect  = "SELECT pg_catalog.pg_get_array((SELECT rolname FROM pg_catalog.pg_roles ORDER BY 1))";
+        let out_sql = rewrite_array_subquery(in_sql).unwrap();
+        println!("test_rewrite_array_subquery {}", out_sql);
+        assert_eq!(out_sql, expect);
 
+        let in_sql = "select 1";
+        let out_sql = rewrite_array_subquery(in_sql).unwrap();
+        assert_eq!(in_sql, out_sql);
+
+    
+        /* ARRAY with more than one arg – rejected */
+        let bad_sql = "SELECT array(x, y)";
+        assert!(rewrite_array_subquery(bad_sql).is_err());
+    
+        /* array literal is *not* touched */
+        let lit_sql = "SELECT ARRAY[1,2,3]";
+        let out_sql = rewrite_array_subquery(lit_sql).unwrap();
+        assert_eq!(lit_sql, out_sql);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_rewrite_brace_array_literal() -> Result<(), Box<dyn std::error::Error>> {
+        let in_sql  = "SELECT pol.polroles = '{0}' FROM pg_catalog.pg_policy pol";
+        let expect  = "SELECT pol.polroles = ['0'] FROM pg_catalog.pg_policy AS pol";
+        assert_eq!(rewrite_brace_array_literal(in_sql).unwrap(), expect);
+
+        // nothing to do ➜ echoes input
+        let plain   = "SELECT 1";
+        assert_eq!(rewrite_brace_array_literal(plain).unwrap(), plain);
+
+        Ok(())
+    }
 
 }
