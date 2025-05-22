@@ -8,8 +8,7 @@ use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use datafusion::catalog::SchemaProvider;
 
 use datafusion::catalog::memory::{MemoryCatalogProvider, MemorySchemaProvider};
-use datafusion::common::alias;
-use datafusion::datasource::{MemTable, TableProvider, TableType};
+use datafusion::datasource::{MemTable};
 use datafusion::execution::context::SessionContext;
 use arrow::record_batch::RecordBatch;
 

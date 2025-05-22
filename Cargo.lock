@@ -1412,6 +1412,7 @@ dependencies = [
  "datafusion",
  "futures",
  "log",
+ "once_cell",
  "pgwire",
  "regex",
  "serde",
