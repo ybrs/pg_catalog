@@ -1,3 +1,6 @@
+# Integration tests that start the pg_catalog server and run basic queries over pgwire.
+# Ensures the server behaves like PostgreSQL for fundamental cases.
+
 import os
 import time
 import subprocess

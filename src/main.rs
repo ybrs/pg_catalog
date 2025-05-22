@@ -1,3 +1,7 @@
+// Entry point for the pg_catalog compatibility server.
+// Parses CLI arguments, builds a SessionContext and starts the pgwire server.
+// Provides a simple way to run the DataFusion-backed PostgreSQL emulator.
+
 mod session;
 mod replace;
 mod clean_duplicate_columns;

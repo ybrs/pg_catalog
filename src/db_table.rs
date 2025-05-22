@@ -1,3 +1,7 @@
+// Wrapper around MemTable that records query scans.
+// Also includes helpers for mapping PostgreSQL types and printing execution logs.
+// Allows tests to inspect which tables and columns were accessed.
+
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use datafusion::catalog::{Session};
 use datafusion::datasource::{MemTable, TableProvider, TableType};

@@ -1,3 +1,7 @@
+// Session management utilities.
+// Loads YAML schemas into MemTables, registers UDFs and executes rewritten queries using DataFusion.
+// Separated to encapsulate DataFusion setup and query execution behaviour.
+
 use arrow::array::{Int32Array, StringArray};
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 
