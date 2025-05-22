@@ -80,3 +80,13 @@ def test_pg_get_array_subquery(server):
         assert raw.startswith("{") and raw.endswith("}")
         items = raw[1:-1].split(',') if raw != '{}' else []
         assert items == [expected]
+
+def test_empty_result_schema(server):
+    """Ensure that queries returning no rows still expose column metadata."""
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT relname FROM pg_catalog.pg_class WHERE false")
+        assert cur.fetchall() == []
+        assert cur.description[0].name == "relname"
+        # OID 25 is the TEXT type returned by our server for name columns
+        assert cur.description[0].type_code == 25

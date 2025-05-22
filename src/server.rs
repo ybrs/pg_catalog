@@ -347,26 +347,14 @@ impl SimpleQueryHandler for DatafusionBackend {
         let mut responses = Vec::new();
 
         if results.is_empty() {
-            println!("!!!!!!! ====== result is empty !!!!");
-            // TODO: we are double parsing the sql here. this shouldn't be needed.
-            //   also we arent using all the filters
-            // let query = rewrite_array_subquery(&query).unwrap();
-            // let query = rewrite_brace_array_literal(&query).unwrap();
+            // Prior implementation re-ran the query to obtain the schema when no
+            // rows were returned. `execute_sql` already provides the schema, so
+            // use it directly and build an empty batch from it.
+            let batch = RecordBatch::new_empty(schema.clone());
+            let field_infos = Arc::new(batch_to_field_info(&batch, &Format::UnifiedText)?);
+            let rows = batch_to_row_stream(&batch, field_infos.clone());
 
-            // let query = replace_set_command_with_namespace(&query)
-            //     .map_err(|e| PgWireError::ApiError(Box::new(e)))?;
-
-            let (query, aliases) = rewrite_filters(query).unwrap();
-
-            // zero-row result, but still need schema
-            let df = self.ctx.sql(&query).await.map_err(|e| PgWireError::ApiError(Box::new(e)))?;
-            let schema = df.schema();
-
-            let batch = RecordBatch::new_empty(SchemaRef::from(schema.clone()));
-            let schema = Arc::new(batch_to_field_info(&batch, &Format::UnifiedText)?);
-            let rows = batch_to_row_stream(&batch, schema.clone());
-
-            responses.push(Response::Query(QueryResponse::new(schema, rows)));
+            responses.push(Response::Query(QueryResponse::new(field_infos, rows)));
         } else {
             for batch in results {
                 let schema = Arc::new(batch_to_field_info(&batch, &Format::UnifiedText)?);
