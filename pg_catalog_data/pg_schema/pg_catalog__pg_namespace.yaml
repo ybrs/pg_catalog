@@ -13,6 +13,7 @@ public:
         nspname: name
         nspowner: oid
         nspacl: _aclitem
+        xmin: xid
       rows:
       - oid: 99
         nspname: pg_toast

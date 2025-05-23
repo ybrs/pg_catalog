@@ -151,6 +151,13 @@ fix it.
 
 add tests for this use case.
 
+Approach: the column existed but the ARRAY subquery rewrite produced a
+correlated CTE referencing `C.conexclop`. DataFusion couldn't resolve this and
+raised a `FieldNotFound` error. We detect the specific pattern
+`ARRAY(SELECT unnest FROM UNNEST(col))` and replace it with the original column
+expression before further rewrites. The added functional test ensures the query
+now returns `NULL` instead of failing.
+
 # Task 8 – implement SHOW TRANSACTION ISOLATION LEVEL
 Query: SHOW TRANSACTION ISOLATION LEVEL
 

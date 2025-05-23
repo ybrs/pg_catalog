@@ -460,6 +460,43 @@ pub fn rewrite_array_subquery(sql: &str) -> Result<String> {
                             }
                         };
 
+                        // -----------------------------------------------------------------
+                        // Special case: ARRAY(SELECT unnest FROM UNNEST(col))
+                        // -------------------------------------------------
+                        // PostgreSQL allows this construct to effectively
+                        // return the original array. The generic rewrite
+                        // below would turn it into:
+                        //      pg_catalog.pg_get_array((SELECT unnest FROM
+                        //          UNNEST(col)))
+                        // which later fails when the scalar sub-query is
+                        // converted into a CTE because it references the
+                        // outer table.  Detect this exact shape here and
+                        // simply replace the whole expression with `col`.
+
+                        if let Expr::Subquery(subq) = &arg_expr {
+                            if let SetExpr::Select(inner_sel) = subq.body.as_ref() {
+                                let from_ok = inner_sel.from.len() == 1 && matches!(
+                                    inner_sel.from[0].relation,
+                                    TableFactor::UNNEST { .. }
+                                );
+                                let proj_ok = inner_sel.projection.len() == 1 &&
+                                    matches!(
+                                        inner_sel.projection[0],
+                                        SelectItem::UnnamedExpr(Expr::Identifier(ref id))
+                                        if id.value.to_lowercase() == "unnest"
+                                    );
+                                if from_ok && proj_ok && inner_sel.selection.is_none() {
+                                    if let TableFactor::UNNEST { ref array_exprs, .. } = inner_sel.from[0].relation {
+                                        if array_exprs.len() == 1 {
+                                            *expr = array_exprs[0].clone();
+                                            rewritten_any = true;
+                                            return ControlFlow::Continue(());
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         /* add parentheses only when necessary */
                         let wrapped = match &arg_expr {
                             Expr::Subquery(_) | Expr::Nested(_) => arg_expr.clone(),
