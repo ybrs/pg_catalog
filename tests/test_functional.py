@@ -152,6 +152,22 @@ def test_conexclop_unnest(server):
         assert row[0] is None
 
 
+def test_conexclop_regoper_cast(server):
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "select array(select unnest::regoper::varchar from unnest(C.conexclop)) from pg_catalog.pg_constraint C limit 1"
+        )
+        row = cur.fetchone()
+        assert row[0] is None
+
+        cur.execute(
+            "select conexclop::regoper::text from pg_catalog.pg_constraint limit 1"
+        )
+        row = cur.fetchone()
+        assert row[0] is None
+
+
 def test_pg_tablespace_location_alias(server):
     with psycopg.connect(CONN_STR) as conn:
         cur = conn.cursor()

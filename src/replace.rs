@@ -342,6 +342,54 @@ pub fn rewrite_regtype_cast(sql: &str) -> Result<String> {
         .join("; "))
 }
 
+/// Replace casts to regoper with NULL. Queries sometimes cast the
+/// `conexclop` column (stored as `_text`) to `regoper` and then to
+/// another type like TEXT. Since the column is always NULL we can
+/// short-circuit this pattern by returning NULL directly.
+pub fn rewrite_regoper_cast(sql: &str) -> Result<String> {
+    use sqlparser::ast::{
+        visit_expressions_mut, visit_statements_mut, DataType, Expr, ObjectName,
+        ObjectNamePart, Value, ValueWithSpan,
+    };
+    use sqlparser::dialect::PostgreSqlDialect;
+    use sqlparser::parser::Parser;
+    use std::ops::ControlFlow;
+
+    fn is_regoper(obj: &ObjectName) -> bool {
+        match obj.0.as_slice() {
+            [ObjectNamePart::Identifier(id)] if id.value.eq_ignore_ascii_case("regoper") => true,
+            [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(id)]
+                if schema.value.eq_ignore_ascii_case("pg_catalog")
+                    && id.value.eq_ignore_ascii_case("regoper") => true,
+            _ => false,
+        }
+    }
+
+    let dialect = PostgreSqlDialect {};
+    let mut stmts = Parser::parse_sql(&dialect, sql)
+        .map_err(|e| DataFusionError::External(Box::new(e)))?;
+
+    visit_statements_mut(&mut stmts, |stmt| {
+        visit_expressions_mut(stmt, |e| {
+            if let Expr::Cast { data_type, .. } = e {
+                if let DataType::Custom(obj, _) = data_type {
+                    if is_regoper(obj) {
+                        *e = Expr::Value(ValueWithSpan { value: Value::Null, span: Span::empty() });
+                    }
+                }
+            }
+            ControlFlow::<()>::Continue(())
+        })?;
+        ControlFlow::Continue(())
+    });
+
+    Ok(stmts
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join("; "))
+}
+
 
 pub fn strip_default_collate(sql: &str) -> Result<String> {
     /// we are dropping default collate, since datafusion doesnt support collates. 
@@ -479,13 +527,19 @@ pub fn rewrite_array_subquery(sql: &str) -> Result<String> {
                                     inner_sel.from[0].relation,
                                     TableFactor::UNNEST { .. }
                                 );
-                                let proj_ok = inner_sel.projection.len() == 1 &&
+                                let proj_unnest = inner_sel.projection.len() == 1 &&
                                     matches!(
                                         inner_sel.projection[0],
                                         SelectItem::UnnamedExpr(Expr::Identifier(ref id))
                                         if id.value.to_lowercase() == "unnest"
                                     );
-                                if from_ok && proj_ok && inner_sel.selection.is_none() {
+                                let proj_null = inner_sel.projection.len() == 1 &&
+                                    match &inner_sel.projection[0] {
+                                        SelectItem::UnnamedExpr(Expr::Value(ValueWithSpan { value: Value::Null, .. })) => true,
+                                        SelectItem::UnnamedExpr(Expr::Cast { expr, .. }) => matches!(**expr, Expr::Value(ValueWithSpan { value: Value::Null, .. })),
+                                        _ => false,
+                                    };
+                                if from_ok && proj_unnest && inner_sel.selection.is_none() {
                                     if let TableFactor::UNNEST { ref array_exprs, .. } = inner_sel.from[0].relation {
                                         if array_exprs.len() == 1 {
                                             *expr = array_exprs[0].clone();
@@ -493,6 +547,15 @@ pub fn rewrite_array_subquery(sql: &str) -> Result<String> {
                                             return ControlFlow::Continue(());
                                         }
                                     }
+                                } else if from_ok && proj_null && inner_sel.selection.is_none() {
+                                    *expr = Expr::Cast {
+                                        kind: sqlparser::ast::CastKind::Cast,
+                                        expr: Box::new(Expr::Value(ValueWithSpan { value: Value::Null, span: Span::empty() })),
+                                        data_type: DataType::Text,
+                                        format: None,
+                                    };
+                                    rewritten_any = true;
+                                    return ControlFlow::Continue(());
                                 }
                             }
                         }
@@ -856,6 +919,23 @@ mod tests {
         // nothing to do ➜ echoes input
         let plain   = "SELECT 1";
         assert_eq!(rewrite_brace_array_literal(plain).unwrap(), plain);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_rewrite_regoper_cast() -> Result<(), Box<dyn std::error::Error>> {
+        let input = "SELECT conexclop::regoper::text FROM pg_catalog.pg_constraint";
+        let expected = "SELECT NULL::TEXT FROM pg_catalog.pg_constraint";
+        assert_eq!(rewrite_regoper_cast(input).unwrap(), expected);
+
+        let input = "SELECT conexclop::pg_catalog.regoper::varchar FROM pg_catalog.pg_constraint";
+        let expected = "SELECT NULL::VARCHAR FROM pg_catalog.pg_constraint";
+        assert_eq!(rewrite_regoper_cast(input).unwrap(), expected);
+
+        let input = "SELECT conexclop::regoper FROM pg_catalog.pg_constraint";
+        let expected = "SELECT NULL FROM pg_catalog.pg_constraint";
+        assert_eq!(rewrite_regoper_cast(input).unwrap(), expected);
 
         Ok(())
     }
