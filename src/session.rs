@@ -599,7 +599,7 @@ mod tests {
     use super::*;
     use tempfile::NamedTempFile;
     use std::io::Write;
-    use arrow::array::{Int32Array, StringArray};
+    use arrow::array::{Int32Array, Int64Array, StringArray};
     use arrow::datatypes::DataType;
     use arrow::array::{ArrayRef};
 
@@ -709,6 +709,55 @@ public:
         let inner = binding.as_any().downcast_ref::<StringArray>().unwrap();
         assert_eq!(inner.value(0), "x");
         assert_eq!(inner.value(1), "y");
+    }
+
+    #[test]
+    fn test_parse_schema_file_multiple_tables() {
+        let yaml = r#"
+mycatalog:
+  myschema:
+    t1:
+      type: table
+      schema:
+        id: int
+        name: varchar
+      rows:
+        - id: 1
+          name: Foo
+    t2:
+      type: table
+      schema:
+        val: bigint
+      rows:
+        - val: 10
+        - val: 20
+"#;
+
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        std::io::Write::write_all(&mut file, yaml.as_bytes()).unwrap();
+
+        let parsed = parse_schema_file(file.path().to_str().unwrap());
+        let schemas = parsed.get("mycatalog").unwrap();
+        let myschema = schemas.get("myschema").unwrap();
+
+        let (t1_schema, t1_batches) = myschema.get("t1").unwrap();
+        assert_eq!(t1_schema.fields()[0].name(), "id");
+        assert_eq!(t1_schema.fields()[0].data_type(), &DataType::Int32);
+        assert_eq!(t1_schema.fields()[1].name(), "name");
+        assert_eq!(t1_schema.fields()[1].data_type(), &DataType::Utf8);
+        let t1_batch = &t1_batches[0];
+        assert_eq!(t1_batch.num_rows(), 1);
+        assert_eq!(t1_batch.column(0).as_any().downcast_ref::<Int32Array>().unwrap().value(0), 1);
+        assert_eq!(t1_batch.column(1).as_any().downcast_ref::<StringArray>().unwrap().value(0), "Foo");
+
+        let (t2_schema, t2_batches) = myschema.get("t2").unwrap();
+        assert_eq!(t2_schema.fields()[0].name(), "val");
+        assert_eq!(t2_schema.fields()[0].data_type(), &DataType::Int64);
+        let t2_batch = &t2_batches[0];
+        assert_eq!(t2_batch.num_rows(), 2);
+        let arr = t2_batch.column(0).as_any().downcast_ref::<Int64Array>().unwrap();
+        assert_eq!(arr.value(0), 10);
+        assert_eq!(arr.value(1), 20);
     }
 
 
