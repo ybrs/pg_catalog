@@ -168,3 +168,92 @@ Fix: intercept SHOW TRANSACTION ISOLATION LEVEL in SimpleQueryHandler / Extended
 Implemented: the server now handles this statement directly and returns a single
 `transaction_isolation` column with the value `read committed`. Describe handlers
 also provide matching metadata so prepared queries work. Tests were added.
+
+# Task 9 - regoper::text
+
+Now this works
+
+```
+pgtry=> select array(select unnest from unnest(conexclop) ) from pg_catalog.pg_constraint;
+```
+
+but this doesnt work giving wrong error
+```
+pgtry=> select array(select unnest::regoper::varchar from unnest(conexclop) ) from pg_catalog.pg_constraint;
+ERROR:  Schema error: No field named conexclop.
+```
+
+possible cause is this. 
+
+```
+pgtry=> select conexclop::regoper::text from pg_catalog.pg_constraint;
+ERROR:  This feature is not implemented: Unsupported SQL type Custom(ObjectName([Identifier(Ident { value: "regoper", quote_style: None, span: Span(Location(1,19)..Location(1,26)) })]), [])
+```
+
+since we keep conexclop as _text and it's always null, we can shortcut this ::regoper::{whatevertype} for now. just return null.
+
+# Task 10 - ::oid type
+
+these queries crash
+
+```
+select A.oid as access_method_id,\n       A.xmin as state_number,\n       A.amname as access_method_name\n       ,\n       A.amhandler::oid as handler_id,\n       pg_catalog.quote_ident(N.nspname) || '.' || pg_catalog.quote_ident(P.proname) as handler_name,\n       A.amtype as access_method_type\n       \nfrom pg_am A\n  join pg_proc P on A.amhandler::oid = P.oid\n  join pg_namespace N on P.pronamespace = N.oid\n  \n--  where pg_catalog.age(A.xmin) <= #TXAGE
+```
+
+because 
+
+```
+pgtry=> select amhandler::oid::text from pg_catalog.pg_am;
+ERROR:  This feature is not implemented: Unsupported SQL type Custom(ObjectName([Identifier(Ident { value: "oid", quote_style: None, span: Span(Location(1,19)..Location(1,22)) })]), [])
+```
+
+We have register_scalar_regclass_oid which implements oid() udf.
+
+So you need to add ::oid type using oid() function. or rewrite column::oid as oid(column) (also handle scalar values $1::oid should work too)
+
+these queries work 
+
+```
+pgtry=> SELECT 'pg_constraint'::regclass::oid;
+ oid
+------
+ 2606
+(1 row)
+```
+
+# Task 11 - this query should return 
+
+This requires task number 9 and 10. dont start if those tasks are not completed 
+
+This query should return without crashing. 
+
+```
+exec_error query: "select T.oid table_id,
+       relkind table_kind,
+       C.oid::bigint con_id,
+       C.xmin::varchar::bigint con_state_id,
+       conname con_name,
+       contype con_kind,
+       conkey con_columns,
+       conindid index_id,
+       confrelid ref_table_id,
+       condeferrable is_deferrable,
+       condeferred is_init_deferred,
+       confupdtype on_update,
+       confdeltype on_delete,
+      connoinherit no_inherit,
+      pg_catalog.pg_get_expr(conbin, T.oid) /* consrc */ con_expression,
+       confkey ref_columns,
+       conexclop::int[] excl_operators,
+       array(select unnest::regoper::varchar from unnest(conexclop)) excl_operators_str
+from pg_catalog.pg_constraint C
+         join pg_catalog.pg_class T
+              on C.conrelid = T.oid
+   where relkind in ('r', 'v', 'f', 'p')
+     and relnamespace = $1::oid
+     and contype in ('p', 'u', 'f', 'c', 'x')
+     and connamespace = $2::oid 
+```
+
+
+
