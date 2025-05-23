@@ -190,4 +190,17 @@ mod tests {
         assert_eq!(map_pg_type("varchar(20)"), DataType::Utf8);
         assert_eq!(map_pg_type("unknown"), DataType::Utf8);
     }
+
+    #[test]
+    fn test_map_pg_array_type() {
+        match map_pg_type("int[]") {
+            DataType::List(field) => assert_eq!(field.data_type(), &DataType::Utf8),
+            other => panic!("unexpected datatype: {other:?}"),
+        }
+
+        match map_pg_type("_text") {
+            DataType::List(field) => assert_eq!(field.data_type(), &DataType::Utf8),
+            other => panic!("unexpected datatype: {other:?}"),
+        }
+    }
 }
