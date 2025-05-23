@@ -192,6 +192,8 @@ ERROR:  This feature is not implemented: Unsupported SQL type Custom(ObjectName(
 
 since we keep conexclop as _text and it's always null, we can shortcut this ::regoper::{whatevertype} for now. just return null.
 
+Done: Added `rewrite_regoper_cast` which replaces casts to `regoper` with `NULL` and integrated it into the SQL rewrite pipeline. Functional and unit tests cover `conexclop::regoper::text` and array forms to ensure they return `NULL` instead of failing.
+
 # Task 10 - ::oid type
 
 these queries crash

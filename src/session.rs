@@ -21,7 +21,19 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use pgwire::api::Type;
 use crate::clean_duplicate_columns::alias_all_columns;
-use crate::replace::{regclass_udfs, replace_regclass, replace_set_command_with_namespace, rewrite_array_subquery, rewrite_brace_array_literal, rewrite_pg_custom_operator, rewrite_regtype_cast, rewrite_oid_cast, rewrite_schema_qualified_custom_types, rewrite_schema_qualified_text, strip_default_collate};
+use crate::replace::{
+    regclass_udfs,
+    replace_regclass,
+    replace_set_command_with_namespace,
+    rewrite_array_subquery,
+    rewrite_brace_array_literal,
+    rewrite_pg_custom_operator,
+    rewrite_regtype_cast, rewrite_oid_cast,
+    rewrite_regoper_cast,
+    rewrite_schema_qualified_custom_types,
+    rewrite_schema_qualified_text,
+    strip_default_collate,
+};
 use crate::scalar_to_cte::rewrite_subquery_as_cte;
 use bytes::Bytes;
 
@@ -196,6 +208,7 @@ pub fn print_params(params: &Vec<Option<Bytes>>) {
 pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<String, String>)>{
     let sql = replace_set_command_with_namespace(&sql)?;
     let sql = strip_default_collate(&sql)?;
+    let sql = rewrite_regoper_cast(&sql)?;
     let sql = rewrite_array_subquery(&sql).unwrap();
     let sql = rewrite_brace_array_literal(&sql).unwrap();
     let sql = rewrite_pg_custom_operator(&sql)?;
