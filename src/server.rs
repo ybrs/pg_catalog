@@ -156,6 +156,35 @@ impl DatafusionBackend {
         Ok(())
     }
 
+    fn register_current_user<C>(&self, client: &C) -> datafusion::error::Result<()>
+    where
+        C: ClientInfo + ?Sized,
+    {
+        static KEY: &str = "current_user";
+
+        if self.ctx.state().scalar_functions().contains_key(KEY) {
+            return Ok(());
+        }
+
+        if let Some(user) = client.metadata().get(pgwire::api::METADATA_USER).cloned() {
+            let fun = Arc::new(move |_args: &[ColumnarValue]| {
+                Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(user.clone()))))
+            });
+            let udf = create_udf(KEY, vec![], DataType::Utf8, Volatility::Stable, fun.clone());
+            self.ctx.register_udf(udf);
+            let udf = create_udf(
+                "pg_catalog.current_user",
+                vec![],
+                DataType::Utf8,
+                Volatility::Stable,
+                fun,
+            );
+            self.ctx.register_udf(udf);
+        }
+
+        Ok(())
+    }
+
 }
 
 pub struct DummyAuthSource;
@@ -431,6 +460,7 @@ impl SimpleQueryHandler for DatafusionBackend {
 
         let _ = self.register_current_database(client);
         let _ = self.register_session_user(client);
+        let _ = self.register_current_user(client);
         let (results, schema) = execute_sql(&self.ctx, query, None, None).await.map_err(|e| PgWireError::ApiError(Box::new(e)))?;
 
         let mut responses = Vec::new();
@@ -489,6 +519,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
 
         let _ = self.register_current_database(client);
         let _ = self.register_session_user(client);
+        let _ = self.register_current_user(client);
 
         let (results, schema) = execute_sql(&self.ctx, portal.statement.statement.as_str(),
                                   Some(portal.parameters.clone()),

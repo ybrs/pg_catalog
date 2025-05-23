@@ -9,6 +9,8 @@ Cause: DataFusion session lacks a current_user() scalar UDF.
 
 Fix: Register a zero-arg UDF that returns the login name (mirrors how current_database() is handled in server.rs). Add both current_user and pg_catalog.current_user aliases.
 
+Done: Added register_current_user in server.rs and called it for every query. The UDF uses client metadata to return the login name and registers pg_catalog.current_user alias. Added integration test verifying SELECT current_database(), current_schema(), current_user returns expected values.
+
 # Task 2 – add virtual columns 
 Query (excerpt):
 
