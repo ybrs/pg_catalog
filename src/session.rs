@@ -2,7 +2,7 @@
 // Loads YAML schemas into MemTables, registers UDFs and executes rewritten queries using DataFusion.
 // Separated to encapsulate DataFusion setup and query execution behaviour.
 
-use arrow::array::{Int32Array, StringArray};
+use arrow::array::{Int32Array, StringArray, ArrayRef};
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 
 use datafusion::catalog::SchemaProvider;
@@ -98,6 +98,8 @@ impl ExtensionOptions for ClientOpts {
 
 #[derive(Debug, Deserialize)]
 struct TableDef {
+    #[serde(rename = "type", default)]
+    table_type: Option<String>,
     schema: BTreeMap<String, String>,
     rows: Option<Vec<BTreeMap<String, serde_json::Value>>>,
 }
@@ -382,11 +384,13 @@ fn merge_schema_maps(
 }
 
 fn build_table(def: TableDef) -> (SchemaRef, Vec<RecordBatch>) {
-    let fields: Vec<Field> = def.schema.iter()
+    let mut fields: Vec<Field> = def
+        .schema
+        .iter()
         .map(|(col, typ)| Field::new(col, map_pg_type(typ), true))
         .collect();
 
-    let schema_ref = Arc::new(Schema::new(fields.clone()));
+    let is_system_catalog = matches!(def.table_type.as_deref(), Some("system_catalog"));
 
     let record_batches = if let Some(rows) = def.rows {
         let mut cols: Vec<Vec<serde_json::Value>> = vec![vec![]; fields.len()];
@@ -452,12 +456,36 @@ fn build_table(def: TableDef) -> (SchemaRef, Vec<RecordBatch>) {
             })
             .collect::<Vec<_>>();
 
+        let mut arrays = arrays;
+
+        if is_system_catalog {
+            let row_count = arrays.first().map(|a| a.len()).unwrap_or(0);
+            let system_cols = ["xmin", "xmax", "ctid", "tableoid", "cmin", "cmax"];
+            for col in system_cols {
+                if !fields.iter().any(|f| f.name() == col) {
+                    fields.push(Field::new(col, DataType::Int32, true));
+                    let data = vec![Some(1); row_count];
+                    arrays.push(Arc::new(Int32Array::from(data)) as ArrayRef);
+                }
+            }
+        }
+
+        let schema_ref = Arc::new(Schema::new(fields.clone()));
         vec![RecordBatch::try_new(schema_ref.clone(), arrays).unwrap()]
     } else {
+        if is_system_catalog {
+            let system_cols = ["xmin", "xmax", "ctid", "tableoid", "cmin", "cmax"];
+            for col in system_cols {
+                if !fields.iter().any(|f| f.name() == col) {
+                    fields.push(Field::new(col, DataType::Int32, true));
+                }
+            }
+        }
+
+        let schema_ref = Arc::new(Schema::new(fields.clone()));
         vec![RecordBatch::new_empty(schema_ref.clone())]
     };
-
-    (schema_ref, record_batches)
+    (Arc::new(Schema::new(fields)), record_batches)
 }
 
 pub async fn get_base_session_context(schema_path: &String, default_catalog:String, default_schema:String) -> datafusion::error::Result<(SessionContext, Arc<Mutex<Vec<ScanTrace>>>)> {

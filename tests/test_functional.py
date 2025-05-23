@@ -111,6 +111,14 @@ def test_show_datestyle(server):
         row = cur.fetchone()
         assert row == ("datestyle", "ISO, MDY")
 
+
+def test_show_transaction_isolation_level(server):
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SHOW TRANSACTION ISOLATION LEVEL")
+        row = cur.fetchone()
+        assert row == ("read committed",)
+
 def test_system_columns_virtual(server):
     with psycopg.connect(CONN_STR) as conn:
         cur = conn.cursor()

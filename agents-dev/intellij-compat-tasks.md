@@ -148,3 +148,7 @@ Query: SHOW TRANSACTION ISOLATION LEVEL
 Error: 'transaction.isolation.level' is not a variable which can be viewed with 'SHOW'
 
 Fix: intercept SHOW TRANSACTION ISOLATION LEVEL in SimpleQueryHandler / ExtendedQueryHandler and return a single-row result with text read committed (Postgres default).
+
+Implemented: the server now handles this statement directly and returns a single
+`transaction_isolation` column with the value `read committed`. Describe handlers
+also provide matching metadata so prepared queries work. Tests were added.
