@@ -152,6 +152,14 @@ def test_conexclop_unnest(server):
         assert row[0] is None
 
 
+def test_pg_tablespace_location_alias(server):
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT pg_catalog.pg_tablespace_location('pg_default')")
+        row = cur.fetchone()
+        assert row == (None,)
+
+
 def test_error_logging():
     proc = subprocess.Popen([
         "cargo", "run", "--quiet", "--",
