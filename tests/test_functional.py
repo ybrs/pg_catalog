@@ -160,6 +160,14 @@ def test_pg_tablespace_location_alias(server):
         assert row == (None,)
 
 
+def test_oid_cast(server):
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT amhandler::oid FROM pg_catalog.pg_am LIMIT 1")
+        row = cur.fetchone()
+        assert row[0] is None
+
+
 def test_error_logging():
     proc = subprocess.Popen([
         "cargo", "run", "--quiet", "--",

@@ -21,7 +21,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use pgwire::api::Type;
 use crate::clean_duplicate_columns::alias_all_columns;
-use crate::replace::{regclass_udfs, replace_regclass, replace_set_command_with_namespace, rewrite_array_subquery, rewrite_brace_array_literal, rewrite_pg_custom_operator, rewrite_regtype_cast, rewrite_schema_qualified_custom_types, rewrite_schema_qualified_text, strip_default_collate};
+use crate::replace::{regclass_udfs, replace_regclass, replace_set_command_with_namespace, rewrite_array_subquery, rewrite_brace_array_literal, rewrite_pg_custom_operator, rewrite_regtype_cast, rewrite_oid_cast, rewrite_schema_qualified_custom_types, rewrite_schema_qualified_text, strip_default_collate};
 use crate::scalar_to_cte::rewrite_subquery_as_cte;
 use bytes::Bytes;
 
@@ -203,6 +203,7 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     let sql = rewrite_schema_qualified_custom_types(&sql)?;
     let sql = replace_regclass(&sql)?;
     let sql = rewrite_regtype_cast(&sql)?;
+    let sql = rewrite_oid_cast(&sql)?;
     let (sql, aliases) = alias_all_columns(&sql)?;
     let sql = rewrite_subquery_as_cte(&sql);
 

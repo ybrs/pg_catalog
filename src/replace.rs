@@ -342,6 +342,71 @@ pub fn rewrite_regtype_cast(sql: &str) -> Result<String> {
         .join("; "))
 }
 
+pub fn rewrite_oid_cast(sql: &str) -> Result<String> {
+    use sqlparser::ast::{
+        visit_expressions_mut, visit_statements_mut, DataType, Expr, Function, FunctionArg,
+        FunctionArgExpr, FunctionArgumentList, FunctionArguments, Ident, ObjectName,
+        ObjectNamePart,
+    };
+    use sqlparser::dialect::PostgreSqlDialect;
+    use sqlparser::parser::Parser;
+    use std::ops::ControlFlow;
+
+    fn is_oid(obj: &ObjectName) -> bool {
+        match obj.0.as_slice() {
+            [ObjectNamePart::Identifier(id)] if id.value.eq_ignore_ascii_case("oid") => true,
+            [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(id)]
+                if schema.value.eq_ignore_ascii_case("pg_catalog")
+                    && id.value.eq_ignore_ascii_case("oid") =>
+            {
+                true
+            }
+            _ => false,
+        }
+    }
+
+    fn make_oid_expr(inner: Expr) -> Expr {
+        Expr::Function(Function {
+            name: ObjectName(vec![ObjectNamePart::Identifier(Ident::new("oid"))]),
+            args: FunctionArguments::List(FunctionArgumentList {
+                duplicate_treatment: None,
+                clauses: vec![],
+                args: vec![FunctionArg::Unnamed(FunctionArgExpr::Expr(inner))],
+            }),
+            over: None,
+            filter: None,
+            within_group: vec![],
+            null_treatment: None,
+            parameters: FunctionArguments::None,
+            uses_odbc_syntax: false,
+        })
+    }
+
+    let dialect = PostgreSqlDialect {};
+    let mut stmts = Parser::parse_sql(&dialect, sql)
+        .map_err(|e| DataFusionError::External(Box::new(e)))?;
+
+    visit_statements_mut(&mut stmts, |stmt| {
+        visit_expressions_mut(stmt, |expr| {
+            if let Expr::Cast { expr: inner, data_type, .. } = expr {
+                if let DataType::Custom(obj, _) = data_type {
+                    if is_oid(obj) {
+                        let arg = (**inner).clone();
+                        *expr = make_oid_expr(arg);
+                    }
+                }
+            }
+            ControlFlow::<()>::Continue(())
+        })?;
+        ControlFlow::Continue(())
+    });
+
+    Ok(stmts
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join(" "))
+}
 
 pub fn strip_default_collate(sql: &str) -> Result<String> {
     /// we are dropping default collate, since datafusion doesnt support collates. 
@@ -857,6 +922,22 @@ mod tests {
         let plain   = "SELECT 1";
         assert_eq!(rewrite_brace_array_literal(plain).unwrap(), plain);
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_rewrite_oid_cast() -> Result<(), Box<dyn std::error::Error>> {
+        let cases = vec![
+            (
+                "SELECT amhandler::oid FROM pg_am",
+                "SELECT oid(amhandler) FROM pg_am",
+            ),
+            ("SELECT $1::oid", "SELECT oid($1)"),
+        ];
+
+        for (input, expected) in cases {
+            assert_eq!(rewrite_oid_cast(input).unwrap(), expected, "Failed for input: {}", input);
+        }
         Ok(())
     }
 
