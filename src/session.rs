@@ -382,22 +382,49 @@ fn merge_schema_maps(
 }
 
 fn build_table(def: TableDef) -> (SchemaRef, Vec<RecordBatch>) {
-    let fields: Vec<Field> = def.schema.iter()
-        .map(|(col, typ)| Field::new(col, map_pg_type(typ), true))
+    // base columns defined in the yaml
+    let mut fields: Vec<(String, Field)> = def
+        .schema
+        .iter()
+        .map(|(col, typ)| {
+            let f = Field::new(col, map_pg_type(typ), true);
+            (col.clone(), f)
+        })
         .collect();
 
-    let schema_ref = Arc::new(Schema::new(fields.clone()));
+    // ensure all virtual system columns exist
+    let sys_cols: Vec<(&str, DataType)> = vec![
+        ("ctid", DataType::Utf8),
+        ("xmin", DataType::Int32),
+        ("xmax", DataType::Int32),
+        ("cmin", DataType::Int32),
+        ("cmax", DataType::Int32),
+        ("tableoid", DataType::Int32),
+    ];
+
+    for &(name, ref dt) in sys_cols.iter() {
+        if !def.schema.contains_key(name) {
+            fields.push((name.to_string(), Field::new(name, dt.clone(), true)));
+        }
+    }
+
+    let schema_fields: Vec<Field> = fields.iter().map(|(_, f)| f.clone()).collect();
+    let schema_ref = Arc::new(Schema::new(schema_fields));
 
     let record_batches = if let Some(rows) = def.rows {
         let mut cols: Vec<Vec<serde_json::Value>> = vec![vec![]; fields.len()];
         for row in rows {
-            for (i, field) in fields.iter().enumerate() {
-                cols[i].push(row.get(field.name()).cloned().unwrap_or(serde_json::Value::Null));
+            for (i, (name, _field)) in fields.iter().enumerate() {
+                let val = row
+                    .get(name)
+                    .cloned()
+                    .unwrap_or_else(|| default_system_value(name));
+                cols[i].push(val);
             }
         }
 
         let arrays = fields.iter().zip(cols.into_iter())
-            .map(|(field, col_data)| {
+            .map(|((_, field), col_data)| {
                 use arrow::array::*;
                 use arrow::datatypes::DataType;
                 let array: ArrayRef = match field.data_type() {
@@ -458,6 +485,17 @@ fn build_table(def: TableDef) -> (SchemaRef, Vec<RecordBatch>) {
     };
 
     (schema_ref, record_batches)
+}
+
+fn default_system_value(name: &str) -> serde_json::Value {
+    match name {
+        "xmin" => serde_json::Value::Number(serde_json::Number::from(1)),
+        "xmax" | "cmin" | "cmax" | "tableoid" => {
+            serde_json::Value::Number(serde_json::Number::from(0))
+        }
+        "ctid" => serde_json::Value::String("(0,0)".to_string()),
+        _ => serde_json::Value::Null,
+    }
 }
 
 pub async fn get_base_session_context(schema_path: &String, default_catalog:String, default_schema:String) -> datafusion::error::Result<(SessionContext, Arc<Mutex<Vec<ScanTrace>>>)> {
@@ -591,7 +629,7 @@ public:
         let (schema_ref, batches) = myschema.get("employees").unwrap();
 
         let fields = schema_ref.fields();
-        assert_eq!(fields.len(), 2);
+        assert_eq!(fields.len(), 8); // 2 real columns + 6 virtual system columns
         assert_eq!(fields[0].name(), "id");
         assert_eq!(fields[0].data_type(), &DataType::Int32);
         assert_eq!(fields[1].name(), "name");
