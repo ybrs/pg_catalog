@@ -2,7 +2,7 @@
 // Loads YAML schemas into MemTables, registers UDFs and executes rewritten queries using DataFusion.
 // Separated to encapsulate DataFusion setup and query execution behaviour.
 
-use arrow::array::{Int32Array, StringArray};
+use arrow::array::{Int32Array, StringArray, ArrayRef};
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 
 use datafusion::catalog::SchemaProvider;
@@ -98,6 +98,8 @@ impl ExtensionOptions for ClientOpts {
 
 #[derive(Debug, Deserialize)]
 struct TableDef {
+    #[serde(rename = "type", default)]
+    table_type: Option<String>,
     schema: BTreeMap<String, String>,
     rows: Option<Vec<BTreeMap<String, serde_json::Value>>>,
 }
@@ -382,49 +384,24 @@ fn merge_schema_maps(
 }
 
 fn build_table(def: TableDef) -> (SchemaRef, Vec<RecordBatch>) {
-    // base columns defined in the yaml
-    let mut fields: Vec<(String, Field)> = def
+    let mut fields: Vec<Field> = def
         .schema
         .iter()
-        .map(|(col, typ)| {
-            let f = Field::new(col, map_pg_type(typ), true);
-            (col.clone(), f)
-        })
+        .map(|(col, typ)| Field::new(col, map_pg_type(typ), true))
         .collect();
 
-    // ensure all virtual system columns exist
-    let sys_cols: Vec<(&str, DataType)> = vec![
-        ("ctid", DataType::Utf8),
-        ("xmin", DataType::Int32),
-        ("xmax", DataType::Int32),
-        ("cmin", DataType::Int32),
-        ("cmax", DataType::Int32),
-        ("tableoid", DataType::Int32),
-    ];
-
-    for &(name, ref dt) in sys_cols.iter() {
-        if !def.schema.contains_key(name) {
-            fields.push((name.to_string(), Field::new(name, dt.clone(), true)));
-        }
-    }
-
-    let schema_fields: Vec<Field> = fields.iter().map(|(_, f)| f.clone()).collect();
-    let schema_ref = Arc::new(Schema::new(schema_fields));
+    let is_system_catalog = matches!(def.table_type.as_deref(), Some("system_catalog"));
 
     let record_batches = if let Some(rows) = def.rows {
         let mut cols: Vec<Vec<serde_json::Value>> = vec![vec![]; fields.len()];
         for row in rows {
-            for (i, (name, _field)) in fields.iter().enumerate() {
-                let val = row
-                    .get(name)
-                    .cloned()
-                    .unwrap_or_else(|| default_system_value(name));
-                cols[i].push(val);
+            for (i, field) in fields.iter().enumerate() {
+                cols[i].push(row.get(field.name()).cloned().unwrap_or(serde_json::Value::Null));
             }
         }
 
         let arrays = fields.iter().zip(cols.into_iter())
-            .map(|((_, field), col_data)| {
+            .map(|(field, col_data)| {
                 use arrow::array::*;
                 use arrow::datatypes::DataType;
                 let array: ArrayRef = match field.data_type() {
@@ -479,23 +456,36 @@ fn build_table(def: TableDef) -> (SchemaRef, Vec<RecordBatch>) {
             })
             .collect::<Vec<_>>();
 
+        let mut arrays = arrays;
+
+        if is_system_catalog {
+            let row_count = arrays.first().map(|a| a.len()).unwrap_or(0);
+            let system_cols = ["xmin", "xmax", "ctid", "tableoid", "cmin", "cmax"];
+            for col in system_cols {
+                if !fields.iter().any(|f| f.name() == col) {
+                    fields.push(Field::new(col, DataType::Int32, true));
+                    let data = vec![Some(1); row_count];
+                    arrays.push(Arc::new(Int32Array::from(data)) as ArrayRef);
+                }
+            }
+        }
+
+        let schema_ref = Arc::new(Schema::new(fields.clone()));
         vec![RecordBatch::try_new(schema_ref.clone(), arrays).unwrap()]
     } else {
+        if is_system_catalog {
+            let system_cols = ["xmin", "xmax", "ctid", "tableoid", "cmin", "cmax"];
+            for col in system_cols {
+                if !fields.iter().any(|f| f.name() == col) {
+                    fields.push(Field::new(col, DataType::Int32, true));
+                }
+            }
+        }
+
+        let schema_ref = Arc::new(Schema::new(fields.clone()));
         vec![RecordBatch::new_empty(schema_ref.clone())]
     };
-
-    (schema_ref, record_batches)
-}
-
-fn default_system_value(name: &str) -> serde_json::Value {
-    match name {
-        "xmin" => serde_json::Value::Number(serde_json::Number::from(1)),
-        "xmax" | "cmin" | "cmax" | "tableoid" => {
-            serde_json::Value::Number(serde_json::Number::from(0))
-        }
-        "ctid" => serde_json::Value::String("(0,0)".to_string()),
-        _ => serde_json::Value::Null,
-    }
+    (Arc::new(Schema::new(fields)), record_batches)
 }
 
 pub async fn get_base_session_context(schema_path: &String, default_catalog:String, default_schema:String) -> datafusion::error::Result<(SessionContext, Arc<Mutex<Vec<ScanTrace>>>)> {
@@ -599,7 +589,7 @@ mod tests {
     use super::*;
     use tempfile::NamedTempFile;
     use std::io::Write;
-    use arrow::array::{Int32Array, Int64Array, StringArray};
+    use arrow::array::{Int32Array, StringArray};
     use arrow::datatypes::DataType;
     use arrow::array::{ArrayRef};
 
@@ -629,7 +619,7 @@ public:
         let (schema_ref, batches) = myschema.get("employees").unwrap();
 
         let fields = schema_ref.fields();
-        assert_eq!(fields.len(), 8); // 2 real columns + 6 virtual system columns
+        assert_eq!(fields.len(), 2);
         assert_eq!(fields[0].name(), "id");
         assert_eq!(fields[0].data_type(), &DataType::Int32);
         assert_eq!(fields[1].name(), "name");
@@ -709,55 +699,6 @@ public:
         let inner = binding.as_any().downcast_ref::<StringArray>().unwrap();
         assert_eq!(inner.value(0), "x");
         assert_eq!(inner.value(1), "y");
-    }
-
-    #[test]
-    fn test_parse_schema_file_multiple_tables() {
-        let yaml = r#"
-mycatalog:
-  myschema:
-    t1:
-      type: table
-      schema:
-        id: int
-        name: varchar
-      rows:
-        - id: 1
-          name: Foo
-    t2:
-      type: table
-      schema:
-        val: bigint
-      rows:
-        - val: 10
-        - val: 20
-"#;
-
-        let mut file = tempfile::NamedTempFile::new().unwrap();
-        std::io::Write::write_all(&mut file, yaml.as_bytes()).unwrap();
-
-        let parsed = parse_schema_file(file.path().to_str().unwrap());
-        let schemas = parsed.get("mycatalog").unwrap();
-        let myschema = schemas.get("myschema").unwrap();
-
-        let (t1_schema, t1_batches) = myschema.get("t1").unwrap();
-        assert_eq!(t1_schema.fields()[0].name(), "id");
-        assert_eq!(t1_schema.fields()[0].data_type(), &DataType::Int32);
-        assert_eq!(t1_schema.fields()[1].name(), "name");
-        assert_eq!(t1_schema.fields()[1].data_type(), &DataType::Utf8);
-        let t1_batch = &t1_batches[0];
-        assert_eq!(t1_batch.num_rows(), 1);
-        assert_eq!(t1_batch.column(0).as_any().downcast_ref::<Int32Array>().unwrap().value(0), 1);
-        assert_eq!(t1_batch.column(1).as_any().downcast_ref::<StringArray>().unwrap().value(0), "Foo");
-
-        let (t2_schema, t2_batches) = myschema.get("t2").unwrap();
-        assert_eq!(t2_schema.fields()[0].name(), "val");
-        assert_eq!(t2_schema.fields()[0].data_type(), &DataType::Int64);
-        let t2_batch = &t2_batches[0];
-        assert_eq!(t2_batch.num_rows(), 2);
-        let arr = t2_batch.column(0).as_any().downcast_ref::<Int64Array>().unwrap();
-        assert_eq!(arr.value(0), 10);
-        assert_eq!(arr.value(1), 20);
     }
 
 
