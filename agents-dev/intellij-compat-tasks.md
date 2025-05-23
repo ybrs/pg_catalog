@@ -113,6 +113,8 @@ Cause: missing aggregate registration.
 
 Fix: create an aggregate UDF array_agg / pg_catalog.array_agg that reuses the existing ArrayCollector accumulator used for pg_get_array.
 
+DONE: Added register_array_agg using DataFusion's array_agg_udaf and alias pg_catalog.array_agg. Registered the UDF in the server and tests confirm it works.
+
 # Task 7 – add missing catalog columns (conexclop, etc.)
 Query: constraint metadata union
 

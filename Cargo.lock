@@ -1410,6 +1410,7 @@ dependencies = [
  "bytes",
  "chrono",
  "datafusion",
+ "datafusion-functions-aggregate",
  "futures",
  "log",
  "once_cell",
