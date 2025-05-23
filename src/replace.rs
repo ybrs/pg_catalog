@@ -342,6 +342,77 @@ pub fn rewrite_regtype_cast(sql: &str) -> Result<String> {
         .join("; "))
 }
 
+pub fn rewrite_oid_cast(sql: &str) -> Result<String> {
+    use sqlparser::ast::{
+        visit_expressions_mut, visit_statements_mut, CastKind, DataType, Expr, Function,
+        FunctionArg, FunctionArgExpr, FunctionArguments, FunctionArgumentList,
+        Ident, ObjectName, ObjectNamePart, Value, ValueWithSpan,
+    };
+    use sqlparser::dialect::PostgreSqlDialect;
+    use sqlparser::parser::Parser;
+    use std::ops::ControlFlow;
+
+    fn is_oid(obj: &ObjectName) -> bool {
+        match obj.0.as_slice() {
+            [ObjectNamePart::Identifier(id)] if id.value.eq_ignore_ascii_case("oid") => true,
+            [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(id)]
+                if schema.value.eq_ignore_ascii_case("pg_catalog") && id.value.eq_ignore_ascii_case("oid") => true,
+            _ => false,
+        }
+    }
+
+    let dialect = PostgreSqlDialect {};
+    let mut stmts = Parser::parse_sql(&dialect, sql)
+        .map_err(|e| DataFusionError::External(Box::new(e)))?;
+
+    visit_statements_mut(&mut stmts, |stmt| {
+        visit_expressions_mut(stmt, |e| {
+            if let Expr::Cast { expr, data_type, .. } = e {
+                if let DataType::Custom(obj, _) = data_type {
+                    if is_oid(obj) {
+                        let use_int = matches!(expr.as_ref(),
+                            Expr::Value(ValueWithSpan { value: Value::Number(_, _), .. })
+                                | Expr::Value(ValueWithSpan { value: Value::Placeholder(_), .. })
+                        );
+
+                        if use_int {
+                            *e = Expr::Cast {
+                                kind: CastKind::DoubleColon,
+                                expr: expr.clone(),
+                                data_type: DataType::BigInt(None),
+                                format: None,
+                            };
+                        } else {
+                            *e = Expr::Function(Function {
+                                name: ObjectName(vec![ObjectNamePart::Identifier(Ident::new("oid"))]),
+                                args: FunctionArguments::List(FunctionArgumentList {
+                                    duplicate_treatment: None,
+                                    clauses: vec![],
+                                    args: vec![FunctionArg::Unnamed(FunctionArgExpr::Expr(*expr.clone()))],
+                                }),
+                                over: None,
+                                filter: None,
+                                within_group: vec![],
+                                null_treatment: None,
+                                parameters: FunctionArguments::None,
+                                uses_odbc_syntax: false,
+                            });
+                        }
+                    }
+                }
+            }
+            ControlFlow::<()>::Continue(())
+        })?;
+        ControlFlow::Continue(())
+    });
+
+    Ok(stmts
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join("; "))
+}
+
 /// Replace casts to regoper with NULL. Queries sometimes cast the
 /// `conexclop` column (stored as `_text`) to `regoper` and then to
 /// another type like TEXT. Since the column is always NULL we can
