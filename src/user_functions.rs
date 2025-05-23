@@ -166,8 +166,9 @@ pub fn register_scalar_pg_tablespace_location(ctx: &SessionContext) -> Result<()
         vec![ArrowDataType::Utf8],
         ArrowDataType::Utf8,
         Volatility::Immutable,
-        { std::sync::Arc::new(move |args| Ok(ColumnarValue::Scalar(ScalarValue::Utf8(None)))) },
-    );
+        std::sync::Arc::new(move |_args| Ok(ColumnarValue::Scalar(ScalarValue::Utf8(None)))),
+    )
+    .with_aliases(["pg_catalog.pg_tablespace_location"]);
     ctx_arc.register_udf(udf);
     Ok(())
 }

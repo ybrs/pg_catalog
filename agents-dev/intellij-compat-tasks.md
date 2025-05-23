@@ -54,6 +54,9 @@ When registering the existing pg_tablespace_location UDF, call .with_aliases(["p
 
 this can just return a dummy value.
 
+Done: the registration now includes the schema-qualified alias and a test exercises
+`SELECT pg_catalog.pg_tablespace_location('pg_default')`, expecting a NULL result.
+
 # Task 4 – reuse Task 1 for current_user inside pg_user query
 
 requires task 1
