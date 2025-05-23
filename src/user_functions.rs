@@ -157,8 +157,8 @@ pub fn register_scalar_regclass_oid(ctx: &SessionContext) -> Result<()> {
 }
 
 pub fn register_scalar_pg_tablespace_location(ctx: &SessionContext) -> Result<()> {
-    // TODO: this always returns empty string for now.
-    //   If there is a db supporting tablespaces, this should be done correctly.
+    // TODO: this always returns an empty string for now. If there is a
+    // database supporting tablespaces, this should return the actual location.
     let ctx_arc = Arc::new(ctx.clone());
 
     let udf = create_udf(
@@ -166,8 +166,11 @@ pub fn register_scalar_pg_tablespace_location(ctx: &SessionContext) -> Result<()
         vec![ArrowDataType::Utf8],
         ArrowDataType::Utf8,
         Volatility::Immutable,
-        { std::sync::Arc::new(move |args| Ok(ColumnarValue::Scalar(ScalarValue::Utf8(None)))) },
-    );
+        std::sync::Arc::new(move |_args| {
+            Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(String::new()))))
+        }),
+    )
+    .with_aliases(["pg_catalog.pg_tablespace_location"]);
     ctx_arc.register_udf(udf);
     Ok(())
 }

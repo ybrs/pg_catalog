@@ -126,6 +126,14 @@ def test_system_columns_hidden_from_star(server):
         assert "xmin" not in columns
 
 
+def test_pg_tablespace_location_function(server):
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT pg_catalog.pg_tablespace_location('1')")
+        row = cur.fetchone()
+        assert row[0] == ""
+
+
 def test_error_logging():
     proc = subprocess.Popen([
         "cargo", "run", "--quiet", "--",

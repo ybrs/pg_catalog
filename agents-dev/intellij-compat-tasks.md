@@ -50,6 +50,10 @@ When registering the existing pg_tablespace_location UDF, call .with_aliases(["p
 
 this can just return a dummy value.
 
+Done: Registered the UDF with the pg_catalog alias and returned an empty string
+as a placeholder. Added a regression test invoking the function via the schema-
+qualified name to ensure it resolves correctly.
+
 # Task 4 – reuse Task 1 for current_user inside pg_user query
 
 requires task 1

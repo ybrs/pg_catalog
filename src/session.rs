@@ -2,7 +2,7 @@
 // Loads YAML schemas into MemTables, registers UDFs and executes rewritten queries using DataFusion.
 // Separated to encapsulate DataFusion setup and query execution behaviour.
 
-use arrow::array::{Int32Array, StringArray};
+use arrow::array::{ArrayRef, Int32Array, StringArray};
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 
 use datafusion::catalog::SchemaProvider;
@@ -382,21 +382,40 @@ fn merge_schema_maps(
 }
 
 fn build_table(def: TableDef) -> (SchemaRef, Vec<RecordBatch>) {
-    let fields: Vec<Field> = def.schema.iter()
+    let user_fields: Vec<Field> = def
+        .schema
+        .iter()
         .map(|(col, typ)| Field::new(col, map_pg_type(typ), true))
         .collect();
 
-    let schema_ref = Arc::new(Schema::new(fields.clone()));
+    let system_fields = vec![
+        Field::new("xmin", DataType::Int32, true),
+        Field::new("xmax", DataType::Int32, true),
+        Field::new("ctid", DataType::Int32, true),
+        Field::new("tableoid", DataType::Int32, true),
+        Field::new("cmin", DataType::Int32, true),
+        Field::new("cmax", DataType::Int32, true),
+    ];
+
+    let all_fields: Vec<Field> = user_fields
+        .iter()
+        .chain(system_fields.iter())
+        .cloned()
+        .collect();
+
+    let schema_ref = Arc::new(Schema::new(all_fields.clone()));
 
     let record_batches = if let Some(rows) = def.rows {
-        let mut cols: Vec<Vec<serde_json::Value>> = vec![vec![]; fields.len()];
+        let mut cols: Vec<Vec<serde_json::Value>> = vec![vec![]; user_fields.len()];
         for row in rows {
-            for (i, field) in fields.iter().enumerate() {
+            for (i, field) in user_fields.iter().enumerate() {
                 cols[i].push(row.get(field.name()).cloned().unwrap_or(serde_json::Value::Null));
             }
         }
 
-        let arrays = fields.iter().zip(cols.into_iter())
+        let mut arrays: Vec<ArrayRef> = user_fields
+            .iter()
+            .zip(cols.into_iter())
             .map(|(field, col_data)| {
                 use arrow::array::*;
                 use arrow::datatypes::DataType;
@@ -451,6 +470,19 @@ fn build_table(def: TableDef) -> (SchemaRef, Vec<RecordBatch>) {
                 array
             })
             .collect::<Vec<_>>();
+
+        let row_count = arrays.first().map(|a| a.len()).unwrap_or(0);
+        let const_i32 = |v: i32| -> ArrayRef {
+            Arc::new(Int32Array::from(vec![v; row_count])) as ArrayRef
+        };
+        arrays.extend_from_slice(&[
+            const_i32(1), // xmin
+            const_i32(0), // xmax
+            const_i32(0), // ctid
+            const_i32(0), // tableoid
+            const_i32(0), // cmin
+            const_i32(0), // cmax
+        ]);
 
         vec![RecordBatch::try_new(schema_ref.clone(), arrays).unwrap()]
     } else {
@@ -591,7 +623,8 @@ public:
         let (schema_ref, batches) = myschema.get("employees").unwrap();
 
         let fields = schema_ref.fields();
-        assert_eq!(fields.len(), 2);
+        // user columns plus six virtual system columns
+        assert_eq!(fields.len(), 8);
         assert_eq!(fields[0].name(), "id");
         assert_eq!(fields[0].data_type(), &DataType::Int32);
         assert_eq!(fields[1].name(), "name");
