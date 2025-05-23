@@ -111,6 +111,14 @@ def test_show_datestyle(server):
         row = cur.fetchone()
         assert row == ("datestyle", "ISO, MDY")
 
+
+def test_current_user(server):
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT current_database(), current_schema(), current_user")
+        row = cur.fetchone()
+        assert row == ("pgtry", "public", "dbuser")
+
 def test_system_columns_virtual(server):
     with psycopg.connect(CONN_STR) as conn:
         cur = conn.cursor()
