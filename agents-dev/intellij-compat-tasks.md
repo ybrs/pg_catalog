@@ -9,6 +9,8 @@ Cause: DataFusion session lacks a current_user() scalar UDF.
 
 Fix: Register a zero-arg UDF that returns the login name (mirrors how current_database() is handled in server.rs). Add both current_user and pg_catalog.current_user aliases.
 
+Done: Added register_current_user in server.rs and called it for every query. The UDF uses client metadata to return the login name and registers pg_catalog.current_user alias. Added integration test verifying SELECT current_database(), current_schema(), current_user returns expected values.
+
 # Task 2 – add virtual columns 
 Query (excerpt):
 
@@ -40,6 +42,8 @@ tableoid	oid	OID of the table this row belongs to (handy with inherited partitio
 Fix:
 
 Extend parse_schema_* to include virtual system columns (xmin, etc.) with dummy values. So each table gets these columns/values. Unless these columns are defined in the schema yaml files.
+
+Done: build_table now injects ctid, xmin, xmax, cmin, cmax and tableoid with placeholder values. Tests verify the columns exist and remain hidden from wildcard selects.
 
 
 # Task 3- function for pg_tablespace
