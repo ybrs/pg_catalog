@@ -41,6 +41,8 @@ Fix:
 
 Extend parse_schema_* to include virtual system columns (xmin, etc.) with dummy values. So each table gets these columns/values. Unless these columns are defined in the schema yaml files.
 
+Done: build_table now injects ctid, xmin, xmax, cmin, cmax and tableoid with placeholder values. Tests verify the columns exist and remain hidden from wildcard selects.
+
 
 # Task 3- function for pg_tablespace
 
