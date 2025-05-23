@@ -261,5 +261,32 @@ from pg_catalog.pg_constraint C
      and connamespace = $2::oid 
 ```
 
+# Task 12 - fix missing functions
+
+ERROR: Error during planning: Invalid function 'pg_catalog.quote_ident'.
+ERROR: Error during planning: Invalid function 'pg_get_expr'. <- only needs an alias probably
+ERROR: Error during planning: Invalid function 'pg_catalog.translate'.
+ERROR: Error during planning: Invalid function 'pg_catalog.pg_get_viewdef'.
+ERROR: Error during planning: Invalid function 'pg_catalog.pg_get_function_arguments'.
+ERROR:  Error during planning: Invalid function 'pg_catalog.pg_get_indexdef'.
+
+# Task 13 - type coercion
+
+ERROR: Error during planning: Failed to coerce arguments to satisfy a call to 'pg_catalog.pg_get_expr' function: coercion from [Utf8, Int64] to the signature OneOf([Exact([Utf8, Int32]), Exact([Utf8, Int32, Boolean])]) failed No function matches the given name and argument types 'pg_catalog.pg_get_expr(Utf8, Int64)'. You might need to add explicit type casts.
+Candidate functions:
+pg_catalog.pg_get_expr(Utf8, Int32)
+pg_catalog.pg_get_expr(Utf8, Int32, Boolean).
 
 
+# Task 14 - other errors
+
+ERROR: Schema error: No field named available_versions.
+ERROR: This feature is not implemented: Unsupported SQL type Custom(ObjectName([Identifier(Ident { value: "char", quote_style: Some('"'), span: Span(Location(1,632)..Location(1,638)) })]), []).
+ERROR: Error during planning: Column in SELECT must be in GROUP BY or an aggregate function: While expanding wildcard, column "pg_catalog.pg_inherits.inhrelid" must appear in the GROUP BY clause or must be part of an aggregate function, currently only "array_agg(pg_catalog.pg_inherits.inhparent) ORDER BY [pg_catalog.pg_inherits.inhseqno ASC NULLS LAST]" appears in the SELECT clause satisfies this requirement.
+ERROR: Schema error: No field named prorettype. Valid fields are schema_procs.alias_2, schema_procs.alias_3, schema_procs.alias_4.
+ERROR: This feature is not implemented: Unsupported SQL type Custom(ObjectName([Identifier(Ident { value: "regproc", quote_style: None, span: Span(Location(1,279)..Location(1,286)) })]), []).
+ERROR: This feature is not implemented: Unsupported SQL type Custom(ObjectName([Identifier(Ident { value: "regoperator", quote_style: None, span: Span(Location(1,80)..Location(1,91)) })]), []).
+ERROR: This feature is not implemented: Unsupported SQL type Custom(ObjectName([Identifier(Ident { value: "regprocedure", quote_style: None, span: Span(Location(1,77)..Location(1,89)) })]), []).
+ERROR: Schema error: No field named ind_stor.oid. Valid fields are pg_catalog.pg_inherits.inhdetachpending, pg_catalog.pg_inherits.inhparent, pg_catalog.pg_inherits.inhrelid, pg_catalog.pg_inherits.inhseqno, pg_catalog.pg_inherits.xmin, pg_catalog.pg_inherits.xmax, pg_catalog.pg_inherits.ctid, pg_catalog.pg_inherits.tableoid, pg_catalog.pg_inherits.cmin, pg_catalog.pg_inherits.cmax.
+
+# Task 15 - 
