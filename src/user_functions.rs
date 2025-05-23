@@ -880,6 +880,14 @@ impl Accumulator for ArrayCollector {
     }
 }
 
+pub fn register_array_agg(ctx: &SessionContext) -> Result<()> {
+    use datafusion_functions_aggregate::array_agg::array_agg_udaf;
+    let udaf = array_agg_udaf();
+    ctx.register_udaf((*udaf).clone());
+    ctx.register_udaf((*udaf).clone().with_aliases(["pg_catalog.array_agg"]));
+    Ok(())
+}
+
 pub fn register_pg_get_array(ctx: &SessionContext) -> Result<()> {
     use arrow::datatypes::{DataType, Field};
     use datafusion::logical_expr::Volatility;
@@ -1145,6 +1153,7 @@ mod tests {
         register_scalar_regclass_oid(&ctx)?;
         register_pg_get_one(&ctx)?;
         register_pg_get_array(&ctx)?;
+        register_array_agg(&ctx)?;
         let relname = StringArray::from(vec!["pg_constraint", "demo"]);
         let oid = Int64Array::from(vec![2606i64, 9999i64]);
         let batch = RecordBatch::try_new(
@@ -1327,6 +1336,23 @@ mod tests {
         let inner = list.value(0);
         let inner = inner.as_any().downcast_ref::<StringArray>().unwrap();
         assert_eq!(inner.value(0), "pg_constraint");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_pg_catalog_array_agg_alias() -> Result<()> {
+        use arrow::array::ListArray;
+
+        let ctx = make_ctx().await?;
+
+        let sql = "SELECT pg_catalog.array_agg(relname ORDER BY relname) AS v FROM pg_catalog.pg_class";
+        let batches = ctx.sql(sql).await?.collect().await?;
+        let list = batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<ListArray>()
+            .unwrap();
+        assert_eq!(list.len(), 1);
         Ok(())
     }
 
