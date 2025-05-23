@@ -13,7 +13,7 @@ use pgwire::api::auth::md5pass::{hash_md5_password, Md5PasswordAuthStartupHandle
 use pgwire::api::copy::NoopCopyHandler;
 use pgwire::api::portal::{Format, Portal};
 use pgwire::api::query::{ExtendedQueryHandler, SimpleQueryHandler};
-use pgwire::api::results::{DataRowEncoder, DescribePortalResponse, DescribeStatementResponse, FieldInfo, QueryResponse, Response, Tag};
+use pgwire::api::results::{DataRowEncoder, DescribePortalResponse, DescribeStatementResponse, FieldFormat, FieldInfo, QueryResponse, Response, Tag};
 use pgwire::api::stmt::{NoopQueryParser, StoredStatement};
 use pgwire::api::{ClientInfo, PgWireServerHandlers, Type};
 use pgwire::error::{PgWireError, PgWireResult};
@@ -150,6 +150,35 @@ impl DatafusionBackend {
                 Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(user.clone()))))
             });
             let udf = create_udf(KEY, vec![], DataType::Utf8, Volatility::Stable, fun);
+            self.ctx.register_udf(udf);
+        }
+
+        Ok(())
+    }
+
+    fn register_current_user<C>(&self, client: &C) -> datafusion::error::Result<()>
+    where
+        C: ClientInfo + ?Sized,
+    {
+        static KEY: &str = "current_user";
+
+        if self.ctx.state().scalar_functions().contains_key(KEY) {
+            return Ok(());
+        }
+
+        if let Some(user) = client.metadata().get(pgwire::api::METADATA_USER).cloned() {
+            let fun = Arc::new(move |_args: &[ColumnarValue]| {
+                Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(user.clone()))))
+            });
+            let udf = create_udf(KEY, vec![], DataType::Utf8, Volatility::Stable, fun.clone());
+            self.ctx.register_udf(udf);
+            let udf = create_udf(
+                "pg_catalog.current_user",
+                vec![],
+                DataType::Utf8,
+                Volatility::Stable,
+                fun,
+            );
             self.ctx.register_udf(udf);
         }
 
@@ -419,6 +448,21 @@ impl SimpleQueryHandler for DatafusionBackend {
             return Ok(vec![Response::Execution(Tag::new("COMMIT"))]);
         } else if lowercase.starts_with("rollback") {
             return Ok(vec![Response::Execution(Tag::new("ROLLBACK"))]);
+        } else if lowercase == "show transaction isolation level" {
+            let field_infos = Arc::new(vec![FieldInfo::new(
+                "transaction_isolation".to_string(),
+                None,
+                None,
+                Type::TEXT,
+                FieldFormat::Text,
+            )]);
+
+            let mut encoder = DataRowEncoder::new(field_infos.clone());
+            encoder.encode_field(&Some("read committed"))?;
+            let row = encoder.finish()?;
+
+            let rows = stream::iter(vec![Ok(row)]);
+            return Ok(vec![Response::Query(QueryResponse::new(field_infos, rows))]);
         } else if lowercase == "" {
             return Ok(vec![Response::Execution(Tag::new(""))]);
         }
@@ -431,6 +475,7 @@ impl SimpleQueryHandler for DatafusionBackend {
 
         let _ = self.register_current_database(client);
         let _ = self.register_session_user(client);
+        let _ = self.register_current_user(client);
         let (results, schema) = execute_sql(&self.ctx, query, None, None).await.map_err(|e| PgWireError::ApiError(Box::new(e)))?;
 
         let mut responses = Vec::new();
@@ -481,14 +526,31 @@ impl ExtendedQueryHandler for DatafusionBackend {
 
         println!("query start extended {:?} {:?}", portal.statement.statement.as_str(), portal.parameters);
 
+        let sql_trim = portal.statement.statement.trim();
+        let lowercase = sql_trim.to_lowercase();
 
-        if portal.statement.statement.trim().is_empty() {
+        if sql_trim.is_empty() {
             return Ok(Response::Execution(Tag::new("")));
+        } else if lowercase == "show transaction isolation level" {
+            let field_infos = Arc::new(vec![FieldInfo::new(
+                "transaction_isolation".to_string(),
+                None,
+                None,
+                Type::TEXT,
+                portal.result_column_format.format_for(0),
+            )]);
+
+            let mut encoder = DataRowEncoder::new(field_infos.clone());
+            encoder.encode_field(&Some("read committed"))?;
+            let row = encoder.finish()?;
+            let rows = stream::iter(vec![Ok(row)]);
+            return Ok(Response::Query(QueryResponse::new(field_infos, rows)));
         }
             
 
         let _ = self.register_current_database(client);
         let _ = self.register_session_user(client);
+        let _ = self.register_current_user(client);
 
         let (results, schema) = execute_sql(&self.ctx, portal.statement.statement.as_str(),
                                   Some(portal.parameters.clone()),
@@ -518,8 +580,20 @@ impl ExtendedQueryHandler for DatafusionBackend {
     {
         println!("do_describe_statement");
         
-        if stmt.statement.trim().is_empty() {
+        let sql_trim = stmt.statement.trim();
+        let lowercase = sql_trim.to_lowercase();
+
+        if sql_trim.is_empty() {
             return Ok(DescribeStatementResponse::new(vec![], vec![]));
+        } else if lowercase == "show transaction isolation level" {
+            let fields = vec![FieldInfo::new(
+                "transaction_isolation".to_string(),
+                None,
+                None,
+                Type::TEXT,
+                FieldFormat::Binary,
+            )];
+            return Ok(DescribeStatementResponse::new(vec![], fields));
         }
 
         let (results, schema) = execute_sql(&self.ctx, stmt.statement.as_str(), None, None)
@@ -550,8 +624,20 @@ impl ExtendedQueryHandler for DatafusionBackend {
     {
 
         println!("do_describe_portal");
-        if portal.statement.statement.trim().is_empty() {
+        let sql_trim = portal.statement.statement.trim();
+        let lowercase = sql_trim.to_lowercase();
+
+        if sql_trim.is_empty() {
             return Ok(DescribePortalResponse::new(vec![]));
+        } else if lowercase == "show transaction isolation level" {
+            let fields = vec![FieldInfo::new(
+                "transaction_isolation".to_string(),
+                None,
+                None,
+                Type::TEXT,
+                portal.result_column_format.format_for(0),
+            )];
+            return Ok(DescribePortalResponse::new(fields));
         }
 
         let (results, schema) = execute_sql(&self.ctx, portal.statement.statement.as_str(),
