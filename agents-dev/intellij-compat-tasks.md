@@ -211,7 +211,7 @@ We have register_scalar_regclass_oid which implements oid() udf.
 
 So you need to add ::oid type using oid() function. or rewrite column::oid as oid(column) (also handle scalar values $1::oid should work too)
 
-these queries work 
+these queries work
 
 ```
 pgtry=> SELECT 'pg_constraint'::regclass::oid;
@@ -220,6 +220,10 @@ pgtry=> SELECT 'pg_constraint'::regclass::oid;
  2606
 (1 row)
 ```
+
+Done: Added rewrite_oid_cast that converts any `::oid` cast. String columns are
+rewritten to `oid(col)` while placeholders and numeric literals become plain
+INT8 casts. Tests verify `amhandler::oid` and parameter casts succeed.
 
 # Task 11 - this query should return 
 

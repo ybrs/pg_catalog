@@ -4,7 +4,7 @@
 use arrow::array::{as_string_array, Array, ArrayRef, BooleanBuilder, ListArray, StringBuilder, TimestampMicrosecondArray};
 use arrow::datatypes::DataType as ArrowDataType;
 use async_trait::async_trait;
-use datafusion::arrow::array::Int64Array;
+use datafusion::arrow::array::{Int64Array, Int64Builder};
 use datafusion::arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use datafusion::arrow::record_batch::RecordBatch;
 use datafusion::catalog::{Session, TableFunctionImpl};
@@ -98,51 +98,68 @@ pub fn register_scalar_regclass_oid(ctx: &SessionContext) -> Result<()> {
     let ctx_arc = Arc::new(ctx.clone());
 
     let fn_ = Arc::new(move |args: &[ColumnarValue]| -> Result<ColumnarValue> {
-        let name = match &args[0] {
-            ColumnarValue::Scalar(ScalarValue::Utf8(Some(s))) => s.clone(),
-            ColumnarValue::Scalar(ScalarValue::Utf8(None)) => {
-                return Ok(ColumnarValue::Scalar(ScalarValue::Int64(None)))
+        match &args[0] {
+            ColumnarValue::Scalar(ScalarValue::Utf8(Some(name))) => {
+                let sql = format!(
+                    "SELECT oid FROM pg_catalog.pg_class WHERE relname = '{}'",
+                    name.replace('\'', "''")
+                );
+
+                let opt: Option<i64> = block_in_place(|| {
+                    block_on(async {
+                        let batches = ctx_arc.sql(&sql).await?.collect().await?;
+                        if batches.is_empty() || batches[0].num_rows() == 0 {
+                            Ok::<Option<i64>, DataFusionError>(None)
+                        } else {
+                            let col = batches[0].column(0);
+                            if let Some(arr) = col.as_any().downcast_ref::<Int64Array>() {
+                                if arr.is_null(0) { Ok(None) } else { Ok(Some(arr.value(0))) }
+                            } else if let Some(arr) = col.as_any().downcast_ref::<arrow::array::Int32Array>() {
+                                if arr.is_null(0) { Ok(None) } else { Ok(Some(arr.value(0) as i64)) }
+                            } else { Ok(None) }
+                        }
+                    })
+                })?;
+
+                Ok(ColumnarValue::Scalar(ScalarValue::Int64(opt)))
             }
-            _ => return plan_err!("oid expects text"),
-        };
-
-        let sql = format!(
-            "SELECT oid FROM pg_catalog.pg_class WHERE relname = '{}'",
-            name.replace('\'', "''")
-        );
-
-        println!("udf query {:?}", sql);
-
-        let opt: Option<i64> = block_in_place(|| {
-            block_on(async {
-                let batches = ctx_arc.sql(&sql).await?.collect().await?;
-                if batches.is_empty() || batches[0].num_rows() == 0 {
-                    Ok::<Option<i64>, DataFusionError>(None)
-                } else {
-                    let col = batches[0].column(0);
-                    if let Some(arr) = col.as_any().downcast_ref::<Int64Array>() {
-                        if arr.is_null(0) {
-                            Ok(None)
-                        } else {
-                            Ok(Some(arr.value(0)))
-                        }
-                    } else if let Some(arr) =
-                        col.as_any().downcast_ref::<arrow::array::Int32Array>()
-                    {
-                        if arr.is_null(0) {
-                            Ok(None)
-                        } else {
-                            Ok(Some(arr.value(0) as i64))
-                        }
-                    } else {
-                        // any other type ⇒ return NULL, don't panic
-                        Ok(None)
+            ColumnarValue::Scalar(ScalarValue::Utf8(None)) => {
+                Ok(ColumnarValue::Scalar(ScalarValue::Int64(None)))
+            }
+            ColumnarValue::Array(arr) => {
+                let arr = as_string_array(arr);
+                let mut builder = Int64Builder::with_capacity(arr.len());
+                for i in 0..arr.len() {
+                    if arr.is_null(i) {
+                        builder.append_null();
+                        continue;
                     }
+                    let name = arr.value(i);
+                    let sql = format!(
+                        "SELECT oid FROM pg_catalog.pg_class WHERE relname = '{}'",
+                        name.replace('\'', "''")
+                    );
+                    let opt: Option<i64> = block_in_place(|| {
+                        block_on(async {
+                            let batches = ctx_arc.sql(&sql).await?.collect().await?;
+                            if batches.is_empty() || batches[0].num_rows() == 0 {
+                                Ok::<Option<i64>, DataFusionError>(None)
+                            } else {
+                                let col = batches[0].column(0);
+                                if let Some(a) = col.as_any().downcast_ref::<Int64Array>() {
+                                    if a.is_null(0) { Ok(None) } else { Ok(Some(a.value(0))) }
+                                } else if let Some(a) = col.as_any().downcast_ref::<arrow::array::Int32Array>() {
+                                    if a.is_null(0) { Ok(None) } else { Ok(Some(a.value(0) as i64)) }
+                                } else { Ok(None) }
+                            }
+                        })
+                    })?;
+                    if let Some(v) = opt { builder.append_value(v); } else { builder.append_null(); }
                 }
-            })
-        })?;
-
-        Ok(ColumnarValue::Scalar(ScalarValue::Int64(opt)))
+                Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
+            }
+            _ => plan_err!("oid expects text"),
+        }
     });
 
     let udf = create_udf(
