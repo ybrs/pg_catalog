@@ -36,7 +36,6 @@ public:
         relacl: _text
         reloptions: _text
         relpartbound: varchar(256)
-        xmin: int
       pg_types:
         oid: oid
         relname: name

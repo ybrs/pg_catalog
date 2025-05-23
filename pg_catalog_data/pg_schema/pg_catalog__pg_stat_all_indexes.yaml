@@ -36,10 +36,10 @@ public:
         schemaname: pg_toast
         relname: pg_toast_1255
         indexrelname: pg_toast_1255_index
-        idx_scan: 33
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 45
-        idx_tup_fetch: 45
+        idx_scan: 38
+        last_idx_scan: '2025-05-21T14:12:00.998625+02:00'
+        idx_tup_read: 52
+        idx_tup_fetch: 52
       - relid: 4171
         indexrelid: 4172
         schemaname: pg_toast
@@ -90,10 +90,10 @@ public:
         schemaname: pg_toast
         relname: pg_toast_2619
         indexrelname: pg_toast_2619_index
-        idx_scan: 164
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 267
-        idx_tup_fetch: 267
+        idx_scan: 209
+        last_idx_scan: '2025-05-22T17:31:16.407113+02:00'
+        idx_tup_read: 343
+        idx_tup_fetch: 343
       - relid: 3439
         indexrelid: 3440
         schemaname: pg_toast
@@ -117,10 +117,10 @@ public:
         schemaname: pg_toast
         relname: pg_toast_2618
         indexrelname: pg_toast_2618_index
-        idx_scan: 2642
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 8958
-        idx_tup_fetch: 8958
+        idx_scan: 3061
+        last_idx_scan: '2025-05-22T17:31:16.407113+02:00'
+        idx_tup_read: 10362
+        idx_tup_fetch: 10362
       - relid: 2336
         indexrelid: 2337
         schemaname: pg_toast
@@ -360,73 +360,73 @@ public:
         schemaname: pg_catalog
         relname: pg_proc
         indexrelname: pg_proc_oid_index
-        idx_scan: 20748
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 20748
-        idx_tup_fetch: 20672
+        idx_scan: 24399
+        last_idx_scan: '2025-05-22T17:31:16.407113+02:00'
+        idx_tup_read: 25152
+        idx_tup_fetch: 25034
       - relid: 1255
         indexrelid: 2691
         schemaname: pg_catalog
         relname: pg_proc
         indexrelname: pg_proc_proname_args_nsp_index
-        idx_scan: 14217
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 15673
-        idx_tup_fetch: 15673
+        idx_scan: 16382
+        last_idx_scan: '2025-05-22T17:31:16.407113+02:00'
+        idx_tup_read: 18194
+        idx_tup_fetch: 18194
       - relid: 1247
         indexrelid: 2703
         schemaname: pg_catalog
         relname: pg_type
         indexrelname: pg_type_oid_index
-        idx_scan: 90553
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 82801
-        idx_tup_fetch: 82502
+        idx_scan: 107724
+        last_idx_scan: '2025-05-22T17:31:16.407113+02:00'
+        idx_tup_read: 100035
+        idx_tup_fetch: 99668
       - relid: 1247
         indexrelid: 2704
         schemaname: pg_catalog
         relname: pg_type
         indexrelname: pg_type_typname_nsp_index
-        idx_scan: 12
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 7
-        idx_tup_fetch: 7
+        idx_scan: 92
+        last_idx_scan: '2025-05-22T17:31:16.407113+02:00'
+        idx_tup_read: 65
+        idx_tup_fetch: 65
       - relid: 1249
         indexrelid: 2658
         schemaname: pg_catalog
         relname: pg_attribute
         indexrelname: pg_attribute_relid_attnam_index
-        idx_scan: 660
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 10290
-        idx_tup_fetch: 10290
+        idx_scan: 770
+        last_idx_scan: '2025-05-21T14:12:00.998625+02:00'
+        idx_tup_read: 12005
+        idx_tup_fetch: 12005
       - relid: 1249
         indexrelid: 2659
         schemaname: pg_catalog
         relname: pg_attribute
         indexrelname: pg_attribute_relid_attnum_index
-        idx_scan: 26823
-        last_idx_scan: '2025-05-21T14:11:39.710785+02:00'
-        idx_tup_read: 49581
-        idx_tup_fetch: 49050
+        idx_scan: 32651
+        last_idx_scan: '2025-05-23T09:36:55.525673+02:00'
+        idx_tup_read: 60854
+        idx_tup_fetch: 60229
       - relid: 1259
         indexrelid: 2662
         schemaname: pg_catalog
         relname: pg_class
         indexrelname: pg_class_oid_index
-        idx_scan: 15996
-        last_idx_scan: '2025-05-21T14:11:39.710785+02:00'
-        idx_tup_read: 15968
-        idx_tup_fetch: 14656
+        idx_scan: 19651
+        last_idx_scan: '2025-05-23T09:36:55.525673+02:00'
+        idx_tup_read: 19619
+        idx_tup_fetch: 18048
       - relid: 1259
         indexrelid: 2663
         schemaname: pg_catalog
         relname: pg_class
         indexrelname: pg_class_relname_nsp_index
-        idx_scan: 2743
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 2743
-        idx_tup_fetch: 2743
+        idx_scan: 3337
+        last_idx_scan: '2025-05-22T17:31:16.407113+02:00'
+        idx_tup_read: 3337
+        idx_tup_fetch: 3337
       - relid: 1259
         indexrelid: 3455
         schemaname: pg_catalog
@@ -468,28 +468,28 @@ public:
         schemaname: pg_catalog
         relname: pg_constraint
         indexrelname: pg_constraint_conrelid_contypid_conname_index
-        idx_scan: 124
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 124
-        idx_tup_fetch: 42
+        idx_scan: 152
+        last_idx_scan: '2025-05-22T16:43:50.419437+02:00'
+        idx_tup_read: 152
+        idx_tup_fetch: 48
       - relid: 2606
         indexrelid: 2666
         schemaname: pg_catalog
         relname: pg_constraint
         indexrelname: pg_constraint_contypid_index
-        idx_scan: 114
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 94
-        idx_tup_fetch: 14
+        idx_scan: 131
+        last_idx_scan: '2025-05-21T14:12:00.998625+02:00'
+        idx_tup_read: 108
+        idx_tup_fetch: 16
       - relid: 2606
         indexrelid: 2667
         schemaname: pg_catalog
         relname: pg_constraint
         indexrelname: pg_constraint_oid_index
-        idx_scan: 46
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 46
-        idx_tup_fetch: 0
+        idx_scan: 64
+        last_idx_scan: '2025-05-22T17:31:16.407113+02:00'
+        idx_tup_read: 64
+        idx_tup_fetch: 2
       - relid: 2606
         indexrelid: 2579
         schemaname: pg_catalog
@@ -522,37 +522,37 @@ public:
         schemaname: pg_catalog
         relname: pg_index
         indexrelname: pg_index_indrelid_index
-        idx_scan: 651
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 1071
-        idx_tup_fetch: 889
+        idx_scan: 922
+        last_idx_scan: '2025-05-22T17:31:16.407113+02:00'
+        idx_tup_read: 1575
+        idx_tup_fetch: 1359
       - relid: 2610
         indexrelid: 2679
         schemaname: pg_catalog
         relname: pg_index
         indexrelname: pg_index_indexrelid_index
-        idx_scan: 985
-        last_idx_scan: '2025-05-21T14:11:39.710785+02:00'
-        idx_tup_read: 985
-        idx_tup_fetch: 887
+        idx_scan: 1710
+        last_idx_scan: '2025-05-23T09:36:55.525673+02:00'
+        idx_tup_read: 1710
+        idx_tup_fetch: 1578
       - relid: 2617
         indexrelid: 2688
         schemaname: pg_catalog
         relname: pg_operator
         indexrelname: pg_operator_oid_index
-        idx_scan: 250
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 250
-        idx_tup_fetch: 250
+        idx_scan: 388
+        last_idx_scan: '2025-05-22T17:31:16.407113+02:00'
+        idx_tup_read: 388
+        idx_tup_fetch: 380
       - relid: 2617
         indexrelid: 2689
         schemaname: pg_catalog
         relname: pg_operator
         indexrelname: pg_operator_oprname_l_r_n_index
-        idx_scan: 182
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 602
-        idx_tup_fetch: 602
+        idx_scan: 313
+        last_idx_scan: '2025-05-22T17:31:16.407113+02:00'
+        idx_tup_read: 1313
+        idx_tup_fetch: 1313
       - relid: 2753
         indexrelid: 2754
         schemaname: pg_catalog
@@ -567,28 +567,28 @@ public:
         schemaname: pg_catalog
         relname: pg_opfamily
         indexrelname: pg_opfamily_oid_index
-        idx_scan: 0
-        last_idx_scan: null
-        idx_tup_read: 0
+        idx_scan: 36
+        last_idx_scan: '2025-05-22T16:43:50.419437+02:00'
+        idx_tup_read: 36
         idx_tup_fetch: 0
       - relid: 2616
         indexrelid: 2686
         schemaname: pg_catalog
         relname: pg_opclass
         indexrelname: pg_opclass_am_name_nsp_index
-        idx_scan: 1547
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 67921
-        idx_tup_fetch: 67921
+        idx_scan: 1855
+        last_idx_scan: '2025-05-22T17:31:16.407113+02:00'
+        idx_tup_read: 81326
+        idx_tup_fetch: 81326
       - relid: 2616
         indexrelid: 2687
         schemaname: pg_catalog
         relname: pg_opclass
         indexrelname: pg_opclass_oid_index
-        idx_scan: 161
-        last_idx_scan: '2025-05-21T14:11:39.710785+02:00'
-        idx_tup_read: 161
-        idx_tup_fetch: 161
+        idx_scan: 379
+        last_idx_scan: '2025-05-23T09:36:55.525673+02:00'
+        idx_tup_read: 379
+        idx_tup_fetch: 339
       - relid: 2601
         indexrelid: 2651
         schemaname: pg_catalog
@@ -603,54 +603,54 @@ public:
         schemaname: pg_catalog
         relname: pg_am
         indexrelname: pg_am_oid_index
-        idx_scan: 0
-        last_idx_scan: null
-        idx_tup_read: 0
+        idx_scan: 1
+        last_idx_scan: '2025-05-22T17:31:16.407113+02:00'
+        idx_tup_read: 1
         idx_tup_fetch: 0
       - relid: 2602
         indexrelid: 2653
         schemaname: pg_catalog
         relname: pg_amop
         indexrelname: pg_amop_fam_strat_index
-        idx_scan: 249
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 249
-        idx_tup_fetch: 249
+        idx_scan: 462
+        last_idx_scan: '2025-05-22T17:31:16.407113+02:00'
+        idx_tup_read: 462
+        idx_tup_fetch: 454
       - relid: 2602
         indexrelid: 2654
         schemaname: pg_catalog
         relname: pg_amop
         indexrelname: pg_amop_opr_fam_index
-        idx_scan: 230
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 517
-        idx_tup_fetch: 517
+        idx_scan: 365
+        last_idx_scan: '2025-05-22T17:31:16.407113+02:00'
+        idx_tup_read: 905
+        idx_tup_fetch: 905
       - relid: 2602
         indexrelid: 2756
         schemaname: pg_catalog
         relname: pg_amop
         indexrelname: pg_amop_oid_index
-        idx_scan: 0
-        last_idx_scan: null
-        idx_tup_read: 0
+        idx_scan: 8
+        last_idx_scan: '2025-05-22T16:43:50.419437+02:00'
+        idx_tup_read: 8
         idx_tup_fetch: 0
       - relid: 2603
         indexrelid: 2655
         schemaname: pg_catalog
         relname: pg_amproc
         indexrelname: pg_amproc_fam_proc_index
-        idx_scan: 147
-        last_idx_scan: '2025-05-21T14:11:39.710785+02:00'
-        idx_tup_read: 251
-        idx_tup_fetch: 251
+        idx_scan: 337
+        last_idx_scan: '2025-05-23T09:36:55.525673+02:00'
+        idx_tup_read: 585
+        idx_tup_fetch: 577
       - relid: 2603
         indexrelid: 2757
         schemaname: pg_catalog
         relname: pg_amproc
         indexrelname: pg_amproc_oid_index
-        idx_scan: 0
-        last_idx_scan: null
-        idx_tup_read: 0
+        idx_scan: 8
+        last_idx_scan: '2025-05-22T16:43:50.419437+02:00'
+        idx_tup_read: 8
         idx_tup_fetch: 0
       - relid: 2612
         indexrelid: 2681
@@ -666,9 +666,9 @@ public:
         schemaname: pg_catalog
         relname: pg_language
         indexrelname: pg_language_oid_index
-        idx_scan: 32
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 32
+        idx_scan: 46
+        last_idx_scan: '2025-05-22T16:43:50.419437+02:00'
+        idx_tup_read: 46
         idx_tup_fetch: 0
       - relid: 2995
         indexrelid: 2996
@@ -693,19 +693,19 @@ public:
         schemaname: pg_catalog
         relname: pg_aggregate
         indexrelname: pg_aggregate_fnoid_index
-        idx_scan: 28
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 28
-        idx_tup_fetch: 28
+        idx_scan: 52
+        last_idx_scan: '2025-05-22T16:43:50.419437+02:00'
+        idx_tup_read: 52
+        idx_tup_fetch: 36
       - relid: 2619
         indexrelid: 2696
         schemaname: pg_catalog
         relname: pg_statistic
         indexrelname: pg_statistic_relid_att_inh_index
-        idx_scan: 5457
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 2828
-        idx_tup_fetch: 2828
+        idx_scan: 7413
+        last_idx_scan: '2025-05-22T17:31:16.407113+02:00'
+        idx_tup_read: 4145
+        idx_tup_fetch: 4145
       - relid: 3381
         indexrelid: 3380
         schemaname: pg_catalog
@@ -729,8 +729,8 @@ public:
         schemaname: pg_catalog
         relname: pg_statistic_ext
         indexrelname: pg_statistic_ext_relid_index
-        idx_scan: 468
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
+        idx_scan: 696
+        last_idx_scan: '2025-05-22T17:31:16.407113+02:00'
         idx_tup_read: 0
         idx_tup_fetch: 0
       - relid: 3429
@@ -747,19 +747,19 @@ public:
         schemaname: pg_catalog
         relname: pg_rewrite
         indexrelname: pg_rewrite_oid_index
-        idx_scan: 14
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 14
-        idx_tup_fetch: 14
+        idx_scan: 24
+        last_idx_scan: '2025-05-22T16:43:50.419437+02:00'
+        idx_tup_read: 24
+        idx_tup_fetch: 16
       - relid: 2618
         indexrelid: 2693
         schemaname: pg_catalog
         relname: pg_rewrite
         indexrelname: pg_rewrite_rel_rulename_index
-        idx_scan: 3634
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 3648
-        idx_tup_fetch: 3634
+        idx_scan: 4241
+        last_idx_scan: '2025-05-22T17:31:16.407113+02:00'
+        idx_tup_read: 4257
+        idx_tup_fetch: 4233
       - relid: 2620
         indexrelid: 2699
         schemaname: pg_catalog
@@ -810,10 +810,10 @@ public:
         schemaname: pg_catalog
         relname: pg_description
         indexrelname: pg_description_o_c_o_index
-        idx_scan: 1491
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 14
-        idx_tup_fetch: 0
+        idx_scan: 1799
+        last_idx_scan: '2025-05-22T16:43:50.419437+02:00'
+        idx_tup_read: 113
+        idx_tup_fetch: 27
       - relid: 2605
         indexrelid: 2660
         schemaname: pg_catalog
@@ -828,10 +828,10 @@ public:
         schemaname: pg_catalog
         relname: pg_cast
         indexrelname: pg_cast_source_target_index
-        idx_scan: 1870
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 185
-        idx_tup_fetch: 185
+        idx_scan: 3539
+        last_idx_scan: '2025-05-22T17:31:16.407113+02:00'
+        idx_tup_read: 404
+        idx_tup_fetch: 396
       - relid: 3501
         indexrelid: 3502
         schemaname: pg_catalog
@@ -864,19 +864,19 @@ public:
         schemaname: pg_catalog
         relname: pg_namespace
         indexrelname: pg_namespace_nspname_index
-        idx_scan: 154
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 147
-        idx_tup_fetch: 21
+        idx_scan: 193
+        last_idx_scan: '2025-05-22T17:31:16.198154+02:00'
+        idx_tup_read: 179
+        idx_tup_fetch: 35
       - relid: 2615
         indexrelid: 2685
         schemaname: pg_catalog
         relname: pg_namespace
         indexrelname: pg_namespace_oid_index
-        idx_scan: 28661
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 28661
-        idx_tup_fetch: 8993
+        idx_scan: 33629
+        last_idx_scan: '2025-05-22T17:31:16.198154+02:00'
+        idx_tup_read: 33629
+        idx_tup_fetch: 10607
       - relid: 2607
         indexrelid: 2668
         schemaname: pg_catalog
@@ -909,44 +909,44 @@ public:
         schemaname: pg_catalog
         relname: pg_depend
         indexrelname: pg_depend_depender_index
-        idx_scan: 4129
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 41412
-        idx_tup_fetch: 41130
+        idx_scan: 4962
+        last_idx_scan: '2025-05-22T16:43:50.419437+02:00'
+        idx_tup_read: 49690
+        idx_tup_fetch: 49356
       - relid: 2608
         indexrelid: 2674
         schemaname: pg_catalog
         relname: pg_depend
         indexrelname: pg_depend_reference_index
-        idx_scan: 13500
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 274192
-        idx_tup_fetch: 265277
+        idx_scan: 15582
+        last_idx_scan: '2025-05-22T16:43:50.419437+02:00'
+        idx_tup_read: 316869
+        idx_tup_fetch: 306171
       - relid: 1262
         indexrelid: 2671
         schemaname: pg_catalog
         relname: pg_database
         indexrelname: pg_database_datname_index
-        idx_scan: 15
-        last_idx_scan: '2025-05-21T14:11:39.710785+02:00'
-        idx_tup_read: 13
-        idx_tup_fetch: 13
+        idx_scan: 23
+        last_idx_scan: '2025-05-22T16:43:48.729129+02:00'
+        idx_tup_read: 21
+        idx_tup_fetch: 21
       - relid: 1262
         indexrelid: 2672
         schemaname: pg_catalog
         relname: pg_database
         indexrelname: pg_database_oid_index
-        idx_scan: 95
-        last_idx_scan: '2025-05-21T14:11:39.710785+02:00'
-        idx_tup_read: 93
-        idx_tup_fetch: 93
+        idx_scan: 323
+        last_idx_scan: '2025-05-23T09:36:55.525673+02:00'
+        idx_tup_read: 321
+        idx_tup_fetch: 321
       - relid: 2964
         indexrelid: 2965
         schemaname: pg_catalog
         relname: pg_db_role_setting
         indexrelname: pg_db_role_setting_databaseid_rol_index
-        idx_scan: 116
-        last_idx_scan: '2025-05-21T14:11:39.710785+02:00'
+        idx_scan: 400
+        last_idx_scan: '2025-05-23T09:36:55.525673+02:00'
         idx_tup_read: 0
         idx_tup_fetch: 0
       - relid: 1213
@@ -954,10 +954,10 @@ public:
         schemaname: pg_catalog
         relname: pg_tablespace
         indexrelname: pg_tablespace_oid_index
-        idx_scan: 115
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 108
-        idx_tup_fetch: 24
+        idx_scan: 141
+        last_idx_scan: '2025-05-22T17:31:16.407113+02:00'
+        idx_tup_read: 133
+        idx_tup_fetch: 37
       - relid: 1213
         indexrelid: 2698
         schemaname: pg_catalog
@@ -972,19 +972,19 @@ public:
         schemaname: pg_catalog
         relname: pg_authid
         indexrelname: pg_authid_rolname_index
-        idx_scan: 10
-        last_idx_scan: '2025-05-21T14:11:39.710785+02:00'
-        idx_tup_read: 10
-        idx_tup_fetch: 10
+        idx_scan: 20
+        last_idx_scan: '2025-05-22T16:43:48.729129+02:00'
+        idx_tup_read: 18
+        idx_tup_fetch: 18
       - relid: 1260
         indexrelid: 2677
         schemaname: pg_catalog
         relname: pg_authid
         indexrelname: pg_authid_oid_index
-        idx_scan: 131341
-        last_idx_scan: '2025-05-21T14:11:39.710785+02:00'
-        idx_tup_read: 107183
-        idx_tup_fetch: 107093
+        idx_scan: 153522
+        last_idx_scan: '2025-05-22T16:43:50.419437+02:00'
+        idx_tup_read: 125306
+        idx_tup_fetch: 125198
       - relid: 1261
         indexrelid: 6303
         schemaname: pg_catalog
@@ -1008,10 +1008,10 @@ public:
         schemaname: pg_catalog
         relname: pg_auth_members
         indexrelname: pg_auth_members_member_role_index
-        idx_scan: 32
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 15
-        idx_tup_fetch: 15
+        idx_scan: 37
+        last_idx_scan: '2025-05-21T14:12:00.998625+02:00'
+        idx_tup_read: 18
+        idx_tup_fetch: 18
       - relid: 1261
         indexrelid: 6302
         schemaname: pg_catalog
@@ -1053,19 +1053,19 @@ public:
         schemaname: pg_catalog
         relname: pg_ts_config
         indexrelname: pg_ts_config_cfgname_index
-        idx_scan: 7
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 7
-        idx_tup_fetch: 7
+        idx_scan: 8
+        last_idx_scan: '2025-05-21T14:12:00.998625+02:00'
+        idx_tup_read: 8
+        idx_tup_fetch: 8
       - relid: 3602
         indexrelid: 3712
         schemaname: pg_catalog
         relname: pg_ts_config
         indexrelname: pg_ts_config_oid_index
-        idx_scan: 7
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 7
-        idx_tup_fetch: 7
+        idx_scan: 8
+        last_idx_scan: '2025-05-21T14:12:00.998625+02:00'
+        idx_tup_read: 8
+        idx_tup_fetch: 8
       - relid: 3603
         indexrelid: 3609
         schemaname: pg_catalog
@@ -1296,19 +1296,19 @@ public:
         schemaname: pg_catalog
         relname: pg_collation
         indexrelname: pg_collation_name_enc_nsp_index
-        idx_scan: 0
-        last_idx_scan: null
-        idx_tup_read: 0
-        idx_tup_fetch: 0
+        idx_scan: 2
+        last_idx_scan: '2025-05-22T17:31:16.198154+02:00'
+        idx_tup_read: 1
+        idx_tup_fetch: 1
       - relid: 3456
         indexrelid: 3085
         schemaname: pg_catalog
         relname: pg_collation
         indexrelname: pg_collation_oid_index
-        idx_scan: 15132
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
-        idx_tup_read: 6264
-        idx_tup_fetch: 6012
+        idx_scan: 17538
+        last_idx_scan: '2025-05-22T17:31:16.407113+02:00'
+        idx_tup_read: 7318
+        idx_tup_fetch: 7018
       - relid: 6243
         indexrelid: 6246
         schemaname: pg_catalog
@@ -1341,8 +1341,8 @@ public:
         schemaname: pg_catalog
         relname: pg_range
         indexrelname: pg_range_rngtypid_index
-        idx_scan: 7
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
+        idx_scan: 13
+        last_idx_scan: '2025-05-22T17:31:16.407113+02:00'
         idx_tup_read: 0
         idx_tup_fetch: 0
       - relid: 3541
@@ -1350,8 +1350,8 @@ public:
         schemaname: pg_catalog
         relname: pg_range
         indexrelname: pg_range_rngmultitypid_index
-        idx_scan: 33
-        last_idx_scan: '2025-05-21T14:10:28.829629+02:00'
+        idx_scan: 59
+        last_idx_scan: '2025-05-22T17:31:16.407113+02:00'
         idx_tup_read: 0
         idx_tup_fetch: 0
       - relid: 3576

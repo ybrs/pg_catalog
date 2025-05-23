@@ -10,3 +10,5 @@ pgapply_patch.py
 llm_apply_patch.py
 llm_diff_to_diff.py
 temp.txt
+cobertura.xml
+llm_fix_patch_plus.py

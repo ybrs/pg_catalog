@@ -29,7 +29,7 @@ public:
         statement: "\n            SELECT column_name, udt_name\n            FROM information_schema.columns\n\
           \            WHERE table_schema = $1 AND table_name = $2\n            ORDER\
           \ BY ordinal_position\n        "
-        prepare_time: '2025-05-21T14:11:40.193910+02:00'
+        prepare_time: '2025-05-23T09:36:56.189827+02:00'
         parameter_types: '[''name'', ''name'']'
         result_types: '[''information_schema.sql_identifier'', ''information_schema.sql_identifier'']'
         from_sql: false
@@ -38,7 +38,7 @@ public:
       - name: _pg3_1
         statement: "\n            SELECT pg_get_viewdef($1::regclass, true)\n    \
           \    "
-        prepare_time: '2025-05-21T14:11:40.330169+02:00'
+        prepare_time: '2025-05-23T09:36:56.358709+02:00'
         parameter_types: '[''regclass'']'
         result_types: '[''text'']'
         from_sql: false

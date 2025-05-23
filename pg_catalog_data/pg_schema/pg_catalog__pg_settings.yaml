@@ -2958,7 +2958,7 @@ public:
           "jsonlog", and "eventlog", depending on the platform.
         context: sighup
         vartype: string
-        source: default
+        source: command line
         min_val: null
         max_val: null
         enumvals: null
@@ -2968,7 +2968,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: log_directory
-        setting: log
+        setting: pg_log
         unit: null
         category: Reporting and Logging / Where to Log
         short_desc: Sets the destination directory for log files.
@@ -2976,12 +2976,12 @@ public:
           path.
         context: sighup
         vartype: string
-        source: default
+        source: command line
         min_val: null
         max_val: null
         enumvals: null
         boot_val: log
-        reset_val: log
+        reset_val: pg_log
         sourcefile: null
         sourceline: null
         pending_restart: false
@@ -3020,19 +3020,19 @@ public:
         sourceline: null
         pending_restart: false
       - name: log_error_verbosity
-        setting: default
+        setting: verbose
         unit: null
         category: Reporting and Logging / What to Log
         short_desc: Sets the verbosity of logged messages.
         extra_desc: null
         context: superuser
         vartype: enum
-        source: default
+        source: command line
         min_val: null
         max_val: null
         enumvals: '[''terse'', ''default'', ''verbose'']'
         boot_val: default
-        reset_val: default
+        reset_val: verbose
         sourcefile: null
         sourceline: null
         pending_restart: false
@@ -3080,7 +3080,7 @@ public:
         extra_desc: null
         context: sighup
         vartype: string
-        source: default
+        source: command line
         min_val: null
         max_val: null
         enumvals: null
@@ -3162,7 +3162,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: log_min_duration_statement
-        setting: '-1'
+        setting: '0'
         unit: ms
         category: Reporting and Logging / When to Log
         short_desc: Sets the minimum execution time above which all statements will
@@ -3170,12 +3170,12 @@ public:
         extra_desc: Zero prints all queries. -1 turns this feature off.
         context: superuser
         vartype: integer
-        source: default
+        source: command line
         min_val: '-1'
         max_val: '2147483647'
         enumvals: null
         boot_val: '-1'
-        reset_val: '-1'
+        reset_val: '0'
         sourcefile: null
         sourceline: null
         pending_restart: false
@@ -3374,19 +3374,19 @@ public:
         sourceline: null
         pending_restart: false
       - name: log_statement
-        setting: none
+        setting: all
         unit: null
         category: Reporting and Logging / What to Log
         short_desc: Sets the type of statements logged.
         extra_desc: null
         context: superuser
         vartype: enum
-        source: default
+        source: command line
         min_val: null
         max_val: null
         enumvals: '[''none'', ''ddl'', ''mod'', ''all'']'
         boot_val: none
-        reset_val: none
+        reset_val: all
         sourcefile: null
         sourceline: null
         pending_restart: false
@@ -3495,7 +3495,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: logging_collector
-        setting: 'off'
+        setting: 'on'
         unit: null
         category: Reporting and Logging / Where to Log
         short_desc: Start a subprocess to capture stderr, csvlog and/or jsonlog into
@@ -3503,12 +3503,12 @@ public:
         extra_desc: null
         context: postmaster
         vartype: bool
-        source: default
+        source: command line
         min_val: null
         max_val: null
         enumvals: null
         boot_val: 'off'
-        reset_val: 'off'
+        reset_val: 'on'
         sourcefile: null
         sourceline: null
         pending_restart: false

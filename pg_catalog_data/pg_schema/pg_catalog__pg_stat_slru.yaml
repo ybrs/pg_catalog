@@ -33,7 +33,7 @@ public:
         blks_read: 0
         blks_written: 0
         blks_exists: 0
-        flushes: 8
+        flushes: 16
         truncates: 0
         stats_reset: '2025-05-21T13:14:40.486669+02:00'
       - name: multixact_member
@@ -42,16 +42,16 @@ public:
         blks_read: 0
         blks_written: 1
         blks_exists: 0
-        flushes: 8
+        flushes: 16
         truncates: 0
         stats_reset: '2025-05-21T13:14:40.486669+02:00'
       - name: multixact_offset
         blks_zeroed: 1
         blks_hit: 1
-        blks_read: 3
-        blks_written: 4
+        blks_read: 8
+        blks_written: 9
         blks_exists: 0
-        flushes: 8
+        flushes: 16
         truncates: 0
         stats_reset: '2025-05-21T13:14:40.486669+02:00'
       - name: notify
@@ -73,21 +73,21 @@ public:
         truncates: 0
         stats_reset: '2025-05-21T13:14:40.486669+02:00'
       - name: subtransaction
-        blks_zeroed: 6
+        blks_zeroed: 11
         blks_hit: 0
         blks_read: 0
-        blks_written: 4
+        blks_written: 9
         blks_exists: 0
-        flushes: 8
-        truncates: 8
+        flushes: 16
+        truncates: 16
         stats_reset: '2025-05-21T13:14:40.486669+02:00'
       - name: transaction
         blks_zeroed: 2
-        blks_hit: 3871
-        blks_read: 3
-        blks_written: 6
+        blks_hit: 3875
+        blks_read: 8
+        blks_written: 12
         blks_exists: 0
-        flushes: 8
+        flushes: 16
         truncates: 0
         stats_reset: '2025-05-21T13:14:40.486669+02:00'
       - name: other

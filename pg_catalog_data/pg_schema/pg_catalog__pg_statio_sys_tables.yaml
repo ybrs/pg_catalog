@@ -35,21 +35,21 @@ public:
       - relid: 2619
         schemaname: pg_catalog
         relname: pg_statistic
-        heap_blks_read: 38
-        heap_blks_hit: 3056
-        idx_blks_read: 8
-        idx_blks_hit: 10913
-        toast_blks_read: 6
-        toast_blks_hit: 179
-        tidx_blks_read: 4
-        tidx_blks_hit: 167
+        heap_blks_read: 103
+        heap_blks_hit: 4346
+        idx_blks_read: 21
+        idx_blks_hit: 14818
+        toast_blks_read: 16
+        toast_blks_hit: 221
+        tidx_blks_read: 12
+        tidx_blks_hit: 210
       - relid: 1247
         schemaname: pg_catalog
         relname: pg_type
-        heap_blks_read: 32
-        heap_blks_hit: 83304
-        idx_blks_read: 14
-        idx_blks_hit: 181130
+        heap_blks_read: 84
+        heap_blks_hit: 100266
+        idx_blks_read: 44
+        idx_blks_hit: 215616
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 0
@@ -58,9 +58,9 @@ public:
         schemaname: pg_toast
         relname: pg_toast_1255
         heap_blks_read: 2
-        heap_blks_hit: 31
+        heap_blks_hit: 36
         idx_blks_read: 4
-        idx_blks_hit: 36
+        idx_blks_hit: 42
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -123,10 +123,10 @@ public:
       - relid: 2840
         schemaname: pg_toast
         relname: pg_toast_2619
-        heap_blks_read: 6
-        heap_blks_hit: 179
-        idx_blks_read: 4
-        idx_blks_hit: 167
+        heap_blks_read: 16
+        heap_blks_hit: 221
+        idx_blks_read: 12
+        idx_blks_hit: 210
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -156,10 +156,10 @@ public:
       - relid: 2838
         schemaname: pg_toast
         relname: pg_toast_2618
-        heap_blks_read: 126
-        heap_blks_hit: 3770
-        idx_blks_read: 4
-        idx_blks_hit: 2645
+        heap_blks_read: 130
+        heap_blks_hit: 4380
+        idx_blks_read: 12
+        idx_blks_hit: 3062
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -202,8 +202,8 @@ public:
         relname: pg_foreign_table
         heap_blks_read: 0
         heap_blks_hit: 0
-        idx_blks_read: 2
-        idx_blks_hit: 30
+        idx_blks_read: 5
+        idx_blks_hit: 37
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 0
@@ -464,10 +464,10 @@ public:
       - relid: 1260
         schemaname: pg_catalog
         relname: pg_authid
-        heap_blks_read: 5
-        heap_blks_hit: 111843
-        idx_blks_read: 12
-        idx_blks_hit: 131361
+        heap_blks_read: 10
+        heap_blks_hit: 130903
+        idx_blks_read: 26
+        idx_blks_hit: 153560
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 1
@@ -478,7 +478,7 @@ public:
         heap_blks_read: 0
         heap_blks_hit: 0
         idx_blks_read: 2
-        idx_blks_hit: 19
+        idx_blks_hit: 22
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 0
@@ -488,8 +488,8 @@ public:
         relname: pg_user_mapping
         heap_blks_read: 0
         heap_blks_hit: 0
-        idx_blks_read: 4
-        idx_blks_hit: 54
+        idx_blks_read: 10
+        idx_blks_hit: 68
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 0
@@ -500,7 +500,7 @@ public:
         heap_blks_read: 0
         heap_blks_hit: 0
         idx_blks_read: 6
-        idx_blks_hit: 52
+        idx_blks_hit: 60
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 1
@@ -508,10 +508,10 @@ public:
       - relid: 1249
         schemaname: pg_catalog
         relname: pg_attribute
-        heap_blks_read: 112
-        heap_blks_hit: 33937
-        idx_blks_read: 40
-        idx_blks_hit: 54991
+        heap_blks_read: 315
+        heap_blks_hit: 41867
+        idx_blks_read: 82
+        idx_blks_hit: 66884
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -519,21 +519,21 @@ public:
       - relid: 1255
         schemaname: pg_catalog
         relname: pg_proc
-        heap_blks_read: 200
-        heap_blks_hit: 42173
-        idx_blks_read: 88
-        idx_blks_hit: 69870
+        heap_blks_read: 511
+        heap_blks_hit: 52223
+        idx_blks_read: 190
+        idx_blks_hit: 81420
         toast_blks_read: 2
-        toast_blks_hit: 31
+        toast_blks_hit: 36
         tidx_blks_read: 4
-        tidx_blks_hit: 36
+        tidx_blks_hit: 42
       - relid: 1259
         schemaname: pg_catalog
         relname: pg_class
-        heap_blks_read: 30
-        heap_blks_hit: 23827
-        idx_blks_read: 20
-        idx_blks_hit: 37491
+        heap_blks_read: 102
+        heap_blks_hit: 30964
+        idx_blks_read: 62
+        idx_blks_hit: 46001
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -543,8 +543,8 @@ public:
         relname: pg_attrdef
         heap_blks_read: 0
         heap_blks_hit: 0
-        idx_blks_read: 4
-        idx_blks_hit: 244
+        idx_blks_read: 6
+        idx_blks_hit: 282
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 0
@@ -552,10 +552,10 @@ public:
       - relid: 2606
         schemaname: pg_catalog
         relname: pg_constraint
-        heap_blks_read: 8
-        heap_blks_hit: 418
-        idx_blks_read: 16
-        idx_blks_hit: 303
+        heap_blks_read: 23
+        heap_blks_hit: 517
+        idx_blks_read: 43
+        idx_blks_hit: 369
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 0
@@ -565,8 +565,8 @@ public:
         relname: pg_inherits
         heap_blks_read: 0
         heap_blks_hit: 0
-        idx_blks_read: 4
-        idx_blks_hit: 10
+        idx_blks_read: 12
+        idx_blks_hit: 32
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -574,10 +574,10 @@ public:
       - relid: 2610
         schemaname: pg_catalog
         relname: pg_index
-        heap_blks_read: 10
-        heap_blks_hit: 15102
-        idx_blks_read: 8
-        idx_blks_hit: 1654
+        heap_blks_read: 34
+        heap_blks_hit: 18193
+        idx_blks_read: 26
+        idx_blks_hit: 2680
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -585,10 +585,10 @@ public:
       - relid: 2617
         schemaname: pg_catalog
         relname: pg_operator
-        heap_blks_read: 28
-        heap_blks_hit: 775
-        idx_blks_read: 18
-        idx_blks_hit: 867
+        heap_blks_read: 87
+        heap_blks_hit: 1552
+        idx_blks_read: 55
+        idx_blks_hit: 1386
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -596,10 +596,10 @@ public:
       - relid: 2753
         schemaname: pg_catalog
         relname: pg_opfamily
-        heap_blks_read: 4
-        heap_blks_hit: 10
-        idx_blks_read: 4
-        idx_blks_hit: 10
+        heap_blks_read: 13
+        heap_blks_hit: 79
+        idx_blks_read: 13
+        idx_blks_hit: 47
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -607,10 +607,10 @@ public:
       - relid: 2616
         schemaname: pg_catalog
         relname: pg_opclass
-        heap_blks_read: 6
-        heap_blks_hit: 19142
-        idx_blks_read: 8
-        idx_blks_hit: 1726
+        heap_blks_read: 24
+        heap_blks_hit: 23482
+        idx_blks_read: 26
+        idx_blks_hit: 2282
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -618,10 +618,10 @@ public:
       - relid: 2601
         schemaname: pg_catalog
         relname: pg_am
-        heap_blks_read: 2
-        heap_blks_hit: 29
-        idx_blks_read: 4
-        idx_blks_hit: 10
+        heap_blks_read: 8
+        heap_blks_hit: 74
+        idx_blks_read: 13
+        idx_blks_hit: 14
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -629,10 +629,10 @@ public:
       - relid: 2602
         schemaname: pg_catalog
         relname: pg_amop
-        heap_blks_read: 14
-        heap_blks_hit: 692
-        idx_blks_read: 16
-        idx_blks_hit: 963
+        heap_blks_read: 43
+        heap_blks_hit: 1219
+        idx_blks_read: 60
+        idx_blks_hit: 1648
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -640,10 +640,10 @@ public:
       - relid: 2603
         schemaname: pg_catalog
         relname: pg_amproc
-        heap_blks_read: 10
-        heap_blks_hit: 185
-        idx_blks_read: 8
-        idx_blks_hit: 312
+        heap_blks_read: 38
+        heap_blks_hit: 424
+        idx_blks_read: 35
+        idx_blks_hit: 728
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -651,10 +651,10 @@ public:
       - relid: 2612
         schemaname: pg_catalog
         relname: pg_language
-        heap_blks_read: 4
-        heap_blks_hit: 51
-        idx_blks_read: 6
-        idx_blks_hit: 40
+        heap_blks_read: 10
+        heap_blks_hit: 76
+        idx_blks_read: 15
+        idx_blks_hit: 55
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 0
@@ -665,7 +665,7 @@ public:
         heap_blks_read: 0
         heap_blks_hit: 0
         idx_blks_read: 2
-        idx_blks_hit: 12
+        idx_blks_hit: 14
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -673,10 +673,10 @@ public:
       - relid: 2600
         schemaname: pg_catalog
         relname: pg_aggregate
-        heap_blks_read: 4
-        heap_blks_hit: 38
-        idx_blks_read: 4
-        idx_blks_hit: 31
+        heap_blks_read: 13
+        heap_blks_hit: 71
+        idx_blks_read: 10
+        idx_blks_hit: 54
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 0
@@ -686,8 +686,8 @@ public:
         relname: pg_statistic_ext
         heap_blks_read: 0
         heap_blks_hit: 0
-        idx_blks_read: 6
-        idx_blks_hit: 993
+        idx_blks_read: 12
+        idx_blks_hit: 1455
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 0
@@ -695,21 +695,21 @@ public:
       - relid: 2618
         schemaname: pg_catalog
         relname: pg_rewrite
-        heap_blks_read: 30
-        heap_blks_hit: 3828
-        idx_blks_read: 8
-        idx_blks_hit: 3654
-        toast_blks_read: 126
-        toast_blks_hit: 3770
-        tidx_blks_read: 4
-        tidx_blks_hit: 2645
+        heap_blks_read: 43
+        heap_blks_hit: 4462
+        idx_blks_read: 22
+        idx_blks_hit: 4268
+        toast_blks_read: 130
+        toast_blks_hit: 4380
+        tidx_blks_read: 12
+        tidx_blks_hit: 3062
       - relid: 2620
         schemaname: pg_catalog
         relname: pg_trigger
         heap_blks_read: 0
         heap_blks_hit: 0
-        idx_blks_read: 6
-        idx_blks_hit: 150
+        idx_blks_read: 15
+        idx_blks_hit: 183
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 0
@@ -719,8 +719,8 @@ public:
         relname: pg_event_trigger
         heap_blks_read: 0
         heap_blks_hit: 0
-        idx_blks_read: 4
-        idx_blks_hit: 24
+        idx_blks_read: 10
+        idx_blks_hit: 32
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 0
@@ -728,10 +728,10 @@ public:
       - relid: 2609
         schemaname: pg_catalog
         relname: pg_description
-        heap_blks_read: 80
-        heap_blks_hit: 207
-        idx_blks_read: 28
-        idx_blks_hit: 2961
+        heap_blks_read: 200
+        heap_blks_hit: 410
+        idx_blks_read: 61
+        idx_blks_hit: 3569
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 0
@@ -739,10 +739,10 @@ public:
       - relid: 2605
         schemaname: pg_catalog
         relname: pg_cast
-        heap_blks_read: 4
-        heap_blks_hit: 195
-        idx_blks_read: 6
-        idx_blks_hit: 1878
+        heap_blks_read: 15
+        heap_blks_hit: 415
+        idx_blks_read: 17
+        idx_blks_hit: 3547
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -753,7 +753,7 @@ public:
         heap_blks_read: 0
         heap_blks_hit: 0
         idx_blks_read: 6
-        idx_blks_hit: 15
+        idx_blks_hit: 18
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -761,10 +761,10 @@ public:
       - relid: 2615
         schemaname: pg_catalog
         relname: pg_namespace
-        heap_blks_read: 4
-        heap_blks_hit: 102277
-        idx_blks_read: 8
-        idx_blks_hit: 28821
+        heap_blks_read: 12
+        heap_blks_hit: 122554
+        idx_blks_read: 24
+        idx_blks_hit: 33826
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 0
@@ -773,9 +773,9 @@ public:
         schemaname: pg_catalog
         relname: pg_conversion
         heap_blks_read: 4
-        heap_blks_hit: 10
+        heap_blks_hit: 12
         idx_blks_read: 6
-        idx_blks_hit: 15
+        idx_blks_hit: 18
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -783,10 +783,10 @@ public:
       - relid: 2608
         schemaname: pg_catalog
         relname: pg_depend
-        heap_blks_read: 26
-        heap_blks_hit: 113905
-        idx_blks_read: 20
-        idx_blks_hit: 75722
+        heap_blks_read: 29
+        heap_blks_hit: 131673
+        idx_blks_read: 38
+        idx_blks_hit: 87772
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -794,10 +794,10 @@ public:
       - relid: 1262
         schemaname: pg_catalog
         relname: pg_database
-        heap_blks_read: 2
-        heap_blks_hit: 540
-        idx_blks_read: 12
-        idx_blks_hit: 146
+        heap_blks_read: 7
+        heap_blks_hit: 916
+        idx_blks_read: 28
+        idx_blks_hit: 446
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 1
@@ -807,8 +807,8 @@ public:
         relname: pg_db_role_setting
         heap_blks_read: 0
         heap_blks_hit: 0
-        idx_blks_read: 3
-        idx_blks_hit: 258
+        idx_blks_read: 8
+        idx_blks_hit: 834
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 1
@@ -816,10 +816,10 @@ public:
       - relid: 1213
         schemaname: pg_catalog
         relname: pg_tablespace
-        heap_blks_read: 5
-        heap_blks_hit: 130
-        idx_blks_read: 9
-        idx_blks_hit: 124
+        heap_blks_read: 9
+        heap_blks_hit: 162
+        idx_blks_read: 20
+        idx_blks_hit: 150
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 1
@@ -827,10 +827,10 @@ public:
       - relid: 1261
         schemaname: pg_catalog
         relname: pg_auth_members
-        heap_blks_read: 2
-        heap_blks_hit: 137
-        idx_blks_read: 14
-        idx_blks_hit: 79
+        heap_blks_read: 5
+        heap_blks_hit: 157
+        idx_blks_read: 26
+        idx_blks_hit: 92
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -841,7 +841,7 @@ public:
         heap_blks_read: 0
         heap_blks_hit: 0
         idx_blks_read: 6
-        idx_blks_hit: 182
+        idx_blks_hit: 184
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -849,10 +849,10 @@ public:
       - relid: 2396
         schemaname: pg_catalog
         relname: pg_shdescription
-        heap_blks_read: 3
-        heap_blks_hit: 17
-        idx_blks_read: 4
-        idx_blks_hit: 9
+        heap_blks_read: 6
+        heap_blks_hit: 26
+        idx_blks_read: 7
+        idx_blks_hit: 11
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 1
@@ -861,9 +861,9 @@ public:
         schemaname: pg_catalog
         relname: pg_ts_config
         heap_blks_read: 2
-        heap_blks_hit: 19
+        heap_blks_hit: 22
         idx_blks_read: 8
-        idx_blks_hit: 20
+        idx_blks_hit: 24
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -872,9 +872,9 @@ public:
         schemaname: pg_catalog
         relname: pg_ts_config_map
         heap_blks_read: 6
-        heap_blks_hit: 15
+        heap_blks_hit: 18
         idx_blks_read: 2
-        idx_blks_hit: 5
+        idx_blks_hit: 6
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -883,9 +883,9 @@ public:
         schemaname: pg_catalog
         relname: pg_ts_dict
         heap_blks_read: 2
-        heap_blks_hit: 5
+        heap_blks_hit: 6
         idx_blks_read: 4
-        idx_blks_hit: 10
+        idx_blks_hit: 12
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 0
@@ -894,9 +894,9 @@ public:
         schemaname: pg_catalog
         relname: pg_ts_parser
         heap_blks_read: 2
-        heap_blks_hit: 5
+        heap_blks_hit: 6
         idx_blks_read: 4
-        idx_blks_hit: 10
+        idx_blks_hit: 12
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -905,9 +905,9 @@ public:
         schemaname: pg_catalog
         relname: pg_ts_template
         heap_blks_read: 2
-        heap_blks_hit: 5
+        heap_blks_hit: 6
         idx_blks_read: 4
-        idx_blks_hit: 10
+        idx_blks_hit: 12
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -915,10 +915,10 @@ public:
       - relid: 3079
         schemaname: pg_catalog
         relname: pg_extension
-        heap_blks_read: 2
-        heap_blks_hit: 19
-        idx_blks_read: 4
-        idx_blks_hit: 10
+        heap_blks_read: 5
+        heap_blks_hit: 28
+        idx_blks_read: 10
+        idx_blks_hit: 14
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 0
@@ -928,8 +928,8 @@ public:
         relname: pg_foreign_data_wrapper
         heap_blks_read: 0
         heap_blks_hit: 0
-        idx_blks_read: 4
-        idx_blks_hit: 150
+        idx_blks_read: 10
+        idx_blks_hit: 192
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 0
@@ -939,8 +939,8 @@ public:
         relname: pg_foreign_server
         heap_blks_read: 0
         heap_blks_hit: 0
-        idx_blks_read: 4
-        idx_blks_hit: 134
+        idx_blks_read: 10
+        idx_blks_hit: 180
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 0
@@ -950,8 +950,8 @@ public:
         relname: pg_policy
         heap_blks_read: 0
         heap_blks_hit: 0
-        idx_blks_read: 4
-        idx_blks_hit: 24
+        idx_blks_read: 12
+        idx_blks_hit: 38
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 0
@@ -962,7 +962,7 @@ public:
         heap_blks_read: 0
         heap_blks_hit: 0
         idx_blks_read: 6
-        idx_blks_hit: 10
+        idx_blks_hit: 12
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 1
@@ -973,7 +973,7 @@ public:
         heap_blks_read: 0
         heap_blks_hit: 0
         idx_blks_read: 4
-        idx_blks_hit: 10
+        idx_blks_hit: 12
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 0
@@ -982,9 +982,9 @@ public:
         schemaname: pg_catalog
         relname: pg_init_privs
         heap_blks_read: 6
-        heap_blks_hit: 15
+        heap_blks_hit: 18
         idx_blks_read: 2
-        idx_blks_hit: 5
+        idx_blks_hit: 6
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 0
@@ -995,7 +995,7 @@ public:
         heap_blks_read: 0
         heap_blks_hit: 0
         idx_blks_read: 2
-        idx_blks_hit: 68
+        idx_blks_hit: 78
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 0
@@ -1006,7 +1006,7 @@ public:
         heap_blks_read: 0
         heap_blks_hit: 0
         idx_blks_read: 3
-        idx_blks_hit: 33
+        idx_blks_hit: 38
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 1
@@ -1014,10 +1014,10 @@ public:
       - relid: 3456
         schemaname: pg_catalog
         relname: pg_collation
-        heap_blks_read: 16
-        heap_blks_hit: 6554
-        idx_blks_read: 6
-        idx_blks_hit: 15140
+        heap_blks_read: 41
+        heap_blks_hit: 7691
+        idx_blks_read: 20
+        idx_blks_hit: 17548
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 0
@@ -1028,7 +1028,7 @@ public:
         heap_blks_read: 0
         heap_blks_hit: 0
         idx_blks_read: 6
-        idx_blks_hit: 10
+        idx_blks_hit: 12
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 1
@@ -1039,7 +1039,7 @@ public:
         heap_blks_read: 0
         heap_blks_hit: 0
         idx_blks_read: 2
-        idx_blks_hit: 5
+        idx_blks_hit: 6
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 0
@@ -1048,9 +1048,9 @@ public:
         schemaname: pg_catalog
         relname: pg_range
         heap_blks_read: 2
-        heap_blks_hit: 5
-        idx_blks_read: 8
-        idx_blks_hit: 46
+        heap_blks_hit: 6
+        idx_blks_read: 24
+        idx_blks_hit: 74
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -1061,7 +1061,7 @@ public:
         heap_blks_read: 0
         heap_blks_hit: 0
         idx_blks_read: 4
-        idx_blks_hit: 30
+        idx_blks_hit: 36
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -1071,8 +1071,8 @@ public:
         relname: pg_sequence
         heap_blks_read: 0
         heap_blks_hit: 0
-        idx_blks_read: 2
-        idx_blks_hit: 110
+        idx_blks_read: 5
+        idx_blks_hit: 128
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -1082,8 +1082,8 @@ public:
         relname: pg_publication
         heap_blks_read: 0
         heap_blks_hit: 0
-        idx_blks_read: 4
-        idx_blks_hit: 38
+        idx_blks_read: 6
+        idx_blks_hit: 46
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -1094,7 +1094,7 @@ public:
         heap_blks_read: 0
         heap_blks_hit: 0
         idx_blks_read: 4
-        idx_blks_hit: 10
+        idx_blks_hit: 12
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -1104,8 +1104,8 @@ public:
         relname: pg_publication_rel
         heap_blks_read: 0
         heap_blks_hit: 0
-        idx_blks_read: 6
-        idx_blks_hit: 15
+        idx_blks_read: 9
+        idx_blks_hit: 18
         toast_blks_read: 0
         toast_blks_hit: 0
         tidx_blks_read: 0
@@ -1116,7 +1116,7 @@ public:
         heap_blks_read: 0
         heap_blks_hit: 0
         idx_blks_read: 2
-        idx_blks_hit: 5
+        idx_blks_hit: 6
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -1127,7 +1127,7 @@ public:
         heap_blks_read: 0
         heap_blks_hit: 0
         idx_blks_read: 2
-        idx_blks_hit: 5
+        idx_blks_hit: 6
         toast_blks_read: null
         toast_blks_hit: null
         tidx_blks_read: null
@@ -1147,7 +1147,7 @@ public:
         schemaname: information_schema
         relname: sql_parts
         heap_blks_read: 2
-        heap_blks_hit: 3
+        heap_blks_hit: 4
         idx_blks_read: null
         idx_blks_hit: null
         toast_blks_read: 0
@@ -1180,7 +1180,7 @@ public:
         schemaname: information_schema
         relname: sql_features
         heap_blks_read: 16
-        heap_blks_hit: 24
+        heap_blks_hit: 32
         idx_blks_read: null
         idx_blks_hit: null
         toast_blks_read: 0
@@ -1202,7 +1202,7 @@ public:
         schemaname: information_schema
         relname: sql_implementation_info
         heap_blks_read: 2
-        heap_blks_hit: 3
+        heap_blks_hit: 4
         idx_blks_read: null
         idx_blks_hit: null
         toast_blks_read: 0
@@ -1213,7 +1213,7 @@ public:
         schemaname: information_schema
         relname: sql_sizing
         heap_blks_read: 2
-        heap_blks_hit: 3
+        heap_blks_hit: 4
         idx_blks_read: null
         idx_blks_hit: null
         toast_blks_read: 0

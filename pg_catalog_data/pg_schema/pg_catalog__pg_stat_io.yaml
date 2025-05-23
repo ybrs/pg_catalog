@@ -87,7 +87,7 @@ public:
       - backend_type: client backend
         object: relation
         context: normal
-        reads: 1379
+        reads: 3027
         read_time: 0.0
         writes: 0
         write_time: 0.0
@@ -96,7 +96,7 @@ public:
         extends: 0
         extend_time: 0.0
         op_bytes: 8192
-        hits: 1190834
+        hits: 1417948
         evictions: 0
         reuses: null
         fsyncs: 0
@@ -159,7 +159,7 @@ public:
       - backend_type: autovacuum launcher
         object: relation
         context: normal
-        reads: 1
+        reads: 6
         read_time: 0.0
         writes: 0
         write_time: 0.0
@@ -168,7 +168,7 @@ public:
         extends: null
         extend_time: null
         op_bytes: 8192
-        hits: 19
+        hits: 82
         evictions: 0
         reuses: null
         fsyncs: 0
@@ -195,7 +195,7 @@ public:
       - backend_type: autovacuum worker
         object: relation
         context: normal
-        reads: 273
+        reads: 785
         read_time: 0.0
         writes: 0
         write_time: 0.0
@@ -204,7 +204,7 @@ public:
         extends: 10
         extend_time: 0.0
         op_bytes: 8192
-        hits: 10966
+        hits: 24680
         evictions: 0
         reuses: null
         fsyncs: 0

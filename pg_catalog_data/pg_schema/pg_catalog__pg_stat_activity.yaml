@@ -64,29 +64,29 @@ public:
       rows:
       - datid: 5
         datname: postgres
-        pid: 15730
+        pid: 63027
         leader_pid: null
         usesysid: 10
         usename: abadur
         application_name: ''
         client_addr: 127.0.0.1
         client_hostname: null
-        client_port: 51501
-        backend_start: '2025-05-21T14:11:39.701144+02:00'
-        xact_start: '2025-05-21T14:11:39.711155+02:00'
-        query_start: '2025-05-21T14:11:45.844218+02:00'
-        state_change: '2025-05-21T14:11:45.844218+02:00'
+        client_port: 52287
+        backend_start: '2025-05-23T09:36:55.446972+02:00'
+        xact_start: '2025-05-23T09:36:55.526077+02:00'
+        query_start: '2025-05-23T09:37:02.708412+02:00'
+        state_change: '2025-05-23T09:37:02.708413+02:00'
         wait_event_type: null
         wait_event: null
         state: active
         backend_xid: null
-        backend_xmin: '749'
+        backend_xmin: '753'
         query_id: null
         query: SELECT * FROM "pg_catalog"."pg_stat_activity"
         backend_type: client backend
       - datid: null
         datname: null
-        pid: 15652
+        pid: 63021
         leader_pid: null
         usesysid: null
         usename: null
@@ -94,7 +94,7 @@ public:
         client_addr: null
         client_hostname: null
         client_port: null
-        backend_start: '2025-05-21T14:09:53.768576+02:00'
+        backend_start: '2025-05-23T09:36:52.864202+02:00'
         xact_start: null
         query_start: null
         state_change: null
@@ -108,7 +108,7 @@ public:
         backend_type: autovacuum launcher
       - datid: null
         datname: null
-        pid: 15653
+        pid: 63022
         leader_pid: null
         usesysid: 10
         usename: abadur
@@ -116,7 +116,7 @@ public:
         client_addr: null
         client_hostname: null
         client_port: null
-        backend_start: '2025-05-21T14:09:53.768764+02:00'
+        backend_start: '2025-05-23T09:36:52.864469+02:00'
         xact_start: null
         query_start: null
         state_change: null
@@ -130,7 +130,7 @@ public:
         backend_type: logical replication launcher
       - datid: null
         datname: null
-        pid: 15648
+        pid: 63017
         leader_pid: null
         usesysid: null
         usename: null
@@ -138,7 +138,7 @@ public:
         client_addr: null
         client_hostname: null
         client_port: null
-        backend_start: '2025-05-21T14:09:53.753827+02:00'
+        backend_start: '2025-05-23T09:36:52.848594+02:00'
         xact_start: null
         query_start: null
         state_change: null
@@ -152,7 +152,7 @@ public:
         backend_type: checkpointer
       - datid: null
         datname: null
-        pid: 15649
+        pid: 63018
         leader_pid: null
         usesysid: null
         usename: null
@@ -160,7 +160,7 @@ public:
         client_addr: null
         client_hostname: null
         client_port: null
-        backend_start: '2025-05-21T14:09:53.753932+02:00'
+        backend_start: '2025-05-23T09:36:52.848646+02:00'
         xact_start: null
         query_start: null
         state_change: null
@@ -174,7 +174,7 @@ public:
         backend_type: background writer
       - datid: null
         datname: null
-        pid: 15651
+        pid: 63020
         leader_pid: null
         usesysid: null
         usename: null
@@ -182,7 +182,7 @@ public:
         client_addr: null
         client_hostname: null
         client_port: null
-        backend_start: '2025-05-21T14:09:53.768550+02:00'
+        backend_start: '2025-05-23T09:36:52.864203+02:00'
         xact_start: null
         query_start: null
         state_change: null

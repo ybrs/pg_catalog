@@ -514,8 +514,8 @@ public:
         relname: pg_amproc
         seq_scan: 1
         seq_tup_read: 696
-        idx_scan: 13
-        idx_tup_fetch: 24
+        idx_scan: 9
+        idx_tup_fetch: 10
         n_tup_ins: 0
         n_tup_upd: 0
         n_tup_del: 0
@@ -1066,8 +1066,8 @@ public:
         relname: pg_opclass
         seq_scan: 1
         seq_tup_read: 177
-        idx_scan: 241
-        idx_tup_fetch: 9723
+        idx_scan: 237
+        idx_tup_fetch: 9719
         n_tup_ins: 0
         n_tup_upd: 0
         n_tup_del: 0
@@ -1114,8 +1114,8 @@ public:
         relname: pg_index
         seq_scan: 4
         seq_tup_read: 656
-        idx_scan: 200
-        idx_tup_fetch: 252
+        idx_scan: 116
+        idx_tup_fetch: 168
         n_tup_ins: 0
         n_tup_upd: 0
         n_tup_del: 0
@@ -1126,8 +1126,8 @@ public:
         relname: pg_attribute
         seq_scan: 2
         seq_tup_read: 6252
-        idx_scan: 3450
-        idx_tup_fetch: 5642
+        idx_scan: 3324
+        idx_tup_fetch: 5516
         n_tup_ins: 0
         n_tup_upd: 0
         n_tup_del: 0
@@ -1186,8 +1186,8 @@ public:
         relname: pg_class
         seq_scan: 12
         seq_tup_read: 4980
-        idx_scan: 983
-        idx_tup_fetch: 942
+        idx_scan: 974
+        idx_tup_fetch: 933
         n_tup_ins: 0
         n_tup_upd: 0
         n_tup_del: 0

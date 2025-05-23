@@ -27,11 +27,11 @@ public:
         wal_sync_time: float8
         stats_reset: timestamptz
       rows:
-      - wal_records: 21105
+      - wal_records: 21133
         wal_fpi: 522
-        wal_bytes: '5077189'
+        wal_bytes: '5078977'
         wal_buffers_full: 0
-        wal_write: 768
+        wal_write: 790
         wal_sync: 0
         wal_write_time: 0.0
         wal_sync_time: 0.0
