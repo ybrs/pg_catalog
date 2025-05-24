@@ -107,6 +107,10 @@ Extend replace_regtype_cast or add a new rewrite to normalise ::oid casts to ::i
 
 Update execute_sql_inner param decoding to accept Type::OID (code already handles INT2/4/8).
 
+Done: execute_sql_inner now converts OID parameters to BIGINT
+scalars so queries like `WHERE oid = $1::oid` work. A new integration
+test covers this case.
+
 # Task 6 – add array_agg shim
 Query (excerpt): select … array_agg(inhparent::bigint order by inhseqno)::varchar
 
