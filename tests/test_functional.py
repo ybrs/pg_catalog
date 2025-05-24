@@ -211,6 +211,15 @@ def test_getdef_functions(server):
         row = cur.fetchone()
         assert row == (None,)
 
+def test_pg_get_expr_int64(server):
+    """pg_get_expr should accept BIGINT arguments produced by ::oid casts."""
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT pg_catalog.pg_get_expr('hello', 1::oid)")
+        row = cur.fetchone()
+        assert row == ("hello",)
+
+
 
 
 

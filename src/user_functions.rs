@@ -328,10 +328,10 @@ pub fn register_scalar_pg_get_expr(ctx: &SessionContext) -> Result<()> {
             Self {
                 sig: Signature::one_of(
                     vec![
-                        TypeSignature::Exact(vec![DataType::Utf8, DataType::Int32]),
+                        TypeSignature::Exact(vec![DataType::Utf8, DataType::Int64]),
                         TypeSignature::Exact(vec![
                             DataType::Utf8,
-                            DataType::Int32,
+                            DataType::Int64,
                             DataType::Boolean,
                         ]),
                     ],

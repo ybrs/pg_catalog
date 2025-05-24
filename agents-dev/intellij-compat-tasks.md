@@ -281,6 +281,11 @@ Candidate functions:
 pg_catalog.pg_get_expr(Utf8, Int32)
 pg_catalog.pg_get_expr(Utf8, Int32, Boolean).
 
+Done: The pg_get_expr UDF now accepts BIGINT for the relation
+OID argument, matching casts produced by rewrite_oid_cast. A
+new integration test exercises `SELECT pg_catalog.pg_get_expr('hello', 1::oid)`
+and confirms the function succeeds.
+
 
 # Task 14 - other errors
 
