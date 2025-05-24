@@ -184,6 +184,18 @@ def test_cast_column_oid(server):
         assert row[0] is None
 
 
+def test_oid_parameter(server):
+    """Parameters typed as OID should be accepted and decoded."""
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT nspname FROM pg_catalog.pg_namespace WHERE oid = %s::oid",
+            (11,),
+        )
+        row = cur.fetchone()
+        assert row == ("pg_catalog",)
+
+
 def test_quote_ident_and_translate(server):
     with psycopg.connect(CONN_STR) as conn:
         cur = conn.cursor()

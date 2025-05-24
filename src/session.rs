@@ -258,6 +258,13 @@ pub async fn execute_sql_inner(
                     let v = i32::from_be_bytes(bytes[..].try_into().unwrap());
                     ScalarValue::Int32(Some(v))
                 }
+                (Some(bytes), Type::OID) => {
+                    // OID values are 32-bit unsigned integers. We map them to
+                    // BIGINT to align with `rewrite_oid_cast`, which rewrites
+                    // `::oid` casts on parameters to BIGINT.
+                    let v = u32::from_be_bytes(bytes[..].try_into().unwrap());
+                    ScalarValue::Int64(Some(v as i64))
+                }
                 (Some(bytes), Type::VARCHAR)
                 | (Some(bytes), Type::TEXT)
                 | (Some(bytes), Type::BPCHAR)
@@ -269,6 +276,7 @@ pub async fn execute_sql_inner(
                 (None, Type::INT2) => ScalarValue::Int16(None),
                 (None, Type::INT8) => ScalarValue::Int64(None),
                 (None, Type::INT4) => ScalarValue::Int32(None),
+                (None, Type::OID) => ScalarValue::Int64(None),
                 (None, Type::VARCHAR)
                 | (None, Type::TEXT)
                 | (None, Type::BPCHAR)
