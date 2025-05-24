@@ -184,6 +184,33 @@ def test_cast_column_oid(server):
         assert row[0] is None
 
 
+def test_quote_ident_and_translate(server):
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT pg_catalog.quote_ident('tbl')")
+        row = cur.fetchone()
+        assert row == ('tbl',)
+
+        cur.execute("SELECT pg_catalog.translate('abc','a','b')")
+        row = cur.fetchone()
+        assert row == ('bbc',)
+
+
+def test_getdef_functions(server):
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT pg_catalog.pg_get_viewdef(1)")
+        row = cur.fetchone()
+        assert row == (None,)
+
+        cur.execute("SELECT pg_catalog.pg_get_function_arguments(1)")
+        row = cur.fetchone()
+        assert row == (None,)
+
+        cur.execute("SELECT pg_catalog.pg_get_indexdef(1)")
+        row = cur.fetchone()
+        assert row == (None,)
+
 def test_pg_get_expr_int64(server):
     """pg_get_expr should accept BIGINT arguments produced by ::oid casts."""
     with psycopg.connect(CONN_STR) as conn:
@@ -191,6 +218,7 @@ def test_pg_get_expr_int64(server):
         cur.execute("SELECT pg_catalog.pg_get_expr('hello', 1::oid)")
         row = cur.fetchone()
         assert row == ("hello",)
+
 
 
 

@@ -370,7 +370,8 @@ pub fn register_scalar_pg_get_expr(ctx: &SessionContext) -> Result<()> {
         }
     }
 
-    ctx.register_udf(ScalarUDF::new_from_impl(PgGetExpr::new()));
+    let udf = ScalarUDF::new_from_impl(PgGetExpr::new()).with_aliases(["pg_get_expr"]);
+    ctx.register_udf(udf);
     Ok(())
 }
 
@@ -1129,6 +1130,212 @@ pub fn register_scalar_txid_current(ctx: &SessionContext) -> Result<()> {
         Arc::new(fun),
     ));
 
+    Ok(())
+}
+
+/// pg_catalog.quote_ident(text) → text
+///
+/// Minimal implementation that simply returns the input verbatim.
+pub fn register_quote_ident(ctx: &SessionContext) -> Result<()> {
+    use arrow::array::{as_string_array, ArrayRef, StringBuilder};
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
+    use std::sync::Arc;
+
+    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
+        let arrays = ColumnarValue::values_to_arrays(args)?;
+        let arr = as_string_array(&arrays[0]);
+        let mut b = StringBuilder::with_capacity(arr.len(), arr.len() * 4);
+        for i in 0..arr.len() {
+            if arr.is_null(i) {
+                b.append_null();
+            } else {
+                b.append_value(arr.value(i));
+            }
+        }
+        Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
+    };
+
+    let udf = create_udf(
+        "pg_catalog.quote_ident",
+        vec![DataType::Utf8],
+        DataType::Utf8,
+        Volatility::Stable,
+        Arc::new(fun),
+    )
+    .with_aliases(["quote_ident"]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
+/// pg_catalog.translate(text, text, text) → text
+///
+/// Implements a basic character translation similar to PostgreSQL's translate.
+pub fn register_translate(ctx: &SessionContext) -> Result<()> {
+    use arrow::array::{as_string_array, ArrayRef, StringBuilder};
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
+    use std::sync::Arc;
+
+    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
+        let arrays = ColumnarValue::values_to_arrays(args)?;
+        let src = as_string_array(&arrays[0]);
+        let from = as_string_array(&arrays[1]);
+        let to = as_string_array(&arrays[2]);
+        let mut b = StringBuilder::with_capacity(src.len(), src.len() * 4);
+        for i in 0..src.len() {
+            if src.is_null(i) || from.is_null(i) || to.is_null(i) {
+                b.append_null();
+                continue;
+            }
+            let s = src.value(i);
+            let f = from.value(i);
+            let t = to.value(i);
+            let mut out = String::with_capacity(s.len());
+            for ch in s.chars() {
+                if let Some(pos) = f.chars().position(|c| c == ch) {
+                    if let Some(rep) = t.chars().nth(pos) {
+                        out.push(rep);
+                    }
+                } else {
+                    out.push(ch);
+                }
+            }
+            b.append_value(out);
+        }
+        Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
+    };
+
+    let udf = create_udf(
+        "pg_catalog.translate",
+        vec![DataType::Utf8, DataType::Utf8, DataType::Utf8],
+        DataType::Utf8,
+        Volatility::Stable,
+        Arc::new(fun),
+    )
+    .with_aliases(["translate"]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
+/// pg_catalog.pg_get_viewdef(oid [, bool]) → text
+///
+/// Returns NULL placeholder for now.
+pub fn register_pg_get_viewdef(ctx: &SessionContext) -> Result<()> {
+    use arrow::array::{ArrayRef, StringBuilder};
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::{
+        ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature,
+        TypeSignature, Volatility,
+    };
+    use std::sync::Arc;
+
+    #[derive(Debug)]
+    struct PgGetViewDef {
+        sig: Signature,
+    }
+
+    impl PgGetViewDef {
+        fn new() -> Self {
+            Self {
+                sig: Signature::one_of(
+                    vec![TypeSignature::Any(1), TypeSignature::Any(2)],
+                    Volatility::Stable,
+                ),
+            }
+        }
+    }
+
+    impl ScalarUDFImpl for PgGetViewDef {
+        fn as_any(&self) -> &dyn std::any::Any {
+            self
+        }
+        fn name(&self) -> &str {
+            "pg_catalog.pg_get_viewdef"
+        }
+        fn signature(&self) -> &Signature {
+            &self.sig
+        }
+        fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
+            Ok(DataType::Utf8)
+        }
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            let len = match args.args.first() {
+                Some(ColumnarValue::Array(a)) => a.len(),
+                _ => 1,
+            };
+            let mut b = StringBuilder::with_capacity(len, len);
+            for _ in 0..len {
+                b.append_null();
+            }
+            Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
+        }
+    }
+
+    let udf = ScalarUDF::new_from_impl(PgGetViewDef::new()).with_aliases(["pg_get_viewdef"]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
+/// pg_catalog.pg_get_function_arguments(oid) → text
+pub fn register_pg_get_function_arguments(ctx: &SessionContext) -> Result<()> {
+    use arrow::array::{ArrayRef, StringBuilder};
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
+    use std::sync::Arc;
+
+    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
+        let len = match args.first() {
+            Some(ColumnarValue::Array(a)) => a.len(),
+            _ => 1,
+        };
+        let mut b = StringBuilder::with_capacity(len, len);
+        for _ in 0..len {
+            b.append_null();
+        }
+        Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
+    };
+
+    let udf = create_udf(
+        "pg_catalog.pg_get_function_arguments",
+        vec![DataType::Int64],
+        DataType::Utf8,
+        Volatility::Stable,
+        Arc::new(fun),
+    )
+    .with_aliases(["pg_get_function_arguments"]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
+/// pg_catalog.pg_get_indexdef(oid) → text
+pub fn register_pg_get_indexdef(ctx: &SessionContext) -> Result<()> {
+    use arrow::array::{ArrayRef, StringBuilder};
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
+    use std::sync::Arc;
+
+    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
+        let len = match args.first() {
+            Some(ColumnarValue::Array(a)) => a.len(),
+            _ => 1,
+        };
+        let mut b = StringBuilder::with_capacity(len, len);
+        for _ in 0..len {
+            b.append_null();
+        }
+        Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
+    };
+
+    let udf = create_udf(
+        "pg_catalog.pg_get_indexdef",
+        vec![DataType::Int64],
+        DataType::Utf8,
+        Volatility::Stable,
+        Arc::new(fun),
+    )
+    .with_aliases(["pg_get_indexdef"]);
+    ctx.register_udf(udf);
     Ok(())
 }
 

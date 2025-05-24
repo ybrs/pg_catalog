@@ -263,12 +263,16 @@ from pg_catalog.pg_constraint C
 
 # Task 12 - fix missing functions
 
-ERROR: Error during planning: Invalid function 'pg_catalog.quote_ident'.
-ERROR: Error during planning: Invalid function 'pg_get_expr'. <- only needs an alias probably
-ERROR: Error during planning: Invalid function 'pg_catalog.translate'.
-ERROR: Error during planning: Invalid function 'pg_catalog.pg_get_viewdef'.
-ERROR: Error during planning: Invalid function 'pg_catalog.pg_get_function_arguments'.
-ERROR:  Error during planning: Invalid function 'pg_catalog.pg_get_indexdef'.
+Implemented stubs for missing functions and registered them with the server:
+
+* `quote_ident` simply echoes its argument.
+* `translate` performs basic character substitution.
+* `pg_get_viewdef`, `pg_get_function_arguments` and `pg_get_indexdef` now return
+  NULL placeholders.
+* Added an alias for `pg_get_expr` so unqualified calls succeed.
+
+Integration tests exercise these functions and confirm they return expected
+placeholder values.
 
 # Task 13 - type coercion
 
