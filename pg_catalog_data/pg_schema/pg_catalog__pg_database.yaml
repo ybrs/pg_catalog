@@ -12,6 +12,7 @@ public:
         datallowconn: boolean
         dathasloginevt: boolean
         datconnlimit: int
+        datlastsysoid: int
         datfrozenxid: varchar(256)
         datminmxid: varchar(256)
         dattablespace: int
@@ -31,6 +32,7 @@ public:
         datallowconn: bool
         dathasloginevt: bool
         datconnlimit: int4
+        datlastsysoid: oid
         datfrozenxid: xid
         datminmxid: xid
         dattablespace: oid
@@ -50,6 +52,7 @@ public:
         datallowconn: true
         dathasloginevt: false
         datconnlimit: -1
+        datlastsysoid: 0
         datfrozenxid: '730'
         datminmxid: '1'
         dattablespace: 1663
@@ -68,6 +71,7 @@ public:
         datallowconn: true
         dathasloginevt: false
         datconnlimit: -1
+        datlastsysoid: 0
         datfrozenxid: '730'
         datminmxid: '1'
         dattablespace: 1663
@@ -86,6 +90,7 @@ public:
         datallowconn: false
         dathasloginevt: false
         datconnlimit: -1
+        datlastsysoid: 0
         datfrozenxid: '730'
         datminmxid: '1'
         dattablespace: 1663
