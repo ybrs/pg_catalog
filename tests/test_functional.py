@@ -285,6 +285,18 @@ def test_pg_get_expr_int64(server):
         row = cur.fetchone()
         assert row == ("hello",)
 
+def test_datlastsysoid_and_privilege(server):
+    """Ensure datlastsysoid column and privilege function exist."""
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT datlastsysoid FROM pg_catalog.pg_database LIMIT 1")
+        row = cur.fetchone()
+        assert isinstance(row[0], int)
+
+        cur.execute("SELECT pg_catalog.has_database_privilege(1, 'CREATE')")
+        row = cur.fetchone()
+        assert row == (True,)
+
 
 def test_pg_index_access_method(server):
     with psycopg.connect(CONN_STR) as conn:

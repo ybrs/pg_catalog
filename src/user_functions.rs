@@ -1847,6 +1847,49 @@ pub fn register_pg_total_relation_size(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
+/// pg_catalog.has_database_privilege(...)
+///
+/// Stub implementation that always returns TRUE.
+pub fn register_has_database_privilege(ctx: &SessionContext) -> Result<()> {
+    use arrow::array::{ArrayRef, BooleanBuilder};
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
+    use std::sync::Arc;
+
+    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
+        let len = match &args[0] {
+            ColumnarValue::Array(a) => a.len(),
+            ColumnarValue::Scalar(_) => 1,
+        };
+        let mut b = BooleanBuilder::with_capacity(len);
+        for _ in 0..len {
+            b.append_value(true);
+        }
+        Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
+    };
+
+    let udf_oid = create_udf(
+        "pg_catalog.has_database_privilege",
+        vec![DataType::Int32, DataType::Utf8],
+        DataType::Boolean,
+        Volatility::Stable,
+        Arc::new(fun.clone()),
+    )
+    .with_aliases(["has_database_privilege"]);
+    ctx.register_udf(udf_oid);
+
+    let udf_name = create_udf(
+        "pg_catalog.has_database_privilege",
+        vec![DataType::Utf8, DataType::Utf8],
+        DataType::Boolean,
+        Volatility::Stable,
+        Arc::new(fun),
+    );
+    ctx.register_udf(udf_name);
+
+    Ok(())
+}
+
 
 
 #[cfg(test)]
@@ -2327,6 +2370,25 @@ mod tests {
         let inner = list.value(0);
         let inner = inner.as_any().downcast_ref::<Int64Array>().unwrap();
         assert_eq!(inner.values(), &[1, 2, 3]);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn has_database_privilege_always_true() -> Result<()> {
+        use arrow::array::BooleanArray;
+        let ctx = SessionContext::new();
+        register_has_database_privilege(&ctx)?;
+        let batches = ctx
+            .sql("SELECT pg_catalog.has_database_privilege(1, 'CREATE')")
+            .await?
+            .collect()
+            .await?;
+        let arr = batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<BooleanArray>()
+            .unwrap();
+        assert_eq!(arr.value(0), true);
         Ok(())
     }
 
