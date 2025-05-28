@@ -669,6 +669,7 @@ pub async fn get_base_session_context(schema_path: &String, default_catalog:Stri
     register_scalar_regclass_oid(&ctx)?;
     register_scalar_pg_tablespace_location(&ctx)?;
     register_scalar_format_type(&ctx)?;
+    crate::user_functions::register_current_schemas(&ctx)?;
 
     let catalogs = ctx.catalog_names();
     println!("registered catalogs: {:?}", catalogs);

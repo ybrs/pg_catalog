@@ -1300,6 +1300,59 @@ pub fn register_upper(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
+pub fn register_current_schemas(ctx: &SessionContext) -> Result<()> {
+    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
+        let arg = &args[0];
+        match arg {
+            ColumnarValue::Scalar(ScalarValue::Boolean(Some(true))) => {
+                let mut builder = SingleRowListArrayBuilder::new(StringBuilder::new(), 2);
+                builder.append_value("pg_catalog");
+                builder.append_value("public");
+                Ok(ColumnarValue::Scalar(ScalarValue::List(builder.finish().into())))
+            }
+            ColumnarValue::Scalar(ScalarValue::Boolean(_)) | ColumnarValue::Scalar(ScalarValue::Null) => {
+                // Handles false or NULL
+                let mut builder = SingleRowListArrayBuilder::new(StringBuilder::new(), 0);
+                Ok(ColumnarValue::Scalar(ScalarValue::List(builder.finish().into())))
+            }
+            ColumnarValue::Array(array) => {
+                let bool_array = array.as_any().downcast_ref::<arrow::array::BooleanArray>().ok_or_else(|| {
+                    DataFusionError::Internal("Expected BooleanArray for current_schemas".to_string())
+                })?;
+
+                let mut list_builder = ListArray::builder(StringBuilder::new());
+                for i in 0..bool_array.len() {
+                    if bool_array.is_null(i) || !bool_array.value(i) {
+                        // For false or NULL, append an empty list
+                        list_builder.append(true);
+                    } else {
+                        // For true, append ["pg_catalog", "public"]
+                        list_builder.values().append_value("pg_catalog");
+                        list_builder.values().append_value("public");
+                        list_builder.append(true);
+                    }
+                }
+                Ok(ColumnarValue::Array(Arc::new(list_builder.finish())))
+            }
+            _ => internal_err!("current_schemas expects a boolean argument"),
+        }
+    };
+
+    let list_field = Arc::new(Field::new("item", ArrowDataType::Utf8, true));
+    let return_type = ArrowDataType::List(list_field);
+
+    let udf = create_udf(
+        "current_schemas",
+        vec![ArrowDataType::Boolean],
+        return_type.clone(),
+        Volatility::Immutable,
+        Arc::new(fun),
+    )
+    .with_aliases(["pg_catalog.current_schemas"]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
 /// pg_catalog.pg_get_viewdef(oid [, bool]) → text
 ///
 /// Returns NULL placeholder for now.
@@ -2232,6 +2285,118 @@ mod tests {
         assert_eq!(arr.value(0), 0);
         Ok(())
     }
+
+    #[tokio::test]
+    async fn test_current_schemas_true() -> Result<()> {
+        let ctx = SessionContext::new();
+        register_current_schemas(&ctx)?;
+        let batches = ctx
+            .sql("SELECT current_schemas(true) AS v;")
+            .await?
+            .collect()
+            .await?;
+        let list = batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<ListArray>()
+            .unwrap();
+        let inner = list.value(0);
+        let inner_array = inner.as_any().downcast_ref::<StringArray>().unwrap();
+        assert_eq!(inner_array.len(), 2);
+        assert_eq!(inner_array.value(0), "pg_catalog");
+        assert_eq!(inner_array.value(1), "public");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_current_schemas_false() -> Result<()> {
+        let ctx = SessionContext::new();
+        register_current_schemas(&ctx)?;
+        let batches = ctx
+            .sql("SELECT current_schemas(false) AS v;")
+            .await?
+            .collect()
+            .await?;
+        let list = batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<ListArray>()
+            .unwrap();
+        let inner = list.value(0);
+        let inner_array = inner.as_any().downcast_ref::<StringArray>().unwrap();
+        assert_eq!(inner_array.len(), 0);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_current_schemas_null() -> Result<()> {
+        let ctx = SessionContext::new();
+        register_current_schemas(&ctx)?;
+        let batches = ctx
+            .sql("SELECT current_schemas(NULL) AS v;")
+            .await?
+            .collect()
+            .await?;
+        let list = batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<ListArray>()
+            .unwrap();
+        let inner = list.value(0);
+        let inner_array = inner.as_any().downcast_ref::<StringArray>().unwrap();
+        assert_eq!(inner_array.len(), 0);
+        Ok(())
+    }
+
+    // Test with an array of booleans
+    #[tokio::test]
+    async fn test_current_schemas_array() -> Result<()> {
+        let ctx = SessionContext::new();
+        register_current_schemas(&ctx)?;
+        // Create a table with a boolean column
+        let schema = Arc::new(Schema::new(vec![Field::new("b", DataType::Boolean, true)]));
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![Arc::new(arrow::array::BooleanArray::from(vec![Some(true), Some(false), None, Some(true)]))],
+        )?;
+        ctx.register_batch("test_bools", batch)?;
+
+        let batches = ctx
+            .sql("SELECT current_schemas(b) FROM test_bools")
+            .await?
+            .collect()
+            .await?;
+        
+        let list_array = batches[0].column(0).as_any().downcast_ref::<ListArray>().unwrap();
+        assert_eq!(list_array.len(), 4);
+
+        // Row 1: true -> ["pg_catalog", "public"]
+        let row1 = list_array.value(0);
+        let row1_array = row1.as_any().downcast_ref::<StringArray>().unwrap();
+        assert_eq!(row1_array.len(), 2);
+        assert_eq!(row1_array.value(0), "pg_catalog");
+        assert_eq!(row1_array.value(1), "public");
+
+        // Row 2: false -> []
+        let row2 = list_array.value(1);
+        let row2_array = row2.as_any().downcast_ref::<StringArray>().unwrap();
+        assert_eq!(row2_array.len(), 0); // Should be empty list
+
+        // Row 3: null -> []
+        let row3 = list_array.value(2);
+        let row3_array = row3.as_any().downcast_ref::<StringArray>().unwrap();
+        assert_eq!(row3_array.len(), 0); // Should be empty list
+
+        // Row 4: true -> ["pg_catalog", "public"]
+        let row4 = list_array.value(3);
+        let row4_array = row4.as_any().downcast_ref::<StringArray>().unwrap();
+        assert_eq!(row4_array.len(), 2);
+        assert_eq!(row4_array.value(0), "pg_catalog");
+        assert_eq!(row4_array.value(1), "public");
+
+        Ok(())
+    }
+
 
     #[tokio::test]
     async fn encode_returns_null() -> Result<()> {

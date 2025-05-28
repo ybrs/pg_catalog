@@ -341,6 +341,27 @@ def test_tuple_equality_join(server):
         cur.fetchall()
 
 
+def test_current_schemas(server):
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM unnest(current_schemas(true))")
+        rows = cur.fetchall()
+        assert rows == [('pg_catalog',), ('public',)]
+
+        cur.execute("SELECT * FROM unnest(current_schemas(false))")
+        rows = cur.fetchall()
+        assert rows == []
+
+        # Test with pg_catalog qualifier
+        cur.execute("SELECT * FROM unnest(pg_catalog.current_schemas(true))")
+        rows = cur.fetchall()
+        assert rows == [('pg_catalog',), ('public',)]
+
+        cur.execute("SELECT * FROM unnest(pg_catalog.current_schemas(false))")
+        rows = cur.fetchall()
+        assert rows == []
+
+
 
 
 
