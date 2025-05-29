@@ -31,3 +31,7 @@ What I need you to do is
 - if the query is marked with success, send the query to the server, and check the response. 
 - Check if the query response matches the data. if the data doesnt match for the query, you can fail the test. 
 
+
+### Attempt
+
+Tried to implement a replay test for the capture YAMLs but the results produced by the current server did not match the stored outputs (e.g. ACL fields differed). Unable to resolve the discrepancies so giving up on this task.
