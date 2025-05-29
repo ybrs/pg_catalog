@@ -1468,6 +1468,57 @@ pub fn alias_subquery_tables(sql: &str) -> Result<String> {
         .join("; "))
 }
 
+pub fn bind_subquery_columns(sql: &str) -> Result<String> {
+    use sqlparser::ast::{
+        visit_expressions_mut, visit_statements_mut, Expr, Ident, Query, SetExpr,
+        TableFactor,
+    };
+    use sqlparser::dialect::PostgreSqlDialect;
+    use sqlparser::parser::Parser;
+    use std::ops::ControlFlow;
+
+    fn qualify_columns(query: &mut Query) {
+        let alias = match query.body.as_ref() {
+            SetExpr::Select(select) if select.from.len() == 1 && select.from[0].joins.is_empty() => {
+                match &select.from[0].relation {
+                    TableFactor::Table { alias: Some(a), .. } => Some(a.name.clone()),
+                    _ => None,
+                }
+            }
+            _ => None,
+        };
+
+        if let Some(alias_ident) = alias {
+            let _ = visit_expressions_mut(query, |expr| {
+                if let Expr::Identifier(id) = expr {
+                    *expr = Expr::CompoundIdentifier(vec![alias_ident.clone(), id.clone()]);
+                }
+                ControlFlow::<()>::Continue(())
+            });
+        }
+    }
+
+    let dialect = PostgreSqlDialect {};
+    let mut stmts = Parser::parse_sql(&dialect, sql)
+        .map_err(|e| DataFusionError::External(Box::new(e)))?;
+
+    visit_statements_mut(&mut stmts, |stmt| {
+        visit_expressions_mut(stmt, |expr| {
+            if let Expr::Subquery(subq) = expr {
+                qualify_columns(subq);
+            }
+            ControlFlow::<()>::Continue(())
+        })?;
+        ControlFlow::Continue(())
+    });
+
+    Ok(stmts
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join("; "))
+}
+
 
 
 #[cfg(test)]
@@ -1856,6 +1907,23 @@ mod tests {
         let sql = "SELECT (SELECT count(*) FROM pg_trigger WHERE tgrelid = rel.oid) FROM pg_class rel";
         let out = alias_subquery_tables(sql)?;
         assert!(out.contains("FROM pg_trigger AS subq0_t"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_bind_subquery_columns_added_alias() -> Result<(), Box<dyn std::error::Error>> {
+        let sql = "SELECT (SELECT id FROM pg_trigger WHERE tgrelid = rel.oid) FROM pg_class rel";
+        let sql = alias_subquery_tables(sql)?;
+        let out = bind_subquery_columns(&sql)?;
+        assert!(out.contains("subq0_t.tgrelid"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_bind_subquery_columns_existing_alias() -> Result<(), Box<dyn std::error::Error>> {
+        let sql = "SELECT (SELECT subq0_t.id FROM pg_trigger subq0_t WHERE tgrelid = rel.oid) FROM pg_class rel";
+        let out = bind_subquery_columns(sql)?;
+        assert!(out.contains("subq0_t.tgrelid"));
         Ok(())
     }
 

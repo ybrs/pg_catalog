@@ -40,3 +40,10 @@ Please write another rewrite function to complement this.
 also add a test case for this query
 
 SELECT (SELECT subq0_t.id FROM pg_trigger subq0_t WHERE tgrelid = rel.oid) FROM pg_class rel
+
+### Done
+
+Implemented `bind_subquery_columns` to qualify unqualified column references in
+subqueries with their table aliases. Added calls in the query rewrite pipeline
+and created tests covering automatic and pre-existing aliases. Queries now bind
+`tgrelid` to the generated alias to satisfy DataFusion.
