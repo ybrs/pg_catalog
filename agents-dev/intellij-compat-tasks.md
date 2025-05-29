@@ -44,3 +44,6 @@ INNER JOIN pg_namespace nsp ON rel.relnamespace = nsp.oid
 WHERE rel.relkind IN ('r','t','f','p')
   AND NOT rel.relispartition
 ORDER BY nsp.nspname, rel.relname;
+
+# Task 74: Done
+Added rewrite that aliases tables inside subqueries to avoid ambiguous column errors. Included integration test executing the original query.

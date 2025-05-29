@@ -1412,6 +1412,49 @@ pub fn rewrite_tuple_equality(sql: &str) -> Result<String> {
         .join("; "))
 }
 
+/// Ensure tables inside scalar subqueries have explicit aliases.
+///
+/// When a subquery references a table without an alias, later query
+/// rewrites may generate ambiguous column references.  Assign a
+/// synthetic alias to every `TableFactor::Table` found inside a
+/// subquery that lacks one.
+pub fn alias_subquery_tables(sql: &str) -> Result<String> {
+    use sqlparser::ast::{visit_expressions_mut, visit_statements_mut, TableAlias, TableFactor};
+    use sqlparser::dialect::PostgreSqlDialect;
+    use sqlparser::parser::Parser;
+    use std::ops::ControlFlow;
+
+    let dialect = PostgreSqlDialect {};
+    let mut stmts = Parser::parse_sql(&dialect, sql)
+        .map_err(|e| DataFusionError::External(Box::new(e)))?;
+
+    let mut counter = 0usize;
+
+    visit_statements_mut(&mut stmts, |stmt| {
+        visit_expressions_mut(stmt, |expr| {
+            if let Expr::Subquery(subq) = expr {
+                if let SetExpr::Select(sel) = subq.body.as_mut() {
+                    for twj in &mut sel.from {
+                        if let TableFactor::Table { alias, .. } = &mut twj.relation {
+                            if alias.is_none() {
+                                counter += 1;
+                                *alias = Some(TableAlias {
+                                    name: Ident::new(format!("t{}", counter)),
+                                    columns: vec![],
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            ControlFlow::<()>::Continue(())
+        })?;
+        ControlFlow::Continue(())
+    });
+
+    Ok(stmts.into_iter().map(|s| s.to_string()).collect::<Vec<_>>().join("; "))
+}
+
 
 
 #[cfg(test)]

@@ -35,6 +35,7 @@ use crate::replace::{
     rewrite_oidvector_unnest,
     rewrite_oidvector_any,
     rewrite_tuple_equality,
+    alias_subquery_tables,
     rewrite_schema_qualified_custom_types,
     rewrite_schema_qualified_text,
     rewrite_schema_qualified_udtfs,
@@ -247,6 +248,7 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     let sql = rewrite_oidvector_unnest(&sql)?;
     let sql = rewrite_oidvector_any(&sql)?;
     let sql = rewrite_tuple_equality(&sql)?;
+    let sql = alias_subquery_tables(&sql)?;
     let (sql, aliases) = alias_all_columns(&sql)?;
     let sql = rewrite_subquery_as_cte(&sql);
 
