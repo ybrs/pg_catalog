@@ -705,28 +705,41 @@ mod rewriter {
             // we only support plain SELECT sub-queries for now
             if let SetExpr::Select(inner_sel) = sub.body.as_ref() {
                 if let Some(pred) = &inner_sel.selection {
+                    let mut all_pairs = Vec::<CorrPred>::new();
+                    let mut all_outer_only = Vec::<Expr>::new();
+                    let mut found = false;
+
                     for alias in outer_aliases {
                         let mut pairs = Vec::<CorrPred>::new();
                         collect_corr_preds(pred, alias, &mut pairs);
-                        let mut outer_only = Vec::new();
+                        if !pairs.is_empty() {
+                            found = true;
+                            all_pairs.extend(pairs);
+                        }
+
                         for c in split_and(pred) {
                             if is_outer_only(&c, alias) {
-                                outer_only.push(c);
+                                found = true;
+                                all_outer_only.push(c.clone());
                             }
                         }
-                        if !pairs.is_empty() || !outer_only.is_empty() {
-                            return Some(CorrelatedInfo {
-                                cte_ident : self.fresh_name(),
-                                subquery  : sub.clone(),
-                                on_pairs  : pairs,
-                                outer_only,
-                                outer_alias: alias.clone(),
-                                orig_alias: match sel_item {
-                                    SelectItem::ExprWithAlias { alias, .. } => Some(alias.clone()),
-                                    _ => None,
-                                },
-                            });
-                        }
+                    }
+
+                    if found {
+                        return Some(CorrelatedInfo {
+                            cte_ident : self.fresh_name(),
+                            subquery  : sub.clone(),
+                            on_pairs  : all_pairs,
+                            outer_only: all_outer_only,
+                            outer_alias: outer_aliases
+                                .first()
+                                .cloned()
+                                .unwrap_or_else(|| Ident::new("_outer")),
+                            orig_alias: match sel_item {
+                                SelectItem::ExprWithAlias { alias, .. } => Some(alias.clone()),
+                                _ => None,
+                            },
+                        });
                     }
                 }
 
@@ -1247,10 +1260,37 @@ mod tests {
 
     #[test]
     fn correlated_with_second_alias() -> Result<()> {
-        let q = "SELECT (SELECT 1 FROM t2 b WHERE b.id = j.id) FROM t1 i JOIN t1 j ON i.id = j.id";
+        let q = "SELECT (SELECT 1 FROM t2 b WHERE b.id = j.id) FROM t1 i JOIN t1 j ON i.id = j.id"; 
         let out = rewrite(q)?;
         println!("correlated_with_second_alias {:?}", out.sql);
         assert!(out.sql.contains("j.id = __cte1.id"), "join predicate not using second alias");
+        Ok(())
+    }
+
+    #[test]
+    fn correlated_with_multiple_outer_tables() -> Result<()> {
+        let q = r#"
+            SELECT
+                (SELECT pg_attrdef.adbin FROM pg_attrdef WHERE adrelid = cls.oid AND adnum = attr.attnum) AS default
+            FROM pg_attribute AS attr
+            JOIN pg_type AS typ ON attr.atttypid = typ.oid
+            JOIN pg_class AS cls ON cls.oid = attr.attrelid
+            JOIN pg_namespace AS ns ON ns.oid = cls.relnamespace"#;
+
+        let out = rewrite(q)?;
+        let s = out.sql;
+
+        assert!(s.contains("LEFT OUTER JOIN __cte1"), "missing LEFT JOIN");
+        assert!(
+            s.contains("cls.oid = __cte1.adrelid") || s.contains("__cte1.adrelid = cls.oid"),
+            "cls predicate missing from JOIN"
+        );
+        assert!(
+            s.contains("attr.attnum = __cte1.adnum") || s.contains("__cte1.adnum = attr.attnum"),
+            "attr predicate missing from JOIN"
+        );
+        assert!(!s.contains("FROM pg_attrdef WHERE"), "predicate left inside CTE");
+
         Ok(())
     }
 

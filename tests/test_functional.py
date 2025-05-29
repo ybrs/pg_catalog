@@ -431,6 +431,22 @@ def test_tuple_equality_join(server):
         cur.fetchall()
 
 
+def test_correlated_subquery_with_multiple_outer_tables(server):
+    query = (
+        "SELECT\n"
+        "    (SELECT subq0_t.adbin FROM pg_catalog.pg_attrdef subq0_t WHERE adrelid = cls.oid AND adnum = attr.attnum) AS default\n"
+        "FROM pg_catalog.pg_attribute AS attr\n"
+        "JOIN pg_catalog.pg_type AS typ ON attr.atttypid = typ.oid\n"
+        "JOIN pg_catalog.pg_class AS cls ON cls.oid = attr.attrelid\n"
+        "JOIN pg_catalog.pg_namespace AS ns ON ns.oid = cls.relnamespace;"
+    )
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SET search_path = pg_catalog")
+        cur.execute(query)
+        cur.fetchall()
+
+
 
 
 

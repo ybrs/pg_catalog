@@ -40,4 +40,12 @@ First I want you to find the reason for this. It can be that if we have multiple
 
 Add unit tests on rust side
 
-If you can find the issue include this exact query in python functional tests. 
+If you can find the issue include this exact query in python functional tests.
+
+### Done
+
+The rewrite stopped after analysing the first outer table alias, so a scalar
+subquery correlated with multiple outer tables left some predicates inside the
+CTE. The analysis step now gathers correlations for **all** outer aliases. The
+new Rust test `correlated_with_multiple_outer_tables` covers this case and a
+Python functional test runs the provided query successfully.
