@@ -33,3 +33,6 @@ representation that the server can load very quickly.
 5. Extend functional tests to run the server with `--binary-file` to ensure the
    pgwire behaviour is unchanged.
 6. Document usage of the new commands in `README.md`.
+
+---
+Implemented Task 200: added binary catalog compiler and loader using Arrow IPC. Added clap-based CLI with serve and compile commands, unit tests for round trip, functional test running server with --binary-file, and documented CLI usage.

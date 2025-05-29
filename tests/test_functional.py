@@ -9,6 +9,8 @@ import pytest
 
 CONN_STR = "host=127.0.0.1 port=5444 dbname=pgtry user=dbuser password=pencil sslmode=disable"
 
+BIN_CONN_STR = "host=127.0.0.1 port=5447 dbname=pgtry user=dbuser password=pencil sslmode=disable"
+
 @pytest.fixture(scope="module")
 def server():
     proc = subprocess.Popen([
@@ -37,8 +39,54 @@ def server():
     except subprocess.TimeoutExpired:
         proc.kill()
 
+
+@pytest.fixture(scope="module")
+def server_binary(tmp_path_factory):
+    bin_path = tmp_path_factory.mktemp("bin") / "catalog.bin"
+    subprocess.check_call([
+        "cargo", "run", "--quiet", "--",
+        "compile",
+        "pg_catalog_data/pg_schema",
+        str(bin_path),
+    ])
+
+    proc = subprocess.Popen([
+        "cargo", "run", "--quiet", "--",
+        "serve",
+        "pg_catalog_data/pg_schema",
+        "--default-catalog", "pgtry",
+        "--default-schema", "public",
+        "--host", "127.0.0.1",
+        "--port", "5447",
+        "--binary-file", str(bin_path),
+    ], text=True)
+
+    for _ in range(12):
+        try:
+            with psycopg.connect(BIN_CONN_STR):
+                break
+        except Exception:
+            time.sleep(5)
+    else:
+        proc.terminate()
+        raise RuntimeError("server failed to start")
+
+    yield proc
+    proc.terminate()
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+
 def test_query_returns_text(server):
     with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT relname FROM pg_catalog.pg_class LIMIT 1")
+        row = cur.fetchone()
+        assert isinstance(row[0], str)
+
+def test_binary_server(server_binary):
+    with psycopg.connect(BIN_CONN_STR) as conn:
         cur = conn.cursor()
         cur.execute("SELECT relname FROM pg_catalog.pg_class LIMIT 1")
         row = cur.fetchone()

@@ -55,6 +55,22 @@ Or use DBeaver/psql to introspect the schema.
 
 ---
 
+## Command Line Usage
+
+The project provides a small CLI with two subcommands:
+
+```bash
+# Compile YAML schemas into a binary catalog
+cargo run --quiet -- compile pg_catalog_data/pg_schema catalog.bin
+
+# Serve the pgwire interface using the compiled catalog
+cargo run --quiet -- serve pg_catalog_data/pg_schema --binary-file catalog.bin
+```
+
+If `--binary-file` is omitted, the server loads the YAML files directly.
+
+---
+
 ## Integration
 
 - Works with the [`pgwire`](https://github.com/sunng87/pgwire) crate for wire protocol emulation

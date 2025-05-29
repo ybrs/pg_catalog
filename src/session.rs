@@ -19,6 +19,7 @@ use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+use crate::binary;
 use pgwire::api::Type;
 use crate::clean_duplicate_columns::alias_all_columns;
 use crate::replace::{
@@ -377,7 +378,7 @@ pub async fn execute_sql(
 }
 
 
-fn parse_schema(schema_path: &str) -> HashMap<String, HashMap<String, HashMap<String, (SchemaRef, Vec<RecordBatch>)>>> {
+pub fn parse_schema(schema_path: &str) -> HashMap<String, HashMap<String, HashMap<String, (SchemaRef, Vec<RecordBatch>)>>> {
     if Path::new(schema_path).is_file() {
         parse_schema_file(schema_path)
     } else if Path::new(schema_path).is_dir() {
@@ -615,10 +616,12 @@ fn build_table(def: TableDef) -> (SchemaRef, Vec<RecordBatch>) {
     (Arc::new(Schema::new(fields)), record_batches)
 }
 
-pub async fn get_base_session_context(schema_path: &String, default_catalog:String, default_schema:String) -> datafusion::error::Result<(SessionContext, Arc<Mutex<Vec<ScanTrace>>>)> {
+async fn build_session_context(
+    schemas: HashMap<String, HashMap<String, HashMap<String, (SchemaRef, Vec<RecordBatch>)>>>,
+    default_catalog:String,
+    default_schema:String,
+) -> datafusion::error::Result<(SessionContext, Arc<Mutex<Vec<ScanTrace>>>)> {
     let log: Arc<Mutex<Vec<ScanTrace>>> = Arc::new(Mutex::new(Vec::new()));
-
-    let schemas = parse_schema(schema_path.as_str());
 
     let mut config = datafusion::execution::context::SessionConfig::new()
         .with_default_catalog_and_schema(&default_catalog, &default_schema)
@@ -709,6 +712,16 @@ pub async fn get_base_session_context(schema_path: &String, default_catalog:Stri
 
 
     Ok((ctx, log))
+}
+
+pub async fn get_base_session_context(schema_path: &String, default_catalog:String, default_schema:String) -> datafusion::error::Result<(SessionContext, Arc<Mutex<Vec<ScanTrace>>>)> {
+    let schemas = parse_schema(schema_path.as_str());
+    build_session_context(schemas, default_catalog, default_schema).await
+}
+
+pub async fn get_base_session_context_from_binary(binary_path: &String, default_catalog:String, default_schema:String) -> datafusion::error::Result<(SessionContext, Arc<Mutex<Vec<ScanTrace>>>)> {
+    let schemas = crate::binary::read_binary(Path::new(binary_path))?;
+    build_session_context(schemas, default_catalog, default_schema).await
 }
 
 #[cfg(test)]
@@ -893,6 +906,32 @@ public:
         assert_eq!(out_schema.fields().len(), 1);
         assert_eq!(out_schema.field(0).name(), "xmin");
         assert_eq!(out[0].num_columns(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_binary_roundtrip() {
+        let yaml = r#"public:
+  myschema:
+    t:
+      type: table
+      schema:
+        id: int
+      rows:
+        - id: 1
+        - id: 2
+"#;
+
+        let dir = tempfile::tempdir().unwrap();
+        let yaml_path = dir.path().join("schema.yaml");
+        std::fs::write(&yaml_path, yaml).unwrap();
+        let parsed = parse_schema(yaml_path.to_str().unwrap());
+        let bin_path = dir.path().join("out.bin");
+        crate::binary::write_binary(&bin_path, &parsed).unwrap();
+        let parsed2 = crate::binary::read_binary(&bin_path).unwrap();
+        assert!(parsed2["public"]["myschema"].contains_key("t"));
+
+        let ctx_res = get_base_session_context_from_binary(&bin_path.to_str().unwrap().to_string(), "pgtry".to_string(), "public".to_string()).await;
+        assert!(ctx_res.is_ok());
     }
 }
 
