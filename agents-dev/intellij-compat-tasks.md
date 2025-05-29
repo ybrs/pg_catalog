@@ -154,3 +154,11 @@ def test_rewrite_multiple_correlated_aliases(server):
 ```
 
 so it probably adds when there are multiple subqueries
+
+### Done
+
+`collect_paths` ignored bare identifiers so `tgrelid = rel.oid` was mistaken for
+an outer-only predicate and copied twice into the JOIN clause. The function now
+records identifier nodes, preventing the duplicate condition. A new Rust unit
+test checks the rewritten JOIN and a functional Python test runs the original
+query successfully.

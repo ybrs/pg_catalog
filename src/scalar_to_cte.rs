@@ -244,6 +244,7 @@ mod rewriter {
     fn collect_paths(e: &Expr, out: &mut Vec<Vec<Ident>>) {
         match e {
             Expr::CompoundIdentifier(p) => out.push(p.clone()),
+            Expr::Identifier(id) => out.push(vec![id.clone()]),
             Expr::BinaryOp { left, right, .. } => {
                 collect_paths(left, out);
                 collect_paths(right, out);
@@ -1449,6 +1450,20 @@ mod tests {
         assert!(s.contains("cls.oid = __cte1.adrelid"), "cls predicate not in JOIN");
         assert!(s.contains("attr.attnum = __cte1.adnum"), "attr predicate not in JOIN");
         assert!(!s.contains("WHERE adrelid = cls.oid"), "predicate left in CTE");
+
+        Ok(())
+    }
+
+    #[test]
+    fn trigger_count_subqueries() -> Result<()> {
+        let sql = "SELECT  rel.oid, (SELECT count(*) FROM pg_trigger WHERE tgrelid=rel.oid AND tgisinternal = FALSE) AS triggercount, (SELECT count(*) FROM pg_trigger WHERE tgrelid=rel.oid AND tgisinternal = FALSE AND tgenabled = 'O') AS has_enable_triggers FROM pg_class rel";
+        let out = rewrite(sql)?;
+        let s = out.sql.to_lowercase();
+        println!("rewritten: {}", s);
+
+        assert!(s.contains("rel.oid = __cte1.tgrelid"));
+        assert!(s.contains("rel.oid = __cte2.tgrelid"));
+        assert!(!s.contains("tgrelid = rel.oid"), "duplicate predicate present");
 
         Ok(())
     }
