@@ -270,6 +270,8 @@ pub async fn execute_sql_inner(
     println!("input sql {:?}", sql);
 
     let sql = rewrite_exists_subquery(&sql, ctx).await?;
+    println!("after exists subquery - {:?}", sql);
+
     let (sql, aliases) = rewrite_filters(&sql)?;
 
     let df = if let (Some(params), Some(types)) = (vec, vec0) {

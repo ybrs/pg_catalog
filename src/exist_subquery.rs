@@ -119,6 +119,7 @@ async fn register_udf(
     sub_sql: String,
     cols: &[(Ident, DataType)],
 ) -> datafusion::error::Result<()> {
+    println!("registering function {:?} - {:}", name, sub_sql);
     let arg_types: Vec<DataType> = cols.iter().map(|(_, t)| t.clone()).collect();
     let plan = ctx.state().create_logical_plan(&sub_sql).await?;
     let ret_type = plan.schema().field(0).data_type().clone();
