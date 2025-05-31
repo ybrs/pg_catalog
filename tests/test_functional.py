@@ -478,6 +478,37 @@ def test_rewrite_trigger_counts(server):
             cur.execute(sql)
 
 
+def test_fix_query_93(server):
+    sql = (
+        "SELECT\n"
+        "  attname AS name,\n"
+        "  attnum AS OID,\n"
+        "  typ.oid AS typoid,\n"
+        "  typ.typname AS datatype,\n"
+        "  attnotnull AS not_null,\n"
+        "  attr.atthasdef AS has_default_val,\n"
+        "  nspname,\n"
+        "  relname,\n"
+        "  attrelid,\n"
+        "  CASE WHEN typ.typtype = 'd' THEN typ.typtypmod ELSE atttypmod END AS typmod,\n"
+        "  CASE WHEN atthasdef THEN (SELECT pg_get_expr(adbin, cls.oid) FROM pg_attrdef WHERE adrelid = cls.oid AND adnum = attr.attnum) ELSE NULL END AS default,\n"
+        "  TRUE AS is_updatable,\n"
+        "  CASE WHEN EXISTS (SELECT * FROM information_schema.key_column_usage WHERE table_schema = nspname AND table_name = relname AND column_name = attname) THEN TRUE ELSE FALSE END AS isprimarykey,\n"
+        "  CASE WHEN EXISTS (SELECT * FROM information_schema.table_constraints WHERE table_schema = nspname AND table_name = relname AND constraint_type = 'UNIQUE' AND constraint_name IN (SELECT constraint_name FROM information_schema.constraint_column_usage WHERE table_schema = nspname AND table_name = relname AND column_name = attname)) THEN TRUE ELSE FALSE END AS isunique \n"
+        "FROM pg_attribute AS attr\n"
+        "JOIN pg_type AS typ ON attr.atttypid = typ.oid\n"
+        "JOIN pg_class AS cls ON cls.oid = attr.attrelid\n"
+        "JOIN pg_namespace AS ns ON ns.oid = cls.relnamespace\n"
+        "LEFT OUTER JOIN information_schema.columns AS col ON col.table_schema = nspname AND col.table_name = relname AND col.column_name = attname\n"
+        "WHERE attr.attrelid = 50010::oid AND attr.attnum > 0 AND atttypid <> 0 AND relkind IN ('r', 'v', 'm', 'p') AND NOT attisdropped\n"
+        "ORDER BY attnum;"
+    )
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        with pytest.raises(Exception):
+            cur.execute(sql)
+
+
 
 
 

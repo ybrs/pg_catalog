@@ -10,6 +10,7 @@ mod user_functions;
 mod db_table;
 mod logical_plan_rules;
 mod scalar_to_cte;
+mod exist_subquery;
 mod replace_any_group_by;
 
 use std::env;

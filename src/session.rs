@@ -50,6 +50,7 @@ use datafusion::common::{config_err, config::ConfigEntry};
 use datafusion::common::config::{ConfigExtension, ExtensionOptions};
 use crate::db_table::{map_pg_type, ObservableMemTable, ScanTrace};
 use crate::replace_any_group_by::rewrite_group_by_for_any;
+use crate::exist_subquery::rewrite_exists_subquery;
 
 
 #[derive(Clone, Debug)]
@@ -267,7 +268,8 @@ pub async fn execute_sql_inner(
 ) -> datafusion::error::Result<(Vec<RecordBatch>, Arc<Schema>)> {
 
     println!("input sql {:?}", sql);
-    
+
+    let sql = rewrite_exists_subquery(&sql, ctx).await?;
     let (sql, aliases) = rewrite_filters(&sql)?;
 
     let df = if let (Some(params), Some(types)) = (vec, vec0) {
