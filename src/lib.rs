@@ -19,3 +19,6 @@ pub use pg_catalog_helpers::*;
 pub use router::dispatch_query;
 pub use server::start_server;
 pub use session::get_base_session_context;
+
+/// Path to the extracted `pg_schema` directory downloaded at build time.
+pub const DEFAULT_SCHEMA_DIR: &str = env!("DEFAULT_SCHEMA_DIR");
