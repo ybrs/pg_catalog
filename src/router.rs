@@ -21,6 +21,9 @@ use bytes::Bytes;
 use pgwire::api::Type;
 
 use sqlparser::ast::*;
+use sqlparser::ast::visit_expressions;
+use datafusion::execution::FunctionRegistry;
+use std::ops::ControlFlow;
 use sqlparser::dialect::PostgreSqlDialect;
 use sqlparser::parser::Parser;
 
@@ -174,9 +177,65 @@ fn resolve_schema(ctx: &SessionContext, name: &ObjectName) -> Option<String> {
     }
 }
 
+/// Resolve the schema for the provided function [`ObjectName`] respecting the session
+/// configuration and search path.
+fn resolve_function_schema(ctx: &SessionContext, name: &ObjectName) -> Option<String> {
+    let state = ctx.state();
+    let options = state.config_options();
+    let default_schema = &options.catalog.default_schema;
+    let search_path = options
+        .extensions
+        .get::<ClientOpts>()
+        .map(|opts| parse_search_path(&opts.search_path))
+        .unwrap_or_else(|| vec!["pg_catalog".to_string(), default_schema.clone()]);
+
+    let parts: Vec<String> = name
+        .0
+        .iter()
+        .filter_map(|p| p.as_ident().map(|i| i.value.clone()))
+        .collect();
+
+    match parts.as_slice() {
+        [schema, func] => {
+            if ctx.udf(&format!("{schema}.{func}")).is_ok() {
+                Some(schema.clone())
+            } else {
+                None
+            }
+        }
+        [_, schema, func] => {
+            if ctx.udf(&format!("{schema}.{func}")).is_ok() {
+                Some(schema.clone())
+            } else {
+                None
+            }
+        }
+        [func] => {
+            for sp in &search_path {
+                let schema_name = if sp == "$user" { default_schema } else { sp };
+                if ctx.udf(&format!("{schema_name}.{func}")).is_ok() {
+                    return Some(schema_name.to_string());
+                }
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
 /// Determine if the object belongs to `pg_catalog` or `information_schema`.
 fn object_is_catalog(ctx: &SessionContext, name: &ObjectName) -> bool {
     if let Some(schema) = resolve_schema(ctx, name) {
+        schema.eq_ignore_ascii_case("pg_catalog")
+            || schema.eq_ignore_ascii_case("information_schema")
+    } else {
+        false
+    }
+}
+
+/// Determine if the function belongs to `pg_catalog` or `information_schema`.
+fn function_is_catalog(ctx: &SessionContext, name: &ObjectName) -> bool {
+    if let Some(schema) = resolve_function_schema(ctx, name) {
         schema.eq_ignore_ascii_case("pg_catalog")
             || schema.eq_ignore_ascii_case("information_schema")
     } else {
@@ -243,8 +302,31 @@ fn query_has_catalog(ctx: &SessionContext, query: &Query) -> bool {
     false
 }
 
+/// Return true if the expression invokes a catalog function.
+fn expr_has_catalog_function(ctx: &SessionContext, expr: &Expr) -> bool {
+    match expr {
+        Expr::Function(func) => function_is_catalog(ctx, &func.name),
+        Expr::Subquery(q) => query_has_catalog(ctx, q),
+        _ => false,
+    }
+}
+
 /// Inspect a [`Statement`] and return true if it touches catalog tables.
 fn statement_has_catalog(ctx: &SessionContext, stmt: &Statement) -> bool {
+    let mut has_fn = false;
+    let _ = visit_expressions(stmt, |expr| {
+        if expr_has_catalog_function(ctx, expr) {
+            has_fn = true;
+            ControlFlow::Break(())
+        } else {
+            ControlFlow::Continue(())
+        }
+    });
+
+    if has_fn {
+        return true;
+    }
+
     match stmt {
         Statement::Query(q) => query_has_catalog(ctx, q),
         _ => false,
@@ -402,6 +484,46 @@ mod tests {
         let types = vec![Type::INT4];
         let _ = dispatch_query(&ctx, "SELECT * FROM users WHERE id=$1", Some(params.clone()), Some(types), handler).await?;
         assert_eq!(*captured.lock().unwrap(), Some(params));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_dispatch_catalog_function_internal() -> datafusion::error::Result<()> {
+        let ctx = SessionContext::new();
+        crate::user_functions::register_version_fn(&ctx)?;
+
+        let called = Arc::new(Mutex::new(false));
+        let called_clone = called.clone();
+        let handler = move |_ctx: &SessionContext, _sql: &str, _p, _t| {
+            let called_clone = called_clone.clone();
+            async move {
+                *called_clone.lock().unwrap() = true;
+                Ok((Vec::new(), Arc::new(Schema::empty())))
+            }
+        };
+
+        let _ = dispatch_query(&ctx, "SELECT pg_catalog.version()", None, None, handler).await?;
+        assert!(!*called.lock().unwrap());
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_dispatch_unqualified_catalog_function_internal() -> datafusion::error::Result<()> {
+        let ctx = SessionContext::new();
+        crate::user_functions::register_version_fn(&ctx)?;
+
+        let called = Arc::new(Mutex::new(false));
+        let called_clone = called.clone();
+        let handler = move |_ctx: &SessionContext, _sql: &str, _p, _t| {
+            let called_clone = called_clone.clone();
+            async move {
+                *called_clone.lock().unwrap() = true;
+                Ok((Vec::new(), Arc::new(Schema::empty())))
+            }
+        };
+
+        let _ = dispatch_query(&ctx, "SELECT version()", None, None, handler).await?;
+        assert!(!*called.lock().unwrap());
         Ok(())
     }
 }
