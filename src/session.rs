@@ -797,8 +797,8 @@ pub async fn get_base_session_context(schema_path: Option<&str>, default_catalog
     register_scalar_pg_tablespace_location(&ctx)?;
     register_scalar_format_type(&ctx)?;
     ctx.register_udtf("regclass_oid", Arc::new(crate::user_functions::RegClassOidFunc));
-    register_current_schema(&ctx)?;
-    register_current_schemas(&ctx)?;
+    register_current_schema(&ctx, crate::user_functions::default_get_current_schemas)?;
+    register_current_schemas(&ctx, crate::user_functions::default_get_current_schemas)?;
     register_scalar_format_type(&ctx)?;
     register_scalar_pg_get_expr(&ctx)?;
     register_scalar_pg_get_partkeydef(&ctx)?;

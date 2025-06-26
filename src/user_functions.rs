@@ -23,6 +23,7 @@ use datafusion::prelude::*;
 use futures::executor::block_on;
 use std::sync::Arc;
 use tokio::task::block_in_place;
+use crate::session::ClientOpts;
 
 #[derive(Debug)]
 struct RegClassOidTable {
@@ -520,41 +521,98 @@ pub fn register_has_schema_privilege(ctx: &SessionContext) -> Result<()> {
 }
 
 
-/// Register `current_schema()` returning the constant `public`.
-pub fn register_current_schema(ctx: &SessionContext) -> Result<()> {
-    // TODO: this always returns public
-    //   If there is a db supporting tablespaces, this should be done correctly.
+/// Split and normalise a `search_path` option.
+///
+/// The returned vector always contains `pg_catalog` as the first element
+/// to mirror PostgreSQL behaviour when it is not explicitly listed.
+fn parse_search_path(path: &str) -> Vec<String> {
+    let mut parts: Vec<String> = path
+        .split(',')
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.trim_matches('"').to_string())
+        .collect();
+    if !parts
+        .iter()
+        .any(|s| s.eq_ignore_ascii_case("pg_catalog"))
+    {
+        parts.insert(0, "pg_catalog".to_string());
+    }
+    parts
+}
+
+/// Default implementation for determining the current schemas
+/// based on the session `search_path` option.
+pub fn default_get_current_schemas(ctx: &SessionContext) -> Vec<String> {
+    let state = ctx.state();
+    let options = state.config_options();
+    let default_schema = &options.catalog.default_schema;
+    let mut parts = options
+        .extensions
+        .get::<ClientOpts>()
+        .map(|opts| parse_search_path(&opts.search_path))
+        .unwrap_or_else(|| vec!["pg_catalog".to_string(), default_schema.clone()]);
+
+    for p in parts.iter_mut() {
+        if p == "$user" {
+            *p = default_schema.clone();
+        }
+    }
+    parts.dedup();
+    parts
+}
+
+
+/// Register `current_schema()` whose value is determined by the provided
+/// callback. The first schema returned by `get_current_schemas` will be used
+/// as the result.
+pub fn register_current_schema(
+    ctx: &SessionContext,
+    get_current_schemas: impl Fn(&SessionContext) -> Vec<String> + Send + Sync + 'static,
+) -> Result<()> {
     let ctx_arc = Arc::new(ctx.clone());
+    let get = Arc::new(get_current_schemas);
+    let ctx_clone = ctx_arc.clone();
+
+    let fun = move |_args: &[ColumnarValue]| -> Result<ColumnarValue> {
+        let schemas = get(&ctx_clone);
+        let schema = schemas.into_iter().next().unwrap_or_default();
+        Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(schema))))
+    };
 
     let udf = create_udf(
         "current_schema",
         vec![],
         ArrowDataType::Utf8,
         Volatility::Immutable,
-        {
-            std::sync::Arc::new(move |_args| {
-                Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(
-                    "main".to_string(),
-                ))))
-            })
-        },        
-    ).with_aliases(["pg_catalog.current_schema"]);
+        Arc::new(fun),
+    )
+    .with_aliases(["pg_catalog.current_schema"]);
     ctx_arc.register_udf(udf);
     Ok(())
 }
 
-/// Register `current_schemas(boolean)` returning `[pg_catalog, public]`.
-pub fn register_current_schemas(ctx: &SessionContext) -> Result<()> {
-    // TODO: this is hardcoded
+/// Register `current_schemas(boolean)` whose value is determined by the
+/// provided callback.
+pub fn register_current_schemas(
+    ctx: &SessionContext,
+    get_current_schemas: impl Fn(&SessionContext) -> Vec<String> + Send + Sync + 'static,
+) -> Result<()> {
     use arrow::array::{ArrayRef, ListBuilder, StringBuilder};
     use arrow::datatypes::{DataType, Field};
     use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
     use std::sync::Arc;
 
-    let fun = |_args: &[ColumnarValue]| -> Result<ColumnarValue> {
+    let ctx_arc = Arc::new(ctx.clone());
+    let get = Arc::new(get_current_schemas);
+    let ctx_clone = ctx_arc.clone();
+
+    let fun = move |_args: &[ColumnarValue]| -> Result<ColumnarValue> {
+        let schemas = get(&ctx_clone);
         let mut builder = ListBuilder::new(StringBuilder::new());
-        builder.values().append_value("pg_catalog");
-        builder.values().append_value("main");
+        for schema in schemas {
+            builder.values().append_value(schema);
+        }
         builder.append(true);
         Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
     };
@@ -2005,6 +2063,7 @@ pub fn register_pg_total_relation_size(ctx: &SessionContext) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use crate::scalar_to_cte::rewrite_subquery_as_cte;
+    use crate::session::ClientOpts;
 
     use super::*;
     use arrow::array::{Int64Array, StringArray};
@@ -2487,7 +2546,7 @@ mod tests {
     async fn current_schemas_returns_defaults() -> Result<()> {
         use arrow::array::{ListArray, StringArray};
         let ctx = SessionContext::new();
-        register_current_schemas(&ctx)?;
+        register_current_schemas(&ctx, default_get_current_schemas)?;
         let batches = ctx
             .sql("SELECT current_schemas(true) AS v")
             .await?
@@ -2502,6 +2561,50 @@ mod tests {
         let inner = inner.as_any().downcast_ref::<StringArray>().unwrap();
         assert_eq!(inner.value(0), "pg_catalog");
         assert_eq!(inner.value(1), "public");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn current_schemas_respects_search_path() -> Result<()> {
+        use arrow::array::{ListArray, StringArray};
+        let mut config = datafusion::execution::context::SessionConfig::new()
+            .with_default_catalog_and_schema("datafusion", "public")
+            .with_option_extension(ClientOpts::default());
+
+        if let Some(opts) = config.options_mut().extensions.get_mut::<ClientOpts>() {
+            opts.search_path = "crm, pg_catalog".to_string();
+        }
+
+        let ctx = SessionContext::new_with_config(config);
+        register_current_schema(&ctx, default_get_current_schemas)?;
+        register_current_schemas(&ctx, default_get_current_schemas)?;
+
+        let batches = ctx
+            .sql("SELECT current_schema()")
+            .await?
+            .collect()
+            .await?;
+        let arr = batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap();
+        assert_eq!(arr.value(0), "crm");
+
+        let batches = ctx
+            .sql("SELECT current_schemas(true) AS v")
+            .await?
+            .collect()
+            .await?;
+        let list = batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<ListArray>()
+            .unwrap();
+        let inner = list.value(0);
+        let inner = inner.as_any().downcast_ref::<StringArray>().unwrap();
+        assert_eq!(inner.value(0), "crm");
+        assert_eq!(inner.value(1), "pg_catalog");
         Ok(())
     }
 
