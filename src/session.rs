@@ -797,8 +797,34 @@ pub async fn get_base_session_context(schema_path: Option<&str>, default_catalog
     register_scalar_pg_tablespace_location(&ctx)?;
     register_scalar_format_type(&ctx)?;
     ctx.register_udtf("regclass_oid", Arc::new(crate::user_functions::RegClassOidFunc));
-    register_current_schema(&ctx)?;
-    register_current_schemas(&ctx)?;
+
+    let get_current_schemas = Arc::new(|ctx: &SessionContext| -> datafusion::error::Result<Vec<String>> {
+        let state = ctx.state();
+        let options = state.config_options();
+        let default_schema = options.catalog.default_schema.clone();
+        let mut parts: Vec<String> = options
+            .extensions
+            .get::<ClientOpts>()
+            .map(|opts| {
+                let mut pieces: Vec<String> = opts
+                    .search_path
+                    .split(',')
+                    .map(|s| s.trim())
+                    .filter(|s| !s.is_empty())
+                    .map(|s| s.trim_matches('"').to_string())
+                    .collect();
+                if !pieces.iter().any(|s| s.eq_ignore_ascii_case("pg_catalog")) {
+                    pieces.insert(0, "pg_catalog".to_string());
+                }
+                pieces
+            })
+            .unwrap_or_else(|| vec!["pg_catalog".to_string(), default_schema]);
+        parts.retain(|s| s != "$user");
+        Ok(parts)
+    });
+
+    register_current_schema(&ctx, get_current_schemas.clone())?;
+    register_current_schemas(&ctx, get_current_schemas.clone())?;
     register_scalar_format_type(&ctx)?;
     register_scalar_pg_get_expr(&ctx)?;
     register_scalar_pg_get_partkeydef(&ctx)?;

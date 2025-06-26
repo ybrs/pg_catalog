@@ -24,6 +24,9 @@ use futures::executor::block_on;
 use std::sync::Arc;
 use tokio::task::block_in_place;
 
+/// Callable used to resolve the current schemas for a session.
+pub type CurrentSchemasFn = Arc<dyn Fn(&SessionContext) -> Result<Vec<String>> + Send + Sync>;
+
 #[derive(Debug)]
 struct RegClassOidTable {
     schema: SchemaRef,
@@ -521,40 +524,50 @@ pub fn register_has_schema_privilege(ctx: &SessionContext) -> Result<()> {
 
 
 /// Register `current_schema()` returning the constant `public`.
-pub fn register_current_schema(ctx: &SessionContext) -> Result<()> {
-    // TODO: this always returns public
-    //   If there is a db supporting tablespaces, this should be done correctly.
+pub fn register_current_schema(
+    ctx: &SessionContext,
+    get_current_schemas: CurrentSchemasFn,
+) -> Result<()> {
     let ctx_arc = Arc::new(ctx.clone());
+    let ctx_clone = ctx_arc.clone();
+    let fun = Arc::new(move |_args: &[ColumnarValue]| {
+        let schemas = get_current_schemas(ctx_clone.as_ref())?;
+        let first = schemas
+            .into_iter()
+            .find(|s| !s.eq_ignore_ascii_case("pg_catalog"));
+        Ok(ColumnarValue::Scalar(ScalarValue::Utf8(first)))
+    });
 
     let udf = create_udf(
         "current_schema",
         vec![],
         ArrowDataType::Utf8,
         Volatility::Immutable,
-        {
-            std::sync::Arc::new(move |_args| {
-                Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(
-                    "main".to_string(),
-                ))))
-            })
-        },        
-    ).with_aliases(["pg_catalog.current_schema"]);
+        fun,
+    )
+    .with_aliases(["pg_catalog.current_schema"]);
     ctx_arc.register_udf(udf);
     Ok(())
 }
 
 /// Register `current_schemas(boolean)` returning `[pg_catalog, public]`.
-pub fn register_current_schemas(ctx: &SessionContext) -> Result<()> {
-    // TODO: this is hardcoded
+pub fn register_current_schemas(
+    ctx: &SessionContext,
+    get_current_schemas: CurrentSchemasFn,
+) -> Result<()> {
     use arrow::array::{ArrayRef, ListBuilder, StringBuilder};
     use arrow::datatypes::{DataType, Field};
     use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
     use std::sync::Arc;
 
-    let fun = |_args: &[ColumnarValue]| -> Result<ColumnarValue> {
+    let ctx_arc = Arc::new(ctx.clone());
+    let ctx_clone = ctx_arc.clone();
+    let fun = move |_args: &[ColumnarValue]| -> Result<ColumnarValue> {
+        let schemas = get_current_schemas(ctx_clone.as_ref())?;
         let mut builder = ListBuilder::new(StringBuilder::new());
-        builder.values().append_value("pg_catalog");
-        builder.values().append_value("main");
+        for s in schemas {
+            builder.values().append_value(s);
+        }
         builder.append(true);
         Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
     };
@@ -2487,7 +2500,10 @@ mod tests {
     async fn current_schemas_returns_defaults() -> Result<()> {
         use arrow::array::{ListArray, StringArray};
         let ctx = SessionContext::new();
-        register_current_schemas(&ctx)?;
+        let get_schemas: CurrentSchemasFn = Arc::new(|_| {
+            Ok(vec!["pg_catalog".to_string(), "public".to_string()])
+        });
+        register_current_schemas(&ctx, get_schemas.clone())?;
         let batches = ctx
             .sql("SELECT current_schemas(true) AS v")
             .await?
@@ -2502,6 +2518,55 @@ mod tests {
         let inner = inner.as_any().downcast_ref::<StringArray>().unwrap();
         assert_eq!(inner.value(0), "pg_catalog");
         assert_eq!(inner.value(1), "public");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn current_schema_returns_first() -> Result<()> {
+        use arrow::array::StringArray;
+        let ctx = SessionContext::new();
+        let get_schemas: CurrentSchemasFn = Arc::new(|_| {
+            Ok(vec!["first".to_string(), "second".to_string()])
+        });
+        register_current_schema(&ctx, get_schemas.clone())?;
+        let batches = ctx
+            .sql("SELECT current_schema()")
+            .await?
+            .collect()
+            .await?;
+        let arr = batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap();
+        assert_eq!(arr.value(0), "first");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn current_schemas_dynamic() -> Result<()> {
+        use arrow::array::{ListArray, StringArray};
+        let ctx = SessionContext::new();
+        let get_schemas: CurrentSchemasFn = Arc::new(|_| {
+            Ok(vec!["one".to_string(), "two".to_string(), "three".to_string()])
+        });
+        register_current_schemas(&ctx, get_schemas.clone())?;
+        let batches = ctx
+            .sql("SELECT current_schemas(true) AS v")
+            .await?
+            .collect()
+            .await?;
+        let list = batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<ListArray>()
+            .unwrap();
+        let inner = list.value(0);
+        let inner = inner.as_any().downcast_ref::<StringArray>().unwrap();
+        assert_eq!(inner.len(), 3);
+        assert_eq!(inner.value(0), "one");
+        assert_eq!(inner.value(1), "two");
+        assert_eq!(inner.value(2), "three");
         Ok(())
     }
 
