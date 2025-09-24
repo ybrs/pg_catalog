@@ -194,6 +194,37 @@ pub async fn register_user_tables(
         ctx.sql(&sql).await?.collect().await?;
     }
 
+    // Also reflect the newly registered table in information_schema.tables.
+    // Insert only if a matching row doesn't already exist (idempotent).
+    let exists_df = ctx
+        .sql(
+            "SELECT 1 FROM information_schema.tables \
+             WHERE table_catalog=$cat AND table_schema=$sch AND table_name=$tbl",
+        )
+        .await?
+        .with_param_values(vec![
+            ("cat", ScalarValue::from(_database_name)),
+            ("sch", ScalarValue::from(schema_name)),
+            ("tbl", ScalarValue::from(table_name)),
+        ])?;
+    if exists_df.count().await? == 0 {
+        let insert_sql = format!(
+            "INSERT INTO information_schema.tables \
+             (table_catalog, table_schema, table_name, table_type, \
+              self_referencing_column_name, reference_generation, \
+              user_defined_type_catalog, user_defined_type_schema, user_defined_type_name, \
+              is_insertable_into, is_typed, commit_action) \
+             VALUES ('{}','{}','{}','BASE TABLE', \
+                     NULL, NULL, \
+                     NULL, NULL, NULL, \
+                     'YES','NO', NULL)",
+            _database_name.replace('\'', "''"),
+            schema_name.replace('\'', "''"),
+            table_name.replace('\'', "''"),
+        );
+        ctx.sql(&insert_sql).await?.collect().await?;
+    }
+
     Ok(())
 }
 
@@ -259,6 +290,91 @@ mod tests {
             .await?;
         let batches = df.collect().await?;
         assert_eq!(batches[0].num_rows(), 2);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_register_user_tables_information_schema() -> DFResult<()> {
+        let (ctx, _) = get_base_session_context(
+            Some("pg_catalog_data/pg_schema"),
+            "pgtry".to_string(),
+            "public".to_string(),
+            None,
+        )
+        .await?;
+
+        register_schema(&ctx, "pgtry", "myschema").await?;
+
+        let mut c1 = BTreeMap::new();
+        c1.insert(
+            "id".to_string(),
+            ColumnDef {
+                col_type: "int".to_string(),
+                nullable: true,
+            },
+        );
+        let mut c2 = BTreeMap::new();
+        c2.insert(
+            "name".to_string(),
+            ColumnDef {
+                col_type: "text".to_string(),
+                nullable: true,
+            },
+        );
+
+        register_user_tables(&ctx, "pgtry", "myschema", "contacts", vec![c1, c2]).await?;
+
+        let df = ctx
+            .sql("SELECT table_catalog, table_schema, table_name, table_type, is_insertable_into, is_typed \
+                  FROM information_schema.tables \
+                  WHERE table_schema='myschema' AND table_name='contacts'")
+            .await?;
+        let batches = df.collect().await?;
+        assert_eq!(batches[0].num_rows(), 1);
+
+        let cat = batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<arrow::array::StringArray>()
+            .unwrap()
+            .value(0);
+        let sch = batches[0]
+            .column(1)
+            .as_any()
+            .downcast_ref::<arrow::array::StringArray>()
+            .unwrap()
+            .value(0);
+        let name = batches[0]
+            .column(2)
+            .as_any()
+            .downcast_ref::<arrow::array::StringArray>()
+            .unwrap()
+            .value(0);
+        let typ = batches[0]
+            .column(3)
+            .as_any()
+            .downcast_ref::<arrow::array::StringArray>()
+            .unwrap()
+            .value(0);
+        let insertable = batches[0]
+            .column(4)
+            .as_any()
+            .downcast_ref::<arrow::array::StringArray>()
+            .unwrap()
+            .value(0);
+        let is_typed = batches[0]
+            .column(5)
+            .as_any()
+            .downcast_ref::<arrow::array::StringArray>()
+            .unwrap()
+            .value(0);
+
+        assert_eq!(cat, "pgtry");
+        assert_eq!(sch, "myschema");
+        assert_eq!(name, "contacts");
+        assert_eq!(typ, "BASE TABLE");
+        assert_eq!(insertable, "YES");
+        assert_eq!(is_typed, "NO");
         Ok(())
     }
 
