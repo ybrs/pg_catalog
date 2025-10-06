@@ -1,10 +1,13 @@
-use arrow::array::Int64Array;
+use arrow::array::{Array, Int32Array, Int64Array, LargeStringArray, StringArray};
 use datafusion::common::ScalarValue;
 use datafusion::error::{DataFusionError, Result as DFResult};
 use datafusion::execution::context::SessionContext;
 use serde::Deserialize;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::Mutex;
+
+use once_cell::sync::Lazy;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct ColumnDef {
@@ -14,6 +17,42 @@ pub struct ColumnDef {
 }
 
 static NEXT_OID: AtomicI32 = AtomicI32::new(50010);
+
+static DATABASE_SCHEMAS: Lazy<Mutex<HashMap<String, HashSet<String>>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+
+fn ensure_database_registry(database_name: &str) {
+    let mut registry = DATABASE_SCHEMAS.lock().unwrap();
+    registry
+        .entry(database_name.to_string())
+        .or_insert_with(HashSet::new);
+}
+
+fn add_schema_to_registry(database_name: &str, schema_name: &str) {
+    let mut registry = DATABASE_SCHEMAS.lock().unwrap();
+    registry
+        .entry(database_name.to_string())
+        .or_insert_with(HashSet::new)
+        .insert(schema_name.to_string());
+}
+
+fn remove_schema_from_registry(database_name: &str, schema_name: &str) {
+    let mut registry = DATABASE_SCHEMAS.lock().unwrap();
+    if let Some(schemas) = registry.get_mut(database_name) {
+        schemas.remove(schema_name);
+        if schemas.is_empty() {
+            registry.remove(database_name);
+        }
+    }
+}
+
+fn take_schemas_from_registry(database_name: &str) -> Vec<String> {
+    let mut registry = DATABASE_SCHEMAS.lock().unwrap();
+    registry
+        .remove(database_name)
+        .map(|set| set.into_iter().collect())
+        .unwrap_or_default()
+}
 
 fn map_type_to_oid(t: &str) -> i32 {
     match t.to_lowercase().as_str() {
@@ -26,6 +65,8 @@ fn map_type_to_oid(t: &str) -> i32 {
 
 pub async fn register_user_database(ctx: &SessionContext, database_name: &str) -> DFResult<()> {
     // let oid = NEXT_OID.fetch_add(1, Ordering::SeqCst);
+
+    ensure_database_registry(database_name);
 
     let df: datafusion::prelude::DataFrame = ctx
         .sql("SELECT datname FROM pg_catalog.pg_database where datname=$database_name")
@@ -89,7 +130,7 @@ pub async fn register_user_database(ctx: &SessionContext, database_name: &str) -
 
 pub async fn register_schema(
     ctx: &SessionContext,
-    _database_name: &str,
+    database_name: &str,
     schema_name: &str,
 ) -> DFResult<()> {
     let df = ctx
@@ -105,6 +146,8 @@ pub async fn register_schema(
         );
         ctx.sql(&sql).await?.collect().await?;
     }
+
+    add_schema_to_registry(database_name, schema_name);
 
     Ok(())
 }
@@ -193,6 +236,187 @@ pub async fn register_user_tables(
         );
         ctx.sql(&sql).await?.collect().await?;
     }
+
+    Ok(())
+}
+
+async fn get_schema_oid(ctx: &SessionContext, schema_name: &str) -> DFResult<Option<i32>> {
+    let df = ctx
+        .sql("SELECT oid FROM pg_catalog.pg_namespace WHERE nspname=$schema")
+        .await?
+        .with_param_values(vec![("schema", ScalarValue::from(schema_name))])?;
+    let batches = df.collect().await?;
+
+    if batches.is_empty() || batches[0].num_rows() == 0 {
+        return Ok(None);
+    }
+
+    let array = batches[0].column(0);
+    if let Some(arr) = array.as_any().downcast_ref::<Int32Array>() {
+        Ok(Some(arr.value(0)))
+    } else if let Some(arr) = array.as_any().downcast_ref::<Int64Array>() {
+        Ok(Some(arr.value(0) as i32))
+    } else {
+        Err(DataFusionError::Execution(
+            "unexpected schema oid type".to_string(),
+        ))
+    }
+}
+
+async fn get_table_oid(
+    ctx: &SessionContext,
+    schema_oid: i32,
+    table_name: &str,
+) -> DFResult<Option<i32>> {
+    let df = ctx
+        .sql(&format!(
+            "SELECT oid FROM pg_catalog.pg_class WHERE relname=$relname AND relnamespace={schema_oid}"
+        ))
+        .await?
+        .with_param_values(vec![("relname", ScalarValue::from(table_name))])?;
+    let batches = df.collect().await?;
+
+    if batches.is_empty() || batches[0].num_rows() == 0 {
+        return Ok(None);
+    }
+
+    let array = batches[0].column(0);
+    if let Some(arr) = array.as_any().downcast_ref::<Int32Array>() {
+        Ok(Some(arr.value(0)))
+    } else if let Some(arr) = array.as_any().downcast_ref::<Int64Array>() {
+        Ok(Some(arr.value(0) as i32))
+    } else {
+        Err(DataFusionError::Execution(
+            "unexpected table oid type".to_string(),
+        ))
+    }
+}
+
+fn collect_string_column(column: &arrow::array::ArrayRef) -> Vec<String> {
+    if let Some(arr) = column.as_any().downcast_ref::<StringArray>() {
+        (0..arr.len())
+            .filter(|&i| arr.is_valid(i))
+            .map(|i| arr.value(i).to_string())
+            .collect()
+    } else if let Some(arr) = column.as_any().downcast_ref::<LargeStringArray>() {
+        (0..arr.len())
+            .filter(|&i| arr.is_valid(i))
+            .map(|i| arr.value(i).to_string())
+            .collect()
+    } else {
+        Vec::new()
+    }
+}
+
+pub async fn unregister_tables(
+    ctx: &SessionContext,
+    database_name: &str,
+    schema_name: &str,
+    table_name: &str,
+) -> DFResult<()> {
+    ensure_database_registry(database_name);
+
+    let Some(schema_oid) = get_schema_oid(ctx, schema_name).await? else {
+        return Ok(());
+    };
+
+    let Some(table_oid) = get_table_oid(ctx, schema_oid, table_name).await? else {
+        return Ok(());
+    };
+
+    ctx.sql(&format!(
+        "INSERT OVERWRITE INTO pg_catalog.pg_attribute \
+         SELECT * FROM pg_catalog.pg_attribute WHERE attrelid <> {table_oid}"
+    ))
+    .await?
+    .collect()
+    .await?;
+
+    ctx.sql(&format!(
+        "INSERT OVERWRITE INTO pg_catalog.pg_type \
+         SELECT * FROM pg_catalog.pg_type WHERE typrelid <> {table_oid}"
+    ))
+    .await?
+    .collect()
+    .await?;
+
+    ctx.sql(&format!(
+        "INSERT OVERWRITE INTO pg_catalog.pg_class \
+         SELECT * FROM pg_catalog.pg_class WHERE oid <> {table_oid}"
+    ))
+    .await?
+    .collect()
+    .await?;
+
+    Ok(())
+}
+
+pub async fn unregister_schema(
+    ctx: &SessionContext,
+    database_name: &str,
+    schema_name: &str,
+) -> DFResult<()> {
+    ensure_database_registry(database_name);
+
+    let Some(schema_oid) = get_schema_oid(ctx, schema_name).await? else {
+        remove_schema_from_registry(database_name, schema_name);
+        return Ok(());
+    };
+
+    let df = ctx
+        .sql(&format!(
+            "SELECT relname FROM pg_catalog.pg_class WHERE relnamespace = {schema_oid}"
+        ))
+        .await?;
+    let batches = df.collect().await?;
+    for batch in batches {
+        if batch.num_rows() == 0 {
+            continue;
+        }
+        let names = collect_string_column(batch.column(0));
+        for table_name in names {
+            unregister_tables(ctx, database_name, schema_name, &table_name).await?;
+        }
+    }
+
+    ctx.sql(&format!(
+        "INSERT OVERWRITE INTO pg_catalog.pg_namespace \
+         SELECT * FROM pg_catalog.pg_namespace WHERE oid <> {schema_oid}"
+    ))
+    .await?
+    .collect()
+    .await?;
+
+    remove_schema_from_registry(database_name, schema_name);
+
+    Ok(())
+}
+
+pub async fn unregister_database(ctx: &SessionContext, database_name: &str) -> DFResult<()> {
+    let df = ctx
+        .sql("SELECT oid FROM pg_catalog.pg_database WHERE datname=$database")
+        .await?
+        .with_param_values(vec![("database", ScalarValue::from(database_name))])?;
+    let batches = df.collect().await?;
+
+    if batches.is_empty() || batches[0].num_rows() == 0 {
+        let _ = take_schemas_from_registry(database_name);
+        return Ok(());
+    }
+
+    let schema_names = take_schemas_from_registry(database_name);
+    for schema in schema_names {
+        unregister_schema(ctx, database_name, &schema).await?;
+    }
+
+    let escaped_name = database_name.replace('\'', "''");
+    ctx.sql(&format!(
+        "INSERT OVERWRITE INTO pg_catalog.pg_database \
+         SELECT * FROM pg_catalog.pg_database WHERE datname <> '{escaped_name}'"
+    ))
+    .await?
+    .collect()
+    .await?;
 
     Ok(())
 }
@@ -354,6 +578,131 @@ mod tests {
             .sql("SELECT datname FROM pg_catalog.pg_database WHERE datname='crm'")
             .await?;
         assert_eq!(df.count().await?, 1);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_unregister_tables_removes_metadata() -> DFResult<()> {
+        let (ctx, _) = get_base_session_context(
+            Some("pg_catalog_data/pg_schema"),
+            "pgtry".to_string(),
+            "public".to_string(),
+            None,
+        )
+        .await?;
+
+        register_schema(&ctx, "pgtry", "myschema").await?;
+
+        let mut c1 = BTreeMap::new();
+        c1.insert(
+            "id".to_string(),
+            ColumnDef {
+                col_type: "int".to_string(),
+                nullable: false,
+            },
+        );
+        register_user_tables(&ctx, "pgtry", "myschema", "contacts", vec![c1]).await?;
+
+        unregister_tables(&ctx, "pgtry", "myschema", "contacts").await?;
+
+        let df = ctx
+            .sql("SELECT 1 FROM pg_catalog.pg_class WHERE relname='contacts'")
+            .await?;
+        assert_eq!(df.count().await?, 0);
+
+        let df = ctx
+            .sql(
+                "SELECT 1 FROM pg_catalog.pg_attribute \
+                 WHERE attrelid = (SELECT oid FROM pg_catalog.pg_class WHERE relname='contacts')",
+            )
+            .await?;
+        assert_eq!(df.count().await?, 0);
+
+        let df = ctx
+            .sql("SELECT 1 FROM pg_catalog.pg_type WHERE typrelid = (SELECT oid FROM pg_catalog.pg_class WHERE relname='contacts')")
+            .await?;
+        assert_eq!(df.count().await?, 0);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_unregister_schema_removes_tables() -> DFResult<()> {
+        let (ctx, _) = get_base_session_context(
+            Some("pg_catalog_data/pg_schema"),
+            "pgtry".to_string(),
+            "public".to_string(),
+            None,
+        )
+        .await?;
+
+        register_schema(&ctx, "pgtry", "myschema").await?;
+
+        let mut c1 = BTreeMap::new();
+        c1.insert(
+            "id".to_string(),
+            ColumnDef {
+                col_type: "int".to_string(),
+                nullable: false,
+            },
+        );
+        register_user_tables(&ctx, "pgtry", "myschema", "contacts", vec![c1]).await?;
+
+        unregister_schema(&ctx, "pgtry", "myschema").await?;
+
+        let df = ctx
+            .sql("SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname='myschema'")
+            .await?;
+        assert_eq!(df.count().await?, 0);
+
+        let df = ctx
+            .sql("SELECT 1 FROM pg_catalog.pg_class WHERE relname='contacts'")
+            .await?;
+        assert_eq!(df.count().await?, 0);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_unregister_database_removes_children() -> DFResult<()> {
+        let (ctx, _) = get_base_session_context(
+            Some("pg_catalog_data/pg_schema"),
+            "pgtry".to_string(),
+            "public".to_string(),
+            None,
+        )
+        .await?;
+
+        register_user_database(&ctx, "crm").await?;
+        register_schema(&ctx, "crm", "crm_schema").await?;
+
+        let mut c1 = BTreeMap::new();
+        c1.insert(
+            "id".to_string(),
+            ColumnDef {
+                col_type: "int".to_string(),
+                nullable: false,
+            },
+        );
+        register_user_tables(&ctx, "crm", "crm_schema", "contacts", vec![c1]).await?;
+
+        unregister_database(&ctx, "crm").await?;
+
+        let df = ctx
+            .sql("SELECT 1 FROM pg_catalog.pg_database WHERE datname='crm'")
+            .await?;
+        assert_eq!(df.count().await?, 0);
+
+        let df = ctx
+            .sql("SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname='crm_schema'")
+            .await?;
+        assert_eq!(df.count().await?, 0);
+
+        let df = ctx
+            .sql("SELECT 1 FROM pg_catalog.pg_class WHERE relname='contacts'")
+            .await?;
+        assert_eq!(df.count().await?, 0);
+
         Ok(())
     }
 }
