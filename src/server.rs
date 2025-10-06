@@ -698,9 +698,10 @@ impl SimpleQueryHandler for DatafusionBackend {
         C: ClientInfo + Unpin + Send + Sync,
     {
         log::debug!("query handler");
-
         let trimmed = query.trim();
         let lowercase = trimmed.to_lowercase();
+        // println!("query > {:?}", lowercase);
+
         if lowercase.starts_with("begin") {
             return Ok(vec![Response::Execution(Tag::new("BEGIN"))]);
         } else if lowercase.starts_with("commit") {

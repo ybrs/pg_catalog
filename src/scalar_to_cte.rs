@@ -1468,6 +1468,7 @@ mod tests {
         "#;
 
         let sql = rewrite(q)?.sql;
+        // println!("result query {:?}", sql);
 
         // scalar exposed
         assert!(sql.contains("__cte1.col"), "scalar alias 'col' missing");
