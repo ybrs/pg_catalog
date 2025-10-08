@@ -7,11 +7,13 @@ use std::sync::{Arc, Mutex};
 use arrow::array::{Array, ArrayRef, Float32Array, Float64Array};
 use async_trait::async_trait;
 use bytes::Bytes;
-use futures::stream::BoxStream;
+use futures::sink::Sink;
 use futures::{stream, Stream};
 use pgwire::api::auth::md5pass::{hash_md5_password, Md5PasswordAuthStartupHandler};
-use pgwire::api::auth::{AuthSource, DefaultServerParameterProvider, LoginInfo, Password};
-use pgwire::api::copy::NoopCopyHandler;
+use pgwire::api::auth::{
+    AuthSource, DefaultServerParameterProvider, LoginInfo, Password, StartupHandler,
+};
+use pgwire::api::copy::CopyHandler;
 use pgwire::api::portal::{Format, Portal};
 use pgwire::api::query::{ExtendedQueryHandler, SimpleQueryHandler};
 use pgwire::api::results::{
@@ -19,9 +21,11 @@ use pgwire::api::results::{
     QueryResponse, Response, Tag,
 };
 use pgwire::api::stmt::{NoopQueryParser, StoredStatement};
-use pgwire::api::{ClientInfo, PgWireServerHandlers, Type};
+use pgwire::api::store::PortalStore;
+use pgwire::api::{ClientInfo, ClientPortalStore, NoopHandler, PgWireServerHandlers, Type};
 use pgwire::error::{PgWireError, PgWireResult};
 use pgwire::messages::data::DataRow;
+use pgwire::messages::PgWireBackendMessage;
 use pgwire::tokio::process_socket;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -262,7 +266,7 @@ impl DatafusionBackend {
         Ok(())
     }
 
-    fn show_variable_response<'a>(&self, name: &str, format: FieldFormat) -> Option<Response<'a>> {
+    fn show_variable_response(&self, name: &str, format: FieldFormat) -> Option<Response> {
         let state = self.ctx.state();
         let opts = state.config_options().extensions.get::<ClientOpts>()?;
 
@@ -285,7 +289,6 @@ impl DatafusionBackend {
         encoder.encode_field(&Some(value)).ok()?;
         let row = encoder.finish().ok()?;
         let rows = stream::iter(vec![Ok(row)]);
-        let rows: BoxStream<'a, PgWireResult<DataRow>> = Box::pin(rows);
         Some(Response::Query(QueryResponse::new(fields, rows)))
     }
 
@@ -304,6 +307,7 @@ impl DatafusionBackend {
     }
 }
 
+#[derive(Debug)]
 pub struct DummyAuthSource;
 
 #[async_trait]
@@ -503,7 +507,7 @@ fn decode_parameters(params: &[Option<Bytes>], types: &[Type]) -> Vec<Option<ser
 fn batch_to_row_stream(
     batch: &RecordBatch,
     schema: Arc<Vec<FieldInfo>>,
-) -> impl Stream<Item = PgWireResult<DataRow>> {
+) -> impl Stream<Item = PgWireResult<DataRow>> + Send + 'static {
     let mut rows = Vec::new();
     for row_idx in 0..batch.num_rows() {
         let mut encoder = DataRowEncoder::new(schema.clone());
@@ -689,13 +693,11 @@ fn batch_to_row_stream(
 
 #[async_trait]
 impl SimpleQueryHandler for DatafusionBackend {
-    async fn do_query<'a, C>(
-        &self,
-        client: &mut C,
-        query: &'a str,
-    ) -> PgWireResult<Vec<Response<'a>>>
+    async fn do_query<C>(&self, client: &mut C, query: &str) -> PgWireResult<Vec<Response>>
     where
-        C: ClientInfo + Unpin + Send + Sync,
+        C: ClientInfo + ClientPortalStore + Sink<PgWireBackendMessage> + Unpin + Send + Sync,
+        C::Error: std::fmt::Debug,
+        PgWireError: From<<C as Sink<PgWireBackendMessage>>::Error>,
     {
         log::debug!("query handler");
         let trimmed = query.trim();
@@ -836,14 +838,17 @@ impl ExtendedQueryHandler for DatafusionBackend {
         self.query_parser.clone()
     }
 
-    async fn do_query<'a, C>(
+    async fn do_query<C>(
         &self,
         client: &mut C,
-        portal: &'a Portal<Self::Statement>,
+        portal: &Portal<Self::Statement>,
         _max_rows: usize,
-    ) -> PgWireResult<Response<'a>>
+    ) -> PgWireResult<Response>
     where
-        C: ClientInfo + Unpin + Send + Sync,
+        C: ClientInfo + ClientPortalStore + Sink<PgWireBackendMessage> + Unpin + Send + Sync,
+        C::PortalStore: pgwire::api::store::PortalStore<Statement = Self::Statement>,
+        C::Error: std::fmt::Debug,
+        PgWireError: From<<C as Sink<PgWireBackendMessage>>::Error>,
     {
         log::debug!(
             "query start extended {:?} {:?}",
@@ -958,7 +963,10 @@ impl ExtendedQueryHandler for DatafusionBackend {
         stmt: &StoredStatement<Self::Statement>,
     ) -> PgWireResult<DescribeStatementResponse>
     where
-        C: ClientInfo + Unpin + Send + Sync,
+        C: ClientInfo + ClientPortalStore + Sink<PgWireBackendMessage> + Unpin + Send + Sync,
+        C::PortalStore: PortalStore<Statement = Self::Statement>,
+        C::Error: std::fmt::Debug,
+        PgWireError: From<<C as Sink<PgWireBackendMessage>>::Error>,
     {
         log::debug!("do_describe_statement");
 
@@ -1021,7 +1029,10 @@ impl ExtendedQueryHandler for DatafusionBackend {
         portal: &Portal<Self::Statement>,
     ) -> PgWireResult<DescribePortalResponse>
     where
-        C: ClientInfo + Unpin + Send + Sync,
+        C: ClientInfo + ClientPortalStore + Sink<PgWireBackendMessage> + Unpin + Send + Sync,
+        C::PortalStore: PortalStore<Statement = Self::Statement>,
+        C::Error: std::fmt::Debug,
+        PgWireError: From<<C as Sink<PgWireBackendMessage>>::Error>,
     {
         log::debug!("do_describe_portal");
         let sql_trim = portal.statement.statement.trim();
@@ -1087,22 +1098,15 @@ pub struct DatafusionBackendFactory {
 }
 
 impl PgWireServerHandlers for DatafusionBackendFactory {
-    type StartupHandler =
-        Md5PasswordAuthStartupHandler<DummyAuthSource, DefaultServerParameterProvider>;
-    type SimpleQueryHandler = DatafusionBackend;
-    type ExtendedQueryHandler = DatafusionBackend;
-    type CopyHandler = NoopCopyHandler;
-    type ErrorHandler = pgwire::api::NoopErrorHandler;
-
-    fn simple_query_handler(&self) -> Arc<Self::SimpleQueryHandler> {
+    fn simple_query_handler(&self) -> Arc<impl SimpleQueryHandler> {
         self.handler.clone()
     }
 
-    fn extended_query_handler(&self) -> Arc<Self::ExtendedQueryHandler> {
+    fn extended_query_handler(&self) -> Arc<impl ExtendedQueryHandler> {
         self.handler.clone()
     }
 
-    fn startup_handler(&self) -> Arc<Self::StartupHandler> {
+    fn startup_handler(&self) -> Arc<impl StartupHandler> {
         let mut params = DefaultServerParameterProvider::default();
         params.server_version = SERVER_VERSION.to_string();
         Arc::new(Md5PasswordAuthStartupHandler::new(
@@ -1111,12 +1115,12 @@ impl PgWireServerHandlers for DatafusionBackendFactory {
         ))
     }
 
-    fn copy_handler(&self) -> Arc<Self::CopyHandler> {
-        Arc::new(NoopCopyHandler)
+    fn copy_handler(&self) -> Arc<impl CopyHandler> {
+        Arc::new(NoopHandler)
     }
 
-    fn error_handler(&self) -> Arc<Self::ErrorHandler> {
-        Arc::new(pgwire::api::NoopErrorHandler)
+    fn error_handler(&self) -> Arc<impl pgwire::api::ErrorHandler> {
+        Arc::new(NoopHandler)
     }
 }
 
