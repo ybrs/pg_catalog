@@ -10,7 +10,9 @@ use bytes::Bytes;
 use futures::sink::Sink;
 use futures::{stream, Stream};
 use pgwire::api::auth::md5pass::{hash_md5_password, Md5PasswordAuthStartupHandler};
-use pgwire::api::auth::{AuthSource, DefaultServerParameterProvider, LoginInfo, Password, StartupHandler};
+use pgwire::api::auth::{
+    AuthSource, DefaultServerParameterProvider, LoginInfo, Password, StartupHandler,
+};
 use pgwire::api::copy::CopyHandler;
 use pgwire::api::portal::{Format, Portal};
 use pgwire::api::query::{ExtendedQueryHandler, SimpleQueryHandler};
@@ -691,18 +693,9 @@ fn batch_to_row_stream(
 
 #[async_trait]
 impl SimpleQueryHandler for DatafusionBackend {
-    async fn do_query<C>(
-        &self,
-        client: &mut C,
-        query: &str,
-    ) -> PgWireResult<Vec<Response>>
+    async fn do_query<C>(&self, client: &mut C, query: &str) -> PgWireResult<Vec<Response>>
     where
-        C: ClientInfo
-            + ClientPortalStore
-            + Sink<PgWireBackendMessage>
-            + Unpin
-            + Send
-            + Sync,
+        C: ClientInfo + ClientPortalStore + Sink<PgWireBackendMessage> + Unpin + Send + Sync,
         C::Error: std::fmt::Debug,
         PgWireError: From<<C as Sink<PgWireBackendMessage>>::Error>,
     {
@@ -852,12 +845,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
         _max_rows: usize,
     ) -> PgWireResult<Response>
     where
-        C: ClientInfo
-            + ClientPortalStore
-            + Sink<PgWireBackendMessage>
-            + Unpin
-            + Send
-            + Sync,
+        C: ClientInfo + ClientPortalStore + Sink<PgWireBackendMessage> + Unpin + Send + Sync,
         C::PortalStore: pgwire::api::store::PortalStore<Statement = Self::Statement>,
         C::Error: std::fmt::Debug,
         PgWireError: From<<C as Sink<PgWireBackendMessage>>::Error>,
@@ -975,12 +963,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
         stmt: &StoredStatement<Self::Statement>,
     ) -> PgWireResult<DescribeStatementResponse>
     where
-        C: ClientInfo
-            + ClientPortalStore
-            + Sink<PgWireBackendMessage>
-            + Unpin
-            + Send
-            + Sync,
+        C: ClientInfo + ClientPortalStore + Sink<PgWireBackendMessage> + Unpin + Send + Sync,
         C::PortalStore: PortalStore<Statement = Self::Statement>,
         C::Error: std::fmt::Debug,
         PgWireError: From<<C as Sink<PgWireBackendMessage>>::Error>,
@@ -1046,12 +1029,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
         portal: &Portal<Self::Statement>,
     ) -> PgWireResult<DescribePortalResponse>
     where
-        C: ClientInfo
-            + ClientPortalStore
-            + Sink<PgWireBackendMessage>
-            + Unpin
-            + Send
-            + Sync,
+        C: ClientInfo + ClientPortalStore + Sink<PgWireBackendMessage> + Unpin + Send + Sync,
         C::PortalStore: PortalStore<Statement = Self::Statement>,
         C::Error: std::fmt::Debug,
         PgWireError: From<<C as Sink<PgWireBackendMessage>>::Error>,
