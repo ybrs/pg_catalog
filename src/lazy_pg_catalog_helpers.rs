@@ -17,6 +17,7 @@ use datafusion::physical_plan::ExecutionPlan;
 ///
 /// This enables lazy population of `pg_catalog.pg_database`.
 pub struct LazyDatabaseProvider {
+    // Keep inner only for schema/type metadata; scans are generated from callback rows.
     inner: Arc<dyn TableProvider>,
     fetcher: Arc<dyn Fn() -> Vec<LazyDatabaseRow> + Send + Sync>,
 }
@@ -61,19 +62,83 @@ impl TableProvider for LazyDatabaseProvider {
         &self,
         state: &dyn datafusion::catalog::Session,
         projection: Option<&Vec<usize>>,
-        filters: &[Expr],
-        limit: Option<usize>,
+        _filters: &[Expr],
+        _limit: Option<usize>,
     ) -> DFResult<Arc<dyn ExecutionPlan>> {
-        // Attempt to acquire a SessionContext to run registrations.
-        if let Some(ctx) = state.as_any().downcast_ref::<SessionContext>() {
-            // Fetch database rows lazily and register each.
-            let rows = (self.fetcher)();
-            for row in rows {
-                insert_database_row(ctx, &row).await?;
-            }
+        use datafusion::datasource::MemTable;
+        use arrow::array::{new_null_array, ArrayRef, BooleanBuilder, Int32Builder, StringBuilder};
+
+        // Build RecordBatch from callback rows without touching underlying table.
+        let rows = (self.fetcher)();
+
+        let mut oid_b = Int32Builder::new();
+        let mut datname_b = StringBuilder::new();
+        let mut datdba_b = Int32Builder::new();
+        let mut encoding_b = Int32Builder::new();
+        let mut datlocprovider_b = StringBuilder::new();
+        let mut datistemplate_b = BooleanBuilder::new();
+        let mut datallowconn_b = BooleanBuilder::new();
+        let mut dathasloginevt_b = BooleanBuilder::new();
+        let mut datconnlimit_b = Int32Builder::new();
+        let mut datfrozenxid_b = StringBuilder::new();
+        let mut datminmxid_b = StringBuilder::new();
+        let mut dattablespace_b = Int32Builder::new();
+        let mut datcollate_b = StringBuilder::new();
+        let mut datctype_b = StringBuilder::new();
+        let mut datlocale_b = StringBuilder::new();
+        let mut daticurules_b = StringBuilder::new();
+        let mut datcollversion_b = StringBuilder::new();
+
+        for r in &rows {
+            match r.oid { Some(v) => oid_b.append_value(v), None => oid_b.append_null() }
+            datname_b.append_value(&r.datname);
+            datdba_b.append_value(r.datdba);
+            encoding_b.append_value(r.encoding.unwrap_or(6));
+            if let Some(c) = r.datlocprovider { datlocprovider_b.append_value(&c.to_string()); } else { datlocprovider_b.append_null(); }
+            datistemplate_b.append_value(r.datistemplate.unwrap_or(false));
+            datallowconn_b.append_value(r.datallowconn.unwrap_or(true));
+            dathasloginevt_b.append_value(r.dathasloginevt.unwrap_or(false));
+            datconnlimit_b.append_value(r.datconnlimit.unwrap_or(-1));
+            datfrozenxid_b.append_value(&r.datfrozenxid.clone().unwrap_or_else(|| "726".to_string()));
+            datminmxid_b.append_value(&r.datminmxid.clone().unwrap_or_else(|| "1".to_string()));
+            dattablespace_b.append_value(r.dattablespace.unwrap_or(1663));
+            datcollate_b.append_value(&r.datcollate.clone().unwrap_or_else(|| "C".to_string()));
+            datctype_b.append_value(&r.datctype.clone().unwrap_or_else(|| "C".to_string()));
+            if let Some(v) = &r.datlocale { datlocale_b.append_value(v); } else { datlocale_b.append_null(); }
+            if let Some(v) = &r.daticurules { daticurules_b.append_value(v); } else { daticurules_b.append_null(); }
+            if let Some(v) = &r.datcollversion { datcollversion_b.append_value(v); } else { datcollversion_b.append_null(); }
         }
-        // Delegate to the underlying provider.
-        self.inner.scan(state, projection, filters, limit).await
+
+        let schema = self.inner.schema();
+        let mut arrays: Vec<ArrayRef> = Vec::new();
+        for field in schema.fields() {
+            let name = field.name().as_str();
+            let arr: ArrayRef = match name {
+                "oid" => Arc::new(oid_b.finish()),
+                "datname" => Arc::new(datname_b.finish()),
+                "datdba" => Arc::new(datdba_b.finish()),
+                "encoding" => Arc::new(encoding_b.finish()),
+                "datlocprovider" => Arc::new(datlocprovider_b.finish()),
+                "datistemplate" => Arc::new(datistemplate_b.finish()),
+                "datallowconn" => Arc::new(datallowconn_b.finish()),
+                "dathasloginevt" => Arc::new(dathasloginevt_b.finish()),
+                "datconnlimit" => Arc::new(datconnlimit_b.finish()),
+                "datfrozenxid" => Arc::new(datfrozenxid_b.finish()),
+                "datminmxid" => Arc::new(datminmxid_b.finish()),
+                "dattablespace" => Arc::new(dattablespace_b.finish()),
+                "datcollate" => Arc::new(datcollate_b.finish()),
+                "datctype" => Arc::new(datctype_b.finish()),
+                "datlocale" => Arc::new(datlocale_b.finish()),
+                "daticurules" => Arc::new(daticurules_b.finish()),
+                "datcollversion" => Arc::new(datcollversion_b.finish()),
+                _ => new_null_array(field.data_type(), rows.len()),
+            };
+            arrays.push(arr);
+        }
+
+        let batch = arrow::record_batch::RecordBatch::try_new(schema.clone(), arrays)?;
+        let mem = MemTable::try_new(schema, vec![vec![batch]])?;
+        mem.scan(state, projection, &[], None).await
     }
 
     async fn insert_into(
@@ -173,9 +238,7 @@ pub async fn register_user_database_with_callback(
     ctx: &SessionContext,
     fetch_databases: Arc<dyn Fn() -> Vec<LazyDatabaseRow> + Send + Sync>,
 ) -> DFResult<()> {
-    set_database_fetcher(fetch_databases.clone());
-
-    // Try to wrap the provider now so that subsequent scans are lazy.
+    // Replace the provider for pg_catalog.pg_database to source solely from the callback.
     let state = ctx.state();
     let options = state.config_options();
     let default_catalog = &options.catalog.default_catalog;
@@ -183,57 +246,13 @@ pub async fn register_user_database_with_callback(
     if let Some(catalog) = ctx.catalog(default_catalog) {
         if let Some(schema) = catalog.schema("pg_catalog") {
             if let Some(current) = schema.table("pg_database").await? {
-                let wrapped: Arc<dyn TableProvider> =
-                    Arc::new(LazyDatabaseProvider::new(current.clone(), fetch_databases));
-                // Try to deregister existing then register our wrapper. If deregister is not
-                // supported, fall back to just registering (may error in that case).
+                let wrapped: Arc<dyn TableProvider> = Arc::new(LazyDatabaseProvider::new(current.clone(), fetch_databases));
                 let _ = schema.deregister_table("pg_database");
                 let _ = schema.register_table("pg_database".to_string(), wrapped);
             }
         }
     }
     Ok(())
-}
-
-use once_cell::sync::Lazy;
-use std::sync::Mutex;
-
-static DB_FETCHER: Lazy<Mutex<Option<Arc<dyn Fn() -> Vec<LazyDatabaseRow> + Send + Sync>>>> =
-    Lazy::new(|| Mutex::new(None));
-
-fn set_database_fetcher(fetcher: Arc<dyn Fn() -> Vec<LazyDatabaseRow> + Send + Sync>) {
-    let mut guard = DB_FETCHER.lock().unwrap();
-    *guard = Some(fetcher);
-}
-
-/// If a fetcher is registered, call it and ensure `pg_database` has
-/// corresponding rows registered via the existing helper.
-pub async fn maybe_refresh_pg_database(ctx: &SessionContext) -> DFResult<()> {
-    let fetcher = { DB_FETCHER.lock().unwrap().clone() };
-    if let Some(f) = fetcher {
-        for row in (f)() {
-            let _ = insert_database_row(ctx, &row).await;
-        }
-    }
-    Ok(())
-}
-
-/// Wrap a table provider for `pg_catalog.pg_database` with a lazy provider if a
-/// fetcher is registered; otherwise return the original provider.
-pub fn wrap_pg_database_provider_if_lazy(
-    inner: Arc<dyn TableProvider>,
-) -> Arc<dyn TableProvider> {
-    let fetcher = { DB_FETCHER.lock().unwrap().clone() };
-    if let Some(f) = fetcher {
-        Arc::new(LazyDatabaseProvider::new(inner, f)) as Arc<dyn TableProvider>
-    } else {
-        inner
-    }
-}
-
-/// Return current database list from the registered fetcher, if any.
-pub fn current_database_rows() -> Option<Vec<LazyDatabaseRow>> {
-    DB_FETCHER.lock().unwrap().as_ref().map(|f| (f)())
 }
 
 /// Insert a single database row into `pg_catalog.pg_database` if missing.
