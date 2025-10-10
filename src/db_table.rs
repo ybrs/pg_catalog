@@ -9,7 +9,6 @@ use datafusion::catalog::Session;
 use datafusion::datasource::provider::TableProviderFilterPushDown;
 use datafusion::datasource::{MemTable, TableProvider, TableType};
 use datafusion::error::Result;
-use datafusion::execution::context::SessionContext;
 use datafusion::execution::TaskContext;
 use datafusion::logical_expr::dml::InsertOp;
 use datafusion::logical_expr::Expr;
@@ -22,6 +21,8 @@ use arrow::compute::concat_batches;
 use datafusion::physical_plan::collect;
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
+use crate::lazy_pg_catalog_helpers::current_database_rows;
+use datafusion::execution::context::SessionContext;
 
 pub fn map_pg_type(pg_type: &str) -> DataType {
     let lower = pg_type.to_lowercase();
@@ -117,6 +118,99 @@ impl TableProvider for ObservableMemTable {
         filters: &[Expr],
         limit: Option<usize>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
+        // If scanning pg_database and a lazy fetcher is registered, append
+        // rows for fetched databases with default/null values where needed.
+        if self.table_name == "pg_database" {
+            if let Some(rows) = current_database_rows() {
+                if !rows.is_empty() {
+                    // Build a batch in-memory for immediate visibility, and also
+                    // trigger SQL inserts for persistence.
+                    use arrow::array::{new_null_array, ArrayRef, BooleanArray, BooleanBuilder, Int32Array, Int32Builder, StringArray, StringBuilder};
+
+                    let mut oid_b = Int32Builder::new();
+                    let mut datname_b = StringBuilder::new();
+                    let mut datdba_b = Int32Builder::new();
+                    let mut encoding_b = Int32Builder::new();
+                    let mut datlocprovider_b = StringBuilder::new();
+                    let mut datistemplate_b = BooleanBuilder::new();
+                    let mut datallowconn_b = BooleanBuilder::new();
+                    let mut dathasloginevt_b = BooleanBuilder::new();
+                    let mut datconnlimit_b = Int32Builder::new();
+                    let mut datfrozenxid_b = StringBuilder::new();
+                    let mut datminmxid_b = StringBuilder::new();
+                    let mut dattablespace_b = Int32Builder::new();
+                    let mut datcollate_b = StringBuilder::new();
+                    let mut datctype_b = StringBuilder::new();
+                    let mut datlocale_b = StringBuilder::new();
+                    let mut daticurules_b = StringBuilder::new();
+                    let mut datcollversion_b = StringBuilder::new();
+
+                    for r in &rows {
+                        match r.oid { Some(v) => oid_b.append_value(v), None => oid_b.append_null() }
+                        datname_b.append_value(&r.datname);
+                        datdba_b.append_value(r.datdba);
+                        encoding_b.append_value(r.encoding.unwrap_or(6));
+                        if let Some(c) = r.datlocprovider { datlocprovider_b.append_value(&c.to_string()); } else { datlocprovider_b.append_null(); }
+                        datistemplate_b.append_value(r.datistemplate.unwrap_or(false));
+                        datallowconn_b.append_value(r.datallowconn.unwrap_or(true));
+                        dathasloginevt_b.append_value(r.dathasloginevt.unwrap_or(false));
+                        datconnlimit_b.append_value(r.datconnlimit.unwrap_or(-1));
+                        datfrozenxid_b.append_value(&r.datfrozenxid.clone().unwrap_or_else(|| "726".to_string()));
+                        datminmxid_b.append_value(&r.datminmxid.clone().unwrap_or_else(|| "1".to_string()));
+                        dattablespace_b.append_value(r.dattablespace.unwrap_or(1663));
+                        datcollate_b.append_value(&r.datcollate.clone().unwrap_or_else(|| "C".to_string()));
+                        datctype_b.append_value(&r.datctype.clone().unwrap_or_else(|| "C".to_string()));
+                        if let Some(v) = &r.datlocale { datlocale_b.append_value(v); } else { datlocale_b.append_null(); }
+                        if let Some(v) = &r.daticurules { daticurules_b.append_value(v); } else { daticurules_b.append_null(); }
+                        if let Some(v) = &r.datcollversion { datcollversion_b.append_value(v); } else { datcollversion_b.append_null(); }
+                    }
+
+                    // Build arrays in schema order; use NULL arrays for unknown/system columns.
+                    let mut arrays: Vec<ArrayRef> = Vec::new();
+                    for field in self.schema.fields() {
+                        let name = field.name().as_str();
+                        let arr: ArrayRef = match name {
+                            "oid" => Arc::new(oid_b.finish()),
+                            "datname" => Arc::new(datname_b.finish()),
+                            "datdba" => Arc::new(datdba_b.finish()),
+                            "encoding" => Arc::new(encoding_b.finish()),
+                            "datlocprovider" => Arc::new(datlocprovider_b.finish()),
+                            "datistemplate" => Arc::new(datistemplate_b.finish()),
+                            "datallowconn" => Arc::new(datallowconn_b.finish()),
+                            "dathasloginevt" => Arc::new(dathasloginevt_b.finish()),
+                            "datconnlimit" => Arc::new(datconnlimit_b.finish()),
+                            "datfrozenxid" => Arc::new(datfrozenxid_b.finish()),
+                            "datminmxid" => Arc::new(datminmxid_b.finish()),
+                            "dattablespace" => Arc::new(dattablespace_b.finish()),
+                            "datcollate" => Arc::new(datcollate_b.finish()),
+                            "datctype" => Arc::new(datctype_b.finish()),
+                            "datlocale" => Arc::new(datlocale_b.finish()),
+                            "daticurules" => Arc::new(daticurules_b.finish()),
+                            "datcollversion" => Arc::new(datcollversion_b.finish()),
+                            // datacl and any other fields: build NULL arrays sized to rows
+                            _ => new_null_array(field.data_type(), rows.len()),
+                        };
+                        arrays.push(arr);
+                    }
+
+                    let new_batch = RecordBatch::try_new(self.schema.clone(), arrays).unwrap();
+                    // Merge with existing batches
+                    let mut guard = self.mem.batches[0].write().await;
+                    if !guard.is_empty() {
+                        let merged = concat_batches(&self.schema, &vec![guard[0].clone(), new_batch])?;
+                        guard.clear();
+                        guard.push(merged);
+                    } else {
+                        guard.push(new_batch);
+                    }
+
+                    if let Some(ctx) = state.as_any().downcast_ref::<SessionContext>() {
+                        // Also persist via SQL so subsequent queries see them.
+                        let _ = crate::lazy_pg_catalog_helpers::maybe_refresh_pg_database(ctx).await;
+                    }
+                }
+            }
+        }
         let mut types = BTreeMap::new();
         for f in self.schema.fields() {
             types.insert(f.name().clone(), f.data_type().to_string());

@@ -754,9 +754,15 @@ fn register_catalogs_from_schemas(
             for (table, (schema_ref, batches)) in tables {
                 log::debug!("-- table {:?}", &table);
 
-                let wrapped =
+                let base =
                     ObservableMemTable::new(table.clone(), schema_ref, log.clone(), batches);
-                schema_provider.register_table(table, Arc::new(wrapped))?;
+                // Lazily wrap pg_database if a fetcher is registered.
+                let provider: Arc<dyn datafusion::datasource::TableProvider> = if table == "pg_database" {
+                    crate::lazy_pg_catalog_helpers::wrap_pg_database_provider_if_lazy(Arc::new(base))
+                } else {
+                    Arc::new(base)
+                };
+                schema_provider.register_table(table, provider)?;
             }
         }
     }
