@@ -18,10 +18,10 @@ use datafusion::physical_plan::ExecutionPlan;
 use serde_json::json;
 
 use arrow::compute::concat_batches;
+use datafusion::execution::context::SessionContext;
 use datafusion::physical_plan::collect;
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
-use datafusion::execution::context::SessionContext;
 
 pub fn map_pg_type(pg_type: &str) -> DataType {
     let lower = pg_type.to_lowercase();

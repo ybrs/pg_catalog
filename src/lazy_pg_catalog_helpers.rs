@@ -65,8 +65,8 @@ impl TableProvider for LazyDatabaseProvider {
         _filters: &[Expr],
         _limit: Option<usize>,
     ) -> DFResult<Arc<dyn ExecutionPlan>> {
-        use datafusion::datasource::MemTable;
         use arrow::array::{new_null_array, ArrayRef, BooleanBuilder, Int32Builder, StringBuilder};
+        use datafusion::datasource::MemTable;
 
         // Build RecordBatch from callback rows without touching underlying table.
         let rows = (self.fetcher)();
@@ -90,23 +90,43 @@ impl TableProvider for LazyDatabaseProvider {
         let mut datcollversion_b = StringBuilder::new();
 
         for r in &rows {
-            match r.oid { Some(v) => oid_b.append_value(v), None => oid_b.append_null() }
+            match r.oid {
+                Some(v) => oid_b.append_value(v),
+                None => oid_b.append_null(),
+            }
             datname_b.append_value(&r.datname);
             datdba_b.append_value(r.datdba);
             encoding_b.append_value(r.encoding.unwrap_or(6));
-            if let Some(c) = r.datlocprovider { datlocprovider_b.append_value(&c.to_string()); } else { datlocprovider_b.append_null(); }
+            if let Some(c) = r.datlocprovider {
+                datlocprovider_b.append_value(&c.to_string());
+            } else {
+                datlocprovider_b.append_null();
+            }
             datistemplate_b.append_value(r.datistemplate.unwrap_or(false));
             datallowconn_b.append_value(r.datallowconn.unwrap_or(true));
             dathasloginevt_b.append_value(r.dathasloginevt.unwrap_or(false));
             datconnlimit_b.append_value(r.datconnlimit.unwrap_or(-1));
-            datfrozenxid_b.append_value(&r.datfrozenxid.clone().unwrap_or_else(|| "726".to_string()));
+            datfrozenxid_b
+                .append_value(&r.datfrozenxid.clone().unwrap_or_else(|| "726".to_string()));
             datminmxid_b.append_value(&r.datminmxid.clone().unwrap_or_else(|| "1".to_string()));
             dattablespace_b.append_value(r.dattablespace.unwrap_or(1663));
             datcollate_b.append_value(&r.datcollate.clone().unwrap_or_else(|| "C".to_string()));
             datctype_b.append_value(&r.datctype.clone().unwrap_or_else(|| "C".to_string()));
-            if let Some(v) = &r.datlocale { datlocale_b.append_value(v); } else { datlocale_b.append_null(); }
-            if let Some(v) = &r.daticurules { daticurules_b.append_value(v); } else { daticurules_b.append_null(); }
-            if let Some(v) = &r.datcollversion { datcollversion_b.append_value(v); } else { datcollversion_b.append_null(); }
+            if let Some(v) = &r.datlocale {
+                datlocale_b.append_value(v);
+            } else {
+                datlocale_b.append_null();
+            }
+            if let Some(v) = &r.daticurules {
+                daticurules_b.append_value(v);
+            } else {
+                daticurules_b.append_null();
+            }
+            if let Some(v) = &r.datcollversion {
+                datcollversion_b.append_value(v);
+            } else {
+                datcollversion_b.append_null();
+            }
         }
 
         let schema = self.inner.schema();
@@ -246,7 +266,8 @@ pub async fn register_user_database_with_callback(
     if let Some(catalog) = ctx.catalog(default_catalog) {
         if let Some(schema) = catalog.schema("pg_catalog") {
             if let Some(current) = schema.table("pg_database").await? {
-                let wrapped: Arc<dyn TableProvider> = Arc::new(LazyDatabaseProvider::new(current.clone(), fetch_databases));
+                let wrapped: Arc<dyn TableProvider> =
+                    Arc::new(LazyDatabaseProvider::new(current.clone(), fetch_databases));
                 let _ = schema.deregister_table("pg_database");
                 let _ = schema.register_table("pg_database".to_string(), wrapped);
             }
@@ -261,14 +282,21 @@ async fn insert_database_row(ctx: &SessionContext, row: &LazyDatabaseRow) -> DFR
     let df = ctx
         .sql("SELECT 1 FROM pg_catalog.pg_database WHERE datname=$name")
         .await?
-        .with_param_values(vec![("name", datafusion::common::ScalarValue::from(row.datname.clone()))])?;
+        .with_param_values(vec![(
+            "name",
+            datafusion::common::ScalarValue::from(row.datname.clone()),
+        )])?;
     if df.count().await? > 0 {
         return Ok(());
     }
 
     // Determine OID
-    let oid_val: i64 = if let Some(oid) = row.oid { oid as i64 } else {
-        let getiddf = ctx.sql("select max(oid)+1 from pg_catalog.pg_database").await?;
+    let oid_val: i64 = if let Some(oid) = row.oid {
+        oid as i64
+    } else {
+        let getiddf = ctx
+            .sql("select max(oid)+1 from pg_catalog.pg_database")
+            .await?;
         let batches = getiddf.collect().await?;
         let array = batches[0]
             .column(0)
@@ -279,20 +307,36 @@ async fn insert_database_row(ctx: &SessionContext, row: &LazyDatabaseRow) -> DFR
     };
 
     // Prepare values with defaults
-    fn esc(s: &str) -> String { s.replace('\'', "''") }
+    fn esc(s: &str) -> String {
+        s.replace('\'', "''")
+    }
     let datname = esc(&row.datname);
     let datdba = row.datdba;
     let encoding = row.encoding.unwrap_or(6);
     let datistemplate = row.datistemplate.unwrap_or(false);
     let datallowconn = row.datallowconn.unwrap_or(true);
     let datconnlimit = row.datconnlimit.unwrap_or(-1);
-    let datfrozenxid = row.datfrozenxid.clone().unwrap_or_else(|| "726".to_string());
+    let datfrozenxid = row
+        .datfrozenxid
+        .clone()
+        .unwrap_or_else(|| "726".to_string());
     let datminmxid = row.datminmxid.clone().unwrap_or_else(|| "1".to_string());
     let dattablespace = row.dattablespace.unwrap_or(1663);
     let datcollate = row.datcollate.clone().unwrap_or_else(|| "C".to_string());
     let datctype = row.datctype.clone().unwrap_or_else(|| "C".to_string());
     let datacl = row.datacl.clone();
-    let datacl_sql = if let Some(items) = datacl { format!("ARRAY[{}]", items.into_iter().map(|s| format!("'{}'", esc(&s))).collect::<Vec<_>>().join(", ")) } else { "NULL".to_string() };
+    let datacl_sql = if let Some(items) = datacl {
+        format!(
+            "ARRAY[{}]",
+            items
+                .into_iter()
+                .map(|s| format!("'{}'", esc(&s)))
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    } else {
+        "NULL".to_string()
+    };
 
     let sql = format!(
         "INSERT INTO pg_catalog.pg_database (

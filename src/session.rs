@@ -754,12 +754,7 @@ fn register_catalogs_from_schemas(
             for (table, (schema_ref, batches)) in tables {
                 log::debug!("-- table {:?}", &table);
 
-                let base = ObservableMemTable::new(
-                    table.clone(),
-                    schema_ref,
-                    log.clone(),
-                    batches,
-                );
+                let base = ObservableMemTable::new(table.clone(), schema_ref, log.clone(), batches);
                 let provider: Arc<dyn datafusion::datasource::TableProvider> = Arc::new(base);
                 schema_provider.register_table(table, provider)?;
             }

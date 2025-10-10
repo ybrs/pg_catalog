@@ -1,6 +1,11 @@
-use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
 
-use datafusion_pg_catalog::{get_base_session_context, register_user_database_with_callback, LazyDatabaseRow};
+use datafusion_pg_catalog::{
+    get_base_session_context, register_user_database_with_callback, LazyDatabaseRow,
+};
 
 #[tokio::test]
 async fn test_lazy_register_pg_database_on_scan() -> datafusion::error::Result<()> {
