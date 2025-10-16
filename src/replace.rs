@@ -65,13 +65,9 @@ pub fn replace_set_command_with_namespace(sql: &str) -> Result<String> {
         if let Statement::Set(set) = stmt {
             use sqlparser::ast::Set;
             match set {
-                Set::SingleAssignment { variable, .. } => {
-                    add_namespace_to_set_command(variable)
-                }
+                Set::SingleAssignment { variable, .. } => add_namespace_to_set_command(variable),
                 Set::ParenthesizedAssignments { variables, .. } => {
-                    variables
-                        .iter_mut()
-                        .for_each(add_namespace_to_set_command);
+                    variables.iter_mut().for_each(add_namespace_to_set_command);
                 }
                 Set::MultipleAssignments { assignments } => {
                     for assignment in assignments {

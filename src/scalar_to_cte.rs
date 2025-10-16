@@ -574,8 +574,7 @@ mod rewriter {
             let mut total_proj = 0_usize; // how many projection items?
 
             for item in &sel.projection {
-                if let SelectItem::UnnamedExpr(expr)
-                | SelectItem::ExprWithAlias { expr, .. } = item
+                if let SelectItem::UnnamedExpr(expr) | SelectItem::ExprWithAlias { expr, .. } = item
                 {
                     total_proj += 1;
                     Self::scan_expr(expr, false, &mut has_aggr, &mut cols);

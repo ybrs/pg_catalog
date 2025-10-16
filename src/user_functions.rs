@@ -1,10 +1,7 @@
 // Collection of custom UDF and UDTF implementations.
 // Provides functions like oid(), pg_get_array and others so queries behave like PostgreSQL.
 // Added to extend DataFusion with features required by pg_catalog emulation.
-use arrow::array::{
-    as_string_array, Array, ArrayRef, StringBuilder,
-    TimestampMicrosecondArray,
-};
+use arrow::array::{as_string_array, Array, ArrayRef, StringBuilder, TimestampMicrosecondArray};
 use arrow::datatypes::DataType as ArrowDataType;
 use async_trait::async_trait;
 use datafusion::arrow::array::{Int64Array, Int64Builder};
@@ -86,8 +83,8 @@ pub struct RegClassOidFunc;
 
 impl TableFunctionImpl for RegClassOidFunc {
     fn call(&self, exprs: &[Expr]) -> Result<Arc<dyn TableProvider>> {
-        let relname =
-            if let Some(Expr::Literal(ScalarValue::Utf8(Some(ref s)), _)) = exprs.first() {
+        let relname = if let Some(Expr::Literal(ScalarValue::Utf8(Some(ref s)), _)) = exprs.first()
+        {
             s.clone()
         } else {
             return plan_err!("regclass_oid requires one string argument");
