@@ -14,13 +14,13 @@ use serde_yaml;
 use crate::clean_duplicate_columns::alias_all_columns;
 use crate::replace::{
     alias_subquery_tables, regclass_udfs, replace_regclass, replace_set_command_with_namespace,
-    rewrite_array_subquery, rewrite_available_updates, rewrite_brace_array_literal,
-    rewrite_array_agg_varchar_cast, rewrite_char_cast, rewrite_name_cast, rewrite_oid_cast,
-    rewrite_oidvector_any, rewrite_oidvector_unnest, rewrite_pg_custom_operator, rewrite_regoper_cast,
-    rewrite_regoperator_cast, rewrite_regproc_cast, rewrite_regprocedure_cast,
-    rewrite_regtype_cast, rewrite_schema_qualified_custom_types, rewrite_schema_qualified_text,
-    rewrite_schema_qualified_udtfs, rewrite_time_zone_utc, rewrite_tuple_equality,
-    rewrite_xid_cast, strip_default_collate,
+    rewrite_array_agg_varchar_cast, rewrite_array_subquery, rewrite_available_updates,
+    rewrite_brace_array_literal, rewrite_char_cast, rewrite_name_cast, rewrite_oid_cast,
+    rewrite_oidvector_any, rewrite_oidvector_unnest, rewrite_pg_custom_operator,
+    rewrite_regoper_cast, rewrite_regoperator_cast, rewrite_regproc_cast,
+    rewrite_regprocedure_cast, rewrite_regtype_cast, rewrite_schema_qualified_custom_types,
+    rewrite_schema_qualified_text, rewrite_schema_qualified_udtfs, rewrite_time_zone_utc,
+    rewrite_tuple_equality, rewrite_xid_cast, strip_default_collate,
 };
 use pgwire::api::Type;
 use std::collections::{BTreeMap, HashMap};

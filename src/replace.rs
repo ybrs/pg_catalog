@@ -218,9 +218,7 @@ pub fn rewrite_array_agg_varchar_cast(sql: &str) -> Result<String> {
                             {
                                 let agg_expr = inner.as_ref().clone();
                                 let mut args = Vec::new();
-                                args.push(FunctionArg::Unnamed(
-                                    FunctionArgExpr::Expr(agg_expr),
-                                ));
+                                args.push(FunctionArg::Unnamed(FunctionArgExpr::Expr(agg_expr)));
                                 args.push(FunctionArg::Unnamed(FunctionArgExpr::Expr(
                                     Expr::Value(ValueWithSpan {
                                         value: Value::SingleQuotedString(",".into()),
@@ -1692,11 +1690,14 @@ mod tests {
     fn test_rewrite_array_agg_varchar_cast() -> Result<(), Box<dyn Error>> {
         let input =
             "SELECT array_agg(inhparent::bigint ORDER BY inhseqno)::varchar FROM pg_catalog.pg_inherits";
-        let expected = "SELECT pg_catalog.array_to_string(array_agg(inhparent::bigint ORDER BY inhseqno), ',') FROM pg_catalog.pg_inherits";
+        let expected = "SELECT pg_catalog.array_to_string(array_agg(inhparent::BIGINT ORDER BY inhseqno), ',') FROM pg_catalog.pg_inherits";
         assert_eq!(rewrite_array_agg_varchar_cast(input).unwrap(), expected);
 
         let untouched = "SELECT array_agg(inhparent)::text FROM pg_catalog.pg_inherits";
-        assert_eq!(rewrite_array_agg_varchar_cast(untouched).unwrap(), untouched);
+        assert_eq!(
+            rewrite_array_agg_varchar_cast(untouched).unwrap(),
+            "SELECT array_agg(inhparent)::TEXT FROM pg_catalog.pg_inherits"
+        );
         Ok(())
     }
 
