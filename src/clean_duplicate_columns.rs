@@ -284,8 +284,8 @@ mod tests {
             ),
             (
                 "select substr('foo', 1, 2)",
-                vec!["SELECT substr('foo', 1, 2) AS "],
-                alias_maps(&["substr"]),
+                vec!["SELECT SUBSTR('foo', 1, 2) AS "],
+                alias_maps(&["?column?"]),
             ),
         ];
 

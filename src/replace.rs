@@ -5,12 +5,10 @@
 use arrow::datatypes::DataType as ArrowDataType;
 use datafusion::logical_expr::{create_udf, ColumnarValue, ScalarUDF, Volatility};
 use datafusion::scalar::ScalarValue;
-use std::collections::HashMap;
 use std::ops::ControlFlow;
 
 use datafusion::error::{DataFusionError, Result};
 use datafusion::prelude::SessionContext;
-use sqlparser::ast::OneOrManyWithParens;
 use sqlparser::ast::Statement;
 use sqlparser::ast::*;
 use sqlparser::ast::{visit_expressions_mut, visit_statements_mut, ValueWithSpan};
@@ -27,7 +25,7 @@ use sqlparser::tokenizer::Span;
 ///
 /// The function simply returns the passed string value so that
 /// casts such as `'foo'::regclass` can be emulated.
-pub fn regclass_udfs(ctx: &SessionContext) -> Vec<ScalarUDF> {
+pub fn regclass_udfs(_ctx: &SessionContext) -> Vec<ScalarUDF> {
     let regclass = create_udf(
         "regclass",
         vec![ArrowDataType::Utf8],
@@ -64,13 +62,20 @@ pub fn replace_set_command_with_namespace(sql: &str) -> Result<String> {
         Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
 
     let _ = visit_statements_mut(&mut statements, |stmt| {
-        if let Statement::SetVariable { variables, .. } = stmt {
-            match variables {
-                OneOrManyWithParens::One(obj) => add_namespace_to_set_command(obj),
-                OneOrManyWithParens::Many(list) => {
-                    list.iter_mut().for_each(add_namespace_to_set_command)
+        if let Statement::Set(set) = stmt {
+            use sqlparser::ast::Set;
+            match set {
+                Set::SingleAssignment { variable, .. } => add_namespace_to_set_command(variable),
+                Set::ParenthesizedAssignments { variables, .. } => {
+                    variables.iter_mut().for_each(add_namespace_to_set_command);
                 }
-            }
+                Set::MultipleAssignments { assignments } => {
+                    for assignment in assignments {
+                        add_namespace_to_set_command(&mut assignment.name);
+                    }
+                }
+                _ => {}
+            };
         }
         ControlFlow::<()>::Continue(())
     });
@@ -177,6 +182,75 @@ pub fn replace_regclass(sql: &str) -> Result<String> {
             ControlFlow::<()>::Continue(())
         })?;
         ControlFlow::Continue(())
+    });
+
+    Ok(statements
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join(" "))
+}
+
+/// Rewrite casts like `array_agg(...)::varchar` into calls to
+/// `pg_catalog.array_to_string(array_agg(...), ',')` so that DataFusion
+/// doesn't have to cast an Arrow list array to Utf8 directly.
+pub fn rewrite_array_agg_varchar_cast(sql: &str) -> Result<String> {
+    let dialect = PostgreSqlDialect {};
+    let mut statements =
+        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
+
+    let _ = visit_statements_mut(&mut statements, |stmt| {
+        let _ = visit_expressions_mut(stmt, |expr| {
+            if let Expr::Cast {
+                expr: inner,
+                data_type,
+                ..
+            } = expr
+            {
+                let is_varchar = matches!(data_type, DataType::Varchar(_));
+                if is_varchar {
+                    if let Expr::Function(fun) = &**inner {
+                        if let Some(last) = fun.name.0.last() {
+                            if last
+                                .as_ident()
+                                .map(|ident| ident.value.eq_ignore_ascii_case("array_agg"))
+                                .unwrap_or(false)
+                            {
+                                let agg_expr = inner.as_ref().clone();
+                                let mut args = Vec::new();
+                                args.push(FunctionArg::Unnamed(FunctionArgExpr::Expr(agg_expr)));
+                                args.push(FunctionArg::Unnamed(FunctionArgExpr::Expr(
+                                    Expr::Value(ValueWithSpan {
+                                        value: Value::SingleQuotedString(",".into()),
+                                        span: Span::empty(),
+                                    }),
+                                )));
+
+                                *expr = Expr::Function(Function {
+                                    name: ObjectName(vec![
+                                        ObjectNamePart::Identifier(Ident::new("pg_catalog")),
+                                        ObjectNamePart::Identifier(Ident::new("array_to_string")),
+                                    ]),
+                                    over: None,
+                                    filter: None,
+                                    within_group: vec![],
+                                    null_treatment: None,
+                                    uses_odbc_syntax: false,
+                                    parameters: FunctionArguments::None,
+                                    args: FunctionArguments::List(FunctionArgumentList {
+                                        duplicate_treatment: None,
+                                        args,
+                                        clauses: vec![],
+                                    }),
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+            ControlFlow::<()>::Continue(())
+        });
+        ControlFlow::<()>::Continue(())
     });
 
     Ok(statements
@@ -1609,6 +1683,21 @@ mod tests {
         for (input, expected) in cases {
             assert_eq!(rewrite_regtype_cast(input).unwrap(), expected);
         }
+        Ok(())
+    }
+
+    #[test]
+    fn test_rewrite_array_agg_varchar_cast() -> Result<(), Box<dyn Error>> {
+        let input =
+            "SELECT array_agg(inhparent::bigint ORDER BY inhseqno)::varchar FROM pg_catalog.pg_inherits";
+        let expected = "SELECT pg_catalog.array_to_string(array_agg(inhparent::BIGINT ORDER BY inhseqno), ',') FROM pg_catalog.pg_inherits";
+        assert_eq!(rewrite_array_agg_varchar_cast(input).unwrap(), expected);
+
+        let untouched = "SELECT array_agg(inhparent)::text FROM pg_catalog.pg_inherits";
+        assert_eq!(
+            rewrite_array_agg_varchar_cast(untouched).unwrap(),
+            "SELECT array_agg(inhparent)::TEXT FROM pg_catalog.pg_inherits"
+        );
         Ok(())
     }
 
