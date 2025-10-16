@@ -5,12 +5,10 @@
 use arrow::datatypes::DataType as ArrowDataType;
 use datafusion::logical_expr::{create_udf, ColumnarValue, ScalarUDF, Volatility};
 use datafusion::scalar::ScalarValue;
-use std::collections::HashMap;
 use std::ops::ControlFlow;
 
 use datafusion::error::{DataFusionError, Result};
 use datafusion::prelude::SessionContext;
-use sqlparser::ast::OneOrManyWithParens;
 use sqlparser::ast::Statement;
 use sqlparser::ast::*;
 use sqlparser::ast::{visit_expressions_mut, visit_statements_mut, ValueWithSpan};
@@ -64,12 +62,16 @@ pub fn replace_set_command_with_namespace(sql: &str) -> Result<String> {
         Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
 
     let _ = visit_statements_mut(&mut statements, |stmt| {
-        if let Statement::SetVariable { variables, .. } = stmt {
-            match variables {
-                OneOrManyWithParens::One(obj) => add_namespace_to_set_command(obj),
-                OneOrManyWithParens::Many(list) => {
-                    list.iter_mut().for_each(add_namespace_to_set_command)
+        if let Statement::Set(set_stmt) = stmt {
+            match set_stmt {
+                Set::SingleAssignment { variable, .. } => add_namespace_to_set_command(variable),
+                Set::ParenthesizedAssignments { variables, .. } => {
+                    variables.iter_mut().for_each(add_namespace_to_set_command)
                 }
+                Set::MultipleAssignments { assignments } => assignments
+                    .iter_mut()
+                    .for_each(|assignment| add_namespace_to_set_command(&mut assignment.name)),
+                _ => {}
             }
         }
         ControlFlow::<()>::Continue(())

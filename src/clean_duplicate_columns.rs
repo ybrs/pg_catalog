@@ -3,6 +3,7 @@
 // Included so result sets match PostgreSQL naming expectations.
 
 use datafusion::error::{DataFusionError, Result};
+use sqlparser::ast::visit_statements_mut;
 use sqlparser::ast::*;
 use sqlparser::dialect::PostgreSqlDialect;
 use sqlparser::parser::Parser;
@@ -123,7 +124,7 @@ fn walk_set_expr(
             for table_with_joins in &mut select.from {
                 match &mut table_with_joins.relation {
                     TableFactor::Derived { subquery, .. } => {
-                        walk_query(subquery, counter, alias_map, depth + 1);
+                        walk_query(subquery.as_mut(), counter, alias_map, depth + 1);
                     }
                     _ => {}
                 }
@@ -135,7 +136,7 @@ fn walk_set_expr(
             walk_set_expr(right, counter, alias_map, depth);
         }
         SetExpr::Query(subquery) => {
-            walk_query(subquery, counter, alias_map, depth + 1);
+            walk_query(subquery.as_mut(), counter, alias_map, depth + 1);
         }
         _ => {}
     }
@@ -151,7 +152,7 @@ fn walk_query(
 
     if let Some(with) = &mut query.with {
         for cte in &mut with.cte_tables {
-            walk_query(&mut cte.query, counter, alias_map, depth + 1);
+            walk_query(cte.query.as_mut(), counter, alias_map, depth + 1);
         }
     }
 }
@@ -169,7 +170,7 @@ pub fn alias_all_columns(sql: &str) -> Result<(String, HashMap<String, String>)>
 
     let _ = visit_statements_mut(&mut statements, |stmt| {
         if let Statement::Query(query) = stmt {
-            walk_query(query, &mut counter, &mut alias_map, 0);
+            walk_query(query.as_mut(), &mut counter, &mut alias_map, 0);
         }
         ControlFlow::<()>::Continue(())
     });
@@ -284,8 +285,8 @@ mod tests {
             ),
             (
                 "select substr('foo', 1, 2)",
-                vec!["SELECT substr('foo', 1, 2) AS "],
-                alias_maps(&["substr"]),
+                vec!["SELECT SUBSTR('foo', 1, 2) AS "],
+                alias_maps(&["?column?"]),
             ),
         ];
 

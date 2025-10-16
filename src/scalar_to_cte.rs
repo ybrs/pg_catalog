@@ -189,6 +189,7 @@ mod visitor {
                     operand,
                     conditions,
                     else_result,
+                    ..
                 } => {
                     if let Some(op) = operand {
                         self.visit_expr(op);
@@ -259,6 +260,7 @@ mod rewriter {
                 operand,
                 conditions,
                 else_result,
+                ..
             } => {
                 if let Some(op) = operand {
                     collect_paths(op, out);

@@ -11,7 +11,6 @@ use datafusion::arrow::array::{Int64Array, Int64Builder};
 use datafusion::arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use datafusion::arrow::record_batch::RecordBatch;
 use datafusion::catalog::{Session, TableFunctionImpl};
-use datafusion::common::utils::SingleRowListArrayBuilder;
 use datafusion::common::{internal_err, plan_err, ScalarValue};
 use datafusion::datasource::memory::MemorySourceConfig;
 use datafusion::datasource::TableProvider;
@@ -87,7 +86,8 @@ pub struct RegClassOidFunc;
 
 impl TableFunctionImpl for RegClassOidFunc {
     fn call(&self, exprs: &[Expr]) -> Result<Arc<dyn TableProvider>> {
-        let relname = if let Some(Expr::Literal(ScalarValue::Utf8(Some(ref s)))) = exprs.first() {
+        let relname = if let Some(Expr::Literal(ScalarValue::Utf8(Some(ref s)), _)) = exprs.first()
+        {
             s.clone()
         } else {
             return plan_err!("regclass_oid requires one string argument");
@@ -356,7 +356,7 @@ pub fn register_scalar_pg_get_expr(ctx: &SessionContext) -> Result<()> {
     };
     use std::sync::Arc;
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     struct PgGetExpr {
         sig: Signature,
     }
@@ -743,7 +743,7 @@ pub fn register_scalar_array_to_string(ctx: &SessionContext) -> Result<()> {
         Ok(ColumnarValue::Array(Arc::new(out.finish()) as ArrayRef))
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     struct ArrayToString {
         sig: Signature,
     }
@@ -845,16 +845,6 @@ pub fn register_scalar_array_to_string(ctx: &SessionContext) -> Result<()> {
             }
         }
 
-        fn return_type_from_args(
-            &self,
-            args: datafusion::logical_expr::ReturnTypeArgs,
-        ) -> Result<datafusion::logical_expr::ReturnInfo> {
-            let return_type = self.return_type(args.arg_types)?;
-            Ok(datafusion::logical_expr::ReturnInfo::new_nullable(
-                return_type,
-            ))
-        }
-
         fn is_nullable(
             &self,
             _args: &[Expr],
@@ -932,10 +922,6 @@ pub fn register_scalar_array_to_string(ctx: &SessionContext) -> Result<()> {
             )
         }
 
-        fn equals(&self, other: &dyn datafusion::logical_expr::ScalarUDFImpl) -> bool {
-            self.name() == other.name() && self.signature() == other.signature()
-        }
-
         fn documentation(&self) -> Option<&datafusion::logical_expr::Documentation> {
             None
         }
@@ -952,7 +938,7 @@ pub fn register_pg_get_one(ctx: &SessionContext) -> Result<()> {
         ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, Volatility,
     };
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     struct PgGetOne {
         sig: Signature,
     }
@@ -1503,7 +1489,7 @@ pub fn register_pg_get_viewdef(ctx: &SessionContext) -> Result<()> {
     };
     use std::sync::Arc;
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     struct PgGetViewDef {
         sig: Signature,
     }
@@ -1719,7 +1705,7 @@ pub fn register_pg_get_triggerdef(ctx: &SessionContext) -> Result<()> {
     };
     use std::sync::Arc;
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     struct PgGetTriggerDef {
         sig: Signature,
     }
@@ -1778,7 +1764,7 @@ pub fn register_pg_get_ruledef(ctx: &SessionContext) -> Result<()> {
     };
     use std::sync::Arc;
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     struct PgGetRuleDef {
         sig: Signature,
     }
