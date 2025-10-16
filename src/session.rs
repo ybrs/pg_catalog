@@ -27,7 +27,6 @@ use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::io::{Cursor, Read};
 use std::path::Path;
-use std::ptr::null;
 use std::sync::{Arc, Mutex};
 use zip::ZipArchive;
 
@@ -505,7 +504,7 @@ fn parse_schema_dir(
     for entry in fs::read_dir(dir_path).expect("Failed to read directory") {
         let path = entry.expect("Invalid dir entry").path();
         if path.extension().and_then(|s| s.to_str()) == Some("yaml") {
-            let mut partial = parse_schema_file(path.to_str().unwrap());
+            let partial = parse_schema_file(path.to_str().unwrap());
 
             merge_schema_maps(&mut all, partial);
         }

@@ -189,6 +189,7 @@ mod visitor {
                     operand,
                     conditions,
                     else_result,
+                    ..
                 } => {
                     if let Some(op) = operand {
                         self.visit_expr(op);
@@ -259,6 +260,7 @@ mod rewriter {
                 operand,
                 conditions,
                 else_result,
+                ..
             } => {
                 if let Some(op) = operand {
                     collect_paths(op, out);
@@ -572,10 +574,11 @@ mod rewriter {
             let mut total_proj = 0_usize; // how many projection items?
 
             for item in &sel.projection {
-                if let SelectItem::UnnamedExpr(e) | SelectItem::ExprWithAlias { expr: e, .. } = item
+                if let SelectItem::UnnamedExpr(expr)
+                | SelectItem::ExprWithAlias { expr, .. } = item
                 {
                     total_proj += 1;
-                    Self::scan_expr(e, false, &mut has_aggr, &mut cols);
+                    Self::scan_expr(expr, false, &mut has_aggr, &mut cols);
                 }
             }
 
@@ -1161,8 +1164,10 @@ mod rewriter {
             // ---------- 1st pass: collect what needs rewriting ----------
             let mut collected = Vec::<(usize, CorrelatedInfo)>::new();
             for (idx, item) in sel.projection.iter().enumerate() {
-                if let SelectItem::UnnamedExpr(e) | SelectItem::ExprWithAlias { expr: e, .. } = item
-                {
+                if matches!(
+                    item,
+                    SelectItem::UnnamedExpr(_) | SelectItem::ExprWithAlias { .. }
+                ) {
                     if let Some(info) = self.analyse_scalar(item, &outer_aliases) {
                         collected.push((idx, info));
                     }
