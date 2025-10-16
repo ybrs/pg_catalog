@@ -15,7 +15,10 @@ use datafusion::error::{DataFusionError, Result};
 use datafusion::execution::SessionState;
 use datafusion::logical_expr::function::AccumulatorArgs;
 use datafusion::logical_expr::{create_udaf, Accumulator};
-use datafusion::logical_expr::{ColumnarValue, Volatility};
+use datafusion::logical_expr::{
+    ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature,
+    Volatility,
+};
 use datafusion::logical_expr::{Expr, TableType};
 use datafusion::prelude::SessionContext;
 use datafusion::prelude::*;
@@ -639,32 +642,138 @@ pub fn register_scalar_pg_table_is_visible(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// Register `pg_get_userbyid(oid)` returning NULL for now.
-pub fn register_scalar_pg_get_userbyid(ctx: &SessionContext) -> Result<()> {
-    use arrow::array::{ArrayRef, StringBuilder};
-    use arrow::datatypes::DataType;
-    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
-    use std::sync::Arc;
+fn fetch_user_by_oid(ctx: Arc<SessionContext>, oid: i64) -> Result<String> {
+    block_in_place(|| {
+        let ctx = ctx.clone();
+        block_on(async move {
+            let query = format!(
+                "SELECT rolname FROM pg_catalog.pg_authid WHERE oid = {} LIMIT 1",
+                oid
+            );
+            let df = ctx.sql(&query).await?;
+            let batches = df.collect().await?;
+            for batch in batches {
+                if batch.num_rows() == 0 {
+                    continue;
+                }
+                let col = batch.column(0);
+                let arr = col
+                    .as_any()
+                    .downcast_ref::<arrow::array::StringArray>()
+                    .ok_or_else(|| {
+                        DataFusionError::Execution(
+                            "pg_catalog.pg_authid.rolname must be text".to_string(),
+                        )
+                    })?;
+                if !arr.is_null(0) {
+                    return Ok(arr.value(0).to_string());
+                }
+            }
+            Ok(format!("unknown (OID={oid})"))
+        })
+    })
+}
 
-    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
-        let len = match &args[0] {
-            ColumnarValue::Array(a) => a.len(),
-            ColumnarValue::Scalar(_) => 1,
-        };
-        let mut b = StringBuilder::with_capacity(len, 8 * len);
-        for _ in 0..len {
-            b.append_value("postgres");
+struct PgGetUserById {
+    sig: Signature,
+    ctx: Arc<SessionContext>,
+}
+
+impl PgGetUserById {
+    fn new(ctx: Arc<SessionContext>) -> Self {
+        Self {
+            sig: Signature::one_of(
+                vec![
+                    TypeSignature::Exact(vec![ArrowDataType::Int32]),
+                    TypeSignature::Exact(vec![ArrowDataType::Int64]),
+                    TypeSignature::Exact(vec![ArrowDataType::UInt32]),
+                    TypeSignature::Exact(vec![ArrowDataType::UInt64]),
+                ],
+                Volatility::Stable,
+            ),
+            ctx,
         }
-        Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
-    };
+    }
 
-    ctx.register_udf(create_udf(
-        "pg_catalog.pg_get_userbyid",
-        vec![DataType::Int32], // one OID argument
-        DataType::Utf8,
-        Volatility::Stable,
-        Arc::new(fun),
-    ));
+    fn lookup(&self, oid: i64) -> Result<String> {
+        fetch_user_by_oid(self.ctx.clone(), oid)
+    }
+}
+
+impl std::fmt::Debug for PgGetUserById {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PgGetUserById").finish()
+    }
+}
+
+impl PartialEq for PgGetUserById {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.ctx, &other.ctx)
+    }
+}
+
+impl Eq for PgGetUserById {}
+
+impl std::hash::Hash for PgGetUserById {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (Arc::as_ptr(&self.ctx) as usize).hash(state);
+    }
+}
+
+impl ScalarUDFImpl for PgGetUserById {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn name(&self) -> &str {
+        "pg_catalog.pg_get_userbyid"
+    }
+
+    fn signature(&self) -> &Signature {
+        &self.sig
+    }
+
+    fn return_type(&self, _arg_types: &[ArrowDataType]) -> Result<ArrowDataType> {
+        Ok(ArrowDataType::Utf8)
+    }
+
+    fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+        let arrays = ColumnarValue::values_to_arrays(&args.args)?;
+        let arr = &arrays[0];
+        let len = arr.len();
+        let mut builder = StringBuilder::with_capacity(len, 16 * len.max(1));
+
+        for i in 0..len {
+            let scalar = ScalarValue::try_from_array(arr, i)?;
+            let oid = match scalar {
+                ScalarValue::Int32(v) => v.map(i64::from),
+                ScalarValue::Int64(v) => v,
+                ScalarValue::UInt32(v) => v.map(|val| val as i64),
+                ScalarValue::UInt64(v) => v.map(|val| val as i64),
+                ScalarValue::Null => None,
+                _ => {
+                    return plan_err!("pg_get_userbyid expects an OID argument");
+                }
+            };
+
+            if let Some(oid) = oid {
+                let name = self.lookup(oid)?;
+                builder.append_value(&name);
+            } else {
+                builder.append_null();
+            }
+        }
+
+        Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
+    }
+}
+
+/// Register `pg_get_userbyid(oid)` which returns the role name for the
+/// provided OID or "unknown (OID=…)" when no match is found.
+pub fn register_scalar_pg_get_userbyid(ctx: &SessionContext) -> Result<()> {
+    let udf = ScalarUDF::new_from_impl(PgGetUserById::new(Arc::new(ctx.clone())))
+        .with_aliases(["pg_get_userbyid"]);
+    ctx.register_udf(udf);
     Ok(())
 }
 
@@ -2024,7 +2133,7 @@ mod tests {
     use crate::scalar_to_cte::rewrite_subquery_as_cte;
 
     use super::*;
-    use arrow::array::{Int64Array, ListArray, StringArray};
+    use arrow::array::{Int32Array, Int64Array, ListArray, StringArray};
     use arrow::datatypes::{DataType, Field, Schema};
     use arrow::record_batch::RecordBatch;
     use datafusion::catalog::memory::{MemoryCatalogProvider, MemorySchemaProvider};
@@ -2622,6 +2731,59 @@ mod tests {
             .downcast_ref::<BooleanArray>()
             .unwrap();
         assert!(arr.value(0));
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn pg_get_userbyid_reads_pg_authid() -> Result<()> {
+        let config = datafusion::execution::context::SessionConfig::new()
+            .with_default_catalog_and_schema("pg_catalog", "pg_catalog");
+        let ctx = SessionContext::new_with_config(config);
+
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("oid", DataType::Int32, false),
+            Field::new("rolname", DataType::Utf8, false),
+        ]));
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(Int32Array::from(vec![10])),
+                Arc::new(StringArray::from(vec!["abadur"])),
+            ],
+        )?;
+        let table = MemTable::try_new(schema, vec![vec![batch]])?;
+
+        let catalog = Arc::new(MemoryCatalogProvider::new());
+        ctx.register_catalog("pg_catalog", catalog.clone());
+        let schema_provider = Arc::new(MemorySchemaProvider::new());
+        catalog.register_schema("pg_catalog", schema_provider.clone())?;
+        schema_provider.register_table("pg_authid".parse().unwrap(), Arc::new(table))?;
+
+        register_scalar_pg_get_userbyid(&ctx)?;
+
+        let batches = ctx
+            .sql("SELECT pg_get_userbyid(10)")
+            .await?
+            .collect()
+            .await?;
+        let col = batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap();
+        assert_eq!(col.value(0), "abadur");
+
+        let batches = ctx
+            .sql("SELECT pg_get_userbyid(111110)")
+            .await?
+            .collect()
+            .await?;
+        let col = batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap();
+        assert_eq!(col.value(0), "unknown (OID=111110)");
         Ok(())
     }
 }
