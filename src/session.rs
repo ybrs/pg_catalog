@@ -14,20 +14,19 @@ use serde_yaml;
 use crate::clean_duplicate_columns::alias_all_columns;
 use crate::replace::{
     alias_subquery_tables, regclass_udfs, replace_regclass, replace_set_command_with_namespace,
-    rewrite_array_subquery, rewrite_available_updates, rewrite_brace_array_literal,
-    rewrite_char_cast, rewrite_name_cast, rewrite_oid_cast, rewrite_oidvector_any,
-    rewrite_oidvector_unnest, rewrite_pg_custom_operator, rewrite_regoper_cast,
-    rewrite_regoperator_cast, rewrite_regproc_cast, rewrite_regprocedure_cast,
-    rewrite_regtype_cast, rewrite_schema_qualified_custom_types, rewrite_schema_qualified_text,
-    rewrite_schema_qualified_udtfs, rewrite_time_zone_utc, rewrite_tuple_equality,
-    rewrite_xid_cast, strip_default_collate,
+    rewrite_array_agg_varchar_cast, rewrite_array_subquery, rewrite_available_updates,
+    rewrite_brace_array_literal, rewrite_char_cast, rewrite_name_cast, rewrite_oid_cast,
+    rewrite_oidvector_any, rewrite_oidvector_unnest, rewrite_pg_custom_operator,
+    rewrite_regoper_cast, rewrite_regoperator_cast, rewrite_regproc_cast,
+    rewrite_regprocedure_cast, rewrite_regtype_cast, rewrite_schema_qualified_custom_types,
+    rewrite_schema_qualified_text, rewrite_schema_qualified_udtfs, rewrite_time_zone_utc,
+    rewrite_tuple_equality, rewrite_xid_cast, strip_default_collate,
 };
 use pgwire::api::Type;
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::io::{Cursor, Read};
 use std::path::Path;
-use std::ptr::null;
 use std::sync::{Arc, Mutex};
 use zip::ZipArchive;
 
@@ -265,6 +264,7 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     let sql = rewrite_oid_cast(&sql)?;
     let sql = rewrite_oidvector_unnest(&sql)?;
     let sql = rewrite_oidvector_any(&sql)?;
+    let sql = rewrite_array_agg_varchar_cast(&sql)?;
     let sql = rewrite_tuple_equality(&sql)?;
     let sql = alias_subquery_tables(&sql)?;
     let (sql, aliases) = alias_all_columns(&sql)?;
@@ -505,7 +505,7 @@ fn parse_schema_dir(
     for entry in fs::read_dir(dir_path).expect("Failed to read directory") {
         let path = entry.expect("Invalid dir entry").path();
         if path.extension().and_then(|s| s.to_str()) == Some("yaml") {
-            let mut partial = parse_schema_file(path.to_str().unwrap());
+            let partial = parse_schema_file(path.to_str().unwrap());
 
             merge_schema_maps(&mut all, partial);
         }

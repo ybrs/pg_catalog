@@ -1,18 +1,14 @@
 // Collection of custom UDF and UDTF implementations.
 // Provides functions like oid(), pg_get_array and others so queries behave like PostgreSQL.
 // Added to extend DataFusion with features required by pg_catalog emulation.
-use arrow::array::{
-    as_string_array, Array, ArrayRef, BooleanBuilder, ListArray, StringBuilder,
-    TimestampMicrosecondArray,
-};
+use arrow::array::{as_string_array, Array, ArrayRef, StringBuilder, TimestampMicrosecondArray};
 use arrow::datatypes::DataType as ArrowDataType;
 use async_trait::async_trait;
 use datafusion::arrow::array::{Int64Array, Int64Builder};
 use datafusion::arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use datafusion::arrow::record_batch::RecordBatch;
 use datafusion::catalog::{Session, TableFunctionImpl};
-use datafusion::common::utils::SingleRowListArrayBuilder;
-use datafusion::common::{internal_err, plan_err, ScalarValue};
+use datafusion::common::{plan_err, ScalarValue};
 use datafusion::datasource::memory::MemorySourceConfig;
 use datafusion::datasource::TableProvider;
 use datafusion::error::{DataFusionError, Result};
@@ -87,7 +83,8 @@ pub struct RegClassOidFunc;
 
 impl TableFunctionImpl for RegClassOidFunc {
     fn call(&self, exprs: &[Expr]) -> Result<Arc<dyn TableProvider>> {
-        let relname = if let Some(Expr::Literal(ScalarValue::Utf8(Some(ref s)))) = exprs.first() {
+        let relname = if let Some(Expr::Literal(ScalarValue::Utf8(Some(ref s)), _)) = exprs.first()
+        {
             s.clone()
         } else {
             return plan_err!("regclass_oid requires one string argument");
@@ -356,7 +353,7 @@ pub fn register_scalar_pg_get_expr(ctx: &SessionContext) -> Result<()> {
     };
     use std::sync::Arc;
 
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq, Eq, Hash)]
     struct PgGetExpr {
         sig: Signature,
     }
@@ -420,7 +417,7 @@ pub fn register_scalar_pg_get_partkeydef(ctx: &SessionContext) -> Result<()> {
         let arrays = ColumnarValue::values_to_arrays(args)?;
         let oids = as_int64_array(&arrays[0])?;
         let mut builder = StringBuilder::new();
-        for i in 0..oids.len() {
+        for _ in 0..oids.len() {
             builder.append_null();
         }
         Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
@@ -444,7 +441,7 @@ pub fn register_pg_get_statisticsobjdef_columns(ctx: &SessionContext) -> Result<
         let arrays = ColumnarValue::values_to_arrays(args)?;
         let oids = as_int64_array(&arrays[0])?;
         let mut builder = StringBuilder::new();
-        for i in 0..oids.len() {
+        for _ in 0..oids.len() {
             builder.append_null();
         }
         Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
@@ -743,7 +740,7 @@ pub fn register_scalar_array_to_string(ctx: &SessionContext) -> Result<()> {
         Ok(ColumnarValue::Array(Arc::new(out.finish()) as ArrayRef))
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq, Eq, Hash)]
     struct ArrayToString {
         sig: Signature,
     }
@@ -845,16 +842,6 @@ pub fn register_scalar_array_to_string(ctx: &SessionContext) -> Result<()> {
             }
         }
 
-        fn return_type_from_args(
-            &self,
-            args: datafusion::logical_expr::ReturnTypeArgs,
-        ) -> Result<datafusion::logical_expr::ReturnInfo> {
-            let return_type = self.return_type(args.arg_types)?;
-            Ok(datafusion::logical_expr::ReturnInfo::new_nullable(
-                return_type,
-            ))
-        }
-
         fn is_nullable(
             &self,
             _args: &[Expr],
@@ -932,10 +919,6 @@ pub fn register_scalar_array_to_string(ctx: &SessionContext) -> Result<()> {
             )
         }
 
-        fn equals(&self, other: &dyn datafusion::logical_expr::ScalarUDFImpl) -> bool {
-            self.name() == other.name() && self.signature() == other.signature()
-        }
-
         fn documentation(&self) -> Option<&datafusion::logical_expr::Documentation> {
             None
         }
@@ -952,7 +935,7 @@ pub fn register_pg_get_one(ctx: &SessionContext) -> Result<()> {
         ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, Volatility,
     };
 
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq, Eq, Hash)]
     struct PgGetOne {
         sig: Signature,
     }
@@ -1503,7 +1486,7 @@ pub fn register_pg_get_viewdef(ctx: &SessionContext) -> Result<()> {
     };
     use std::sync::Arc;
 
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq, Eq, Hash)]
     struct PgGetViewDef {
         sig: Signature,
     }
@@ -1719,7 +1702,7 @@ pub fn register_pg_get_triggerdef(ctx: &SessionContext) -> Result<()> {
     };
     use std::sync::Arc;
 
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq, Eq, Hash)]
     struct PgGetTriggerDef {
         sig: Signature,
     }
@@ -1778,7 +1761,7 @@ pub fn register_pg_get_ruledef(ctx: &SessionContext) -> Result<()> {
     };
     use std::sync::Arc;
 
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq, Eq, Hash)]
     struct PgGetRuleDef {
         sig: Signature,
     }
@@ -2041,14 +2024,13 @@ mod tests {
     use crate::scalar_to_cte::rewrite_subquery_as_cte;
 
     use super::*;
-    use arrow::array::{Int64Array, StringArray};
+    use arrow::array::{Int64Array, ListArray, StringArray};
     use arrow::datatypes::{DataType, Field, Schema};
     use arrow::record_batch::RecordBatch;
     use datafusion::catalog::memory::{MemoryCatalogProvider, MemorySchemaProvider};
     use datafusion::catalog::{CatalogProvider, SchemaProvider};
     use datafusion::datasource::MemTable;
     use datafusion::error::Result;
-    use datafusion::prelude::*;
     use std::sync::Arc;
 
     /* TODO:
@@ -2065,7 +2047,7 @@ mod tests {
      */
 
     async fn make_ctx() -> Result<SessionContext> {
-        let mut config = datafusion::execution::context::SessionConfig::new()
+        let config = datafusion::execution::context::SessionConfig::new()
             .with_default_catalog_and_schema("public", "pg_catalog");
 
         let ctx = SessionContext::new_with_config(config);
@@ -2295,7 +2277,6 @@ mod tests {
     #[tokio::test]
     async fn test_pg_age_always_one() -> datafusion::error::Result<()> {
         use arrow::array::Int64Array;
-        use datafusion::prelude::*;
 
         // 1️⃣  fresh context
         let ctx = SessionContext::new();
