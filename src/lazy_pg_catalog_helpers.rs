@@ -277,6 +277,7 @@ pub async fn register_user_database_with_callback(
 }
 
 /// Insert a single database row into `pg_catalog.pg_database` if missing.
+/// this is for illustration purposes for now, we'll remove it later
 async fn insert_database_row(ctx: &SessionContext, row: &LazyDatabaseRow) -> DFResult<()> {
     // Skip if exists
     let df = ctx
