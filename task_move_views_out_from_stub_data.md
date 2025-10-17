@@ -2,6 +2,7 @@
 
 
 - pg_class
+- pg_namespace - table but stub
   \- pg_catalog.pg_tables view works
   \- pg_catalog.pg_views view works
 

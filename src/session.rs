@@ -145,10 +145,70 @@ struct TableDef {
     #[serde(default)]
     pg_types: Option<BTreeMap<String, String>>,
     rows: Option<Vec<BTreeMap<String, serde_json::Value>>>,
+    #[serde(default)]
+    view_sql: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 struct YamlSchema(HashMap<String, HashMap<String, HashMap<String, TableDef>>>);
+
+#[derive(Clone)]
+struct ParsedTable {
+    schema: SchemaRef,
+    batches: Vec<RecordBatch>,
+    view_sql: Option<String>,
+    is_view: bool,
+}
+
+#[derive(Clone)]
+struct ViewToRegister {
+    catalog: String,
+    schema: String,
+    name: String,
+    sql: String,
+}
+
+const VIEW_ONLY_TABLES: &[(&str, &str)] = &[("pg_catalog", "pg_views")];
+
+fn should_register_as_view(schema_name: &str, table_name: &str) -> bool {
+    VIEW_ONLY_TABLES
+        .iter()
+        .any(|(schema, table)| *schema == schema_name && *table == table_name)
+}
+
+fn quote_identifier(ident: &str) -> String {
+    let escaped = ident.replace('"', "\"\"");
+    format!("\"{escaped}\"")
+}
+
+fn quote_literal(value: &str) -> String {
+    let escaped = value.replace('\'', "''");
+    format!("'{escaped}'")
+}
+
+fn format_fully_qualified_name(catalog: &str, schema: &str, table: &str) -> String {
+    format!(
+        "{}.{}.{}",
+        quote_identifier(catalog),
+        quote_identifier(schema),
+        quote_identifier(table)
+    )
+}
+
+fn normalize_view_sql(sql: &str) -> String {
+    let trimmed = sql.trim();
+    let without_semicolon = trimmed.trim_end_matches(';').trim();
+    without_semicolon.to_string()
+}
+
+async fn set_default_schema(ctx: &SessionContext, schema: &str) -> datafusion::error::Result<()> {
+    let stmt = format!(
+        "SET datafusion.catalog.default_schema = {}",
+        quote_literal(schema)
+    );
+    ctx.sql(&stmt).await?.collect().await?;
+    Ok(())
+}
 
 fn rename_columns(batch: &RecordBatch, name_map: &HashMap<String, String>) -> RecordBatch {
     let new_fields = batch
@@ -399,7 +459,7 @@ pub async fn execute_sql(
 
 fn parse_schema(
     schema_path: Option<&str>,
-) -> HashMap<String, HashMap<String, HashMap<String, (SchemaRef, Vec<RecordBatch>)>>> {
+) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
     if let Some(schema_path) = schema_path {
         if schema_path.is_empty() {
             return parse_schema_zip_bytes(SCHEMA_ZIP);
@@ -422,16 +482,12 @@ fn parse_schema(
     }
 }
 
-fn parse_schema_file(
-    path: &str,
-) -> HashMap<String, HashMap<String, HashMap<String, (SchemaRef, Vec<RecordBatch>)>>> {
+fn parse_schema_file(path: &str) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
     let contents = fs::read_to_string(path).expect("Failed to read schema file");
     parse_schema_contents(&contents)
 }
 
-fn parse_schema_zip(
-    path: &str,
-) -> HashMap<String, HashMap<String, HashMap<String, (SchemaRef, Vec<RecordBatch>)>>> {
+fn parse_schema_zip(path: &str) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
     let file = fs::File::open(path).expect("Failed to open schema zip file");
     let mut archive = ZipArchive::new(file).expect("Failed to read zip file");
     let mut all = HashMap::new();
@@ -452,7 +508,7 @@ fn parse_schema_zip(
 
 fn parse_schema_zip_bytes(
     bytes: &[u8],
-) -> HashMap<String, HashMap<String, HashMap<String, (SchemaRef, Vec<RecordBatch>)>>> {
+) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
     let reader = Cursor::new(bytes);
     let mut archive = ZipArchive::new(reader).expect("Failed to read zip bytes");
     let mut all = HashMap::new();
@@ -473,7 +529,7 @@ fn parse_schema_zip_bytes(
 
 fn parse_schema_contents(
     contents: &str,
-) -> HashMap<String, HashMap<String, HashMap<String, (SchemaRef, Vec<RecordBatch>)>>> {
+) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
     let parsed: YamlSchema = serde_yaml::from_str(contents).expect("Invalid YAML");
     parsed
         .0
@@ -485,8 +541,8 @@ fn parse_schema_contents(
                     let tables = tables
                         .into_iter()
                         .map(|(table, def)| {
-                            let (schema_ref, batches) = build_table(def);
-                            (table, (schema_ref, batches))
+                            let parsed = build_table(def);
+                            (table, parsed)
                         })
                         .collect();
                     (schema, tables)
@@ -499,7 +555,7 @@ fn parse_schema_contents(
 
 fn parse_schema_dir(
     dir_path: &str,
-) -> HashMap<String, HashMap<String, HashMap<String, (SchemaRef, Vec<RecordBatch>)>>> {
+) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
     let mut all = HashMap::new();
 
     for entry in fs::read_dir(dir_path).expect("Failed to read directory") {
@@ -515,8 +571,8 @@ fn parse_schema_dir(
 }
 
 fn merge_schema_maps(
-    target: &mut HashMap<String, HashMap<String, HashMap<String, (SchemaRef, Vec<RecordBatch>)>>>,
-    other: HashMap<String, HashMap<String, HashMap<String, (SchemaRef, Vec<RecordBatch>)>>>,
+    target: &mut HashMap<String, HashMap<String, HashMap<String, ParsedTable>>>,
+    other: HashMap<String, HashMap<String, HashMap<String, ParsedTable>>>,
 ) {
     for (catalog, schemas) in other {
         let catalog_entry = target.entry(catalog).or_insert_with(HashMap::new);
@@ -527,13 +583,19 @@ fn merge_schema_maps(
     }
 }
 
-fn build_table(def: TableDef) -> (SchemaRef, Vec<RecordBatch>) {
-    let mut fields: Vec<Field> = def
-        .schema
+fn build_table(def: TableDef) -> ParsedTable {
+    let TableDef {
+        table_type,
+        schema,
+        pg_types,
+        rows,
+        view_sql,
+    } = def;
+
+    let mut fields: Vec<Field> = schema
         .iter()
         .map(|(col, typ)| {
-            let mapped_typ = def
-                .pg_types
+            let mapped_typ = pg_types
                 .as_ref()
                 .and_then(|m| m.get(col))
                 .map(|s| s.as_str())
@@ -543,9 +605,11 @@ fn build_table(def: TableDef) -> (SchemaRef, Vec<RecordBatch>) {
         })
         .collect();
 
-    let is_system_catalog = matches!(def.table_type.as_deref(), Some("system_catalog"));
+    let is_system_catalog = matches!(table_type.as_deref(), Some("system_catalog"));
+    let is_view = matches!(table_type.as_deref(), Some("view"));
+    let system_cols = ["xmin", "xmax", "ctid", "tableoid", "cmin", "cmax"];
 
-    let record_batches = if let Some(rows) = def.rows {
+    let (schema_ref, batches) = if let Some(rows) = rows {
         let mut cols: Vec<Vec<serde_json::Value>> = vec![vec![]; fields.len()];
         for row in rows {
             for (i, field) in fields.iter().enumerate() {
@@ -557,7 +621,7 @@ fn build_table(def: TableDef) -> (SchemaRef, Vec<RecordBatch>) {
             }
         }
 
-        let arrays = fields
+        let mut arrays = fields
             .iter()
             .zip(cols.into_iter())
             .map(|(field, col_data)| {
@@ -681,11 +745,8 @@ fn build_table(def: TableDef) -> (SchemaRef, Vec<RecordBatch>) {
             })
             .collect::<Vec<_>>();
 
-        let mut arrays = arrays;
-
         if is_system_catalog {
             let row_count = arrays.first().map(|a| a.len()).unwrap_or(0);
-            let system_cols = ["xmin", "xmax", "ctid", "tableoid", "cmin", "cmax"];
             for col in system_cols {
                 if !fields.iter().any(|f| f.name() == col) {
                     fields.push(Field::new(col, DataType::Int32, true));
@@ -696,10 +757,12 @@ fn build_table(def: TableDef) -> (SchemaRef, Vec<RecordBatch>) {
         }
 
         let schema_ref = Arc::new(Schema::new(fields.clone()));
-        vec![RecordBatch::try_new(schema_ref.clone(), arrays).unwrap()]
+        (
+            schema_ref.clone(),
+            vec![RecordBatch::try_new(schema_ref, arrays).unwrap()],
+        )
     } else {
         if is_system_catalog {
-            let system_cols = ["xmin", "xmax", "ctid", "tableoid", "cmin", "cmax"];
             for col in system_cols {
                 if !fields.iter().any(|f| f.name() == col) {
                     fields.push(Field::new(col, DataType::Int32, true));
@@ -708,17 +771,25 @@ fn build_table(def: TableDef) -> (SchemaRef, Vec<RecordBatch>) {
         }
 
         let schema_ref = Arc::new(Schema::new(fields.clone()));
-        vec![RecordBatch::new_empty(schema_ref.clone())]
+        (schema_ref.clone(), vec![RecordBatch::new_empty(schema_ref)])
     };
-    (Arc::new(Schema::new(fields)), record_batches)
+
+    ParsedTable {
+        schema: schema_ref,
+        batches,
+        view_sql,
+        is_view,
+    }
 }
 
-fn register_catalogs_from_schemas(
+async fn register_catalogs_from_schemas(
     ctx: &SessionContext,
-    schemas: HashMap<String, HashMap<String, HashMap<String, (Arc<Schema>, Vec<RecordBatch>)>>>,
+    schemas: HashMap<String, HashMap<String, HashMap<String, ParsedTable>>>,
     default_catalog: String,
     log: Arc<Mutex<Vec<ScanTrace>>>,
-) -> datafusion::error::Result<&SessionContext, DataFusionError> {
+) -> datafusion::error::Result<Vec<ViewToRegister>, DataFusionError> {
+    let mut views_to_register: Vec<ViewToRegister> = Vec::new();
+
     for (catalog_name, schemas) in schemas {
         // "public" is the *database* name we used in exports
         // so we copy the schema/tables under that database to default_catalog/database
@@ -751,16 +822,96 @@ fn register_catalogs_from_schemas(
                 schema_name
             );
 
-            for (table, (schema_ref, batches)) in tables {
+            for (table, table_info) in tables {
+                let ParsedTable {
+                    schema: schema_ref,
+                    batches,
+                    view_sql,
+                    is_view,
+                } = table_info;
+
+                if should_register_as_view(schema_name.as_str(), table.as_str()) {
+                    if let Some(sql) = view_sql {
+                        if !is_view {
+                            log::warn!(
+                                "view-only table list contains non-view entry {}.{}",
+                                schema_name,
+                                table
+                            );
+                        }
+                        views_to_register.push(ViewToRegister {
+                            catalog: current_catalog.clone(),
+                            schema: schema_name.clone(),
+                            name: table.clone(),
+                            sql,
+                        });
+                        continue;
+                    } else {
+                        log::warn!(
+                            "view_sql missing for table {}.{}; falling back to table registration",
+                            schema_name,
+                            table
+                        );
+                    }
+                }
+
+                let table_name = table.clone();
                 log::debug!("-- table {:?}", &table);
 
-                let base = ObservableMemTable::new(table.clone(), schema_ref, log.clone(), batches);
+                let base = ObservableMemTable::new(table_name, schema_ref, log.clone(), batches);
                 let provider: Arc<dyn datafusion::datasource::TableProvider> = Arc::new(base);
                 schema_provider.register_table(table, provider)?;
             }
         }
     }
-    Ok(ctx)
+
+    Ok(views_to_register)
+}
+
+async fn create_registered_views(
+    ctx: &SessionContext,
+    views: Vec<ViewToRegister>,
+) -> datafusion::error::Result<(), DataFusionError> {
+    if views.is_empty() {
+        return Ok(());
+    }
+
+    let state = ctx.state();
+    let original_default_schema = state.config_options().catalog.default_schema.clone();
+    drop(state);
+    let mut active_default_schema = original_default_schema.clone();
+
+    for view in views {
+        if active_default_schema != view.schema {
+            set_default_schema(ctx, &view.schema).await?;
+            active_default_schema = view.schema.clone();
+        }
+
+        let qualified = format_fully_qualified_name(&view.catalog, &view.schema, &view.name);
+        let definition = normalize_view_sql(&view.sql);
+        if definition.is_empty() {
+            return Err(DataFusionError::Execution(format!(
+                "view_sql for {} is empty",
+                qualified
+            )));
+        }
+
+        let (rewritten_select, temp_udfs) = {
+            let (rewritten, _) = rewrite_filters(&definition)?;
+            rewrite_query(&rewritten, &mut ctx.clone()).await?
+        };
+        let create_sql = format!("CREATE OR REPLACE VIEW {qualified} AS {rewritten_select}");
+        ctx.sql(&create_sql).await?.collect().await?;
+        for udf in temp_udfs {
+            ctx.deregister_udf(&udf);
+        }
+    }
+
+    if active_default_schema != original_default_schema {
+        set_default_schema(ctx, &original_default_schema).await?;
+    }
+
+    Ok(())
 }
 
 fn default_current_schemas(ctx: &SessionContext) -> Vec<String> {
@@ -795,7 +946,8 @@ pub async fn get_base_session_context(
     session_config.options_mut().catalog.information_schema = false;
 
     let ctx: SessionContext = SessionContext::new_with_config(session_config);
-    register_catalogs_from_schemas(&ctx, schemas, default_catalog, log.clone())?;
+    let pending_views =
+        register_catalogs_from_schemas(&ctx, schemas, default_catalog, log.clone()).await?;
 
     for f in regclass_udfs(&ctx) {
         ctx.register_udf(f);
@@ -853,6 +1005,8 @@ pub async fn get_base_session_context(
     register_upper(&ctx)?;
     register_version_fn(&ctx)?;
 
+    create_registered_views(&ctx, pending_views).await?;
+
     let catalogs = ctx.catalog_names();
     log::info!("registered catalogs: {:?}", catalogs);
 
@@ -893,7 +1047,9 @@ public:
         let parsed = parse_schema_file(file.path().to_str().unwrap());
 
         let myschema = parsed.get("public").unwrap().get("myschema").unwrap();
-        let (schema_ref, batches) = myschema.get("employees").unwrap();
+        let table = myschema.get("employees").unwrap();
+        let schema_ref = table.schema.clone();
+        let batches = &table.batches;
 
         let fields = schema_ref.fields();
         assert_eq!(fields.len(), 2);
@@ -972,12 +1128,12 @@ public:
 
         let parsed = parse_schema_file(file.path().to_str().unwrap());
         let myschema = parsed.get("public").unwrap().get("myschema").unwrap();
-        let (schema_ref, batches) = myschema.get("cfgtable").unwrap();
+        let table = myschema.get("cfgtable").unwrap();
 
-        let field = &schema_ref.fields()[0];
+        let field = &table.schema.fields()[0];
         assert!(matches!(field.data_type(), DataType::List(_)));
 
-        let batch = &batches[0];
+        let batch = &table.batches[0];
         let list = batch
             .column(0)
             .as_any()
