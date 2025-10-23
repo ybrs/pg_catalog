@@ -2787,9 +2787,9 @@ dependencies = [
 
 [[package]]
 name = "pgwire"
-version = "0.33.0"
+version = "0.34.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f58d371668e6151da16be31308989058156c01257277ea8af0f97524e87cfa31"
+checksum = "4f56a81b4fcc69016028f657a68f9b8e8a2a4b7d07684ca3298f2d3e7ff199ce"
 dependencies = [
  "async-trait",
  "aws-lc-rs",
@@ -2805,6 +2805,8 @@ dependencies = [
  "rand 0.9.2",
  "rust_decimal",
  "rustls-pki-types",
+ "serde",
+ "serde_json",
  "stringprep",
  "thiserror",
  "tokio",
@@ -2893,6 +2895,8 @@ dependencies = [
  "chrono",
  "fallible-iterator",
  "postgres-protocol",
+ "serde_core",
+ "serde_json",
 ]
 
 [[package]]
