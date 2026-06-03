@@ -857,7 +857,7 @@ pub fn register_scalar_array_to_string(ctx: &SessionContext) -> Result<()> {
         fn simplify(
             &self,
             args: Vec<Expr>,
-            _info: &dyn datafusion::logical_expr::simplify::SimplifyInfo,
+            _info: &datafusion::logical_expr::simplify::SimplifyContext,
         ) -> Result<datafusion::logical_expr::simplify::ExprSimplifyResult> {
             Ok(datafusion::logical_expr::simplify::ExprSimplifyResult::Original(args))
         }
