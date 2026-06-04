@@ -70,7 +70,7 @@ struct CapturedQuery {
 }
 
 #[derive(Clone)]
-struct CaptureStore {
+pub(crate) struct CaptureStore {
     path: PathBuf,
     entries: Arc<Mutex<Vec<CapturedQuery>>>,
 }
@@ -176,7 +176,7 @@ pub struct DatafusionBackend {
 }
 
 impl DatafusionBackend {
-    pub fn new(ctx: Arc<SessionContext>, capture: Option<CaptureStore>) -> Self {
+    pub(crate) fn new(ctx: Arc<SessionContext>, capture: Option<CaptureStore>) -> Self {
         Self {
             ctx,
             query_parser: Arc::new(NoopQueryParser::new()),
@@ -287,7 +287,7 @@ impl DatafusionBackend {
 
         let mut encoder = DataRowEncoder::new(fields.clone());
         encoder.encode_field(&Some(value)).ok()?;
-        let row = encoder.finish().ok()?;
+        let row = encoder.take_row();
         let rows = stream::iter(vec![Ok(row)]);
         Some(Response::Query(QueryResponse::new(fields, rows)))
     }
@@ -610,8 +610,7 @@ fn batch_to_row_stream(
                                 let secs = v / 1_000_000;
                                 let micros = (v % 1_000_000) as u32;
                                 let ts =
-                                    chrono::NaiveDateTime::from_timestamp_opt(secs, micros * 1_000)
-                                        .unwrap();
+                                    chrono::DateTime::from_timestamp(secs, micros * 1_000).unwrap();
                                 Some(ts.format("%Y-%m-%d %H:%M:%S%.6f").to_string())
                             };
                             encoder.encode_field(&value).unwrap();
@@ -628,11 +627,8 @@ fn batch_to_row_stream(
                                 let v = arr.value(row_idx); // milli-seconds
                                 let secs = v / 1_000;
                                 let millis = (v % 1_000) as u32;
-                                let ts = chrono::NaiveDateTime::from_timestamp_opt(
-                                    secs,
-                                    millis * 1_000_000,
-                                )
-                                .unwrap();
+                                let ts = chrono::DateTime::from_timestamp(secs, millis * 1_000_000)
+                                    .unwrap();
                                 Some(ts.format("%Y-%m-%d %H:%M:%S%.3f").to_string())
                             };
                             encoder.encode_field(&value).unwrap();
@@ -649,8 +645,7 @@ fn batch_to_row_stream(
                                 let v = arr.value(row_idx); // nano-seconds
                                 let secs = v / 1_000_000_000;
                                 let nanos = (v % 1_000_000_000) as u32;
-                                let ts =
-                                    chrono::NaiveDateTime::from_timestamp_opt(secs, nanos).unwrap();
+                                let ts = chrono::DateTime::from_timestamp(secs, nanos).unwrap();
                                 Some(ts.format("%Y-%m-%d %H:%M:%S%.9f").to_string())
                             };
                             encoder.encode_field(&value).unwrap();
@@ -698,7 +693,7 @@ fn batch_to_row_stream(
                 }
             }
         }
-        rows.push(encoder.finish());
+        rows.push(Ok(encoder.take_row()));
     }
     stream::iter(rows.into_iter())
 }
@@ -735,7 +730,7 @@ impl SimpleQueryHandler for DatafusionBackend {
 
             let mut encoder = DataRowEncoder::new(field_infos.clone());
             encoder.encode_field(&Some("read committed"))?;
-            let row = encoder.finish()?;
+            let row = encoder.take_row();
 
             let rows = stream::iter(vec![Ok(row)]);
             return Ok(vec![Response::Query(QueryResponse::new(field_infos, rows))]);
@@ -886,7 +881,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
 
             let mut encoder = DataRowEncoder::new(field_infos.clone());
             encoder.encode_field(&Some("read committed"))?;
-            let row = encoder.finish()?;
+            let row = encoder.take_row();
             let rows = stream::iter(vec![Ok(row)]);
             return Ok(Response::Query(QueryResponse::new(field_infos, rows)));
         } else if let Some(var) = Self::parse_show_variable(sql_trim) {
