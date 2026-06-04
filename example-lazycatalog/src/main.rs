@@ -13,6 +13,7 @@
 //! ```
 
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use arrow::array::{ArrayRef, StringArray};
 use arrow::datatypes::{DataType, Field, Schema};
@@ -293,7 +294,10 @@ async fn run_one(
             std::future::ready(handle_sqlite(&conn, query))
         }
     };
+    let started = Instant::now();
     let (batches, _schema) = dispatch_query(ctx, sql, None, None, handler).await?;
+    let elapsed = started.elapsed();
+
     let total_rows: usize = batches.iter().map(|b| b.num_rows()).sum();
     if total_rows == 0 {
         // An empty result set renders as a bare "++" box, which looks broken.
@@ -302,6 +306,8 @@ async fn run_one(
     } else {
         print_batches(&batches)?;
     }
+    // psql `\timing on` style: report how long the query took, in milliseconds.
+    println!("Time: {:.3} ms", elapsed.as_secs_f64() * 1000.0);
     Ok(())
 }
 
@@ -372,6 +378,7 @@ async fn main() -> anyhow::Result<()> {
     // are created, so views such as pg_tables/pg_views resolve against the lazy
     // providers and reflect the live SQLite schema too — not just the base tables.
     let source: Arc<dyn LazyCatalogSource> = Arc::new(SqliteCatalogSource { conn: conn.clone() });
+    let load_started = Instant::now();
     let (ctx, _log) = get_base_session_context_with_lazy_catalog(
         None,
         "datafusion".to_string(),
@@ -381,6 +388,10 @@ async fn main() -> anyhow::Result<()> {
         LazyCatalogOptions::all(),
     )
     .await?;
+    println!(
+        "Catalog loaded in {:.2}s",
+        load_started.elapsed().as_secs_f64()
+    );
 
     // With a SQL argument, run it once and exit; otherwise drop into the REPL.
     if args.len() >= 2 {
