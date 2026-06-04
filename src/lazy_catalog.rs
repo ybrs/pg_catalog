@@ -316,7 +316,10 @@ pub fn build_pg_database_row(def: &DatabaseDef) -> Row {
     );
     row.insert(
         "datfrozenxid".to_string(),
-        json!(def.datfrozenxid.clone().unwrap_or_else(|| "726".to_string())),
+        json!(def
+            .datfrozenxid
+            .clone()
+            .unwrap_or_else(|| "726".to_string())),
     );
     row.insert(
         "datminmxid".to_string(),
@@ -336,7 +339,10 @@ pub fn build_pg_database_row(def: &DatabaseDef) -> Row {
     );
     row.insert(
         "datlocale".to_string(),
-        def.datlocale.clone().map(|v| json!(v)).unwrap_or(Value::Null),
+        def.datlocale
+            .clone()
+            .map(|v| json!(v))
+            .unwrap_or(Value::Null),
     );
     row.insert(
         "daticurules".to_string(),

@@ -144,12 +144,7 @@ impl LazyCatalogSource for FailingSource {
     fn schemas(&self, _d: &str, _c: &mut dyn FnMut(Vec<SchemaDef>)) -> DFResult<()> {
         Ok(())
     }
-    fn relations(
-        &self,
-        _d: &str,
-        _s: &str,
-        _c: &mut dyn FnMut(Vec<RelationDef>),
-    ) -> DFResult<()> {
+    fn relations(&self, _d: &str, _s: &str, _c: &mut dyn FnMut(Vec<RelationDef>)) -> DFResult<()> {
         Ok(())
     }
     fn columns(
@@ -164,8 +159,7 @@ impl LazyCatalogSource for FailingSource {
 }
 
 /// Build a base session and install the fake source over all catalog tables.
-async fn ctx_with_fake_source(
-) -> DFResult<datafusion::execution::context::SessionContext> {
+async fn ctx_with_fake_source() -> DFResult<datafusion::execution::context::SessionContext> {
     let (ctx, _log) = get_base_session_context(
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
@@ -424,12 +418,7 @@ async fn test_lazy_catalog_error_propagates() -> DFResult<()> {
         None,
     )
     .await?;
-    register_lazy_catalog(
-        &ctx,
-        Arc::new(FailingSource),
-        LazyCatalogOptions::all(),
-    )
-    .await?;
+    register_lazy_catalog(&ctx, Arc::new(FailingSource), LazyCatalogOptions::all()).await?;
 
     // Scanning pg_database must surface the source error, not silently return rows.
     let result = ctx
@@ -514,7 +503,10 @@ async fn test_pg_tables_view_keeps_builtin_tables() -> DFResult<()> {
         "SELECT count(*) FROM pg_catalog.pg_tables WHERE tablename = 'pg_class'",
     )
     .await?;
-    assert_eq!(builtin, 1, "built-in pg_class should be listed in pg_tables");
+    assert_eq!(
+        builtin, 1,
+        "built-in pg_class should be listed in pg_tables"
+    );
 
     let user = count_rows(
         &ctx,

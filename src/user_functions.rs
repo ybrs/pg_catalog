@@ -642,6 +642,7 @@ pub fn register_scalar_pg_table_is_visible(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 fn fetch_user_by_oid(ctx: Arc<SessionContext>, oid: i64) -> Result<String> {
     block_in_place(|| {
         let ctx = ctx.clone();
@@ -674,6 +675,80 @@ fn fetch_user_by_oid(ctx: Arc<SessionContext>, oid: i64) -> Result<String> {
     })
 }
 
+/// Read an OID value out of an integer Arrow column at row `index`, widening any
+/// signed/unsigned 32/64-bit integer to `i64`. Returns `None` for NULL or a
+/// non-integer column.
+fn oid_at(column: &ArrayRef, index: usize) -> Result<Option<i64>> {
+    let scalar = ScalarValue::try_from_array(column, index)?;
+    Ok(match scalar {
+        ScalarValue::Int32(v) => v.map(i64::from),
+        ScalarValue::Int64(v) => v,
+        ScalarValue::UInt32(v) => v.map(|val| val as i64),
+        ScalarValue::UInt64(v) => v.map(|val| val as i64),
+        _ => None,
+    })
+}
+
+/// Resolve a set of role OIDs to their `rolname`s with a SINGLE catalog query.
+///
+/// This is the batched replacement for calling [`fetch_user_by_oid`] once per
+/// row: `pg_get_userbyid` over a column (e.g. `pg_tables.tableowner`) would
+/// otherwise run one `pg_authid` query per row — O(rows) catalog queries. Here
+/// the distinct OIDs are looked up together. OIDs absent from `pg_authid` are
+/// simply missing from the returned map (callers substitute a placeholder); an
+/// empty input short-circuits without querying.
+fn fetch_users_by_oids(
+    ctx: Arc<SessionContext>,
+    oids: &[i64],
+) -> Result<std::collections::HashMap<i64, String>> {
+    use std::collections::HashMap;
+
+    let mut out: HashMap<i64, String> = HashMap::new();
+    if oids.is_empty() {
+        return Ok(out);
+    }
+
+    let in_list = oids
+        .iter()
+        .map(|o| o.to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    block_in_place(|| {
+        let ctx = ctx.clone();
+        block_on(async move {
+            let query =
+                format!("SELECT oid, rolname FROM pg_catalog.pg_authid WHERE oid IN ({in_list})");
+            let df = ctx.sql(&query).await?;
+            let batches = df.collect().await?;
+            for batch in batches {
+                if batch.num_rows() == 0 {
+                    continue;
+                }
+                let oid_col = batch.column(0);
+                let name_col = batch
+                    .column(1)
+                    .as_any()
+                    .downcast_ref::<arrow::array::StringArray>()
+                    .ok_or_else(|| {
+                        DataFusionError::Execution(
+                            "pg_catalog.pg_authid.rolname must be text".to_string(),
+                        )
+                    })?;
+                for i in 0..batch.num_rows() {
+                    if name_col.is_null(i) {
+                        continue;
+                    }
+                    if let Some(oid) = oid_at(oid_col, i)? {
+                        out.insert(oid, name_col.value(i).to_string());
+                    }
+                }
+            }
+            Ok::<_, DataFusionError>(out)
+        })
+    })
+}
+
 struct PgGetUserById {
     sig: Signature,
     ctx: Arc<SessionContext>,
@@ -695,6 +770,7 @@ impl PgGetUserById {
         }
     }
 
+    #[allow(dead_code)]
     fn lookup(&self, oid: i64) -> Result<String> {
         fetch_user_by_oid(self.ctx.clone(), oid)
     }
@@ -741,8 +817,12 @@ impl ScalarUDFImpl for PgGetUserById {
         let arrays = ColumnarValue::values_to_arrays(&args.args)?;
         let arr = &arrays[0];
         let len = arr.len();
-        let mut builder = StringBuilder::with_capacity(len, 16 * len.max(1));
 
+        // Decode every row's OID first, then resolve the DISTINCT ones with a
+        // single catalog query. The previous implementation looked each row up
+        // individually, turning pg_get_userbyid(<column>) into one pg_authid
+        // query per row (e.g. ~400ms for `SELECT * FROM pg_tables`).
+        let mut oids: Vec<Option<i64>> = Vec::with_capacity(len);
         for i in 0..len {
             let scalar = ScalarValue::try_from_array(arr, i)?;
             let oid = match scalar {
@@ -755,12 +835,25 @@ impl ScalarUDFImpl for PgGetUserById {
                     return plan_err!("pg_get_userbyid expects an OID argument");
                 }
             };
+            oids.push(oid);
+        }
 
-            if let Some(oid) = oid {
-                let name = self.lookup(oid)?;
-                builder.append_value(&name);
-            } else {
-                builder.append_null();
+        let mut distinct: Vec<i64> = oids.iter().flatten().copied().collect();
+        distinct.sort_unstable();
+        distinct.dedup();
+        let names = fetch_users_by_oids(self.ctx.clone(), &distinct)?;
+
+        let mut builder = StringBuilder::with_capacity(len, 16 * len.max(1));
+        for oid in oids {
+            match oid {
+                Some(oid) => {
+                    let name = names
+                        .get(&oid)
+                        .cloned()
+                        .unwrap_or_else(|| format!("unknown (OID={oid})"));
+                    builder.append_value(&name);
+                }
+                None => builder.append_null(),
             }
         }
 

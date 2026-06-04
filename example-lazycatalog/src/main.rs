@@ -220,7 +220,11 @@ fn handle_sqlite(
             "INSERT" | "UPDATE" | "DELETE" => format!("OK ({affected} row(s) affected)"),
             _ => "OK".to_string(),
         };
-        let schema = Arc::new(Schema::new(vec![Field::new("status", DataType::Utf8, true)]));
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "status",
+            DataType::Utf8,
+            true,
+        )]));
         let batch = RecordBatch::try_new(
             schema.clone(),
             vec![Arc::new(StringArray::from(vec![status])) as ArrayRef],
