@@ -934,8 +934,10 @@ impl ExtendedQueryHandler for DatafusionBackend {
             Ok(v) => v,
             Err(e) => {
                 if let Some(c) = &self.capture {
-                    let params =
-                        decode_parameters(&portal.parameters, &concrete_param_types(&portal.statement.parameter_types));
+                    let params = decode_parameters(
+                        &portal.parameters,
+                        &concrete_param_types(&portal.statement.parameter_types),
+                    );
                     c.append(CapturedQuery {
                         query: portal.statement.statement.clone(),
                         parameters: params,
@@ -957,7 +959,10 @@ impl ExtendedQueryHandler for DatafusionBackend {
         let field_infos = Arc::new(batch_to_field_info(&batch, &portal.result_column_format)?);
         let rows = batch_to_row_stream(&batch, field_infos.clone());
         if let Some(c) = &self.capture {
-            let params = decode_parameters(&portal.parameters, &concrete_param_types(&portal.statement.parameter_types));
+            let params = decode_parameters(
+                &portal.parameters,
+                &concrete_param_types(&portal.statement.parameter_types),
+            );
             c.append(CapturedQuery {
                 query: portal.statement.statement.clone(),
                 parameters: params,

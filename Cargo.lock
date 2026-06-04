@@ -1754,12 +1754,12 @@ dependencies = [
 [[package]]
 name = "df_subquery_udf"
 version = "0.1.0"
-source = "git+https://github.com/ybrs/corr-subq-udf-rs?branch=main#f5b88a9394b8c5639b638586d92f71e8c2ab08d7"
+source = "git+https://github.com/ybrs/corr-subq-udf-rs?branch=main#a1377b73da5edb5fd2eb4ced718db935e5842ee0"
 dependencies = [
  "arrow",
  "datafusion",
  "futures",
- "sqlparser 0.58.0",
+ "sqlparser 0.62.0",
  "tokio",
 ]
 
@@ -1846,7 +1846,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3300,7 +3300,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -3576,16 +3576,6 @@ dependencies = [
 
 [[package]]
 name = "sqlparser"
-version = "0.58.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec4b661c54b1e4b603b37873a18c59920e4c51ea8ea2cf527d925424dbd4437c"
-dependencies = [
- "log",
- "recursive",
-]
-
-[[package]]
-name = "sqlparser"
 version = "0.61.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dbf5ea8d4d7c808e1af1cbabebca9a2abe603bcefc22294c5b95018d53200cb7"
@@ -3726,7 +3716,7 @@ dependencies = [
  "getrandom 0.4.2",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4201,7 +4191,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4484,9 +4474,9 @@ dependencies = [
 
 [[package]]
 name = "yoke"
-version = "0.8.2"
+version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "abe8c5fda708d9ca3df187cae8bfb9ceda00dd96231bed36e445a1a48e66f9ca"
+checksum = "709fe23a0424b6a435d82152b1bd3fdfb0833487d5fa90d05d42762a9891fef5"
 dependencies = [
  "stable_deref_trait",
  "yoke-derive",
