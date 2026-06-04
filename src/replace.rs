@@ -20,6 +20,82 @@ use sqlparser::dialect::PostgreSqlDialect;
 use sqlparser::parser::Parser;
 use sqlparser::tokenizer::Span;
 
+/// Force every FROM-clause table alias to render with an explicit `AS` keyword.
+///
+/// sqlparser 0.62 added `TableAlias::explicit`, so an alias parsed without `AS`
+/// (e.g. `FROM pg_class c`) now round-trips back *without* `AS`. Earlier
+/// versions always emitted `AS`, and our rewrites canonicalise to that form, so
+/// we normalise aliases back to explicit `AS` after parsing.
+///
+/// CTE name aliases (`WITH c AS (...)`) are intentionally left untouched: their
+/// `AS` is rendered by the CTE itself, so forcing it here would duplicate it.
+fn force_explicit_aliases(stmts: &mut [Statement]) {
+    fn fix_alias(alias: &mut Option<TableAlias>) {
+        if let Some(a) = alias {
+            a.explicit = true;
+        }
+    }
+
+    fn walk_factor(tf: &mut TableFactor) {
+        match tf {
+            TableFactor::Table { alias, .. } => fix_alias(alias),
+            TableFactor::Derived {
+                alias, subquery, ..
+            } => {
+                fix_alias(alias);
+                walk_query(subquery);
+            }
+            TableFactor::NestedJoin {
+                table_with_joins,
+                alias,
+                ..
+            } => {
+                fix_alias(alias);
+                walk_twj(table_with_joins);
+            }
+            _ => {}
+        }
+    }
+
+    fn walk_twj(twj: &mut TableWithJoins) {
+        walk_factor(&mut twj.relation);
+        for join in &mut twj.joins {
+            walk_factor(&mut join.relation);
+        }
+    }
+
+    fn walk_setexpr(se: &mut SetExpr) {
+        match se {
+            SetExpr::Select(select) => {
+                for twj in &mut select.from {
+                    walk_twj(twj);
+                }
+            }
+            SetExpr::Query(q) => walk_query(q),
+            SetExpr::SetOperation { left, right, .. } => {
+                walk_setexpr(left);
+                walk_setexpr(right);
+            }
+            _ => {}
+        }
+    }
+
+    fn walk_query(q: &mut Query) {
+        if let Some(with) = &mut q.with {
+            for cte in &mut with.cte_tables {
+                walk_query(&mut cte.query); // body only, never the CTE name alias
+            }
+        }
+        walk_setexpr(&mut q.body);
+    }
+
+    for stmt in stmts {
+        if let Statement::Query(q) = stmt {
+            walk_query(q);
+        }
+    }
+}
+
 /* ---------- UDF ---------- */
 /// Register the minimal `regclass` UDF used by some rewrites.
 ///
@@ -184,6 +260,7 @@ pub fn replace_regclass(sql: &str) -> Result<String> {
         ControlFlow::Continue(())
     });
 
+    force_explicit_aliases(&mut statements);
     Ok(statements
         .into_iter()
         .map(|s| s.to_string())
@@ -289,6 +366,7 @@ pub fn rewrite_pg_custom_operator(sql: &str) -> Result<String> {
         ControlFlow::<()>::Continue(())
     });
 
+    force_explicit_aliases(&mut statements);
     Ok(statements
         .into_iter()
         .map(|s| s.to_string())
@@ -699,6 +777,7 @@ pub fn rewrite_oid_cast(sql: &str) -> Result<String> {
                                 kind: CastKind::DoubleColon,
                                 expr: expr.clone(),
                                 data_type: DataType::BigInt(None),
+                                array: false,
                                 format: None,
                             };
                         } else {
@@ -1057,6 +1136,7 @@ pub fn strip_default_collate(sql: &str) -> Result<String> {
         ControlFlow::Continue(())
     });
 
+    force_explicit_aliases(&mut statements);
     Ok(statements
         .into_iter()
         .map(|s| s.to_string())
@@ -1230,6 +1310,7 @@ pub fn rewrite_array_subquery(sql: &str) -> Result<String> {
                                         span: Span::empty(),
                                     })),
                                     data_type: DataType::Text,
+                                    array: false,
                                     format: None,
                                 };
                                 rewritten_any = true;
@@ -1531,6 +1612,7 @@ pub fn rewrite_brace_array_literal(sql: &str) -> Result<String> {
         return Ok(sql.to_owned());
     }
 
+    force_explicit_aliases(&mut stmts);
     Ok(stmts
         .into_iter()
         .map(|s| s.to_string())
@@ -1638,8 +1720,10 @@ pub fn alias_subquery_tables(sql: &str) -> Result<String> {
             }
             if alias.is_none() {
                 *alias = Some(TableAlias {
+                    explicit: true,
                     name: Ident::new(format!("subq{}_t", counter)),
                     columns: vec![],
+                    at: None,
                 });
                 *counter += 1;
             }
