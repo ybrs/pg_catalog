@@ -23,7 +23,7 @@ use pgwire::api::results::{
 use pgwire::api::stmt::{NoopQueryParser, StoredStatement};
 use pgwire::api::store::PortalStore;
 use pgwire::api::{ClientInfo, ClientPortalStore, NoopHandler, PgWireServerHandlers, Type};
-use pgwire::error::{PgWireError, PgWireResult};
+use pgwire::error::{ErrorInfo, PgWireError, PgWireResult};
 use pgwire::messages::data::DataRow;
 use pgwire::messages::PgWireBackendMessage;
 use pgwire::tokio::process_socket;
@@ -44,6 +44,7 @@ use arrow::datatypes::{DataType, Field, Schema, TimeUnit};
 
 use datafusion::{
     common::ScalarValue,
+    error::DataFusionError,
     logical_expr::{create_udf, ColumnarValue, Volatility},
 };
 
@@ -59,6 +60,42 @@ use tokio::net::TcpStream;
 
 /// PostgreSQL version reported to clients during startup and via `SHOW server_version`.
 pub const SERVER_VERSION: &str = "17.4.0";
+
+/// If `text` is DataFusion's unknown-function planning error
+/// (`Invalid function '<name>'...`), return the offending function name.
+///
+/// DataFusion reports a call to a function it cannot resolve as
+/// `Error during planning: Invalid function '<name>'.\nDid you mean '<other>'?`.
+/// We recognize that shape so it can be reported to clients as PostgreSQL would.
+fn unknown_function_name(text: &str) -> Option<String> {
+    let marker = "Invalid function '";
+    let start = text.find(marker)? + marker.len();
+    let rest = &text[start..];
+    let end = rest.find('\'')?;
+    Some(rest[..end].to_string())
+}
+
+/// Translate a [`DataFusionError`] into a [`PgWireError`] carrying a
+/// PostgreSQL-compatible SQLSTATE for the error classes we can recognize.
+///
+/// A bare `PgWireError::ApiError` is rendered to the client with SQLSTATE
+/// `XX000` (internal error), which is wrong for a user-level mistake like
+/// calling a function that does not exist: PostgreSQL reports that as `42883`
+/// (`undefined_function`) with a `... does not exist` message, and clients (and
+/// the view-validation tests) key on exactly that. Map the unknown-function case
+/// to the matching [`ErrorInfo`]; every other error keeps the previous generic
+/// `ApiError` mapping so its message reaches the client unchanged.
+fn into_pgwire_error(e: DataFusionError) -> PgWireError {
+    if let Some(name) = unknown_function_name(&e.to_string()) {
+        let info = ErrorInfo::new(
+            "ERROR".to_string(),
+            "42883".to_string(),
+            format!("function {name}() does not exist"),
+        );
+        return PgWireError::UserError(Box::new(info));
+    }
+    PgWireError::ApiError(Box::new(e))
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 struct CapturedQuery {
@@ -787,7 +824,7 @@ impl SimpleQueryHandler for DatafusionBackend {
                         error_details: Some(e.to_string()),
                     });
                 }
-                return Err(PgWireError::ApiError(Box::new(e)));
+                return Err(into_pgwire_error(e));
             }
         };
 
@@ -941,7 +978,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
                         error_details: Some(e.to_string()),
                     });
                 }
-                return Err(PgWireError::ApiError(Box::new(e)));
+                return Err(into_pgwire_error(e));
             }
         };
 
@@ -1020,7 +1057,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
 
         let (results, schema) = execute_sql(&self.ctx, stmt.statement.as_str(), None, None)
             .await
-            .map_err(|e| PgWireError::ApiError(Box::new(e)))?;
+            .map_err(into_pgwire_error)?;
 
         log::debug!("do_describe_statement {:?}", schema);
 
@@ -1090,7 +1127,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
             Some(concrete_param_types(&portal.statement.parameter_types)),
         )
         .await
-        .map_err(|e| PgWireError::ApiError(Box::new(e)))?;
+        .map_err(into_pgwire_error)?;
 
         // println!("do_describe_portal {:?}", schema);
 

@@ -5,7 +5,7 @@ use datafusion::catalog::Session;
 use datafusion::datasource::provider::TableProviderFilterPushDown;
 use datafusion::datasource::TableProvider;
 use datafusion::datasource::TableType;
-use datafusion::error::{DataFusionError, Result as DFResult};
+use datafusion::error::Result as DFResult;
 use datafusion::execution::context::SessionContext;
 use datafusion::logical_expr::dml::InsertOp;
 use datafusion::logical_expr::Expr;
