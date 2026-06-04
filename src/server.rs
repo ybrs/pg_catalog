@@ -474,6 +474,18 @@ fn batches_to_json_rows(batches: &[RecordBatch]) -> Vec<BTreeMap<String, serde_j
     rows
 }
 
+/// pgwire 0.40 represents an unspecified prepared-statement parameter type
+/// (protocol OID 0) as `None`. Our query path and pgwire's
+/// `DescribeStatementResponse` both work with concrete `Type`s, so resolve any
+/// unspecified entry to `Type::UNKNOWN` — matching the pre-0.40 behaviour where
+/// pgwire handed us concrete types directly.
+fn concrete_param_types(types: &[Option<Type>]) -> Vec<Type> {
+    types
+        .iter()
+        .map(|t| t.clone().unwrap_or(Type::UNKNOWN))
+        .collect()
+}
+
 fn decode_parameters(params: &[Option<Bytes>], types: &[Type]) -> Vec<Option<serde_json::Value>> {
     params
         .iter()
@@ -894,7 +906,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
             &self.ctx,
             portal.statement.statement.as_str(),
             Some(portal.parameters.clone()),
-            Some(portal.statement.parameter_types.clone()),
+            Some(concrete_param_types(&portal.statement.parameter_types)),
             |ctx, sql, params, types| async move {
                 let lsql = sql.to_lowercase();
                 if lsql.contains("from users") {
@@ -923,7 +935,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
             Err(e) => {
                 if let Some(c) = &self.capture {
                     let params =
-                        decode_parameters(&portal.parameters, &portal.statement.parameter_types);
+                        decode_parameters(&portal.parameters, &concrete_param_types(&portal.statement.parameter_types));
                     c.append(CapturedQuery {
                         query: portal.statement.statement.clone(),
                         parameters: params,
@@ -945,7 +957,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
         let field_infos = Arc::new(batch_to_field_info(&batch, &portal.result_column_format)?);
         let rows = batch_to_row_stream(&batch, field_infos.clone());
         if let Some(c) = &self.capture {
-            let params = decode_parameters(&portal.parameters, &portal.statement.parameter_types);
+            let params = decode_parameters(&portal.parameters, &concrete_param_types(&portal.statement.parameter_types));
             c.append(CapturedQuery {
                 query: portal.statement.statement.clone(),
                 parameters: params,
@@ -1017,7 +1029,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
         }
 
         let batch = &results[0];
-        let param_types = stmt.parameter_types.clone();
+        let param_types = concrete_param_types(&stmt.parameter_types);
         let fields = batch_to_field_info(batch, &Format::UnifiedBinary)?;
         log::debug!("return from do_describe {:?}", fields);
         Ok(DescribeStatementResponse::new(param_types, fields))
@@ -1075,7 +1087,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
             &self.ctx,
             portal.statement.statement.as_str(),
             Some(portal.parameters.clone()),
-            Some(portal.statement.parameter_types.clone()),
+            Some(concrete_param_types(&portal.statement.parameter_types)),
         )
         .await
         .map_err(|e| PgWireError::ApiError(Box::new(e)))?;

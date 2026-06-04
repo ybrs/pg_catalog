@@ -52,7 +52,7 @@ async fn test_get_base_session_context_embedded() -> datafusion::error::Result<(
 fn create_zip(path: &Path) {
     let file = File::create(path).unwrap();
     let mut zip = ZipWriter::new(file);
-    let options = FileOptions::default();
+    let options: FileOptions<()> = FileOptions::default();
     for entry in std::fs::read_dir("pg_catalog_data/pg_schema").unwrap() {
         let path = entry.unwrap().path();
         if path.extension().and_then(|s| s.to_str()) != Some("yaml") {
