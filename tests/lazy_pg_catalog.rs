@@ -4,12 +4,181 @@ use std::sync::{
 };
 
 use arrow::array::Array;
+use datafusion::error::{DataFusionError, Result as DFResult};
 use datafusion_pg_catalog::{
-    get_base_session_context, register_user_database_with_callback, LazyDatabaseRow,
+    get_base_session_context, register_lazy_catalog, register_user_database_with_callback,
+    ColumnSpec, DatabaseDef, LazyCatalogOptions, LazyCatalogSource, LazyDatabaseRow, RelationDef,
+    SchemaDef,
 };
 
+/// Collect a single-column `StringArray` result into a `Vec<String>`.
+async fn string_column(
+    ctx: &datafusion::execution::context::SessionContext,
+    sql: &str,
+) -> DFResult<Vec<String>> {
+    let batches = ctx.sql(sql).await?.collect().await?;
+    let mut out = Vec::new();
+    for b in &batches {
+        let arr = b
+            .column(0)
+            .as_any()
+            .downcast_ref::<arrow::array::StringArray>()
+            .expect("expected a Utf8 column");
+        for i in 0..arr.len() {
+            if arr.is_valid(i) {
+                out.push(arr.value(i).to_string());
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Collect a single-column `Int32Array` result into a `Vec<i32>`.
+async fn int_column(
+    ctx: &datafusion::execution::context::SessionContext,
+    sql: &str,
+) -> DFResult<Vec<i32>> {
+    let batches = ctx.sql(sql).await?.collect().await?;
+    let mut out = Vec::new();
+    for b in &batches {
+        let arr = b
+            .column(0)
+            .as_any()
+            .downcast_ref::<arrow::array::Int32Array>()
+            .expect("expected an Int32 column");
+        for i in 0..arr.len() {
+            if arr.is_valid(i) {
+                out.push(arr.value(i));
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Build a [`DatabaseDef`] with an explicit OID for tests.
+fn db(name: &str, oid: i32) -> DatabaseDef {
+    let mut row = LazyDatabaseRow::new(name, 10);
+    row.oid = Some(oid);
+    row
+}
+
+/// A fully in-memory [`LazyCatalogSource`] — no database, engine, or connection
+/// is involved, which proves the contract is backend-neutral.
+///
+/// It models two databases, each with one `public` schema holding one relation
+/// with columns. OIDs are fixed and clear of the built-in range so cross-table
+/// joins resolve and merges with built-ins are unambiguous.
+struct FakeSource;
+
+// OIDs used by the fake source; all well above the built-in ceiling (~13135).
+const SCHEMA1_OID: i32 = 50100;
+const SCHEMA2_OID: i32 = 50200;
+const USERS_OID: i32 = 60100;
+const USERS_TYPE_OID: i32 = 60101;
+const EVENTS_OID: i32 = 60200;
+const EVENTS_TYPE_OID: i32 = 60201;
+
+impl LazyCatalogSource for FakeSource {
+    fn databases(&self, callback: &mut dyn FnMut(Vec<DatabaseDef>)) -> DFResult<()> {
+        callback(vec![db("lazydb1", 50001), db("lazydb2", 50002)]);
+        Ok(())
+    }
+
+    fn schemas(&self, database: &str, callback: &mut dyn FnMut(Vec<SchemaDef>)) -> DFResult<()> {
+        let schema = match database {
+            "lazydb1" => SchemaDef::new(SCHEMA1_OID, "public"),
+            "lazydb2" => SchemaDef::new(SCHEMA2_OID, "public"),
+            _ => return Ok(()),
+        };
+        callback(vec![schema]);
+        Ok(())
+    }
+
+    fn relations(
+        &self,
+        database: &str,
+        schema: &str,
+        callback: &mut dyn FnMut(Vec<RelationDef>),
+    ) -> DFResult<()> {
+        if schema != "public" {
+            return Ok(());
+        }
+        let rel = match database {
+            "lazydb1" => RelationDef::table(USERS_OID, USERS_TYPE_OID, "users"),
+            "lazydb2" => RelationDef::table(EVENTS_OID, EVENTS_TYPE_OID, "events"),
+            _ => return Ok(()),
+        };
+        callback(vec![rel]);
+        Ok(())
+    }
+
+    fn columns(
+        &self,
+        _database: &str,
+        _schema: &str,
+        relation: &str,
+        callback: &mut dyn FnMut(Vec<ColumnSpec>),
+    ) -> DFResult<()> {
+        let cols = match relation {
+            // id int4 NOT NULL, name text NULL
+            "users" => vec![
+                ColumnSpec::new("id", 23, false),
+                ColumnSpec::new("name", 25, true),
+            ],
+            // ts int8 NULL
+            "events" => vec![ColumnSpec::new("ts", 20, true)],
+            _ => return Ok(()),
+        };
+        callback(cols);
+        Ok(())
+    }
+}
+
+/// A source whose `databases()` always errors, used to prove error propagation.
+struct FailingSource;
+
+impl LazyCatalogSource for FailingSource {
+    fn databases(&self, _callback: &mut dyn FnMut(Vec<DatabaseDef>)) -> DFResult<()> {
+        Err(DataFusionError::Execution("boom from source".to_string()))
+    }
+    fn schemas(&self, _d: &str, _c: &mut dyn FnMut(Vec<SchemaDef>)) -> DFResult<()> {
+        Ok(())
+    }
+    fn relations(
+        &self,
+        _d: &str,
+        _s: &str,
+        _c: &mut dyn FnMut(Vec<RelationDef>),
+    ) -> DFResult<()> {
+        Ok(())
+    }
+    fn columns(
+        &self,
+        _d: &str,
+        _s: &str,
+        _r: &str,
+        _c: &mut dyn FnMut(Vec<ColumnSpec>),
+    ) -> DFResult<()> {
+        Ok(())
+    }
+}
+
+/// Build a base session and install the fake source over all catalog tables.
+async fn ctx_with_fake_source(
+) -> DFResult<datafusion::execution::context::SessionContext> {
+    let (ctx, _log) = get_base_session_context(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
+        None,
+    )
+    .await?;
+    register_lazy_catalog(&ctx, Arc::new(FakeSource), LazyCatalogOptions::all()).await?;
+    Ok(ctx)
+}
+
 #[tokio::test]
-async fn test_lazy_register_pg_database_on_scan() -> datafusion::error::Result<()> {
+async fn test_lazy_register_pg_database_on_scan() -> DFResult<()> {
     let (ctx, _log) = get_base_session_context(
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
@@ -53,7 +222,7 @@ async fn test_lazy_register_pg_database_on_scan() -> datafusion::error::Result<(
 }
 
 #[tokio::test]
-async fn test_lazy_replaces_pg_database_rows() -> datafusion::error::Result<()> {
+async fn test_lazy_merges_pg_database_rows() -> DFResult<()> {
     let (ctx, _log) = get_base_session_context(
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
@@ -62,18 +231,21 @@ async fn test_lazy_replaces_pg_database_rows() -> datafusion::error::Result<()> 
     )
     .await?;
 
-    // Precondition: static dataset contains three rows: postgres, template0, template1
-    let pre_df = ctx
-        .sql("SELECT datname FROM pg_catalog.pg_database ORDER BY datname")
-        .await?;
-    let pre_batches = pre_df.collect().await?;
-    let pre_rows: usize = pre_batches.iter().map(|b| b.num_rows()).sum();
+    // Precondition: static dataset contains the built-in databases.
+    let pre_rows: usize = ctx
+        .sql("SELECT datname FROM pg_catalog.pg_database")
+        .await?
+        .collect()
+        .await?
+        .iter()
+        .map(|b| b.num_rows())
+        .sum();
     assert!(
         pre_rows >= 3,
         "expected at least the static databases before registration"
     );
 
-    // Register a callback that returns only two custom databases.
+    // Register a callback that returns two custom databases.
     let fetcher = || {
         vec![
             LazyDatabaseRow::new("only_lazy_1", 27735),
@@ -82,28 +254,197 @@ async fn test_lazy_replaces_pg_database_rows() -> datafusion::error::Result<()> 
     };
     register_user_database_with_callback(&ctx, Arc::new(fetcher)).await?;
 
-    // After registration, results should come exclusively from the callback.
-    let post_df = ctx
-        .sql("SELECT datname FROM pg_catalog.pg_database ORDER BY datname")
-        .await?;
-    let post_batches = post_df.collect().await?;
-    let mut names: Vec<String> = Vec::new();
-    for b in &post_batches {
-        let arr = b
-            .column(0)
-            .as_any()
-            .downcast_ref::<arrow::array::StringArray>()
-            .unwrap();
-        for i in 0..arr.len() {
-            if arr.is_valid(i) {
-                names.push(arr.value(i).to_string());
-            }
-        }
-    }
-    assert_eq!(
-        names,
-        vec!["only_lazy_1".to_string(), "only_lazy_2".to_string()]
-    );
+    // After registration, results MERGE built-ins with the callback rows.
+    let names = string_column(
+        &ctx,
+        "SELECT datname FROM pg_catalog.pg_database ORDER BY datname",
+    )
+    .await?;
 
+    // Built-in rows survive ...
+    for builtin in ["postgres", "template0", "template1"] {
+        assert!(
+            names.contains(&builtin.to_string()),
+            "built-in database {builtin} should still be present, got {names:?}"
+        );
+    }
+    // ... alongside the callback rows.
+    for lazy in ["only_lazy_1", "only_lazy_2"] {
+        assert!(
+            names.contains(&lazy.to_string()),
+            "lazy database {lazy} should be present, got {names:?}"
+        );
+    }
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_lazy_catalog_joins_resolve() -> DFResult<()> {
+    let ctx = ctx_with_fake_source().await?;
+
+    // pg_class ⋈ pg_namespace ⋈ pg_attribute for the user relation 'users'.
+    let cols = string_column(
+        &ctx,
+        "SELECT a.attname FROM pg_catalog.pg_class c \
+         JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace \
+         JOIN pg_catalog.pg_attribute a ON a.attrelid = c.oid \
+         WHERE c.relname = 'users' AND n.nspname = 'public' \
+         ORDER BY a.attnum",
+    )
+    .await?;
+    assert_eq!(cols, vec!["id".to_string(), "name".to_string()]);
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_lazy_catalog_builtins_survive() -> DFResult<()> {
+    let ctx = ctx_with_fake_source().await?;
+
+    // Built-in pg_type row for int4 (oid 23) survives the merge.
+    let oids = int_column(
+        &ctx,
+        "SELECT oid FROM pg_catalog.pg_type WHERE typname = 'int4'",
+    )
+    .await?;
+    assert!(oids.contains(&23), "expected int4 oid 23, got {oids:?}");
+
+    // The catalog's self-describing pg_class row is still present.
+    let self_rows = string_column(
+        &ctx,
+        "SELECT relname FROM pg_catalog.pg_class WHERE relname = 'pg_class'",
+    )
+    .await?;
+    assert_eq!(self_rows, vec!["pg_class".to_string()]);
+
+    // And the user relation is present alongside the built-ins.
+    let users = string_column(
+        &ctx,
+        "SELECT relname FROM pg_catalog.pg_class WHERE relname = 'users'",
+    )
+    .await?;
+    assert_eq!(users, vec!["users".to_string()]);
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_lazy_catalog_oid_passthrough() -> DFResult<()> {
+    let ctx = ctx_with_fake_source().await?;
+
+    // The oid the source returns for 'users' appears verbatim in pg_class.oid ...
+    let class_oid = int_column(
+        &ctx,
+        "SELECT oid FROM pg_catalog.pg_class WHERE relname = 'users'",
+    )
+    .await?;
+    assert_eq!(class_oid, vec![USERS_OID]);
+
+    // ... and is used verbatim as pg_attribute.attrelid.
+    let attrelids = int_column(
+        &ctx,
+        "SELECT DISTINCT attrelid FROM pg_catalog.pg_attribute \
+         WHERE attrelid = 60100",
+    )
+    .await?;
+    assert_eq!(attrelids, vec![USERS_OID]);
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_lazy_catalog_information_schema_columns() -> DFResult<()> {
+    let ctx = ctx_with_fake_source().await?;
+
+    let batches = ctx
+        .sql(
+            "SELECT column_name, ordinal_position, data_type, is_nullable \
+             FROM information_schema.columns \
+             WHERE table_name = 'users' AND table_schema = 'public' \
+             ORDER BY ordinal_position",
+        )
+        .await?
+        .collect()
+        .await?;
+
+    assert_eq!(batches.iter().map(|b| b.num_rows()).sum::<usize>(), 2);
+    let b = &batches[0];
+    let name = b
+        .column(0)
+        .as_any()
+        .downcast_ref::<arrow::array::StringArray>()
+        .unwrap();
+    let pos = b
+        .column(1)
+        .as_any()
+        .downcast_ref::<arrow::array::Int32Array>()
+        .unwrap();
+    let dt = b
+        .column(2)
+        .as_any()
+        .downcast_ref::<arrow::array::StringArray>()
+        .unwrap();
+    let nullable = b
+        .column(3)
+        .as_any()
+        .downcast_ref::<arrow::array::StringArray>()
+        .unwrap();
+
+    assert_eq!(name.value(0), "id");
+    assert_eq!(pos.value(0), 1);
+    assert_eq!(dt.value(0), "integer");
+    assert_eq!(nullable.value(0), "NO");
+
+    assert_eq!(name.value(1), "name");
+    assert_eq!(pos.value(1), 2);
+    assert_eq!(dt.value(1), "text");
+    assert_eq!(nullable.value(1), "YES");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_lazy_catalog_projection_and_filter() -> DFResult<()> {
+    let ctx = ctx_with_fake_source().await?;
+
+    // Filter pushes a relname predicate; projection selects a single column.
+    let names = string_column(
+        &ctx,
+        "SELECT relname FROM pg_catalog.pg_class \
+         WHERE relname IN ('users','events') ORDER BY relname",
+    )
+    .await?;
+    assert_eq!(names, vec!["events".to_string(), "users".to_string()]);
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_lazy_catalog_error_propagates() -> DFResult<()> {
+    let (ctx, _log) = get_base_session_context(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
+        None,
+    )
+    .await?;
+    register_lazy_catalog(
+        &ctx,
+        Arc::new(FailingSource),
+        LazyCatalogOptions::all(),
+    )
+    .await?;
+
+    // Scanning pg_database must surface the source error, not silently return rows.
+    let result = ctx
+        .sql("SELECT datname FROM pg_catalog.pg_database")
+        .await?
+        .collect()
+        .await;
+    assert!(
+        result.is_err(),
+        "expected the source error to propagate to the client"
+    );
+    let msg = format!("{}", result.unwrap_err());
+    assert!(
+        msg.contains("boom from source"),
+        "expected the source error message, got: {msg}"
+    );
     Ok(())
 }

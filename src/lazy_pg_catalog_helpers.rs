@@ -11,6 +11,11 @@ use datafusion::logical_expr::dml::InsertOp;
 use datafusion::logical_expr::Expr;
 use datafusion::physical_plan::ExecutionPlan;
 
+use crate::lazy_catalog::{
+    register_lazy_catalog, CatalogTable, ColumnSpec, DatabaseDef, LazyCatalogOptions,
+    LazyCatalogSource, RelationDef, SchemaDef,
+};
+
 /// A table provider wrapper that, on scan, invokes a user-supplied callback
 /// to fetch database names and ensures they are registered in pg_database
 /// before delegating to the underlying table.
@@ -29,6 +34,13 @@ impl std::fmt::Debug for LazyDatabaseProvider {
 }
 
 impl LazyDatabaseProvider {
+    /// Construct a legacy single-table lazy provider over `inner`.
+    ///
+    /// Retained for backward compatibility. `register_user_database_with_callback`
+    /// now delegates to the generic [`crate::lazy_catalog::register_lazy_catalog`]
+    /// mechanism (which merges with built-in rows), so this constructor is no
+    /// longer wired into the default path.
+    #[allow(dead_code)]
     fn new(
         inner: Arc<dyn TableProvider>,
         fetcher: Arc<dyn Fn() -> Vec<LazyDatabaseRow> + Send + Sync>,
@@ -248,32 +260,73 @@ impl LazyDatabaseRow {
     }
 }
 
+/// A [`LazyCatalogSource`] that only contributes databases, adapting the legacy
+/// `Fn() -> Vec<LazyDatabaseRow>` callback to the generic lazy catalog trait.
+///
+/// Schemas/relations/columns are intentionally empty: this source exists solely
+/// to back `pg_catalog.pg_database`.
+struct DatabaseOnlySource {
+    /// The user-supplied callback producing database rows.
+    fetch: Arc<dyn Fn() -> Vec<LazyDatabaseRow> + Send + Sync>,
+}
+
+impl LazyCatalogSource for DatabaseOnlySource {
+    /// Yield the databases produced by the wrapped callback.
+    fn databases(&self, callback: &mut dyn FnMut(Vec<DatabaseDef>)) -> DFResult<()> {
+        callback((self.fetch)());
+        Ok(())
+    }
+
+    /// No schemas are contributed by this source.
+    fn schemas(&self, _database: &str, _callback: &mut dyn FnMut(Vec<SchemaDef>)) -> DFResult<()> {
+        Ok(())
+    }
+
+    /// No relations are contributed by this source.
+    fn relations(
+        &self,
+        _database: &str,
+        _schema: &str,
+        _callback: &mut dyn FnMut(Vec<RelationDef>),
+    ) -> DFResult<()> {
+        Ok(())
+    }
+
+    /// No columns are contributed by this source.
+    fn columns(
+        &self,
+        _database: &str,
+        _schema: &str,
+        _relation: &str,
+        _callback: &mut dyn FnMut(Vec<ColumnSpec>),
+    ) -> DFResult<()> {
+        Ok(())
+    }
+}
+
 /// Register a lazy callback so that queries scanning `pg_catalog.pg_database` will
 /// invoke `fetch_databases` to populate rows just-in-time.
 ///
 /// The callback returns rich `LazyDatabaseRow` entries; only `datname` and
 /// `datdba` are mandatory; missing fields default to PostgreSQL-compatible
 /// values (e.g., `encoding=6` UTF8, `datistemplate=false`, `datallowconn=true`).
+///
+/// This is now a thin shim over [`register_lazy_catalog`]: the callback rows are
+/// **merged** with the built-in `pg_database` rows (postgres/template0/template1)
+/// rather than replacing them, and they are re-pulled fresh on every scan.
 pub async fn register_user_database_with_callback(
     ctx: &SessionContext,
     fetch_databases: Arc<dyn Fn() -> Vec<LazyDatabaseRow> + Send + Sync>,
 ) -> DFResult<()> {
-    // Replace the provider for pg_catalog.pg_database to source solely from the callback.
-    let state = ctx.state();
-    let options = state.config_options();
-    let default_catalog = &options.catalog.default_catalog;
-
-    if let Some(catalog) = ctx.catalog(default_catalog) {
-        if let Some(schema) = catalog.schema("pg_catalog") {
-            if let Some(current) = schema.table("pg_database").await? {
-                let wrapped: Arc<dyn TableProvider> =
-                    Arc::new(LazyDatabaseProvider::new(current.clone(), fetch_databases));
-                let _ = schema.deregister_table("pg_database");
-                let _ = schema.register_table("pg_database".to_string(), wrapped);
-            }
-        }
-    }
-    Ok(())
+    let source: Arc<dyn LazyCatalogSource> = Arc::new(DatabaseOnlySource {
+        fetch: fetch_databases,
+    });
+    register_lazy_catalog(
+        ctx,
+        source,
+        LazyCatalogOptions::with_tables(vec![CatalogTable::PgDatabase]),
+    )
+    .await
 }
 
 /// Insert a single database row into `pg_catalog.pg_database` if missing.

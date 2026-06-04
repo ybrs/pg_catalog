@@ -609,169 +609,34 @@ fn build_table(def: TableDef) -> ParsedTable {
     let is_view = matches!(table_type.as_deref(), Some("view"));
     let system_cols = ["xmin", "xmax", "ctid", "tableoid", "cmin", "cmax"];
 
-    let (schema_ref, batches) = if let Some(rows) = rows {
-        let mut cols: Vec<Vec<serde_json::Value>> = vec![vec![]; fields.len()];
-        for row in rows {
-            for (i, field) in fields.iter().enumerate() {
-                cols[i].push(
-                    row.get(field.name())
-                        .cloned()
-                        .unwrap_or(serde_json::Value::Null),
-                );
+    // System catalogs expose a handful of pseudo-columns (xmin, ctid, ...). Add
+    // them to the field set once, up front, so both the populated and the empty
+    // paths agree on the resulting schema.
+    if is_system_catalog {
+        for col in system_cols {
+            if !fields.iter().any(|f| f.name() == col) {
+                fields.push(Field::new(col, DataType::Int32, true));
             }
         }
+    }
 
-        let mut arrays = fields
-            .iter()
-            .zip(cols.into_iter())
-            .map(|(field, col_data)| {
-                use arrow::array::*;
-                use arrow::datatypes::DataType;
-                let array: ArrayRef = match field.data_type() {
-                    DataType::Utf8 => Arc::new(StringArray::from(
-                        col_data
-                            .into_iter()
-                            .map(|v| v.as_str().map(|s| s.to_string()))
-                            .collect::<Vec<_>>(),
-                    )),
-                    DataType::Int32 => Arc::new(Int32Array::from(
-                        col_data
-                            .into_iter()
-                            .map(|v| v.as_i64().map(|i| i as i32))
-                            .collect::<Vec<_>>(),
-                    )),
-                    DataType::Int64 => Arc::new(Int64Array::from(
-                        col_data.into_iter().map(|v| v.as_i64()).collect::<Vec<_>>(),
-                    )),
-                    DataType::Boolean => Arc::new(BooleanArray::from(
-                        col_data
-                            .into_iter()
-                            .map(|v| v.as_bool())
-                            .collect::<Vec<_>>(),
-                    )),
-                    DataType::Binary => {
-                        let mut builder = BinaryBuilder::new();
-                        for v in col_data {
-                            match v.as_str() {
-                                Some(s) => builder.append_value(s.as_bytes()),
-                                None => builder.append_null(),
-                            }
-                        }
-                        Arc::new(builder.finish())
-                    }
-                    DataType::List(inner) if inner.data_type() == &DataType::Utf8 => {
-                        let mut builder = ListBuilder::new(StringBuilder::new());
-                        for v in col_data {
-                            if let Some(items) = v.as_array() {
-                                for item in items {
-                                    match item.as_str() {
-                                        Some(s) => builder.values().append_value(s),
-                                        None => builder.values().append_null(),
-                                    }
-                                }
-                                builder.append(true);
-                            } else if v.is_null() {
-                                builder.append(false);
-                            } else {
-                                builder.values().append_value(v.to_string());
-                                builder.append(true);
-                            }
-                        }
-                        Arc::new(builder.finish())
-                    }
-                    DataType::List(inner) if inner.data_type() == &DataType::Int64 => {
-                        let mut builder = ListBuilder::new(Int64Builder::new());
-                        for v in col_data {
-                            if let Some(items) = v.as_array() {
-                                for item in items {
-                                    match item.as_i64() {
-                                        Some(num) => builder.values().append_value(num),
-                                        None => builder.values().append_null(),
-                                    }
-                                }
-                                builder.append(true);
-                            } else if let Some(s) = v.as_str() {
-                                for part in s.split_whitespace() {
-                                    match part.parse::<i64>() {
-                                        Ok(num) => builder.values().append_value(num),
-                                        Err(_) => builder.values().append_null(),
-                                    }
-                                }
-                                builder.append(true);
-                            } else if v.is_null() {
-                                builder.append(false);
-                            } else {
-                                builder.append(false);
-                            }
-                        }
-                        Arc::new(builder.finish())
-                    }
-                    DataType::List(inner) if inner.data_type() == &DataType::Int32 => {
-                        let mut builder = ListBuilder::new(Int32Builder::new());
-                        for v in col_data {
-                            if let Some(items) = v.as_array() {
-                                for item in items {
-                                    match item.as_i64() {
-                                        Some(num) => builder.values().append_value(num as i32),
-                                        None => builder.values().append_null(),
-                                    }
-                                }
-                                builder.append(true);
-                            } else if let Some(s) = v.as_str() {
-                                for part in s.split_whitespace() {
-                                    match part.parse::<i32>() {
-                                        Ok(num) => builder.values().append_value(num),
-                                        Err(_) => builder.values().append_null(),
-                                    }
-                                }
-                                builder.append(true);
-                            } else if v.is_null() {
-                                builder.append(false);
-                            } else {
-                                builder.append(false);
-                            }
-                        }
-                        Arc::new(builder.finish())
-                    }
+    let schema_ref = Arc::new(Schema::new(fields.clone()));
 
-                    _ => Arc::new(StringArray::from(
-                        col_data
-                            .into_iter()
-                            .map(|v| Some(v.to_string()))
-                            .collect::<Vec<_>>(),
-                    )),
-                };
-                array
-            })
-            .collect::<Vec<_>>();
-
+    let batches = if let Some(mut rows) = rows {
+        // The pseudo-columns never appear in the YAML rows, so seed each row with
+        // the historical constant (value 1) before materializing the batch.
         if is_system_catalog {
-            let row_count = arrays.first().map(|a| a.len()).unwrap_or(0);
-            for col in system_cols {
-                if !fields.iter().any(|f| f.name() == col) {
-                    fields.push(Field::new(col, DataType::Int32, true));
-                    let data = vec![Some(1); row_count];
-                    arrays.push(Arc::new(Int32Array::from(data)) as ArrayRef);
+            for row in rows.iter_mut() {
+                for col in system_cols {
+                    row.entry(col.to_string())
+                        .or_insert(serde_json::Value::from(1));
                 }
             }
         }
-
-        let schema_ref = Arc::new(Schema::new(fields.clone()));
-        (
-            schema_ref.clone(),
-            vec![RecordBatch::try_new(schema_ref, arrays).unwrap()],
-        )
+        vec![rows_to_record_batch(&schema_ref, &rows)
+            .expect("failed to build record batch from YAML-defined rows")]
     } else {
-        if is_system_catalog {
-            for col in system_cols {
-                if !fields.iter().any(|f| f.name() == col) {
-                    fields.push(Field::new(col, DataType::Int32, true));
-                }
-            }
-        }
-
-        let schema_ref = Arc::new(Schema::new(fields.clone()));
-        (schema_ref.clone(), vec![RecordBatch::new_empty(schema_ref)])
+        vec![RecordBatch::new_empty(schema_ref.clone())]
     };
 
     ParsedTable {
@@ -780,6 +645,157 @@ fn build_table(def: TableDef) -> ParsedTable {
         view_sql,
         is_view,
     }
+}
+
+/// Materialize `rows` into a single Arrow [`RecordBatch`] shaped by `schema`.
+///
+/// Each row is a `column name -> JSON value` map (the shape produced both by the
+/// YAML loader and by the lazy catalog row-builders). For every field in
+/// `schema` the matching value is pulled from each row (missing keys become
+/// NULL) and converted according to the field's Arrow `DataType`. This is the
+/// single source of truth for turning catalog rows into Arrow data, shared by
+/// the static YAML path ([`build_table`]) and the lazy provider path.
+pub fn rows_to_record_batch(
+    schema: &SchemaRef,
+    rows: &[BTreeMap<String, serde_json::Value>],
+) -> Result<RecordBatch, DataFusionError> {
+    use arrow::array::*;
+
+    let fields = schema.fields();
+    let mut cols: Vec<Vec<serde_json::Value>> = vec![vec![]; fields.len()];
+    for row in rows {
+        for (i, field) in fields.iter().enumerate() {
+            cols[i].push(
+                row.get(field.name())
+                    .cloned()
+                    .unwrap_or(serde_json::Value::Null),
+            );
+        }
+    }
+
+    let arrays = fields
+        .iter()
+        .zip(cols.into_iter())
+        .map(|(field, col_data)| {
+            let array: ArrayRef = match field.data_type() {
+                DataType::Utf8 => Arc::new(StringArray::from(
+                    col_data
+                        .into_iter()
+                        .map(|v| v.as_str().map(|s| s.to_string()))
+                        .collect::<Vec<_>>(),
+                )),
+                DataType::Int32 => Arc::new(Int32Array::from(
+                    col_data
+                        .into_iter()
+                        .map(|v| v.as_i64().map(|i| i as i32))
+                        .collect::<Vec<_>>(),
+                )),
+                DataType::Int64 => Arc::new(Int64Array::from(
+                    col_data.into_iter().map(|v| v.as_i64()).collect::<Vec<_>>(),
+                )),
+                DataType::Boolean => Arc::new(BooleanArray::from(
+                    col_data
+                        .into_iter()
+                        .map(|v| v.as_bool())
+                        .collect::<Vec<_>>(),
+                )),
+                DataType::Binary => {
+                    let mut builder = BinaryBuilder::new();
+                    for v in col_data {
+                        match v.as_str() {
+                            Some(s) => builder.append_value(s.as_bytes()),
+                            None => builder.append_null(),
+                        }
+                    }
+                    Arc::new(builder.finish())
+                }
+                DataType::List(inner) if inner.data_type() == &DataType::Utf8 => {
+                    let mut builder = ListBuilder::new(StringBuilder::new());
+                    for v in col_data {
+                        if let Some(items) = v.as_array() {
+                            for item in items {
+                                match item.as_str() {
+                                    Some(s) => builder.values().append_value(s),
+                                    None => builder.values().append_null(),
+                                }
+                            }
+                            builder.append(true);
+                        } else if v.is_null() {
+                            builder.append(false);
+                        } else {
+                            builder.values().append_value(v.to_string());
+                            builder.append(true);
+                        }
+                    }
+                    Arc::new(builder.finish())
+                }
+                DataType::List(inner) if inner.data_type() == &DataType::Int64 => {
+                    let mut builder = ListBuilder::new(Int64Builder::new());
+                    for v in col_data {
+                        if let Some(items) = v.as_array() {
+                            for item in items {
+                                match item.as_i64() {
+                                    Some(num) => builder.values().append_value(num),
+                                    None => builder.values().append_null(),
+                                }
+                            }
+                            builder.append(true);
+                        } else if let Some(s) = v.as_str() {
+                            for part in s.split_whitespace() {
+                                match part.parse::<i64>() {
+                                    Ok(num) => builder.values().append_value(num),
+                                    Err(_) => builder.values().append_null(),
+                                }
+                            }
+                            builder.append(true);
+                        } else if v.is_null() {
+                            builder.append(false);
+                        } else {
+                            builder.append(false);
+                        }
+                    }
+                    Arc::new(builder.finish())
+                }
+                DataType::List(inner) if inner.data_type() == &DataType::Int32 => {
+                    let mut builder = ListBuilder::new(Int32Builder::new());
+                    for v in col_data {
+                        if let Some(items) = v.as_array() {
+                            for item in items {
+                                match item.as_i64() {
+                                    Some(num) => builder.values().append_value(num as i32),
+                                    None => builder.values().append_null(),
+                                }
+                            }
+                            builder.append(true);
+                        } else if let Some(s) = v.as_str() {
+                            for part in s.split_whitespace() {
+                                match part.parse::<i32>() {
+                                    Ok(num) => builder.values().append_value(num),
+                                    Err(_) => builder.values().append_null(),
+                                }
+                            }
+                            builder.append(true);
+                        } else if v.is_null() {
+                            builder.append(false);
+                        } else {
+                            builder.append(false);
+                        }
+                    }
+                    Arc::new(builder.finish())
+                }
+
+                _ => Arc::new(StringArray::from(
+                    col_data
+                        .into_iter()
+                        .map(|v| Some(v.to_string()))
+                        .collect::<Vec<_>>(),
+                )),
+            };
+            array
+        })
+        .collect::<Vec<_>>();
+
+    RecordBatch::try_new(schema.clone(), arrays).map_err(DataFusionError::from)
 }
 
 async fn register_catalogs_from_schemas(

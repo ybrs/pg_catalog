@@ -54,7 +54,7 @@ fn take_schemas_from_registry(database_name: &str) -> Vec<String> {
         .unwrap_or_default()
 }
 
-fn map_type_to_oid(t: &str) -> i32 {
+pub(crate) fn map_type_to_oid(t: &str) -> i32 {
     match t.to_lowercase().as_str() {
         "int" | "integer" | "int4" => 23,
         "bigint" | "int8" => 20,
@@ -63,7 +63,25 @@ fn map_type_to_oid(t: &str) -> i32 {
     }
 }
 
-fn normalize_data_type_name(t: &str) -> (String, String) {
+/// Map a PostgreSQL type OID back to its `(data_type, udt_name)` pair as used in
+/// `information_schema.columns`.
+///
+/// This is the inverse of [`map_type_to_oid`] / [`normalize_data_type_name`] and
+/// lets the lazy catalog path render `information_schema.columns` rows when the
+/// source only hands us a `pg_type` OID for each column. Unknown OIDs fall back
+/// to `text`, mirroring the permissive default used elsewhere in this module.
+pub(crate) fn oid_to_type_names(oid: i32) -> (String, String) {
+    match oid {
+        23 => ("integer".to_string(), "int4".to_string()),
+        20 => ("bigint".to_string(), "int8".to_string()),
+        16 => ("boolean".to_string(), "bool".to_string()),
+        1043 => ("character varying".to_string(), "varchar".to_string()),
+        25 => ("text".to_string(), "text".to_string()),
+        _ => ("text".to_string(), "text".to_string()),
+    }
+}
+
+pub(crate) fn normalize_data_type_name(t: &str) -> (String, String) {
     let lower = t.to_lowercase();
     match lower.as_str() {
         "int" | "integer" | "int4" => ("integer".to_string(), "int4".to_string()),
