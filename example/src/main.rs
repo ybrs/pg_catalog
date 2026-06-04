@@ -16,7 +16,7 @@ async fn main() -> anyhow::Result<()> {
     }
     let sql = args[1].clone();
 
-    let (ctx, _log) = get_base_session_context(None, "datafusion".to_string(), "public".to_string()).await?;
+    let (ctx, _log) = get_base_session_context(None, "datafusion".to_string(), "public".to_string(), None).await?;
 
     let conn = Arc::new(Mutex::new(Connection::open_in_memory()?));
     {
