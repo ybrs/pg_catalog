@@ -6,9 +6,9 @@ use std::sync::{
 use arrow::array::Array;
 use datafusion::error::{DataFusionError, Result as DFResult};
 use datafusion_pg_catalog::{
-    get_base_session_context, register_lazy_catalog, register_user_database_with_callback,
-    ColumnSpec, DatabaseDef, LazyCatalogOptions, LazyCatalogSource, LazyDatabaseRow, RelationDef,
-    SchemaDef,
+    get_base_session_context, get_base_session_context_with_lazy_catalog, register_lazy_catalog,
+    register_user_database_with_callback, ColumnSpec, DatabaseDef, LazyCatalogOptions,
+    LazyCatalogSource, LazyDatabaseRow, RelationDef, SchemaDef,
 };
 
 /// Collect a single-column `StringArray` result into a `Vec<String>`.
@@ -445,6 +445,119 @@ async fn test_lazy_catalog_error_propagates() -> DFResult<()> {
     assert!(
         msg.contains("boom from source"),
         "expected the source error message, got: {msg}"
+    );
+    Ok(())
+}
+
+/// Count the rows returned by `sql` (expects a single Int64 `count(*)` column).
+async fn count_rows(
+    ctx: &datafusion::execution::context::SessionContext,
+    sql: &str,
+) -> DFResult<i64> {
+    let batches = ctx.sql(sql).await?.collect().await?;
+    let arr = batches[0]
+        .column(0)
+        .as_any()
+        .downcast_ref::<arrow::array::Int64Array>()
+        .expect("expected an Int64 count column");
+    Ok(arr.value(0))
+}
+
+#[tokio::test]
+async fn test_pg_tables_view_reflects_lazy_tables() -> DFResult<()> {
+    // The `pg_tables` VIEW is `SELECT ... FROM pg_class ... WHERE relkind IN ('r','p')`.
+    // Registering the lazy source BEFORE the views are created binds the view's
+    // plan to the lazy pg_class, so the source's relations show up through it.
+    let (ctx, _log) = get_base_session_context_with_lazy_catalog(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
+        None,
+        Arc::new(FakeSource),
+        LazyCatalogOptions::all(),
+    )
+    .await?;
+
+    let names = string_column(
+        &ctx,
+        "SELECT tablename FROM pg_catalog.pg_tables WHERE tablename IN ('users','events') ORDER BY tablename",
+    )
+    .await?;
+    assert_eq!(names, vec!["events".to_string(), "users".to_string()]);
+
+    // The owning schema is resolved through the join to pg_namespace.
+    let schemas = string_column(
+        &ctx,
+        "SELECT DISTINCT schemaname FROM pg_catalog.pg_tables WHERE tablename = 'users'",
+    )
+    .await?;
+    assert_eq!(schemas, vec!["public".to_string()]);
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_pg_tables_view_keeps_builtin_tables() -> DFResult<()> {
+    // Merging with built-ins must hold through the view too: a built-in ordinary
+    // table (pg_class itself, relkind 'r') is still listed alongside user tables.
+    let (ctx, _log) = get_base_session_context_with_lazy_catalog(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
+        None,
+        Arc::new(FakeSource),
+        LazyCatalogOptions::all(),
+    )
+    .await?;
+
+    let builtin = count_rows(
+        &ctx,
+        "SELECT count(*) FROM pg_catalog.pg_tables WHERE tablename = 'pg_class'",
+    )
+    .await?;
+    assert_eq!(builtin, 1, "built-in pg_class should be listed in pg_tables");
+
+    let user = count_rows(
+        &ctx,
+        "SELECT count(*) FROM pg_catalog.pg_tables WHERE tablename = 'users'",
+    )
+    .await?;
+    assert_eq!(user, 1, "lazy user table should be listed in pg_tables");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_lazy_registered_after_session_is_blind_to_views() -> DFResult<()> {
+    // Control test documenting WHY get_base_session_context_with_lazy_catalog
+    // exists: a view (pg_tables) is planned during session construction and binds
+    // to whatever pg_class provider exists THEN. Registering the lazy source
+    // afterwards rebinds the base table but NOT the already-created view, so the
+    // view cannot see the lazy tables.
+    let (ctx, _log) = get_base_session_context(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
+        None,
+    )
+    .await?;
+    register_lazy_catalog(&ctx, Arc::new(FakeSource), LazyCatalogOptions::all()).await?;
+
+    // The base table reflects the lazy rows ...
+    let base = count_rows(
+        &ctx,
+        "SELECT count(*) FROM pg_catalog.pg_class WHERE relname = 'users'",
+    )
+    .await?;
+    assert_eq!(base, 1, "base pg_class should see the lazy table");
+
+    // ... but the view, bound earlier, does not.
+    let via_view = count_rows(
+        &ctx,
+        "SELECT count(*) FROM pg_catalog.pg_tables WHERE tablename = 'users'",
+    )
+    .await?;
+    assert_eq!(
+        via_view, 0,
+        "view bound before lazy registration must not see lazy tables"
     );
     Ok(())
 }

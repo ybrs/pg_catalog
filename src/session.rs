@@ -59,6 +59,7 @@ static SCHEMA_ZIP: &[u8] = include_bytes!(concat!(
     "/pg_catalog_data/postgres-schema-nightly.zip"
 ));
 use crate::db_table::{map_pg_type, ObservableMemTable, ScanTrace};
+use crate::lazy_catalog::{register_lazy_catalog, LazyCatalogOptions, LazyCatalogSource};
 use crate::replace_any_group_by::rewrite_group_by_for_any;
 use datafusion::common::config::{ConfigExtension, ExtensionOptions};
 use df_subquery_udf::rewrite_query;
@@ -168,7 +169,8 @@ struct ViewToRegister {
     sql: String,
 }
 
-const VIEW_ONLY_TABLES: &[(&str, &str)] = &[("pg_catalog", "pg_views")];
+const VIEW_ONLY_TABLES: &[(&str, &str)] =
+    &[("pg_catalog", "pg_views"), ("pg_catalog", "pg_tables")];
 
 fn should_register_as_view(schema_name: &str, table_name: &str) -> bool {
     VIEW_ONLY_TABLES
@@ -948,6 +950,56 @@ pub async fn get_base_session_context(
     default_schema: String,
     current_schemas_getter: Option<Arc<dyn Fn(&SessionContext) -> Vec<String> + Send + Sync>>,
 ) -> datafusion::error::Result<(SessionContext, Arc<Mutex<Vec<ScanTrace>>>)> {
+    build_base_session_context(
+        schema_path,
+        default_catalog,
+        default_schema,
+        current_schemas_getter,
+        None,
+    )
+    .await
+}
+
+/// Like [`get_base_session_context`], but installs a lazy catalog `source` (over
+/// `options`) **before** the catalog views are created.
+///
+/// This matters because catalog views (those in `VIEW_ONLY_TABLES`, currently
+/// `pg_views` and `pg_tables`) are planned during session construction and bind
+/// to the table providers that exist at that moment. Registering the lazy source
+/// here — before view creation — makes those views resolve against the lazy
+/// providers, so they reflect the source's rows.
+/// Calling [`register_lazy_catalog`] *after* `get_base_session_context` only
+/// rebinds the base tables; the already-created views keep pointing at the
+/// original providers and never see the lazy rows.
+pub async fn get_base_session_context_with_lazy_catalog(
+    schema_path: Option<&str>,
+    default_catalog: String,
+    default_schema: String,
+    current_schemas_getter: Option<Arc<dyn Fn(&SessionContext) -> Vec<String> + Send + Sync>>,
+    source: Arc<dyn LazyCatalogSource>,
+    options: LazyCatalogOptions,
+) -> datafusion::error::Result<(SessionContext, Arc<Mutex<Vec<ScanTrace>>>)> {
+    build_base_session_context(
+        schema_path,
+        default_catalog,
+        default_schema,
+        current_schemas_getter,
+        Some((source, options)),
+    )
+    .await
+}
+
+/// Shared implementation behind [`get_base_session_context`] and
+/// [`get_base_session_context_with_lazy_catalog`]. When `lazy_catalog` is
+/// `Some`, the source is registered after the base tables are built but before
+/// the catalog views are created.
+async fn build_base_session_context(
+    schema_path: Option<&str>,
+    default_catalog: String,
+    default_schema: String,
+    current_schemas_getter: Option<Arc<dyn Fn(&SessionContext) -> Vec<String> + Send + Sync>>,
+    lazy_catalog: Option<(Arc<dyn LazyCatalogSource>, LazyCatalogOptions)>,
+) -> datafusion::error::Result<(SessionContext, Arc<Mutex<Vec<ScanTrace>>>)> {
     let _current_schemas_getter: Arc<dyn Fn(&SessionContext) -> Vec<String> + Send + Sync> =
         current_schemas_getter.unwrap_or_else(|| Arc::new(default_current_schemas));
 
@@ -1020,6 +1072,12 @@ pub async fn get_base_session_context(
     register_encode(&ctx)?;
     register_upper(&ctx)?;
     register_version_fn(&ctx)?;
+
+    // Install the lazy catalog providers BEFORE the views are created, so the
+    // catalog views plan against the lazy providers and reflect their rows.
+    if let Some((source, options)) = lazy_catalog {
+        register_lazy_catalog(&ctx, source, options).await?;
+    }
 
     create_registered_views(&ctx, pending_views).await?;
 
