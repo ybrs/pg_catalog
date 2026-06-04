@@ -22,9 +22,42 @@ use datafusion::logical_expr::{
 use datafusion::logical_expr::{Expr, TableType};
 use datafusion::prelude::SessionContext;
 use datafusion::prelude::*;
-use futures::executor::block_on;
+use once_cell::sync::Lazy;
+use std::future::Future;
 use std::sync::Arc;
-use tokio::task::block_in_place;
+
+/// A dedicated multi-threaded runtime used to drive the small synchronous
+/// catalog lookups some scalar UDFs perform (e.g. `pg_get_userbyid`, `oid(text)`).
+///
+/// These UDFs are synchronous but must run a catalog SQL query, and they may be
+/// invoked from within ANY caller runtime: a current-thread runtime (as
+/// `#[tokio::test]` uses) where `tokio::task::block_in_place` would panic, or a
+/// worker of a multi-threaded runtime where re-entering `block_on` would
+/// deadlock. Driving the query on this separate runtime — and blocking the
+/// caller on a plain std channel — is safe regardless of the caller's flavor.
+static CATALOG_QUERY_RT: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
+    tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_all()
+        .build()
+        .expect("failed to build the pg_catalog query runtime")
+});
+
+/// Drive `future` to completion from a synchronous context, regardless of the
+/// caller's tokio runtime flavor. The future runs on [`CATALOG_QUERY_RT`] while
+/// the calling thread blocks on a std channel until it finishes.
+fn run_catalog_query<F, T>(future: F) -> T
+where
+    F: Future<Output = T> + Send + 'static,
+    T: Send + 'static,
+{
+    let (tx, rx) = std::sync::mpsc::sync_channel(1);
+    CATALOG_QUERY_RT.spawn(async move {
+        let _ = tx.send(future.await);
+    });
+    rx.recv()
+        .expect("pg_catalog query task ended without producing a result")
+}
 
 #[derive(Debug)]
 struct RegClassOidTable {
@@ -109,9 +142,10 @@ pub fn register_scalar_regclass_oid(ctx: &SessionContext) -> Result<()> {
                     name.replace('\'', "''")
                 );
 
-                let opt: Option<i64> = block_in_place(|| {
-                    block_on(async {
-                        let batches = ctx_arc.sql(&sql).await?.collect().await?;
+                let opt: Option<i64> = {
+                    let ctx = ctx_arc.clone();
+                    run_catalog_query(async move {
+                        let batches = ctx.sql(&sql).await?.collect().await?;
                         if batches.is_empty() || batches[0].num_rows() == 0 {
                             Ok::<Option<i64>, DataFusionError>(None)
                         } else {
@@ -135,7 +169,7 @@ pub fn register_scalar_regclass_oid(ctx: &SessionContext) -> Result<()> {
                             }
                         }
                     })
-                })?;
+                }?;
 
                 Ok(ColumnarValue::Scalar(ScalarValue::Int64(opt)))
             }
@@ -155,9 +189,10 @@ pub fn register_scalar_regclass_oid(ctx: &SessionContext) -> Result<()> {
                         "SELECT oid FROM pg_catalog.pg_class WHERE relname = '{}'",
                         name.replace('\'', "''")
                     );
-                    let opt: Option<i64> = block_in_place(|| {
-                        block_on(async {
-                            let batches = ctx_arc.sql(&sql).await?.collect().await?;
+                    let opt: Option<i64> = {
+                        let ctx = ctx_arc.clone();
+                        run_catalog_query(async move {
+                            let batches = ctx.sql(&sql).await?.collect().await?;
                             if batches.is_empty() || batches[0].num_rows() == 0 {
                                 Ok::<Option<i64>, DataFusionError>(None)
                             } else {
@@ -181,7 +216,7 @@ pub fn register_scalar_regclass_oid(ctx: &SessionContext) -> Result<()> {
                                 }
                             }
                         })
-                    })?;
+                    }?;
                     if let Some(v) = opt {
                         builder.append_value(v);
                     } else {
@@ -644,9 +679,8 @@ pub fn register_scalar_pg_table_is_visible(ctx: &SessionContext) -> Result<()> {
 
 #[allow(dead_code)]
 fn fetch_user_by_oid(ctx: Arc<SessionContext>, oid: i64) -> Result<String> {
-    block_in_place(|| {
-        let ctx = ctx.clone();
-        block_on(async move {
+    run_catalog_query(async move {
+        {
             let query = format!(
                 "SELECT rolname FROM pg_catalog.pg_authid WHERE oid = {} LIMIT 1",
                 oid
@@ -671,7 +705,7 @@ fn fetch_user_by_oid(ctx: Arc<SessionContext>, oid: i64) -> Result<String> {
                 }
             }
             Ok(format!("unknown (OID={oid})"))
-        })
+        }
     })
 }
 
@@ -714,38 +748,35 @@ fn fetch_users_by_oids(
         .collect::<Vec<_>>()
         .join(", ");
 
-    block_in_place(|| {
-        let ctx = ctx.clone();
-        block_on(async move {
-            let query =
-                format!("SELECT oid, rolname FROM pg_catalog.pg_authid WHERE oid IN ({in_list})");
-            let df = ctx.sql(&query).await?;
-            let batches = df.collect().await?;
-            for batch in batches {
-                if batch.num_rows() == 0 {
+    run_catalog_query(async move {
+        let query =
+            format!("SELECT oid, rolname FROM pg_catalog.pg_authid WHERE oid IN ({in_list})");
+        let df = ctx.sql(&query).await?;
+        let batches = df.collect().await?;
+        for batch in batches {
+            if batch.num_rows() == 0 {
+                continue;
+            }
+            let oid_col = batch.column(0);
+            let name_col = batch
+                .column(1)
+                .as_any()
+                .downcast_ref::<arrow::array::StringArray>()
+                .ok_or_else(|| {
+                    DataFusionError::Execution(
+                        "pg_catalog.pg_authid.rolname must be text".to_string(),
+                    )
+                })?;
+            for i in 0..batch.num_rows() {
+                if name_col.is_null(i) {
                     continue;
                 }
-                let oid_col = batch.column(0);
-                let name_col = batch
-                    .column(1)
-                    .as_any()
-                    .downcast_ref::<arrow::array::StringArray>()
-                    .ok_or_else(|| {
-                        DataFusionError::Execution(
-                            "pg_catalog.pg_authid.rolname must be text".to_string(),
-                        )
-                    })?;
-                for i in 0..batch.num_rows() {
-                    if name_col.is_null(i) {
-                        continue;
-                    }
-                    if let Some(oid) = oid_at(oid_col, i)? {
-                        out.insert(oid, name_col.value(i).to_string());
-                    }
+                if let Some(oid) = oid_at(oid_col, i)? {
+                    out.insert(oid, name_col.value(i).to_string());
                 }
             }
-            Ok::<_, DataFusionError>(out)
-        })
+        }
+        Ok::<_, DataFusionError>(out)
     })
 }
 

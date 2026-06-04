@@ -2,7 +2,7 @@ from pathlib import Path
 
 import psycopg
 
-from tests.test_functional import CONN_STR, server  # noqa: F401
+from test_functional import CONN_STR, server  # noqa: F401
 from validate_pg_catalog_views import (
     ViewDefinition,
     collect_view_definitions,
