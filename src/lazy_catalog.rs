@@ -15,8 +15,14 @@
 //! never invents, derives, caches, or remembers them. Keeping OIDs stable and
 //! consistent across calls (so cross-table joins resolve) is the source's job.
 
+use std::collections::HashSet;
 use std::sync::Arc;
 
+use arrow::array::{
+    Array, ArrayRef, BooleanArray, Int32Array, Int64Array, LargeStringArray, StringArray,
+    StringViewArray,
+};
+use arrow::compute::filter_record_batch;
 use arrow::datatypes::SchemaRef;
 use arrow::record_batch::RecordBatch;
 use async_trait::async_trait;
@@ -229,6 +235,33 @@ impl CatalogTable {
             CatalogTable::InformationSchemaSchemata => ("information_schema", "schemata"),
         }
     }
+
+    /// The columns that identify one row of this catalog table, used to merge
+    /// user rows with built-in rows: a user row replaces any built-in row sharing
+    /// the same key, and two user rows sharing a key are a source error.
+    ///
+    /// Keys are scoped so that legitimately distinct objects never collide:
+    /// relations/types/attributes are keyed by their *parent OID* plus name
+    /// (e.g. `(relnamespace, relname)`), so the same name under two different
+    /// schemas is not a duplicate. `pg_namespace` is keyed by `oid` (its true
+    /// identity) because the flattened catalog intentionally allows the same
+    /// schema name — e.g. `public` — under several databases.
+    pub fn key_columns(&self) -> &'static [&'static str] {
+        match self {
+            CatalogTable::PgDatabase => &["datname"],
+            CatalogTable::PgNamespace => &["oid"],
+            CatalogTable::PgClass => &["relnamespace", "relname"],
+            CatalogTable::PgType => &["typnamespace", "typname"],
+            CatalogTable::PgAttribute => &["attrelid", "attname"],
+            CatalogTable::InformationSchemaTables => {
+                &["table_catalog", "table_schema", "table_name"]
+            }
+            CatalogTable::InformationSchemaColumns => {
+                &["table_catalog", "table_schema", "table_name", "column_name"]
+            }
+            CatalogTable::InformationSchemaSchemata => &["catalog_name", "schema_name"],
+        }
+    }
 }
 
 // --- internal helpers that drive the source's callbacks -------------------
@@ -285,10 +318,7 @@ fn acl_value(acl: &Option<Vec<String>>) -> Value {
 /// optional fields with PostgreSQL-compatible defaults.
 pub fn build_pg_database_row(def: &DatabaseDef) -> Row {
     let mut row = Row::new();
-    row.insert(
-        "oid".to_string(),
-        def.oid.map(|v| json!(v)).unwrap_or(Value::Null),
-    );
+    row.insert("oid".to_string(), json!(def.oid));
     row.insert("datname".to_string(), json!(def.datname));
     row.insert("datdba".to_string(), json!(def.datdba));
     row.insert("encoding".to_string(), json!(def.encoding.unwrap_or(6)));
@@ -558,6 +588,83 @@ pub fn build_rows_for(table: CatalogTable, source: &dyn LazyCatalogSource) -> DF
     Ok(rows)
 }
 
+/// A NULL placeholder used when building merge keys, distinct from any real
+/// value's text so a present empty string never collides with absence.
+const NULL_KEY: &str = "\u{0}NULL\u{0}";
+
+/// Stringify a JSON value for use as one component of a merge key.
+fn json_key_component(value: Option<&Value>) -> String {
+    match value {
+        Some(Value::Number(n)) => n.to_string(),
+        Some(Value::String(s)) => s.clone(),
+        Some(Value::Bool(b)) => b.to_string(),
+        Some(Value::Null) | None => NULL_KEY.to_string(),
+        Some(other) => other.to_string(),
+    }
+}
+
+/// Stringify the value at row `i` of an Arrow array for use as a merge-key
+/// component. Key columns are always OIDs (int) or names (text); anything else
+/// yields a sentinel that cannot match a user key, so such a built-in row is
+/// simply kept.
+fn array_key_component(array: &ArrayRef, i: usize) -> String {
+    if array.is_null(i) {
+        return NULL_KEY.to_string();
+    }
+    if let Some(a) = array.as_any().downcast_ref::<Int32Array>() {
+        return a.value(i).to_string();
+    }
+    if let Some(a) = array.as_any().downcast_ref::<Int64Array>() {
+        return a.value(i).to_string();
+    }
+    if let Some(a) = array.as_any().downcast_ref::<StringArray>() {
+        return a.value(i).to_string();
+    }
+    if let Some(a) = array.as_any().downcast_ref::<LargeStringArray>() {
+        return a.value(i).to_string();
+    }
+    if let Some(a) = array.as_any().downcast_ref::<StringViewArray>() {
+        return a.value(i).to_string();
+    }
+    "\u{0}UNMATCHABLE\u{0}".to_string()
+}
+
+/// Build the merge key of a user `Row` from `key_cols`.
+fn user_row_key(row: &Row, key_cols: &[&str]) -> Vec<String> {
+    key_cols
+        .iter()
+        .map(|c| json_key_component(row.get(*c)))
+        .collect()
+}
+
+/// Return a copy of `batch` with every row whose merge key is present in
+/// `user_keys` removed, so user rows win over the built-in rows they shadow.
+/// When `user_keys` is empty the batch is returned unchanged.
+fn drop_builtin_rows_shadowed_by_users(
+    batch: &RecordBatch,
+    schema: &SchemaRef,
+    key_cols: &[&str],
+    user_keys: &HashSet<Vec<String>>,
+) -> DFResult<RecordBatch> {
+    if user_keys.is_empty() {
+        return Ok(batch.clone());
+    }
+    let key_arrays = key_cols
+        .iter()
+        .map(|c| Ok(batch.column(schema.index_of(c)?).clone()))
+        .collect::<DFResult<Vec<ArrayRef>>>()?;
+    let keep: Vec<bool> = (0..batch.num_rows())
+        .map(|i| {
+            let key: Vec<String> = key_arrays
+                .iter()
+                .map(|a| array_key_component(a, i))
+                .collect();
+            !user_keys.contains(&key)
+        })
+        .collect();
+    Ok(filter_record_batch(batch, &BooleanArray::from(keep))?)
+}
+
 /// A [`TableProvider`] for one catalog table. On every scan it asks the source
 /// for that table's user rows (here and now — nothing is cached), converts them
 /// to a batch, and serves them *merged* with the built-in batches captured at
@@ -612,9 +719,36 @@ impl TableProvider for LazyCatalogTableProvider {
         limit: Option<usize>,
     ) -> DFResult<Arc<dyn ExecutionPlan>> {
         let user_rows = build_rows_for(self.table, &*self.source)?;
+        let key_cols = self.table.key_columns();
+
+        // Collect the user rows' identities. Two user rows sharing a key mean the
+        // source defined the same object twice (e.g. two `mytable`s in one
+        // schema) — that is a source error, surfaced rather than silently merged.
+        let mut user_keys: HashSet<Vec<String>> = HashSet::with_capacity(user_rows.len());
+        for row in &user_rows {
+            let key = user_row_key(row, key_cols);
+            if !user_keys.insert(key.clone()) {
+                let (_schema_name, table_name) = self.table.location();
+                return Err(DataFusionError::Execution(format!(
+                    "lazy catalog source returned a duplicate {table_name} entry for ({}) = {key:?}",
+                    key_cols.join(", "),
+                )));
+            }
+        }
+
         let user_batch = rows_to_record_batch(&self.schema, &user_rows)?;
 
-        let mut batches = self.builtin.clone();
+        // Merge: a user row replaces any built-in row with the same identity, so
+        // a user-supplied object always wins over the one it shadows.
+        let mut batches = Vec::with_capacity(self.builtin.len() + 1);
+        for builtin in &self.builtin {
+            batches.push(drop_builtin_rows_shadowed_by_users(
+                builtin,
+                &self.schema,
+                key_cols,
+                &user_keys,
+            )?);
+        }
         batches.push(user_batch);
 
         let mem = MemTable::try_new(self.schema.clone(), vec![batches])?;

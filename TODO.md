@@ -1,29 +1,52 @@
 # TODO
 
-## Pre-existing test failures (not caused by the lazy-catalog work)
-
-- **`tests/test_validate_pg_catalog_views.py::test_run_view_query_missing_function`**
-  - The test runs `SELECT missing_function_that_should_not_exist()` and expects
-    psycopg to raise `psycopg.errors.UndefinedFunction` (SQLSTATE `42883`), which
-    would classify the result as `status == "missing_function"`.
-  - Instead the server returns a generic error code, so psycopg raises a plain
-    `Exception` and the result is classified `status == "error"`.
-  - Root cause: the pgwire server (`src/server.rs` / `src/router.rs`) has **no
-    SQLSTATE mapping** for an undefined/invalid function — the DataFusion planner
-    error (`Invalid function '...'`) is sent without the `42883` code.
-  - Fix later: map DataFusion's "Invalid function" / undefined-function planning
-    error to SQLSTATE `42883` when building the pgwire `ErrorResponse`, so clients
-    can distinguish a missing function from a generic execution error.
-  - Scope: server error-code mapping; unrelated to the lazy catalog feature.
-
 ## Lazy catalog follow-ups (from task_lazy_catalog_definitions.md, out of scope this round)
 
+- **Column-fidelity parity check (catalog rows are sparse).** The lazy
+  row-builders set only a subset of each catalog table's columns; the rest are
+  emitted as NULL. This matches the existing eager `register_user_tables` path
+  (same 7 `pg_class` columns; the lazy path sets *more* `pg_type` columns than the
+  eager one), so it is parity — not a regression — but real PostgreSQL has many of
+  these NOT NULL. Audit which NULL columns clients actually read and fill them.
+  Currently NULL:
+  - `pg_class` (26): reloftype, relowner, relam, relfilenode, reltablespace,
+    relpages, relallvisible, reltoastrelid, relhasindex, relisshared,
+    relpersistence, relnatts, relchecks, relhasrules, relhastriggers,
+    relhassubclass, relrowsecurity, relforcerowsecurity, relispopulated,
+    relreplident, relrewrite, relfrozenxid, relminmxid, relacl, reloptions,
+    relpartbound.
+  - `pg_type` (25): typowner, typbyval, typispreferred, typisdefined, typdelim,
+    typsubscript, typelem, typarray, typinput, typoutput, typreceive, typsend,
+    typmodin, typmodout, typanalyze, typalign, typstorage, typnotnull,
+    typbasetype, typtypmod, typndims, typcollation, typdefaultbin, typdefault,
+    typacl.
+  - `pg_attribute` (19): attlen, attcacheoff, attndims, attbyval, attalign,
+    attstorage, attcompression, atthasdef, atthasmissing, attidentity,
+    attgenerated, attislocal, attinhcount, attcollation, attstattarget, attacl,
+    attoptions, attfdwoptions, attmissingval.
+  - `pg_database` / `pg_namespace`: complete (0 NULL).
+- **Per-scan full re-walk + no filter pushdown (perf, deliberately deferred).**
+  Each catalog scan re-invokes the whole source hierarchy
+  (`databases()`→`schemas()`→`relations()`→`columns()`), and
+  `LazyCatalogTableProvider` does not implement `supports_filters_pushdown`, so a
+  single introspection query re-walks the source several times and filters only
+  after materializing every row. Correctness is prioritized over this; a consumer
+  with a large catalog should cache inside its own source. See Tier 3 below.
 - Tier 3: equality-filter pushdown to the source (`relname=`, `nspname=`,
   `datname=`) so very large catalogs aren't fully enumerated per scan.
 - `pg_description` / comments support.
 - Retrofit the static `register_user_tables` INSERT path onto the shared pure
   row-builders (currently the lazy path uses them; the static path still emits
   SQL `INSERT`s) to prevent drift between the two paths.
+
+## Fixed
+
+- **Undefined-function SQLSTATE mapping** — `SELECT <missing_function>()` now
+  returns SQLSTATE `42883` (`undefined_function`) with a `... does not exist`
+  message instead of a generic `XX000`. Implemented as `into_pgwire_error` /
+  `unknown_function_name` in `src/server.rs`, routed through all four query
+  error sites. Verified by
+  `tests/test_validate_pg_catalog_views.py::test_run_view_query_missing_function`.
 
 ## Catalog views still registered as static tables
 

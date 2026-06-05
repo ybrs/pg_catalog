@@ -57,9 +57,7 @@ async fn int_column(
 
 /// Build a [`DatabaseDef`] with an explicit OID for tests.
 fn db(name: &str, oid: i32) -> DatabaseDef {
-    let mut row = LazyDatabaseRow::new(name, 10);
-    row.oid = Some(oid);
-    row
+    LazyDatabaseRow::new(oid, name, 10)
 }
 
 /// A fully in-memory [`LazyCatalogSource`] — no database, engine, or connection
@@ -193,8 +191,8 @@ async fn test_lazy_register_pg_database_on_scan() -> DFResult<()> {
     let fetcher = move || {
         calls_clone.fetch_add(1, Ordering::SeqCst);
         vec![
-            LazyDatabaseRow::new("lazy_db1", 27735),
-            LazyDatabaseRow::new("lazy_db2", 27735),
+            LazyDatabaseRow::new(27001, "lazy_db1", 27735),
+            LazyDatabaseRow::new(27002, "lazy_db2", 27735),
         ]
     };
 
@@ -242,8 +240,8 @@ async fn test_lazy_merges_pg_database_rows() -> DFResult<()> {
     // Register a callback that returns two custom databases.
     let fetcher = || {
         vec![
-            LazyDatabaseRow::new("only_lazy_1", 27735),
-            LazyDatabaseRow::new("only_lazy_2", 27735),
+            LazyDatabaseRow::new(27003, "only_lazy_1", 27735),
+            LazyDatabaseRow::new(27004, "only_lazy_2", 27735),
         ]
     };
     register_user_database_with_callback(&ctx, Arc::new(fetcher)).await?;
@@ -550,6 +548,138 @@ async fn test_lazy_registered_after_session_is_blind_to_views() -> DFResult<()> 
     assert_eq!(
         via_view, 0,
         "view bound before lazy registration must not see lazy tables"
+    );
+    Ok(())
+}
+
+/// A source defining two relations with the SAME name in the SAME schema, used
+/// to prove duplicate user objects are rejected rather than silently merged.
+struct DuplicateRelationSource;
+
+impl LazyCatalogSource for DuplicateRelationSource {
+    fn databases(&self, callback: &mut dyn FnMut(Vec<DatabaseDef>)) -> DFResult<()> {
+        callback(vec![db("dupdb", 70001)]);
+        Ok(())
+    }
+    fn schemas(&self, database: &str, callback: &mut dyn FnMut(Vec<SchemaDef>)) -> DFResult<()> {
+        if database == "dupdb" {
+            callback(vec![SchemaDef::new(70100, "public")]);
+        }
+        Ok(())
+    }
+    fn relations(
+        &self,
+        database: &str,
+        schema: &str,
+        callback: &mut dyn FnMut(Vec<RelationDef>),
+    ) -> DFResult<()> {
+        if database == "dupdb" && schema == "public" {
+            callback(vec![
+                RelationDef::table(70200, 70201, "duptbl"),
+                RelationDef::table(70300, 70301, "duptbl"),
+            ]);
+        }
+        Ok(())
+    }
+    fn columns(
+        &self,
+        _d: &str,
+        _s: &str,
+        _r: &str,
+        _c: &mut dyn FnMut(Vec<ColumnSpec>),
+    ) -> DFResult<()> {
+        Ok(())
+    }
+}
+
+#[tokio::test]
+async fn test_lazy_catalog_user_database_wins_over_builtin() -> DFResult<()> {
+    // A user database whose name collides with a built-in ('postgres') must
+    // REPLACE the built-in row, not duplicate it: exactly one row, the user's.
+    let (ctx, _log) = get_base_session_context(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
+        None,
+    )
+    .await?;
+
+    let fetcher = || vec![LazyDatabaseRow::new(91827, "postgres", 10)];
+    register_user_database_with_callback(&ctx, Arc::new(fetcher)).await?;
+
+    let oids = int_column(
+        &ctx,
+        "SELECT oid FROM pg_catalog.pg_database WHERE datname = 'postgres'",
+    )
+    .await?;
+    assert_eq!(
+        oids,
+        vec![91827],
+        "user-supplied 'postgres' must win over the built-in row, with no duplicate"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_lazy_catalog_duplicate_database_errors() -> DFResult<()> {
+    // Two user databases with the same name is a source mistake -> error.
+    let (ctx, _log) = get_base_session_context(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
+        None,
+    )
+    .await?;
+
+    let fetcher = || {
+        vec![
+            LazyDatabaseRow::new(90001, "dup", 10),
+            LazyDatabaseRow::new(90002, "dup", 10),
+        ]
+    };
+    register_user_database_with_callback(&ctx, Arc::new(fetcher)).await?;
+
+    let result = ctx
+        .sql("SELECT datname FROM pg_catalog.pg_database")
+        .await?
+        .collect()
+        .await;
+    assert!(result.is_err(), "two databases named 'dup' must error");
+    let msg = format!("{}", result.unwrap_err());
+    assert!(
+        msg.contains("duplicate") && msg.contains("pg_database"),
+        "expected a duplicate-pg_database error, got: {msg}"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_lazy_catalog_duplicate_relation_errors() -> DFResult<()> {
+    // Two user relations of the same name in the same schema -> error.
+    let (ctx, _log) = get_base_session_context(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
+        None,
+    )
+    .await?;
+    register_lazy_catalog(
+        &ctx,
+        Arc::new(DuplicateRelationSource),
+        LazyCatalogOptions::all(),
+    )
+    .await?;
+
+    let result = ctx
+        .sql("SELECT relname FROM pg_catalog.pg_class")
+        .await?
+        .collect()
+        .await;
+    assert!(result.is_err(), "two relations named 'duptbl' must error");
+    let msg = format!("{}", result.unwrap_err());
+    assert!(
+        msg.contains("duplicate") && msg.contains("pg_class"),
+        "expected a duplicate-pg_class error, got: {msg}"
     );
     Ok(())
 }

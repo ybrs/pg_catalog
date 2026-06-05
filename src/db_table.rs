@@ -117,8 +117,8 @@ impl TableProvider for ObservableMemTable {
         filters: &[Expr],
         limit: Option<usize>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
-        // No special-casing for pg_database; if a callback is registered,
-        // the provider will be replaced by a LazyDatabaseProvider.
+        // No special-casing for pg_database; if a lazy source is registered,
+        // the provider will be replaced by a LazyCatalogTableProvider.
         let mut types = BTreeMap::new();
         for f in self.schema.fields() {
             types.insert(f.name().clone(), f.data_type().to_string());

@@ -140,9 +140,7 @@ impl SqliteCatalogSource {
 impl LazyCatalogSource for SqliteCatalogSource {
     /// One database: `appdb`.
     fn databases(&self, callback: &mut dyn FnMut(Vec<DatabaseDef>)) -> DFResult<()> {
-        let mut db = LazyDatabaseRow::new(DB_NAME, 10);
-        db.oid = Some(DB_OID);
-        callback(vec![db]);
+        callback(vec![LazyDatabaseRow::new(DB_OID, DB_NAME, 10)]);
         Ok(())
     }
 
