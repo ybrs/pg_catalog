@@ -8,7 +8,7 @@ use datafusion::error::{DataFusionError, Result as DFResult};
 use datafusion_pg_catalog::{
     get_base_session_context, get_base_session_context_with_lazy_catalog, register_lazy_catalog,
     register_user_database_with_callback, ColumnSpec, DatabaseDef, LazyCatalogOptions,
-    LazyCatalogSource, LazyDatabaseRow, RelationDef, SchemaDef,
+    LazyCatalogSource, LazyDatabaseRow, RelationDef, RelationKind, SchemaDef,
 };
 
 /// Collect a single-column `StringArray` result into a `Vec<String>`.
@@ -590,6 +590,102 @@ impl LazyCatalogSource for DuplicateRelationSource {
     ) -> DFResult<()> {
         Ok(())
     }
+}
+
+/// A source with one indexed table, to prove the relation flags reach pg_tables.
+struct IndexedSource;
+
+impl LazyCatalogSource for IndexedSource {
+    fn databases(&self, callback: &mut dyn FnMut(Vec<DatabaseDef>)) -> DFResult<()> {
+        callback(vec![db("idxdb", 80001)]);
+        Ok(())
+    }
+    fn schemas(&self, database: &str, callback: &mut dyn FnMut(Vec<SchemaDef>)) -> DFResult<()> {
+        if database == "idxdb" {
+            callback(vec![SchemaDef::new(80100, "public")]);
+        }
+        Ok(())
+    }
+    fn relations(
+        &self,
+        database: &str,
+        schema: &str,
+        callback: &mut dyn FnMut(Vec<RelationDef>),
+    ) -> DFResult<()> {
+        if database == "idxdb" && schema == "public" {
+            callback(vec![RelationDef {
+                oid: 80200,
+                reltype_oid: 80201,
+                name: "indexed".to_string(),
+                kind: RelationKind::Table,
+                owner_oid: Some(80010),
+                has_index: true,
+                has_rules: false,
+                has_triggers: false,
+                row_security: false,
+            }]);
+        }
+        Ok(())
+    }
+    fn columns(
+        &self,
+        _d: &str,
+        _s: &str,
+        _r: &str,
+        callback: &mut dyn FnMut(Vec<ColumnSpec>),
+    ) -> DFResult<()> {
+        callback(vec![ColumnSpec::new("id", 23, false)]);
+        Ok(())
+    }
+}
+
+#[tokio::test]
+async fn test_lazy_pg_tables_flags_reflect_source() -> DFResult<()> {
+    // has_index from the source surfaces as pg_tables.hasindexes; the other flags
+    // are non-NULL false (not blank, as they were before).
+    let (ctx, _log) = get_base_session_context_with_lazy_catalog(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
+        None,
+        Arc::new(IndexedSource),
+        LazyCatalogOptions::all(),
+    )
+    .await?;
+
+    let indexed = string_column(
+        &ctx,
+        "SELECT tablename FROM pg_catalog.pg_tables \
+         WHERE tablename = 'indexed' AND hasindexes AND NOT hastriggers AND NOT rowsecurity",
+    )
+    .await?;
+    assert_eq!(indexed, vec!["indexed".to_string()]);
+
+    // The source-supplied owner OID is written through to pg_class.relowner.
+    let owner = int_column(
+        &ctx,
+        "SELECT relowner FROM pg_catalog.pg_class WHERE relname = 'indexed'",
+    )
+    .await?;
+    assert_eq!(owner, vec![80010]);
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_lazy_catalog_owner_omitted_is_null() -> DFResult<()> {
+    // FakeSource builds relations via RelationDef::table (no owner), so a backend
+    // without ownership leaves pg_class.relowner NULL (int_column skips NULLs).
+    let ctx = ctx_with_fake_source().await?;
+    let owner = int_column(
+        &ctx,
+        "SELECT relowner FROM pg_catalog.pg_class WHERE relname = 'users'",
+    )
+    .await?;
+    assert!(
+        owner.is_empty(),
+        "relowner must be NULL when the source omits the owner, got {owner:?}"
+    );
+    Ok(())
 }
 
 #[tokio::test]

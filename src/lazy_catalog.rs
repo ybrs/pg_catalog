@@ -120,17 +120,38 @@ pub struct RelationDef {
     pub name: String,
     /// Whether this is a table/view/materialized view.
     pub kind: RelationKind,
+    /// Owning role OID (`pg_class.relowner`), surfaced as `pg_tables.tableowner`
+    /// via `pg_get_userbyid`. `None` leaves it NULL — appropriate for backends
+    /// with no ownership concept (e.g. DuckDB); a backend that has owners (e.g.
+    /// PostgreSQL) supplies the role OID here.
+    pub owner_oid: Option<i32>,
+    /// Whether the relation has any index (`pg_class.relhasindex`). Drives
+    /// `pg_tables.hasindexes`; defaults to `false` via [`RelationDef::table`].
+    pub has_index: bool,
+    /// Whether the relation has any rule (`pg_class.relhasrules`).
+    pub has_rules: bool,
+    /// Whether the relation has any trigger (`pg_class.relhastriggers`). Drives
+    /// `pg_tables.hastriggers`.
+    pub has_triggers: bool,
+    /// Whether row-level security is enabled (`pg_class.relrowsecurity`).
+    pub row_security: bool,
 }
 
 impl RelationDef {
     /// Construct a `Table` relation definition from its OID, rowtype OID, and
-    /// name. Use the struct literal directly for views/materialized views.
+    /// name, with all metadata flags off. Use the struct literal (or set the
+    /// flags afterward) for views, indexed tables, etc.
     pub fn table(oid: i32, reltype_oid: i32, name: impl Into<String>) -> Self {
         Self {
             oid,
             reltype_oid,
             name: name.into(),
             kind: RelationKind::Table,
+            owner_oid: None,
+            has_index: false,
+            has_rules: false,
+            has_triggers: false,
+            row_security: false,
         }
     }
 }
@@ -413,6 +434,21 @@ pub fn build_pg_class_row(def: &RelationDef, namespace_oid: i32) -> Row {
     row.insert("relkind".to_string(), json!(def.kind.relkind()));
     row.insert("reltuples".to_string(), json!(0));
     row.insert("relispartition".to_string(), json!(false));
+    // Flags read by pg_tables / pg_views and common client introspection. The
+    // index/trigger/rule/RLS flags come from the source; the rest are sensible
+    // non-NULL defaults so the view columns aren't blank for user relations.
+    // Owner is optional: written through only when the source supplies it, so a
+    // backend without ownership leaves pg_tables.tableowner blank.
+    if let Some(owner) = def.owner_oid {
+        row.insert("relowner".to_string(), json!(owner));
+    }
+    row.insert("relhasindex".to_string(), json!(def.has_index));
+    row.insert("relhasrules".to_string(), json!(def.has_rules));
+    row.insert("relhastriggers".to_string(), json!(def.has_triggers));
+    row.insert("relrowsecurity".to_string(), json!(def.row_security));
+    row.insert("relispopulated".to_string(), json!(true));
+    row.insert("relpersistence".to_string(), json!("p"));
+    row.insert("relreplident".to_string(), json!("d"));
     row
 }
 

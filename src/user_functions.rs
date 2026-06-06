@@ -717,8 +717,11 @@ fn oid_at(column: &ArrayRef, index: usize) -> Result<Option<i64>> {
     Ok(match scalar {
         ScalarValue::Int32(v) => v.map(i64::from),
         ScalarValue::Int64(v) => v,
-        ScalarValue::UInt32(v) => v.map(|val| val as i64),
-        ScalarValue::UInt64(v) => v.map(|val| val as i64),
+        ScalarValue::UInt32(v) => v.map(i64::from),
+        // A UInt64 above i64::MAX can't be a valid OID (OIDs are u32); treat it
+        // as "no OID" rather than wrapping to a negative value that would
+        // mis-resolve. `i64::try_from(..).ok()` yields None on overflow.
+        ScalarValue::UInt64(v) => v.and_then(|val| i64::try_from(val).ok()),
         _ => None,
     })
 }
@@ -859,8 +862,10 @@ impl ScalarUDFImpl for PgGetUserById {
             let oid = match scalar {
                 ScalarValue::Int32(v) => v.map(i64::from),
                 ScalarValue::Int64(v) => v,
-                ScalarValue::UInt32(v) => v.map(|val| val as i64),
-                ScalarValue::UInt64(v) => v.map(|val| val as i64),
+                ScalarValue::UInt32(v) => v.map(i64::from),
+                // See `oid_at`: an out-of-i64-range UInt64 is not a valid OID, so
+                // map it to None instead of wrapping to a wrong (negative) value.
+                ScalarValue::UInt64(v) => v.and_then(|val| i64::try_from(val).ok()),
                 ScalarValue::Null => None,
                 _ => {
                     return plan_err!("pg_get_userbyid expects an OID argument");

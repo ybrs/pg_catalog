@@ -227,16 +227,19 @@ async fn scan(&self, state, projection, filters, limit) -> DFResult<Arc<dyn Exec
 /// user rows from `source`. MUST be called right after get_base_session_context
 /// and BEFORE any static register_user_* call, so the captured built-in batches
 /// contain only the YAML system rows.
-pub fn register_lazy_catalog(
+pub async fn register_lazy_catalog(
     ctx: &SessionContext,
     source: Arc<dyn LazyCatalogSource>,
     opts: LazyCatalogOptions,
 ) -> DFResult<()>;
 ```
 
-For each target table it: looks up the current provider, captures its built-in
-batches (scan inner once via `ctx.state()` and `collect`), and registers a
-`LazyCatalogTableProvider` in its place.
+It is `async` because it scans each target table's current provider to capture
+its built-in batches, so callers must `.await` it (e.g.
+`register_lazy_catalog(&ctx, source, opts).await?`). For each target table it:
+looks up the current provider, captures its built-in batches (scan inner once
+via `ctx.state()` and `collect`), and registers a `LazyCatalogTableProvider` in
+its place.
 
 ## Refactors required (DRY — one source of truth for row shapes)
 

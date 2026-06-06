@@ -643,12 +643,16 @@ fn batch_to_row_stream(
                             let value = if arr.is_null(row_idx) {
                                 None::<String>
                             } else {
+                                // Floored (Euclidean) division keeps the
+                                // sub-second part in [0, unit) for negative
+                                // (pre-1970) timestamps, and `map` instead of
+                                // `unwrap` turns an out-of-range value into NULL
+                                // rather than panicking the connection.
                                 let v = arr.value(row_idx); // micro-seconds
-                                let secs = v / 1_000_000;
-                                let micros = (v % 1_000_000) as u32;
-                                let ts =
-                                    chrono::DateTime::from_timestamp(secs, micros * 1_000).unwrap();
-                                Some(ts.format("%Y-%m-%d %H:%M:%S%.6f").to_string())
+                                let secs = v.div_euclid(1_000_000);
+                                let micros = v.rem_euclid(1_000_000) as u32;
+                                chrono::DateTime::from_timestamp(secs, micros * 1_000)
+                                    .map(|ts| ts.format("%Y-%m-%d %H:%M:%S%.6f").to_string())
                             };
                             encoder.encode_field(&value).unwrap();
                         }
@@ -662,11 +666,10 @@ fn batch_to_row_stream(
                                 None::<String>
                             } else {
                                 let v = arr.value(row_idx); // milli-seconds
-                                let secs = v / 1_000;
-                                let millis = (v % 1_000) as u32;
-                                let ts = chrono::DateTime::from_timestamp(secs, millis * 1_000_000)
-                                    .unwrap();
-                                Some(ts.format("%Y-%m-%d %H:%M:%S%.3f").to_string())
+                                let secs = v.div_euclid(1_000);
+                                let millis = v.rem_euclid(1_000) as u32;
+                                chrono::DateTime::from_timestamp(secs, millis * 1_000_000)
+                                    .map(|ts| ts.format("%Y-%m-%d %H:%M:%S%.3f").to_string())
                             };
                             encoder.encode_field(&value).unwrap();
                         }
@@ -680,10 +683,10 @@ fn batch_to_row_stream(
                                 None::<String>
                             } else {
                                 let v = arr.value(row_idx); // nano-seconds
-                                let secs = v / 1_000_000_000;
-                                let nanos = (v % 1_000_000_000) as u32;
-                                let ts = chrono::DateTime::from_timestamp(secs, nanos).unwrap();
-                                Some(ts.format("%Y-%m-%d %H:%M:%S%.9f").to_string())
+                                let secs = v.div_euclid(1_000_000_000);
+                                let nanos = v.rem_euclid(1_000_000_000) as u32;
+                                chrono::DateTime::from_timestamp(secs, nanos)
+                                    .map(|ts| ts.format("%Y-%m-%d %H:%M:%S%.9f").to_string())
                             };
                             encoder.encode_field(&value).unwrap();
                         }
@@ -1269,6 +1272,39 @@ mod tests {
         let buf = &row1.data;
         assert_eq!(&buf[0..4], &(-1i32).to_be_bytes());
         assert_eq!(&buf[4..8], &(-1i32).to_be_bytes());
+    }
+
+    #[test]
+    fn test_batch_to_row_stream_negative_timestamp_no_panic() {
+        // A pre-1970 (negative) microsecond timestamp must format correctly
+        // instead of panicking via unwrap() on an out-of-range sub-second value.
+        use arrow::array::TimestampMicrosecondArray;
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "ts",
+            DataType::Timestamp(TimeUnit::Microsecond, None),
+            true,
+        )]));
+        // -1_500_000 us = 1.5s before the epoch -> 1969-12-31 23:59:58.500000.
+        let arr = TimestampMicrosecondArray::from(vec![Some(-1_500_000i64), None]);
+        let batch = RecordBatch::try_new(schema, vec![Arc::new(arr) as ArrayRef]).unwrap();
+
+        let info = batch_to_field_info(&batch, &Format::UnifiedText).unwrap();
+        let rows = futures::executor::block_on(
+            batch_to_row_stream(&batch, Arc::new(info)).collect::<Vec<_>>(),
+        );
+        assert_eq!(rows.len(), 2);
+
+        // Row 0: the negative timestamp formats as a pre-1970 instant.
+        let buf = &rows[0].as_ref().unwrap().data;
+        let needle = b"1969-12-31 23:59:58.500000";
+        assert!(
+            buf.windows(needle.len()).any(|w| w == needle),
+            "expected pre-1970 timestamp, got {:?}",
+            String::from_utf8_lossy(buf)
+        );
+        // Row 1: NULL encodes as length -1.
+        let buf1 = &rows[1].as_ref().unwrap().data;
+        assert_eq!(&buf1[0..4], &(-1i32).to_be_bytes());
     }
 
     #[test]
