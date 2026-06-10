@@ -592,6 +592,48 @@ impl LazyCatalogSource for DuplicateRelationSource {
     }
 }
 
+#[tokio::test]
+async fn test_lazy_catalog_double_registration_is_idempotent() -> DFResult<()> {
+    // Registering the same source twice must NOT duplicate rows: the second
+    // registration captures the first provider's merged output as its "builtin",
+    // but the per-scan dedup drops the user rows baked into it, so the result is
+    // identical to a single registration.
+    let (ctx, _log) = get_base_session_context(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
+        None,
+    )
+    .await?;
+    register_lazy_catalog(&ctx, Arc::new(FakeSource), LazyCatalogOptions::all()).await?;
+    register_lazy_catalog(&ctx, Arc::new(FakeSource), LazyCatalogOptions::all()).await?;
+
+    // The user relation appears exactly once ...
+    let users = count_rows(
+        &ctx,
+        "SELECT count(*) FROM pg_catalog.pg_class WHERE relname = 'users'",
+    )
+    .await?;
+    assert_eq!(users, 1, "double registration must not duplicate user rows");
+
+    // ... the user database exactly once ...
+    let lazydb = count_rows(
+        &ctx,
+        "SELECT count(*) FROM pg_catalog.pg_database WHERE datname = 'lazydb1'",
+    )
+    .await?;
+    assert_eq!(lazydb, 1, "double registration must not duplicate databases");
+
+    // ... and a built-in survives exactly once (not dropped, not duplicated).
+    let int4 = count_rows(
+        &ctx,
+        "SELECT count(*) FROM pg_catalog.pg_type WHERE typname = 'int4'",
+    )
+    .await?;
+    assert_eq!(int4, 1, "built-in row must survive double registration once");
+    Ok(())
+}
+
 /// A source with one indexed table, to prove the relation flags reach pg_tables.
 struct IndexedSource;
 

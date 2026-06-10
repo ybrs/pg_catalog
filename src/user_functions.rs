@@ -2271,6 +2271,22 @@ mod tests {
     use datafusion::error::Result;
     use std::sync::Arc;
 
+    #[test]
+    fn test_oid_at_handles_unsigned_columns() {
+        use arrow::array::{ArrayRef, UInt32Array, UInt64Array};
+
+        // A UInt64 above i64::MAX is not a valid OID -> None (no wrap to a
+        // negative value that would mis-resolve a role).
+        let too_big = Arc::new(UInt64Array::from(vec![u64::MAX])) as ArrayRef;
+        assert_eq!(oid_at(&too_big, 0).unwrap(), None);
+
+        // In-range unsigned values widen to i64 correctly.
+        let u64_ok = Arc::new(UInt64Array::from(vec![27735u64])) as ArrayRef;
+        assert_eq!(oid_at(&u64_ok, 0).unwrap(), Some(27735i64));
+        let u32_ok = Arc::new(UInt32Array::from(vec![10u32])) as ArrayRef;
+        assert_eq!(oid_at(&u32_ok, 0).unwrap(), Some(10i64));
+    }
+
     /* TODO:
 
     postgresql handles number::regclass differently. it just passes them as oid.
