@@ -622,7 +622,10 @@ async fn test_lazy_catalog_double_registration_is_idempotent() -> DFResult<()> {
         "SELECT count(*) FROM pg_catalog.pg_database WHERE datname = 'lazydb1'",
     )
     .await?;
-    assert_eq!(lazydb, 1, "double registration must not duplicate databases");
+    assert_eq!(
+        lazydb, 1,
+        "double registration must not duplicate databases"
+    );
 
     // ... and a built-in survives exactly once (not dropped, not duplicated).
     let int4 = count_rows(
@@ -630,7 +633,10 @@ async fn test_lazy_catalog_double_registration_is_idempotent() -> DFResult<()> {
         "SELECT count(*) FROM pg_catalog.pg_type WHERE typname = 'int4'",
     )
     .await?;
-    assert_eq!(int4, 1, "built-in row must survive double registration once");
+    assert_eq!(
+        int4, 1,
+        "built-in row must survive double registration once"
+    );
     Ok(())
 }
 
