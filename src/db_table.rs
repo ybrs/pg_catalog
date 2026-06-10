@@ -9,7 +9,6 @@ use datafusion::catalog::Session;
 use datafusion::datasource::provider::TableProviderFilterPushDown;
 use datafusion::datasource::{MemTable, TableProvider, TableType};
 use datafusion::error::Result;
-use datafusion::execution::context::SessionContext;
 use datafusion::execution::TaskContext;
 use datafusion::logical_expr::dml::InsertOp;
 use datafusion::logical_expr::Expr;
@@ -19,6 +18,7 @@ use datafusion::physical_plan::ExecutionPlan;
 use serde_json::json;
 
 use arrow::compute::concat_batches;
+use datafusion::execution::context::SessionContext;
 use datafusion::physical_plan::collect;
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
@@ -117,6 +117,8 @@ impl TableProvider for ObservableMemTable {
         filters: &[Expr],
         limit: Option<usize>,
     ) -> Result<Arc<dyn ExecutionPlan>> {
+        // No special-casing for pg_database; if a lazy source is registered,
+        // the provider will be replaced by a LazyCatalogTableProvider.
         let mut types = BTreeMap::new();
         for f in self.schema.fields() {
             types.insert(f.name().clone(), f.data_type().to_string());

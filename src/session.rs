@@ -2,7 +2,6 @@
 // Loads YAML schemas into MemTables, registers UDFs and executes rewritten queries using DataFusion.
 // Separated to encapsulate DataFusion setup and query execution behaviour.
 
-use arrow::array::{ArrayRef, Int32Array};
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::record_batch::RecordBatch;
 use datafusion::catalog::memory::{MemoryCatalogProvider, MemorySchemaProvider};
@@ -59,6 +58,7 @@ static SCHEMA_ZIP: &[u8] = include_bytes!(concat!(
     "/pg_catalog_data/postgres-schema-nightly.zip"
 ));
 use crate::db_table::{map_pg_type, ObservableMemTable, ScanTrace};
+use crate::lazy_catalog::{register_lazy_catalog, LazyCatalogOptions, LazyCatalogSource};
 use crate::replace_any_group_by::rewrite_group_by_for_any;
 use datafusion::common::config::{ConfigExtension, ExtensionOptions};
 use df_subquery_udf::rewrite_query;
@@ -145,10 +145,71 @@ struct TableDef {
     #[serde(default)]
     pg_types: Option<BTreeMap<String, String>>,
     rows: Option<Vec<BTreeMap<String, serde_json::Value>>>,
+    #[serde(default)]
+    view_sql: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 struct YamlSchema(HashMap<String, HashMap<String, HashMap<String, TableDef>>>);
+
+#[derive(Clone)]
+struct ParsedTable {
+    schema: SchemaRef,
+    batches: Vec<RecordBatch>,
+    view_sql: Option<String>,
+    is_view: bool,
+}
+
+#[derive(Clone)]
+struct ViewToRegister {
+    catalog: String,
+    schema: String,
+    name: String,
+    sql: String,
+}
+
+const VIEW_ONLY_TABLES: &[(&str, &str)] =
+    &[("pg_catalog", "pg_views"), ("pg_catalog", "pg_tables")];
+
+fn should_register_as_view(schema_name: &str, table_name: &str) -> bool {
+    VIEW_ONLY_TABLES
+        .iter()
+        .any(|(schema, table)| *schema == schema_name && *table == table_name)
+}
+
+fn quote_identifier(ident: &str) -> String {
+    let escaped = ident.replace('"', "\"\"");
+    format!("\"{escaped}\"")
+}
+
+fn quote_literal(value: &str) -> String {
+    let escaped = value.replace('\'', "''");
+    format!("'{escaped}'")
+}
+
+fn format_fully_qualified_name(catalog: &str, schema: &str, table: &str) -> String {
+    format!(
+        "{}.{}.{}",
+        quote_identifier(catalog),
+        quote_identifier(schema),
+        quote_identifier(table)
+    )
+}
+
+fn normalize_view_sql(sql: &str) -> String {
+    let trimmed = sql.trim();
+    let without_semicolon = trimmed.trim_end_matches(';').trim();
+    without_semicolon.to_string()
+}
+
+async fn set_default_schema(ctx: &SessionContext, schema: &str) -> datafusion::error::Result<()> {
+    let stmt = format!(
+        "SET datafusion.catalog.default_schema = {}",
+        quote_literal(schema)
+    );
+    ctx.sql(&stmt).await?.collect().await?;
+    Ok(())
+}
 
 fn rename_columns(batch: &RecordBatch, name_map: &HashMap<String, String>) -> RecordBatch {
     let new_fields = batch
@@ -399,7 +460,7 @@ pub async fn execute_sql(
 
 fn parse_schema(
     schema_path: Option<&str>,
-) -> HashMap<String, HashMap<String, HashMap<String, (SchemaRef, Vec<RecordBatch>)>>> {
+) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
     if let Some(schema_path) = schema_path {
         if schema_path.is_empty() {
             return parse_schema_zip_bytes(SCHEMA_ZIP);
@@ -422,16 +483,12 @@ fn parse_schema(
     }
 }
 
-fn parse_schema_file(
-    path: &str,
-) -> HashMap<String, HashMap<String, HashMap<String, (SchemaRef, Vec<RecordBatch>)>>> {
+fn parse_schema_file(path: &str) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
     let contents = fs::read_to_string(path).expect("Failed to read schema file");
     parse_schema_contents(&contents)
 }
 
-fn parse_schema_zip(
-    path: &str,
-) -> HashMap<String, HashMap<String, HashMap<String, (SchemaRef, Vec<RecordBatch>)>>> {
+fn parse_schema_zip(path: &str) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
     let file = fs::File::open(path).expect("Failed to open schema zip file");
     let mut archive = ZipArchive::new(file).expect("Failed to read zip file");
     let mut all = HashMap::new();
@@ -452,7 +509,7 @@ fn parse_schema_zip(
 
 fn parse_schema_zip_bytes(
     bytes: &[u8],
-) -> HashMap<String, HashMap<String, HashMap<String, (SchemaRef, Vec<RecordBatch>)>>> {
+) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
     let reader = Cursor::new(bytes);
     let mut archive = ZipArchive::new(reader).expect("Failed to read zip bytes");
     let mut all = HashMap::new();
@@ -473,7 +530,7 @@ fn parse_schema_zip_bytes(
 
 fn parse_schema_contents(
     contents: &str,
-) -> HashMap<String, HashMap<String, HashMap<String, (SchemaRef, Vec<RecordBatch>)>>> {
+) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
     let parsed: YamlSchema = serde_yaml::from_str(contents).expect("Invalid YAML");
     parsed
         .0
@@ -485,8 +542,8 @@ fn parse_schema_contents(
                     let tables = tables
                         .into_iter()
                         .map(|(table, def)| {
-                            let (schema_ref, batches) = build_table(def);
-                            (table, (schema_ref, batches))
+                            let parsed = build_table(def);
+                            (table, parsed)
                         })
                         .collect();
                     (schema, tables)
@@ -499,7 +556,7 @@ fn parse_schema_contents(
 
 fn parse_schema_dir(
     dir_path: &str,
-) -> HashMap<String, HashMap<String, HashMap<String, (SchemaRef, Vec<RecordBatch>)>>> {
+) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
     let mut all = HashMap::new();
 
     for entry in fs::read_dir(dir_path).expect("Failed to read directory") {
@@ -515,8 +572,8 @@ fn parse_schema_dir(
 }
 
 fn merge_schema_maps(
-    target: &mut HashMap<String, HashMap<String, HashMap<String, (SchemaRef, Vec<RecordBatch>)>>>,
-    other: HashMap<String, HashMap<String, HashMap<String, (SchemaRef, Vec<RecordBatch>)>>>,
+    target: &mut HashMap<String, HashMap<String, HashMap<String, ParsedTable>>>,
+    other: HashMap<String, HashMap<String, HashMap<String, ParsedTable>>>,
 ) {
     for (catalog, schemas) in other {
         let catalog_entry = target.entry(catalog).or_insert_with(HashMap::new);
@@ -527,13 +584,19 @@ fn merge_schema_maps(
     }
 }
 
-fn build_table(def: TableDef) -> (SchemaRef, Vec<RecordBatch>) {
-    let mut fields: Vec<Field> = def
-        .schema
+fn build_table(def: TableDef) -> ParsedTable {
+    let TableDef {
+        table_type,
+        schema,
+        pg_types,
+        rows,
+        view_sql,
+    } = def;
+
+    let mut fields: Vec<Field> = schema
         .iter()
         .map(|(col, typ)| {
-            let mapped_typ = def
-                .pg_types
+            let mapped_typ = pg_types
                 .as_ref()
                 .and_then(|m| m.get(col))
                 .map(|s| s.as_str())
@@ -543,182 +606,207 @@ fn build_table(def: TableDef) -> (SchemaRef, Vec<RecordBatch>) {
         })
         .collect();
 
-    let is_system_catalog = matches!(def.table_type.as_deref(), Some("system_catalog"));
+    let is_system_catalog = matches!(table_type.as_deref(), Some("system_catalog"));
+    let is_view = matches!(table_type.as_deref(), Some("view"));
+    let system_cols = ["xmin", "xmax", "ctid", "tableoid", "cmin", "cmax"];
 
-    let record_batches = if let Some(rows) = def.rows {
-        let mut cols: Vec<Vec<serde_json::Value>> = vec![vec![]; fields.len()];
-        for row in rows {
-            for (i, field) in fields.iter().enumerate() {
-                cols[i].push(
-                    row.get(field.name())
-                        .cloned()
-                        .unwrap_or(serde_json::Value::Null),
-                );
+    // System catalogs expose a handful of pseudo-columns (xmin, ctid, ...). Add
+    // them to the field set once, up front, so both the populated and the empty
+    // paths agree on the resulting schema.
+    if is_system_catalog {
+        for col in system_cols {
+            if !fields.iter().any(|f| f.name() == col) {
+                fields.push(Field::new(col, DataType::Int32, true));
             }
         }
+    }
 
-        let arrays = fields
-            .iter()
-            .zip(cols.into_iter())
-            .map(|(field, col_data)| {
-                use arrow::array::*;
-                use arrow::datatypes::DataType;
-                let array: ArrayRef = match field.data_type() {
-                    DataType::Utf8 => Arc::new(StringArray::from(
-                        col_data
-                            .into_iter()
-                            .map(|v| v.as_str().map(|s| s.to_string()))
-                            .collect::<Vec<_>>(),
-                    )),
-                    DataType::Int32 => Arc::new(Int32Array::from(
-                        col_data
-                            .into_iter()
-                            .map(|v| v.as_i64().map(|i| i as i32))
-                            .collect::<Vec<_>>(),
-                    )),
-                    DataType::Int64 => Arc::new(Int64Array::from(
-                        col_data.into_iter().map(|v| v.as_i64()).collect::<Vec<_>>(),
-                    )),
-                    DataType::Boolean => Arc::new(BooleanArray::from(
-                        col_data
-                            .into_iter()
-                            .map(|v| v.as_bool())
-                            .collect::<Vec<_>>(),
-                    )),
-                    DataType::Binary => {
-                        let mut builder = BinaryBuilder::new();
-                        for v in col_data {
-                            match v.as_str() {
-                                Some(s) => builder.append_value(s.as_bytes()),
-                                None => builder.append_null(),
-                            }
-                        }
-                        Arc::new(builder.finish())
-                    }
-                    DataType::List(inner) if inner.data_type() == &DataType::Utf8 => {
-                        let mut builder = ListBuilder::new(StringBuilder::new());
-                        for v in col_data {
-                            if let Some(items) = v.as_array() {
-                                for item in items {
-                                    match item.as_str() {
-                                        Some(s) => builder.values().append_value(s),
-                                        None => builder.values().append_null(),
-                                    }
-                                }
-                                builder.append(true);
-                            } else if v.is_null() {
-                                builder.append(false);
-                            } else {
-                                builder.values().append_value(v.to_string());
-                                builder.append(true);
-                            }
-                        }
-                        Arc::new(builder.finish())
-                    }
-                    DataType::List(inner) if inner.data_type() == &DataType::Int64 => {
-                        let mut builder = ListBuilder::new(Int64Builder::new());
-                        for v in col_data {
-                            if let Some(items) = v.as_array() {
-                                for item in items {
-                                    match item.as_i64() {
-                                        Some(num) => builder.values().append_value(num),
-                                        None => builder.values().append_null(),
-                                    }
-                                }
-                                builder.append(true);
-                            } else if let Some(s) = v.as_str() {
-                                for part in s.split_whitespace() {
-                                    match part.parse::<i64>() {
-                                        Ok(num) => builder.values().append_value(num),
-                                        Err(_) => builder.values().append_null(),
-                                    }
-                                }
-                                builder.append(true);
-                            } else if v.is_null() {
-                                builder.append(false);
-                            } else {
-                                builder.append(false);
-                            }
-                        }
-                        Arc::new(builder.finish())
-                    }
-                    DataType::List(inner) if inner.data_type() == &DataType::Int32 => {
-                        let mut builder = ListBuilder::new(Int32Builder::new());
-                        for v in col_data {
-                            if let Some(items) = v.as_array() {
-                                for item in items {
-                                    match item.as_i64() {
-                                        Some(num) => builder.values().append_value(num as i32),
-                                        None => builder.values().append_null(),
-                                    }
-                                }
-                                builder.append(true);
-                            } else if let Some(s) = v.as_str() {
-                                for part in s.split_whitespace() {
-                                    match part.parse::<i32>() {
-                                        Ok(num) => builder.values().append_value(num),
-                                        Err(_) => builder.values().append_null(),
-                                    }
-                                }
-                                builder.append(true);
-                            } else if v.is_null() {
-                                builder.append(false);
-                            } else {
-                                builder.append(false);
-                            }
-                        }
-                        Arc::new(builder.finish())
-                    }
+    let schema_ref = Arc::new(Schema::new(fields.clone()));
 
-                    _ => Arc::new(StringArray::from(
-                        col_data
-                            .into_iter()
-                            .map(|v| Some(v.to_string()))
-                            .collect::<Vec<_>>(),
-                    )),
-                };
-                array
-            })
-            .collect::<Vec<_>>();
-
-        let mut arrays = arrays;
-
+    let batches = if let Some(mut rows) = rows {
+        // The pseudo-columns never appear in the YAML rows, so seed each row with
+        // the historical constant (value 1) before materializing the batch.
         if is_system_catalog {
-            let row_count = arrays.first().map(|a| a.len()).unwrap_or(0);
-            let system_cols = ["xmin", "xmax", "ctid", "tableoid", "cmin", "cmax"];
-            for col in system_cols {
-                if !fields.iter().any(|f| f.name() == col) {
-                    fields.push(Field::new(col, DataType::Int32, true));
-                    let data = vec![Some(1); row_count];
-                    arrays.push(Arc::new(Int32Array::from(data)) as ArrayRef);
+            for row in rows.iter_mut() {
+                for col in system_cols {
+                    row.entry(col.to_string())
+                        .or_insert(serde_json::Value::from(1));
                 }
             }
         }
-
-        let schema_ref = Arc::new(Schema::new(fields.clone()));
-        vec![RecordBatch::try_new(schema_ref.clone(), arrays).unwrap()]
+        vec![rows_to_record_batch(&schema_ref, &rows)
+            .expect("failed to build record batch from YAML-defined rows")]
     } else {
-        if is_system_catalog {
-            let system_cols = ["xmin", "xmax", "ctid", "tableoid", "cmin", "cmax"];
-            for col in system_cols {
-                if !fields.iter().any(|f| f.name() == col) {
-                    fields.push(Field::new(col, DataType::Int32, true));
-                }
-            }
-        }
-
-        let schema_ref = Arc::new(Schema::new(fields.clone()));
         vec![RecordBatch::new_empty(schema_ref.clone())]
     };
-    (Arc::new(Schema::new(fields)), record_batches)
+
+    ParsedTable {
+        schema: schema_ref,
+        batches,
+        view_sql,
+        is_view,
+    }
 }
 
-fn register_catalogs_from_schemas(
+/// Materialize `rows` into a single Arrow [`RecordBatch`] shaped by `schema`.
+///
+/// Each row is a `column name -> JSON value` map (the shape produced both by the
+/// YAML loader and by the lazy catalog row-builders). For every field in
+/// `schema` the matching value is pulled from each row (missing keys become
+/// NULL) and converted according to the field's Arrow `DataType`. This is the
+/// single source of truth for turning catalog rows into Arrow data, shared by
+/// the static YAML path ([`build_table`]) and the lazy provider path.
+pub fn rows_to_record_batch(
+    schema: &SchemaRef,
+    rows: &[BTreeMap<String, serde_json::Value>],
+) -> Result<RecordBatch, DataFusionError> {
+    use arrow::array::*;
+
+    let fields = schema.fields();
+    let mut cols: Vec<Vec<serde_json::Value>> = vec![vec![]; fields.len()];
+    for row in rows {
+        for (i, field) in fields.iter().enumerate() {
+            cols[i].push(
+                row.get(field.name())
+                    .cloned()
+                    .unwrap_or(serde_json::Value::Null),
+            );
+        }
+    }
+
+    let arrays = fields
+        .iter()
+        .zip(cols.into_iter())
+        .map(|(field, col_data)| {
+            let array: ArrayRef = match field.data_type() {
+                DataType::Utf8 => Arc::new(StringArray::from(
+                    col_data
+                        .into_iter()
+                        .map(|v| v.as_str().map(|s| s.to_string()))
+                        .collect::<Vec<_>>(),
+                )),
+                DataType::Int32 => Arc::new(Int32Array::from(
+                    col_data
+                        .into_iter()
+                        .map(|v| v.as_i64().map(|i| i as i32))
+                        .collect::<Vec<_>>(),
+                )),
+                DataType::Int64 => Arc::new(Int64Array::from(
+                    col_data.into_iter().map(|v| v.as_i64()).collect::<Vec<_>>(),
+                )),
+                DataType::Boolean => Arc::new(BooleanArray::from(
+                    col_data
+                        .into_iter()
+                        .map(|v| v.as_bool())
+                        .collect::<Vec<_>>(),
+                )),
+                DataType::Binary => {
+                    let mut builder = BinaryBuilder::new();
+                    for v in col_data {
+                        match v.as_str() {
+                            Some(s) => builder.append_value(s.as_bytes()),
+                            None => builder.append_null(),
+                        }
+                    }
+                    Arc::new(builder.finish())
+                }
+                DataType::List(inner) if inner.data_type() == &DataType::Utf8 => {
+                    let mut builder = ListBuilder::new(StringBuilder::new());
+                    for v in col_data {
+                        if let Some(items) = v.as_array() {
+                            for item in items {
+                                match item.as_str() {
+                                    Some(s) => builder.values().append_value(s),
+                                    None => builder.values().append_null(),
+                                }
+                            }
+                            builder.append(true);
+                        } else if v.is_null() {
+                            builder.append(false);
+                        } else {
+                            builder.values().append_value(v.to_string());
+                            builder.append(true);
+                        }
+                    }
+                    Arc::new(builder.finish())
+                }
+                DataType::List(inner) if inner.data_type() == &DataType::Int64 => {
+                    let mut builder = ListBuilder::new(Int64Builder::new());
+                    for v in col_data {
+                        if let Some(items) = v.as_array() {
+                            for item in items {
+                                match item.as_i64() {
+                                    Some(num) => builder.values().append_value(num),
+                                    None => builder.values().append_null(),
+                                }
+                            }
+                            builder.append(true);
+                        } else if let Some(s) = v.as_str() {
+                            for part in s.split_whitespace() {
+                                match part.parse::<i64>() {
+                                    Ok(num) => builder.values().append_value(num),
+                                    Err(_) => builder.values().append_null(),
+                                }
+                            }
+                            builder.append(true);
+                        } else if v.is_null() {
+                            builder.append(false);
+                        } else {
+                            builder.append(false);
+                        }
+                    }
+                    Arc::new(builder.finish())
+                }
+                DataType::List(inner) if inner.data_type() == &DataType::Int32 => {
+                    let mut builder = ListBuilder::new(Int32Builder::new());
+                    for v in col_data {
+                        if let Some(items) = v.as_array() {
+                            for item in items {
+                                match item.as_i64() {
+                                    Some(num) => builder.values().append_value(num as i32),
+                                    None => builder.values().append_null(),
+                                }
+                            }
+                            builder.append(true);
+                        } else if let Some(s) = v.as_str() {
+                            for part in s.split_whitespace() {
+                                match part.parse::<i32>() {
+                                    Ok(num) => builder.values().append_value(num),
+                                    Err(_) => builder.values().append_null(),
+                                }
+                            }
+                            builder.append(true);
+                        } else if v.is_null() {
+                            builder.append(false);
+                        } else {
+                            builder.append(false);
+                        }
+                    }
+                    Arc::new(builder.finish())
+                }
+
+                _ => Arc::new(StringArray::from(
+                    col_data
+                        .into_iter()
+                        .map(|v| Some(v.to_string()))
+                        .collect::<Vec<_>>(),
+                )),
+            };
+            array
+        })
+        .collect::<Vec<_>>();
+
+    RecordBatch::try_new(schema.clone(), arrays).map_err(DataFusionError::from)
+}
+
+async fn register_catalogs_from_schemas(
     ctx: &SessionContext,
-    schemas: HashMap<String, HashMap<String, HashMap<String, (Arc<Schema>, Vec<RecordBatch>)>>>,
+    schemas: HashMap<String, HashMap<String, HashMap<String, ParsedTable>>>,
     default_catalog: String,
     log: Arc<Mutex<Vec<ScanTrace>>>,
-) -> datafusion::error::Result<&SessionContext, DataFusionError> {
+) -> datafusion::error::Result<Vec<ViewToRegister>, DataFusionError> {
+    let mut views_to_register: Vec<ViewToRegister> = Vec::new();
+
     for (catalog_name, schemas) in schemas {
         // "public" is the *database* name we used in exports
         // so we copy the schema/tables under that database to default_catalog/database
@@ -751,16 +839,96 @@ fn register_catalogs_from_schemas(
                 schema_name
             );
 
-            for (table, (schema_ref, batches)) in tables {
+            for (table, table_info) in tables {
+                let ParsedTable {
+                    schema: schema_ref,
+                    batches,
+                    view_sql,
+                    is_view,
+                } = table_info;
+
+                if should_register_as_view(schema_name.as_str(), table.as_str()) {
+                    if let Some(sql) = view_sql {
+                        if !is_view {
+                            log::warn!(
+                                "view-only table list contains non-view entry {}.{}",
+                                schema_name,
+                                table
+                            );
+                        }
+                        views_to_register.push(ViewToRegister {
+                            catalog: current_catalog.clone(),
+                            schema: schema_name.clone(),
+                            name: table.clone(),
+                            sql,
+                        });
+                        continue;
+                    } else {
+                        log::warn!(
+                            "view_sql missing for table {}.{}; falling back to table registration",
+                            schema_name,
+                            table
+                        );
+                    }
+                }
+
+                let table_name = table.clone();
                 log::debug!("-- table {:?}", &table);
 
-                let wrapped =
-                    ObservableMemTable::new(table.clone(), schema_ref, log.clone(), batches);
-                schema_provider.register_table(table, Arc::new(wrapped))?;
+                let base = ObservableMemTable::new(table_name, schema_ref, log.clone(), batches);
+                let provider: Arc<dyn datafusion::datasource::TableProvider> = Arc::new(base);
+                schema_provider.register_table(table, provider)?;
             }
         }
     }
-    Ok(ctx)
+
+    Ok(views_to_register)
+}
+
+async fn create_registered_views(
+    ctx: &SessionContext,
+    views: Vec<ViewToRegister>,
+) -> datafusion::error::Result<(), DataFusionError> {
+    if views.is_empty() {
+        return Ok(());
+    }
+
+    let state = ctx.state();
+    let original_default_schema = state.config_options().catalog.default_schema.clone();
+    drop(state);
+    let mut active_default_schema = original_default_schema.clone();
+
+    for view in views {
+        if active_default_schema != view.schema {
+            set_default_schema(ctx, &view.schema).await?;
+            active_default_schema = view.schema.clone();
+        }
+
+        let qualified = format_fully_qualified_name(&view.catalog, &view.schema, &view.name);
+        let definition = normalize_view_sql(&view.sql);
+        if definition.is_empty() {
+            return Err(DataFusionError::Execution(format!(
+                "view_sql for {} is empty",
+                qualified
+            )));
+        }
+
+        let (rewritten_select, temp_udfs) = {
+            let (rewritten, _) = rewrite_filters(&definition)?;
+            rewrite_query(&rewritten, &mut ctx.clone()).await?
+        };
+        let create_sql = format!("CREATE OR REPLACE VIEW {qualified} AS {rewritten_select}");
+        ctx.sql(&create_sql).await?.collect().await?;
+        for udf in temp_udfs {
+            ctx.deregister_udf(&udf);
+        }
+    }
+
+    if active_default_schema != original_default_schema {
+        set_default_schema(ctx, &original_default_schema).await?;
+    }
+
+    Ok(())
 }
 
 fn default_current_schemas(ctx: &SessionContext) -> Vec<String> {
@@ -781,6 +949,56 @@ pub async fn get_base_session_context(
     default_schema: String,
     current_schemas_getter: Option<Arc<dyn Fn(&SessionContext) -> Vec<String> + Send + Sync>>,
 ) -> datafusion::error::Result<(SessionContext, Arc<Mutex<Vec<ScanTrace>>>)> {
+    build_base_session_context(
+        schema_path,
+        default_catalog,
+        default_schema,
+        current_schemas_getter,
+        None,
+    )
+    .await
+}
+
+/// Like [`get_base_session_context`], but installs a lazy catalog `source` (over
+/// `options`) **before** the catalog views are created.
+///
+/// This matters because catalog views (those in `VIEW_ONLY_TABLES`, currently
+/// `pg_views` and `pg_tables`) are planned during session construction and bind
+/// to the table providers that exist at that moment. Registering the lazy source
+/// here — before view creation — makes those views resolve against the lazy
+/// providers, so they reflect the source's rows.
+/// Calling [`register_lazy_catalog`] *after* `get_base_session_context` only
+/// rebinds the base tables; the already-created views keep pointing at the
+/// original providers and never see the lazy rows.
+pub async fn get_base_session_context_with_lazy_catalog(
+    schema_path: Option<&str>,
+    default_catalog: String,
+    default_schema: String,
+    current_schemas_getter: Option<Arc<dyn Fn(&SessionContext) -> Vec<String> + Send + Sync>>,
+    source: Arc<dyn LazyCatalogSource>,
+    options: LazyCatalogOptions,
+) -> datafusion::error::Result<(SessionContext, Arc<Mutex<Vec<ScanTrace>>>)> {
+    build_base_session_context(
+        schema_path,
+        default_catalog,
+        default_schema,
+        current_schemas_getter,
+        Some((source, options)),
+    )
+    .await
+}
+
+/// Shared implementation behind [`get_base_session_context`] and
+/// [`get_base_session_context_with_lazy_catalog`]. When `lazy_catalog` is
+/// `Some`, the source is registered after the base tables are built but before
+/// the catalog views are created.
+async fn build_base_session_context(
+    schema_path: Option<&str>,
+    default_catalog: String,
+    default_schema: String,
+    current_schemas_getter: Option<Arc<dyn Fn(&SessionContext) -> Vec<String> + Send + Sync>>,
+    lazy_catalog: Option<(Arc<dyn LazyCatalogSource>, LazyCatalogOptions)>,
+) -> datafusion::error::Result<(SessionContext, Arc<Mutex<Vec<ScanTrace>>>)> {
     let _current_schemas_getter: Arc<dyn Fn(&SessionContext) -> Vec<String> + Send + Sync> =
         current_schemas_getter.unwrap_or_else(|| Arc::new(default_current_schemas));
 
@@ -795,7 +1013,8 @@ pub async fn get_base_session_context(
     session_config.options_mut().catalog.information_schema = false;
 
     let ctx: SessionContext = SessionContext::new_with_config(session_config);
-    register_catalogs_from_schemas(&ctx, schemas, default_catalog, log.clone())?;
+    let pending_views =
+        register_catalogs_from_schemas(&ctx, schemas, default_catalog, log.clone()).await?;
 
     for f in regclass_udfs(&ctx) {
         ctx.register_udf(f);
@@ -853,6 +1072,14 @@ pub async fn get_base_session_context(
     register_upper(&ctx)?;
     register_version_fn(&ctx)?;
 
+    // Install the lazy catalog providers BEFORE the views are created, so the
+    // catalog views plan against the lazy providers and reflect their rows.
+    if let Some((source, options)) = lazy_catalog {
+        register_lazy_catalog(&ctx, source, options).await?;
+    }
+
+    create_registered_views(&ctx, pending_views).await?;
+
     let catalogs = ctx.catalog_names();
     log::info!("registered catalogs: {:?}", catalogs);
 
@@ -893,7 +1120,9 @@ public:
         let parsed = parse_schema_file(file.path().to_str().unwrap());
 
         let myschema = parsed.get("public").unwrap().get("myschema").unwrap();
-        let (schema_ref, batches) = myschema.get("employees").unwrap();
+        let table = myschema.get("employees").unwrap();
+        let schema_ref = table.schema.clone();
+        let batches = &table.batches;
 
         let fields = schema_ref.fields();
         assert_eq!(fields.len(), 2);
@@ -972,12 +1201,12 @@ public:
 
         let parsed = parse_schema_file(file.path().to_str().unwrap());
         let myschema = parsed.get("public").unwrap().get("myschema").unwrap();
-        let (schema_ref, batches) = myschema.get("cfgtable").unwrap();
+        let table = myschema.get("cfgtable").unwrap();
 
-        let field = &schema_ref.fields()[0];
+        let field = &table.schema.fields()[0];
         assert!(matches!(field.data_type(), DataType::List(_)));
 
-        let batch = &batches[0];
+        let batch = &table.batches[0];
         let list = batch
             .column(0)
             .as_any()

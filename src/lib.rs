@@ -3,6 +3,8 @@
 
 pub mod clean_duplicate_columns;
 pub mod db_table;
+pub mod lazy_catalog;
+pub mod lazy_pg_catalog_helpers;
 pub mod logical_plan_rules;
 pub mod pg_catalog_helpers;
 pub mod register_table;
@@ -14,8 +16,10 @@ pub mod server;
 pub mod session;
 pub mod user_functions;
 // Re-export all public functions from pg_catalog_helpers for convenience.
+pub use lazy_catalog::*;
+pub use lazy_pg_catalog_helpers::*;
 pub use pg_catalog_helpers::*;
 // Re-export commonly used functions at crate root for convenience.
 pub use router::dispatch_query;
 pub use server::start_server;
-pub use session::get_base_session_context;
+pub use session::{get_base_session_context, get_base_session_context_with_lazy_catalog};

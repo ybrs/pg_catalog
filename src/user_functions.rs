@@ -15,13 +15,49 @@ use datafusion::error::{DataFusionError, Result};
 use datafusion::execution::SessionState;
 use datafusion::logical_expr::function::AccumulatorArgs;
 use datafusion::logical_expr::{create_udaf, Accumulator};
-use datafusion::logical_expr::{ColumnarValue, Volatility};
+use datafusion::logical_expr::{
+    ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature,
+    Volatility,
+};
 use datafusion::logical_expr::{Expr, TableType};
 use datafusion::prelude::SessionContext;
 use datafusion::prelude::*;
-use futures::executor::block_on;
+use once_cell::sync::Lazy;
+use std::future::Future;
 use std::sync::Arc;
-use tokio::task::block_in_place;
+
+/// A dedicated multi-threaded runtime used to drive the small synchronous
+/// catalog lookups some scalar UDFs perform (e.g. `pg_get_userbyid`, `oid(text)`).
+///
+/// These UDFs are synchronous but must run a catalog SQL query, and they may be
+/// invoked from within ANY caller runtime: a current-thread runtime (as
+/// `#[tokio::test]` uses) where `tokio::task::block_in_place` would panic, or a
+/// worker of a multi-threaded runtime where re-entering `block_on` would
+/// deadlock. Driving the query on this separate runtime — and blocking the
+/// caller on a plain std channel — is safe regardless of the caller's flavor.
+static CATALOG_QUERY_RT: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
+    tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_all()
+        .build()
+        .expect("failed to build the pg_catalog query runtime")
+});
+
+/// Drive `future` to completion from a synchronous context, regardless of the
+/// caller's tokio runtime flavor. The future runs on [`CATALOG_QUERY_RT`] while
+/// the calling thread blocks on a std channel until it finishes.
+fn run_catalog_query<F, T>(future: F) -> T
+where
+    F: Future<Output = T> + Send + 'static,
+    T: Send + 'static,
+{
+    let (tx, rx) = std::sync::mpsc::sync_channel(1);
+    CATALOG_QUERY_RT.spawn(async move {
+        let _ = tx.send(future.await);
+    });
+    rx.recv()
+        .expect("pg_catalog query task ended without producing a result")
+}
 
 #[derive(Debug)]
 struct RegClassOidTable {
@@ -106,9 +142,10 @@ pub fn register_scalar_regclass_oid(ctx: &SessionContext) -> Result<()> {
                     name.replace('\'', "''")
                 );
 
-                let opt: Option<i64> = block_in_place(|| {
-                    block_on(async {
-                        let batches = ctx_arc.sql(&sql).await?.collect().await?;
+                let opt: Option<i64> = {
+                    let ctx = ctx_arc.clone();
+                    run_catalog_query(async move {
+                        let batches = ctx.sql(&sql).await?.collect().await?;
                         if batches.is_empty() || batches[0].num_rows() == 0 {
                             Ok::<Option<i64>, DataFusionError>(None)
                         } else {
@@ -132,7 +169,7 @@ pub fn register_scalar_regclass_oid(ctx: &SessionContext) -> Result<()> {
                             }
                         }
                     })
-                })?;
+                }?;
 
                 Ok(ColumnarValue::Scalar(ScalarValue::Int64(opt)))
             }
@@ -152,9 +189,10 @@ pub fn register_scalar_regclass_oid(ctx: &SessionContext) -> Result<()> {
                         "SELECT oid FROM pg_catalog.pg_class WHERE relname = '{}'",
                         name.replace('\'', "''")
                     );
-                    let opt: Option<i64> = block_in_place(|| {
-                        block_on(async {
-                            let batches = ctx_arc.sql(&sql).await?.collect().await?;
+                    let opt: Option<i64> = {
+                        let ctx = ctx_arc.clone();
+                        run_catalog_query(async move {
+                            let batches = ctx.sql(&sql).await?.collect().await?;
                             if batches.is_empty() || batches[0].num_rows() == 0 {
                                 Ok::<Option<i64>, DataFusionError>(None)
                             } else {
@@ -178,7 +216,7 @@ pub fn register_scalar_regclass_oid(ctx: &SessionContext) -> Result<()> {
                                 }
                             }
                         })
-                    })?;
+                    }?;
                     if let Some(v) = opt {
                         builder.append_value(v);
                     } else {
@@ -639,32 +677,232 @@ pub fn register_scalar_pg_table_is_visible(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// Register `pg_get_userbyid(oid)` returning NULL for now.
-pub fn register_scalar_pg_get_userbyid(ctx: &SessionContext) -> Result<()> {
-    use arrow::array::{ArrayRef, StringBuilder};
-    use arrow::datatypes::DataType;
-    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
-    use std::sync::Arc;
-
-    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
-        let len = match &args[0] {
-            ColumnarValue::Array(a) => a.len(),
-            ColumnarValue::Scalar(_) => 1,
-        };
-        let mut b = StringBuilder::with_capacity(len, 8 * len);
-        for _ in 0..len {
-            b.append_value("postgres");
+#[allow(dead_code)]
+fn fetch_user_by_oid(ctx: Arc<SessionContext>, oid: i64) -> Result<String> {
+    run_catalog_query(async move {
+        {
+            let query = format!(
+                "SELECT rolname FROM pg_catalog.pg_authid WHERE oid = {} LIMIT 1",
+                oid
+            );
+            let df = ctx.sql(&query).await?;
+            let batches = df.collect().await?;
+            for batch in batches {
+                if batch.num_rows() == 0 {
+                    continue;
+                }
+                let col = batch.column(0);
+                let arr = col
+                    .as_any()
+                    .downcast_ref::<arrow::array::StringArray>()
+                    .ok_or_else(|| {
+                        DataFusionError::Execution(
+                            "pg_catalog.pg_authid.rolname must be text".to_string(),
+                        )
+                    })?;
+                if !arr.is_null(0) {
+                    return Ok(arr.value(0).to_string());
+                }
+            }
+            Ok(format!("unknown (OID={oid})"))
         }
-        Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
-    };
+    })
+}
 
-    ctx.register_udf(create_udf(
-        "pg_catalog.pg_get_userbyid",
-        vec![DataType::Int32], // one OID argument
-        DataType::Utf8,
-        Volatility::Stable,
-        Arc::new(fun),
-    ));
+/// Read an OID value out of an integer Arrow column at row `index`, widening any
+/// signed/unsigned 32/64-bit integer to `i64`. Returns `None` for NULL or a
+/// non-integer column.
+fn oid_at(column: &ArrayRef, index: usize) -> Result<Option<i64>> {
+    let scalar = ScalarValue::try_from_array(column, index)?;
+    Ok(match scalar {
+        ScalarValue::Int32(v) => v.map(i64::from),
+        ScalarValue::Int64(v) => v,
+        ScalarValue::UInt32(v) => v.map(i64::from),
+        // A UInt64 above i64::MAX can't be a valid OID (OIDs are u32); treat it
+        // as "no OID" rather than wrapping to a negative value that would
+        // mis-resolve. `i64::try_from(..).ok()` yields None on overflow.
+        ScalarValue::UInt64(v) => v.and_then(|val| i64::try_from(val).ok()),
+        _ => None,
+    })
+}
+
+/// Resolve a set of role OIDs to their `rolname`s with a SINGLE catalog query.
+///
+/// This is the batched replacement for calling [`fetch_user_by_oid`] once per
+/// row: `pg_get_userbyid` over a column (e.g. `pg_tables.tableowner`) would
+/// otherwise run one `pg_authid` query per row — O(rows) catalog queries. Here
+/// the distinct OIDs are looked up together. OIDs absent from `pg_authid` are
+/// simply missing from the returned map (callers substitute a placeholder); an
+/// empty input short-circuits without querying.
+fn fetch_users_by_oids(
+    ctx: Arc<SessionContext>,
+    oids: &[i64],
+) -> Result<std::collections::HashMap<i64, String>> {
+    use std::collections::HashMap;
+
+    let mut out: HashMap<i64, String> = HashMap::new();
+    if oids.is_empty() {
+        return Ok(out);
+    }
+
+    let in_list = oids
+        .iter()
+        .map(|o| o.to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    run_catalog_query(async move {
+        let query =
+            format!("SELECT oid, rolname FROM pg_catalog.pg_authid WHERE oid IN ({in_list})");
+        let df = ctx.sql(&query).await?;
+        let batches = df.collect().await?;
+        for batch in batches {
+            if batch.num_rows() == 0 {
+                continue;
+            }
+            let oid_col = batch.column(0);
+            let name_col = batch
+                .column(1)
+                .as_any()
+                .downcast_ref::<arrow::array::StringArray>()
+                .ok_or_else(|| {
+                    DataFusionError::Execution(
+                        "pg_catalog.pg_authid.rolname must be text".to_string(),
+                    )
+                })?;
+            for i in 0..batch.num_rows() {
+                if name_col.is_null(i) {
+                    continue;
+                }
+                if let Some(oid) = oid_at(oid_col, i)? {
+                    out.insert(oid, name_col.value(i).to_string());
+                }
+            }
+        }
+        Ok::<_, DataFusionError>(out)
+    })
+}
+
+struct PgGetUserById {
+    sig: Signature,
+    ctx: Arc<SessionContext>,
+}
+
+impl PgGetUserById {
+    fn new(ctx: Arc<SessionContext>) -> Self {
+        Self {
+            sig: Signature::one_of(
+                vec![
+                    TypeSignature::Exact(vec![ArrowDataType::Int32]),
+                    TypeSignature::Exact(vec![ArrowDataType::Int64]),
+                    TypeSignature::Exact(vec![ArrowDataType::UInt32]),
+                    TypeSignature::Exact(vec![ArrowDataType::UInt64]),
+                ],
+                Volatility::Stable,
+            ),
+            ctx,
+        }
+    }
+
+    #[allow(dead_code)]
+    fn lookup(&self, oid: i64) -> Result<String> {
+        fetch_user_by_oid(self.ctx.clone(), oid)
+    }
+}
+
+impl std::fmt::Debug for PgGetUserById {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PgGetUserById").finish()
+    }
+}
+
+impl PartialEq for PgGetUserById {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.ctx, &other.ctx)
+    }
+}
+
+impl Eq for PgGetUserById {}
+
+impl std::hash::Hash for PgGetUserById {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (Arc::as_ptr(&self.ctx) as usize).hash(state);
+    }
+}
+
+impl ScalarUDFImpl for PgGetUserById {
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn name(&self) -> &str {
+        "pg_catalog.pg_get_userbyid"
+    }
+
+    fn signature(&self) -> &Signature {
+        &self.sig
+    }
+
+    fn return_type(&self, _arg_types: &[ArrowDataType]) -> Result<ArrowDataType> {
+        Ok(ArrowDataType::Utf8)
+    }
+
+    fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+        let arrays = ColumnarValue::values_to_arrays(&args.args)?;
+        let arr = &arrays[0];
+        let len = arr.len();
+
+        // Decode every row's OID first, then resolve the DISTINCT ones with a
+        // single catalog query. The previous implementation looked each row up
+        // individually, turning pg_get_userbyid(<column>) into one pg_authid
+        // query per row (e.g. ~400ms for `SELECT * FROM pg_tables`).
+        let mut oids: Vec<Option<i64>> = Vec::with_capacity(len);
+        for i in 0..len {
+            let scalar = ScalarValue::try_from_array(arr, i)?;
+            let oid = match scalar {
+                ScalarValue::Int32(v) => v.map(i64::from),
+                ScalarValue::Int64(v) => v,
+                ScalarValue::UInt32(v) => v.map(i64::from),
+                // See `oid_at`: an out-of-i64-range UInt64 is not a valid OID, so
+                // map it to None instead of wrapping to a wrong (negative) value.
+                ScalarValue::UInt64(v) => v.and_then(|val| i64::try_from(val).ok()),
+                ScalarValue::Null => None,
+                _ => {
+                    return plan_err!("pg_get_userbyid expects an OID argument");
+                }
+            };
+            oids.push(oid);
+        }
+
+        let mut distinct: Vec<i64> = oids.iter().flatten().copied().collect();
+        distinct.sort_unstable();
+        distinct.dedup();
+        let names = fetch_users_by_oids(self.ctx.clone(), &distinct)?;
+
+        let mut builder = StringBuilder::with_capacity(len, 16 * len.max(1));
+        for oid in oids {
+            match oid {
+                Some(oid) => {
+                    let name = names
+                        .get(&oid)
+                        .cloned()
+                        .unwrap_or_else(|| format!("unknown (OID={oid})"));
+                    builder.append_value(&name);
+                }
+                None => builder.append_null(),
+            }
+        }
+
+        Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
+    }
+}
+
+/// Register `pg_get_userbyid(oid)` which returns the role name for the
+/// provided OID or "unknown (OID=…)" when no match is found.
+pub fn register_scalar_pg_get_userbyid(ctx: &SessionContext) -> Result<()> {
+    let udf = ScalarUDF::new_from_impl(PgGetUserById::new(Arc::new(ctx.clone())))
+        .with_aliases(["pg_get_userbyid"]);
+    ctx.register_udf(udf);
     Ok(())
 }
 
@@ -2024,7 +2262,7 @@ mod tests {
     use crate::scalar_to_cte::rewrite_subquery_as_cte;
 
     use super::*;
-    use arrow::array::{Int64Array, ListArray, StringArray};
+    use arrow::array::{Int32Array, Int64Array, ListArray, StringArray};
     use arrow::datatypes::{DataType, Field, Schema};
     use arrow::record_batch::RecordBatch;
     use datafusion::catalog::memory::{MemoryCatalogProvider, MemorySchemaProvider};
@@ -2032,6 +2270,22 @@ mod tests {
     use datafusion::datasource::MemTable;
     use datafusion::error::Result;
     use std::sync::Arc;
+
+    #[test]
+    fn test_oid_at_handles_unsigned_columns() {
+        use arrow::array::{ArrayRef, UInt32Array, UInt64Array};
+
+        // A UInt64 above i64::MAX is not a valid OID -> None (no wrap to a
+        // negative value that would mis-resolve a role).
+        let too_big = Arc::new(UInt64Array::from(vec![u64::MAX])) as ArrayRef;
+        assert_eq!(oid_at(&too_big, 0).unwrap(), None);
+
+        // In-range unsigned values widen to i64 correctly.
+        let u64_ok = Arc::new(UInt64Array::from(vec![27735u64])) as ArrayRef;
+        assert_eq!(oid_at(&u64_ok, 0).unwrap(), Some(27735i64));
+        let u32_ok = Arc::new(UInt32Array::from(vec![10u32])) as ArrayRef;
+        assert_eq!(oid_at(&u32_ok, 0).unwrap(), Some(10i64));
+    }
 
     /* TODO:
 
@@ -2622,6 +2876,59 @@ mod tests {
             .downcast_ref::<BooleanArray>()
             .unwrap();
         assert!(arr.value(0));
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn pg_get_userbyid_reads_pg_authid() -> Result<()> {
+        let config = datafusion::execution::context::SessionConfig::new()
+            .with_default_catalog_and_schema("pg_catalog", "pg_catalog");
+        let ctx = SessionContext::new_with_config(config);
+
+        let schema = Arc::new(Schema::new(vec![
+            Field::new("oid", DataType::Int32, false),
+            Field::new("rolname", DataType::Utf8, false),
+        ]));
+        let batch = RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(Int32Array::from(vec![10])),
+                Arc::new(StringArray::from(vec!["abadur"])),
+            ],
+        )?;
+        let table = MemTable::try_new(schema, vec![vec![batch]])?;
+
+        let catalog = Arc::new(MemoryCatalogProvider::new());
+        ctx.register_catalog("pg_catalog", catalog.clone());
+        let schema_provider = Arc::new(MemorySchemaProvider::new());
+        catalog.register_schema("pg_catalog", schema_provider.clone())?;
+        schema_provider.register_table("pg_authid".parse().unwrap(), Arc::new(table))?;
+
+        register_scalar_pg_get_userbyid(&ctx)?;
+
+        let batches = ctx
+            .sql("SELECT pg_get_userbyid(10)")
+            .await?
+            .collect()
+            .await?;
+        let col = batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap();
+        assert_eq!(col.value(0), "abadur");
+
+        let batches = ctx
+            .sql("SELECT pg_get_userbyid(111110)")
+            .await?
+            .collect()
+            .await?;
+        let col = batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap();
+        assert_eq!(col.value(0), "unknown (OID=111110)");
         Ok(())
     }
 }

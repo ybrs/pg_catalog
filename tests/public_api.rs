@@ -1,6 +1,8 @@
 use arrow::datatypes::Schema;
 use datafusion::execution::context::SessionContext;
-use datafusion_pg_catalog::{dispatch_query, get_base_session_context, start_server};
+use datafusion_pg_catalog::{
+    db_table::ObservableMemTable, dispatch_query, get_base_session_context, start_server,
+};
 use std::fs::File;
 use std::io::Read;
 use std::io::Write as IoWrite;
@@ -46,6 +48,44 @@ async fn test_get_base_session_context_public() -> datafusion::error::Result<()>
 #[tokio::test]
 async fn test_get_base_session_context_embedded() -> datafusion::error::Result<()> {
     let _ = get_base_session_context(None, "pgtry".to_string(), "public".to_string(), None).await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_pg_views_registered_as_view() -> datafusion::error::Result<()> {
+    let (ctx, _log) = get_base_session_context(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
+        None,
+    )
+    .await?;
+
+    let df = ctx
+        .sql("SELECT viewname FROM pg_catalog.pg_views WHERE viewname = 'pg_views'")
+        .await?;
+    let batches = df.collect().await?;
+    let total_rows: usize = batches.iter().map(|b| b.num_rows()).sum();
+    assert!(
+        total_rows >= 1,
+        "expected pg_views view to return at least one row"
+    );
+
+    let catalog = ctx.catalog("pgtry").expect("catalog should exist");
+    let schema = catalog
+        .schema("pg_catalog")
+        .expect("pg_catalog schema should exist");
+    let provider = schema
+        .table("pg_views")
+        .await?
+        .expect("pg_views table should be registered");
+    assert!(
+        provider
+            .as_any()
+            .downcast_ref::<ObservableMemTable>()
+            .is_none(),
+        "pg_views should be registered as a view, not an ObservableMemTable"
+    );
     Ok(())
 }
 

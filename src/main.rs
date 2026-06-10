@@ -57,7 +57,7 @@ async fn run() -> anyhow::Result<()> {
         .and_then(|i| args.get(i + 1))
         .cloned();
 
-    let (ctx, log) = get_base_session_context(
+    let (ctx, _log) = get_base_session_context(
         Some(schema_path),
         default_catalog.clone(),
         default_schema.clone(),

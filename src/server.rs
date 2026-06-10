@@ -23,7 +23,7 @@ use pgwire::api::results::{
 use pgwire::api::stmt::{NoopQueryParser, StoredStatement};
 use pgwire::api::store::PortalStore;
 use pgwire::api::{ClientInfo, ClientPortalStore, NoopHandler, PgWireServerHandlers, Type};
-use pgwire::error::{PgWireError, PgWireResult};
+use pgwire::error::{ErrorInfo, PgWireError, PgWireResult};
 use pgwire::messages::data::DataRow;
 use pgwire::messages::PgWireBackendMessage;
 use pgwire::tokio::process_socket;
@@ -44,6 +44,7 @@ use arrow::datatypes::{DataType, Field, Schema, TimeUnit};
 
 use datafusion::{
     common::ScalarValue,
+    error::DataFusionError,
     logical_expr::{create_udf, ColumnarValue, Volatility},
 };
 
@@ -60,6 +61,42 @@ use tokio::net::TcpStream;
 /// PostgreSQL version reported to clients during startup and via `SHOW server_version`.
 pub const SERVER_VERSION: &str = "17.4.0";
 
+/// If `text` is DataFusion's unknown-function planning error
+/// (`Invalid function '<name>'...`), return the offending function name.
+///
+/// DataFusion reports a call to a function it cannot resolve as
+/// `Error during planning: Invalid function '<name>'.\nDid you mean '<other>'?`.
+/// We recognize that shape so it can be reported to clients as PostgreSQL would.
+fn unknown_function_name(text: &str) -> Option<String> {
+    let marker = "Invalid function '";
+    let start = text.find(marker)? + marker.len();
+    let rest = &text[start..];
+    let end = rest.find('\'')?;
+    Some(rest[..end].to_string())
+}
+
+/// Translate a [`DataFusionError`] into a [`PgWireError`] carrying a
+/// PostgreSQL-compatible SQLSTATE for the error classes we can recognize.
+///
+/// A bare `PgWireError::ApiError` is rendered to the client with SQLSTATE
+/// `XX000` (internal error), which is wrong for a user-level mistake like
+/// calling a function that does not exist: PostgreSQL reports that as `42883`
+/// (`undefined_function`) with a `... does not exist` message, and clients (and
+/// the view-validation tests) key on exactly that. Map the unknown-function case
+/// to the matching [`ErrorInfo`]; every other error keeps the previous generic
+/// `ApiError` mapping so its message reaches the client unchanged.
+fn into_pgwire_error(e: DataFusionError) -> PgWireError {
+    if let Some(name) = unknown_function_name(&e.to_string()) {
+        let info = ErrorInfo::new(
+            "ERROR".to_string(),
+            "42883".to_string(),
+            format!("function {name}() does not exist"),
+        );
+        return PgWireError::UserError(Box::new(info));
+    }
+    PgWireError::ApiError(Box::new(e))
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 struct CapturedQuery {
     query: String,
@@ -70,7 +107,7 @@ struct CapturedQuery {
 }
 
 #[derive(Clone)]
-struct CaptureStore {
+pub(crate) struct CaptureStore {
     path: PathBuf,
     entries: Arc<Mutex<Vec<CapturedQuery>>>,
 }
@@ -176,7 +213,7 @@ pub struct DatafusionBackend {
 }
 
 impl DatafusionBackend {
-    pub fn new(ctx: Arc<SessionContext>, capture: Option<CaptureStore>) -> Self {
+    pub(crate) fn new(ctx: Arc<SessionContext>, capture: Option<CaptureStore>) -> Self {
         Self {
             ctx,
             query_parser: Arc::new(NoopQueryParser::new()),
@@ -287,7 +324,7 @@ impl DatafusionBackend {
 
         let mut encoder = DataRowEncoder::new(fields.clone());
         encoder.encode_field(&Some(value)).ok()?;
-        let row = encoder.finish().ok()?;
+        let row = encoder.take_row();
         let rows = stream::iter(vec![Ok(row)]);
         Some(Response::Query(QueryResponse::new(fields, rows)))
     }
@@ -606,13 +643,16 @@ fn batch_to_row_stream(
                             let value = if arr.is_null(row_idx) {
                                 None::<String>
                             } else {
+                                // Floored (Euclidean) division keeps the
+                                // sub-second part in [0, unit) for negative
+                                // (pre-1970) timestamps, and `map` instead of
+                                // `unwrap` turns an out-of-range value into NULL
+                                // rather than panicking the connection.
                                 let v = arr.value(row_idx); // micro-seconds
-                                let secs = v / 1_000_000;
-                                let micros = (v % 1_000_000) as u32;
-                                let ts =
-                                    chrono::NaiveDateTime::from_timestamp_opt(secs, micros * 1_000)
-                                        .unwrap();
-                                Some(ts.format("%Y-%m-%d %H:%M:%S%.6f").to_string())
+                                let secs = v.div_euclid(1_000_000);
+                                let micros = v.rem_euclid(1_000_000) as u32;
+                                chrono::DateTime::from_timestamp(secs, micros * 1_000)
+                                    .map(|ts| ts.format("%Y-%m-%d %H:%M:%S%.6f").to_string())
                             };
                             encoder.encode_field(&value).unwrap();
                         }
@@ -626,14 +666,10 @@ fn batch_to_row_stream(
                                 None::<String>
                             } else {
                                 let v = arr.value(row_idx); // milli-seconds
-                                let secs = v / 1_000;
-                                let millis = (v % 1_000) as u32;
-                                let ts = chrono::NaiveDateTime::from_timestamp_opt(
-                                    secs,
-                                    millis * 1_000_000,
-                                )
-                                .unwrap();
-                                Some(ts.format("%Y-%m-%d %H:%M:%S%.3f").to_string())
+                                let secs = v.div_euclid(1_000);
+                                let millis = v.rem_euclid(1_000) as u32;
+                                chrono::DateTime::from_timestamp(secs, millis * 1_000_000)
+                                    .map(|ts| ts.format("%Y-%m-%d %H:%M:%S%.3f").to_string())
                             };
                             encoder.encode_field(&value).unwrap();
                         }
@@ -647,11 +683,10 @@ fn batch_to_row_stream(
                                 None::<String>
                             } else {
                                 let v = arr.value(row_idx); // nano-seconds
-                                let secs = v / 1_000_000_000;
-                                let nanos = (v % 1_000_000_000) as u32;
-                                let ts =
-                                    chrono::NaiveDateTime::from_timestamp_opt(secs, nanos).unwrap();
-                                Some(ts.format("%Y-%m-%d %H:%M:%S%.9f").to_string())
+                                let secs = v.div_euclid(1_000_000_000);
+                                let nanos = v.rem_euclid(1_000_000_000) as u32;
+                                chrono::DateTime::from_timestamp(secs, nanos)
+                                    .map(|ts| ts.format("%Y-%m-%d %H:%M:%S%.9f").to_string())
                             };
                             encoder.encode_field(&value).unwrap();
                         }
@@ -698,7 +733,7 @@ fn batch_to_row_stream(
                 }
             }
         }
-        rows.push(encoder.finish());
+        rows.push(Ok(encoder.take_row()));
     }
     stream::iter(rows.into_iter())
 }
@@ -735,7 +770,7 @@ impl SimpleQueryHandler for DatafusionBackend {
 
             let mut encoder = DataRowEncoder::new(field_infos.clone());
             encoder.encode_field(&Some("read committed"))?;
-            let row = encoder.finish()?;
+            let row = encoder.take_row();
 
             let rows = stream::iter(vec![Ok(row)]);
             return Ok(vec![Response::Query(QueryResponse::new(field_infos, rows))]);
@@ -792,7 +827,7 @@ impl SimpleQueryHandler for DatafusionBackend {
                         error_details: Some(e.to_string()),
                     });
                 }
-                return Err(PgWireError::ApiError(Box::new(e)));
+                return Err(into_pgwire_error(e));
             }
         };
 
@@ -886,7 +921,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
 
             let mut encoder = DataRowEncoder::new(field_infos.clone());
             encoder.encode_field(&Some("read committed"))?;
-            let row = encoder.finish()?;
+            let row = encoder.take_row();
             let rows = stream::iter(vec![Ok(row)]);
             return Ok(Response::Query(QueryResponse::new(field_infos, rows)));
         } else if let Some(var) = Self::parse_show_variable(sql_trim) {
@@ -946,7 +981,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
                         error_details: Some(e.to_string()),
                     });
                 }
-                return Err(PgWireError::ApiError(Box::new(e)));
+                return Err(into_pgwire_error(e));
             }
         };
 
@@ -1025,7 +1060,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
 
         let (results, schema) = execute_sql(&self.ctx, stmt.statement.as_str(), None, None)
             .await
-            .map_err(|e| PgWireError::ApiError(Box::new(e)))?;
+            .map_err(into_pgwire_error)?;
 
         log::debug!("do_describe_statement {:?}", schema);
 
@@ -1095,7 +1130,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
             Some(concrete_param_types(&portal.statement.parameter_types)),
         )
         .await
-        .map_err(|e| PgWireError::ApiError(Box::new(e)))?;
+        .map_err(into_pgwire_error)?;
 
         // println!("do_describe_portal {:?}", schema);
 
@@ -1237,6 +1272,39 @@ mod tests {
         let buf = &row1.data;
         assert_eq!(&buf[0..4], &(-1i32).to_be_bytes());
         assert_eq!(&buf[4..8], &(-1i32).to_be_bytes());
+    }
+
+    #[test]
+    fn test_batch_to_row_stream_negative_timestamp_no_panic() {
+        // A pre-1970 (negative) microsecond timestamp must format correctly
+        // instead of panicking via unwrap() on an out-of-range sub-second value.
+        use arrow::array::TimestampMicrosecondArray;
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "ts",
+            DataType::Timestamp(TimeUnit::Microsecond, None),
+            true,
+        )]));
+        // -1_500_000 us = 1.5s before the epoch -> 1969-12-31 23:59:58.500000.
+        let arr = TimestampMicrosecondArray::from(vec![Some(-1_500_000i64), None]);
+        let batch = RecordBatch::try_new(schema, vec![Arc::new(arr) as ArrayRef]).unwrap();
+
+        let info = batch_to_field_info(&batch, &Format::UnifiedText).unwrap();
+        let rows = futures::executor::block_on(
+            batch_to_row_stream(&batch, Arc::new(info)).collect::<Vec<_>>(),
+        );
+        assert_eq!(rows.len(), 2);
+
+        // Row 0: the negative timestamp formats as a pre-1970 instant.
+        let buf = &rows[0].as_ref().unwrap().data;
+        let needle = b"1969-12-31 23:59:58.500000";
+        assert!(
+            buf.windows(needle.len()).any(|w| w == needle),
+            "expected pre-1970 timestamp, got {:?}",
+            String::from_utf8_lossy(buf)
+        );
+        // Row 1: NULL encodes as length -1.
+        let buf1 = &rows[1].as_ref().unwrap().data;
+        assert_eq!(&buf1[0..4], &(-1i32).to_be_bytes());
     }
 
     #[test]
