@@ -37,9 +37,7 @@ pub fn map_pg_type(pg_type: &str) -> DataType {
         // All floating-point types map to Float64. Without this arm they fell to
         // the Utf8 default, and a numeric JSON value written into a Utf8 column
         // silently became NULL (e.g. pg_class.reltuples, pg_stats columns).
-        "real" | "float4" | "float" | "double" | "double precision" | "float8" => {
-            DataType::Float64
-        }
+        "real" | "float4" | "float" | "double" | "double precision" | "float8" => DataType::Float64,
         "bool" | "boolean" => DataType::Boolean,
         "bytea" => DataType::Binary,
         _ if lower.starts_with("varchar") => DataType::Utf8,
