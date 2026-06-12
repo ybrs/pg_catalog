@@ -34,6 +34,14 @@ pub fn map_pg_type(pg_type: &str) -> DataType {
         "uuid" => DataType::Utf8,
         "int" | "integer" | "int4" => DataType::Int32,
         "bigint" | "int8" => DataType::Int64,
+        // Floating-point types. Map to the matching Arrow width so the wire type
+        // is faithful: real/float4 -> Float32 (advertised as FLOAT4, OID 700);
+        // double precision/float8 -> Float64 (FLOAT8, OID 701). Bare `float` is
+        // double precision in PostgreSQL. (Before any float arm existed these
+        // fell to the Utf8 default and their numeric values silently became NULL,
+        // e.g. pg_class.reltuples, pg_stats columns.)
+        "real" | "float4" => DataType::Float32,
+        "float" | "double" | "double precision" | "float8" => DataType::Float64,
         "bool" | "boolean" => DataType::Boolean,
         "bytea" => DataType::Binary,
         _ if lower.starts_with("varchar") => DataType::Utf8,
@@ -208,6 +216,27 @@ mod tests {
         assert_eq!(map_pg_type("bool"), DataType::Boolean);
         assert_eq!(map_pg_type("varchar(20)"), DataType::Utf8);
         assert_eq!(map_pg_type("unknown"), DataType::Utf8);
+    }
+
+    #[test]
+    fn test_map_pg_float_types() {
+        // Float types map to the matching Arrow width (faithful wire OID), not
+        // the Utf8 default that silently dropped numeric values to NULL.
+        // real/float4 -> Float32 (FLOAT4 / OID 700) ...
+        for t in ["real", "float4", "REAL", "Float4"] {
+            assert_eq!(map_pg_type(t), DataType::Float32, "mapping for {t:?}");
+        }
+        // ... double precision/float8/bare float -> Float64 (FLOAT8 / OID 701).
+        for t in [
+            "float",
+            "double",
+            "double precision",
+            "float8",
+            "FLOAT8",
+            "Double Precision",
+        ] {
+            assert_eq!(map_pg_type(t), DataType::Float64, "mapping for {t:?}");
+        }
     }
 
     #[test]

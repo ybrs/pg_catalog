@@ -1,38 +1,5 @@
 # TODO
 
-## ⚠️ HIGHEST PRIORITY — column type mapping silently turns values into NULL
-
-`map_pg_type` (`src/db_table.rs`) has **no arm for floating-point types**
-(`float`, `float4`, `real`, `double`, `float8`) — they fall through to the
-`_ => DataType::Utf8` default. A row builder then writes a JSON *number* into
-that `Utf8` column, and `rows_to_record_batch` converts it via `v.as_str()`,
-which returns `None` for a number → the value **silently becomes NULL**. No
-error, no warning. Silence is the dangerous part: a column looks present but its
-data quietly vanishes.
-
-Concrete example — `pg_class.reltuples` is declared `float4` in the YAML schema:
-
-```
-schema: reltuples: float4
-build_pg_class_row writes  row["reltuples"] = json!(0)      // JSON number
-map_pg_type("float4")      => DataType::Utf8                // no float arm -> default
-rows_to_record_batch       Utf8 column: json_number.as_str() => None => NULL
-result:                    SELECT reltuples FROM pg_class    => NULL for every row
-```
-
-This hits **both** built-in YAML rows (`reltuples: 410.0`) and lazy rows
-identically, so it is not a merge hazard and not a regression — but any client
-reading `reltuples` (or any future float column) gets NULL instead of a number.
-
-Fix (in a dedicated type-mapping branch): add a float arm to `map_pg_type`
-(`"real" | "float4" | "float" | "double precision" | "float8" => DataType::Float64`),
-a `DataType::Float64` arm to `rows_to_record_batch`, and have the float row
-builders write `json!(0.0)`. Then add a round-trip test asserting a float column
-survives (a test that would catch this class of bug going forward).
-
-This is the umbrella issue for "column types": see also teleduck's
-`duckdb_type_to_oid` mismatches (tracked in `../riffq/teleduck/TODO.md`).
-
 ## Lazy catalog follow-ups (from task_lazy_catalog_definitions.md, out of scope this round)
 
 - **Column-fidelity parity check (catalog rows are sparse).** The lazy
@@ -74,6 +41,15 @@ This is the umbrella issue for "column types": see also teleduck's
 
 ## Fixed
 
+- **Float columns silently became NULL** — `map_pg_type` had no floating-point
+  arm, so `float4`/`float8`/`real`/`double precision`/`float`/`double` fell to the
+  `Utf8` default and their numeric values were dropped to NULL (e.g.
+  `pg_class.reltuples`, `pg_stats`). Added a `Float64` arm to `map_pg_type`
+  (`src/db_table.rs`) and to `rows_to_record_batch` (`src/session.rs`), and the
+  lazy `reltuples` now writes `json!(0.0)`. Verified by
+  `db_table::tests::test_map_pg_float_types` and
+  `session::tests::test_float_column_round_trips` (covers both float and integer
+  literals in a float column).
 - **Undefined-function SQLSTATE mapping** — `SELECT <missing_function>()` now
   returns SQLSTATE `42883` (`undefined_function`) with a `... does not exist`
   message instead of a generic `XX000`. Implemented as `into_pgwire_error` /

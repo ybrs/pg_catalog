@@ -694,6 +694,17 @@ pub fn rows_to_record_batch(
                 DataType::Int64 => Arc::new(Int64Array::from(
                     col_data.into_iter().map(|v| v.as_i64()).collect::<Vec<_>>(),
                 )),
+                // `as_f64` accepts both integer and float JSON numbers, so a row
+                // written as `json!(0)` or `json!(410.0)` both materialize here.
+                DataType::Float32 => Arc::new(Float32Array::from(
+                    col_data
+                        .into_iter()
+                        .map(|v| v.as_f64().map(|f| f as f32))
+                        .collect::<Vec<_>>(),
+                )),
+                DataType::Float64 => Arc::new(Float64Array::from(
+                    col_data.into_iter().map(|v| v.as_f64()).collect::<Vec<_>>(),
+                )),
                 DataType::Boolean => Arc::new(BooleanArray::from(
                     col_data
                         .into_iter()
@@ -1150,6 +1161,62 @@ public:
             .unwrap();
         assert_eq!(name_array.value(0), "Alice");
         assert_eq!(name_array.value(1), "Bob");
+    }
+
+    #[test]
+    fn test_float_column_round_trips() {
+        // Regression: a float column used to map to Utf8 and its numeric values
+        // silently became NULL. It must now keep its values at the matching Arrow
+        // width (float4 -> Float32, double precision -> Float64), whether written
+        // as a float (1.5) or an integer (3) in the YAML.
+        use arrow::array::{Array, Float32Array, Float64Array};
+
+        let yaml = r#"
+public:
+  s:
+    stats:
+      type: table
+      schema:
+        est: float4
+        ratio: double precision
+      rows:
+        - est: 410.0
+          ratio: 3
+        - est: 0.0
+          ratio: 1.25
+"#;
+        let mut file = NamedTempFile::new().unwrap();
+        write!(file, "{}", yaml).unwrap();
+        let parsed = parse_schema_file(file.path().to_str().unwrap());
+        let table = parsed
+            .get("public")
+            .unwrap()
+            .get("s")
+            .unwrap()
+            .get("stats")
+            .unwrap();
+
+        let fields = table.schema.fields();
+        assert_eq!(fields[0].data_type(), &DataType::Float32); // float4
+        assert_eq!(fields[1].data_type(), &DataType::Float64); // double precision
+
+        let batch = &table.batches[0];
+        let est = batch
+            .column(0)
+            .as_any()
+            .downcast_ref::<Float32Array>()
+            .expect("est (float4) must be Float32, not NULL/Utf8");
+        let ratio = batch
+            .column(1)
+            .as_any()
+            .downcast_ref::<Float64Array>()
+            .expect("ratio (double precision) must be Float64");
+
+        assert!(est.is_valid(0) && est.value(0) == 410.0_f32);
+        assert!(est.is_valid(1) && est.value(1) == 0.0_f32);
+        // An integer literal in a float column also materializes (not NULL).
+        assert!(ratio.is_valid(0) && ratio.value(0) == 3.0);
+        assert!(ratio.is_valid(1) && ratio.value(1) == 1.25);
     }
 
     #[test]

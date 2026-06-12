@@ -432,7 +432,7 @@ pub fn build_pg_class_row(def: &RelationDef, namespace_oid: i32) -> Row {
     row.insert("relnamespace".to_string(), json!(namespace_oid));
     row.insert("reltype".to_string(), json!(def.reltype_oid));
     row.insert("relkind".to_string(), json!(def.kind.relkind()));
-    row.insert("reltuples".to_string(), json!(0));
+    row.insert("reltuples".to_string(), json!(0.0));
     row.insert("relispartition".to_string(), json!(false));
     // Flags read by pg_tables / pg_views and common client introspection. The
     // index/trigger/rule/RLS flags come from the source; the rest are sensible
