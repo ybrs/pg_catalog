@@ -34,10 +34,14 @@ pub fn map_pg_type(pg_type: &str) -> DataType {
         "uuid" => DataType::Utf8,
         "int" | "integer" | "int4" => DataType::Int32,
         "bigint" | "int8" => DataType::Int64,
-        // All floating-point types map to Float64. Without this arm they fell to
-        // the Utf8 default, and a numeric JSON value written into a Utf8 column
-        // silently became NULL (e.g. pg_class.reltuples, pg_stats columns).
-        "real" | "float4" | "float" | "double" | "double precision" | "float8" => DataType::Float64,
+        // Floating-point types. Map to the matching Arrow width so the wire type
+        // is faithful: real/float4 -> Float32 (advertised as FLOAT4, OID 700);
+        // double precision/float8 -> Float64 (FLOAT8, OID 701). Bare `float` is
+        // double precision in PostgreSQL. (Before any float arm existed these
+        // fell to the Utf8 default and their numeric values silently became NULL,
+        // e.g. pg_class.reltuples, pg_stats columns.)
+        "real" | "float4" => DataType::Float32,
+        "float" | "double" | "double precision" | "float8" => DataType::Float64,
         "bool" | "boolean" => DataType::Boolean,
         "bytea" => DataType::Binary,
         _ if lower.starts_with("varchar") => DataType::Utf8,
@@ -216,11 +220,14 @@ mod tests {
 
     #[test]
     fn test_map_pg_float_types() {
-        // Every floating-point spelling must map to Float64 (previously these
-        // fell to the Utf8 default and their numeric values silently became NULL).
+        // Float types map to the matching Arrow width (faithful wire OID), not
+        // the Utf8 default that silently dropped numeric values to NULL.
+        // real/float4 -> Float32 (FLOAT4 / OID 700) ...
+        for t in ["real", "float4", "REAL", "Float4"] {
+            assert_eq!(map_pg_type(t), DataType::Float32, "mapping for {t:?}");
+        }
+        // ... double precision/float8/bare float -> Float64 (FLOAT8 / OID 701).
         for t in [
-            "real",
-            "float4",
             "float",
             "double",
             "double precision",
