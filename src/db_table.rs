@@ -34,6 +34,12 @@ pub fn map_pg_type(pg_type: &str) -> DataType {
         "uuid" => DataType::Utf8,
         "int" | "integer" | "int4" => DataType::Int32,
         "bigint" | "int8" => DataType::Int64,
+        // All floating-point types map to Float64. Without this arm they fell to
+        // the Utf8 default, and a numeric JSON value written into a Utf8 column
+        // silently became NULL (e.g. pg_class.reltuples, pg_stats columns).
+        "real" | "float4" | "float" | "double" | "double precision" | "float8" => {
+            DataType::Float64
+        }
         "bool" | "boolean" => DataType::Boolean,
         "bytea" => DataType::Binary,
         _ if lower.starts_with("varchar") => DataType::Utf8,
@@ -208,6 +214,24 @@ mod tests {
         assert_eq!(map_pg_type("bool"), DataType::Boolean);
         assert_eq!(map_pg_type("varchar(20)"), DataType::Utf8);
         assert_eq!(map_pg_type("unknown"), DataType::Utf8);
+    }
+
+    #[test]
+    fn test_map_pg_float_types() {
+        // Every floating-point spelling must map to Float64 (previously these
+        // fell to the Utf8 default and their numeric values silently became NULL).
+        for t in [
+            "real",
+            "float4",
+            "float",
+            "double",
+            "double precision",
+            "float8",
+            "FLOAT8",
+            "Double Precision",
+        ] {
+            assert_eq!(map_pg_type(t), DataType::Float64, "mapping for {t:?}");
+        }
     }
 
     #[test]
