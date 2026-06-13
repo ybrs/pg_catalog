@@ -1,0 +1,192 @@
+# Catalog view compatibility report
+
+Ran every `type: view` from `pg_catalog_data/pg_schema` against the live engine and recorded whether DataFusion can execute its `view_sql`.
+
+**143 views total** 65 information_schema, 78 pg_catalog.
+
+## Outcome by category
+
+| Category | Count |
+|---|---|
+| missing_function | 56 |
+| missing_table | 36 |
+| other_error | 24 |
+| success | 18 |
+| missing_column | 8 |
+| parse_error | 1 |
+
+## Outcome by schema
+
+| Schema | missing_function | missing_table | other_error | success | missing_column | parse_error |
+|---|---|---|---|---|---|---|
+| information_schema | 40 | 0 | 17 | 4 | 4 | 0 |
+| pg_catalog | 16 | 36 | 7 | 14 | 4 | 1 |
+
+## Missing functions (most impactful to implement)
+
+| Function | Views blocked |
+|---|---|
+| `pg_has_role()` | 29 |
+| `pg_is_other_temp_schema()` | 7 |
+| `aclexplode()` | 4 |
+| `pg_stat_get_blocks_fetched()` | 3 |
+| `pg_stat_get_numscans()` | 2 |
+| `information_schema._pg_expandarray()` | 1 |
+| `pg_table_is_visible()` | 1 |
+| `pg_stat_get_bgwriter_buf_written_clean()` | 1 |
+| `pg_stat_get_checkpointer_num_timed()` | 1 |
+| `pg_stat_get_db_numbackends()` | 1 |
+| `pg_stat_get_db_conflict_tablespace()` | 1 |
+| `pg_stat_get_function_calls()` | 1 |
+| `pg_stat_get_xact_numscans()` | 1 |
+| `pg_stat_get_xact_function_calls()` | 1 |
+| `has_column_privilege()` | 1 |
+| `pg_get_statisticsobjdef_expressions()` | 1 |
+
+## Per-view detail
+
+| Schema.View | Category | Problem |
+|---|---|---|
+| information_schema.administrable_role_authorizations | success |  |
+| information_schema.foreign_servers | success |  |
+| information_schema.foreign_tables | success |  |
+| information_schema.user_mappings | success |  |
+| pg_catalog.pg_indexes | success |  |
+| pg_catalog.pg_matviews | success |  |
+| pg_catalog.pg_roles | success |  |
+| pg_catalog.pg_rules | success |  |
+| pg_catalog.pg_shadow | success |  |
+| pg_catalog.pg_stat_sys_indexes | success |  |
+| pg_catalog.pg_stat_sys_tables | success |  |
+| pg_catalog.pg_stat_xact_sys_tables | success |  |
+| pg_catalog.pg_statio_sys_indexes | success |  |
+| pg_catalog.pg_statio_sys_sequences | success |  |
+| pg_catalog.pg_statio_sys_tables | success |  |
+| pg_catalog.pg_tables | success |  |
+| pg_catalog.pg_user | success |  |
+| pg_catalog.pg_views | success |  |
+| information_schema._pg_foreign_data_wrappers | missing_function | function pg_has_role() does not exist |
+| information_schema._pg_foreign_servers | missing_function | function pg_has_role() does not exist |
+| information_schema._pg_foreign_table_columns | missing_function | function pg_has_role() does not exist |
+| information_schema._pg_foreign_tables | missing_function | function pg_has_role() does not exist |
+| information_schema._pg_user_mappings | other_error | This feature is not implemented: Unsupported SQL type information_schema.sql_identifier |
+| information_schema.applicable_roles | missing_function | function pg_has_role() does not exist |
+| information_schema.attributes | missing_function | function pg_has_role() does not exist |
+| information_schema.character_sets | other_error | This feature is not implemented: Unsupported SQL type information_schema.sql_identifier |
+| information_schema.check_constraint_routine_usage | missing_function | function pg_has_role() does not exist |
+| information_schema.check_constraints | missing_function | function pg_has_role() does not exist |
+| information_schema.collation_character_set_applicability | missing_column | Schema error: No field named pg_database.datname. Valid fields are subq0_t.datacl, subq0_t.datallowconn, subq0_t.datcollate, subq0_t.datcollversion, subq0_t.dat |
+| information_schema.collations | missing_column | Schema error: No field named pg_database.datname. Valid fields are subq0_t.datacl, subq0_t.datallowconn, subq0_t.datcollate, subq0_t.datcollversion, subq0_t.dat |
+| information_schema.column_column_usage | missing_function | function pg_has_role() does not exist |
+| information_schema.column_domain_usage | missing_function | function pg_has_role() does not exist |
+| information_schema.column_options | other_error | This feature is not implemented: Unsupported SQL type information_schema.sql_identifier |
+| information_schema.column_privileges | missing_function | function aclexplode() does not exist |
+| information_schema.column_udt_usage | missing_function | function pg_has_role() does not exist |
+| information_schema.columns | missing_function | function pg_is_other_temp_schema() does not exist |
+| information_schema.constraint_column_usage | missing_function | function pg_has_role() does not exist |
+| information_schema.constraint_table_usage | missing_function | function pg_has_role() does not exist |
+| information_schema.data_type_privileges | other_error | This feature is not implemented: Unsupported SQL type information_schema.sql_identifier |
+| information_schema.domain_constraints | missing_function | function pg_has_role() does not exist |
+| information_schema.domain_udt_usage | missing_function | function pg_has_role() does not exist |
+| information_schema.domains | missing_function | function pg_has_role() does not exist |
+| information_schema.element_types | other_error | This feature is not implemented: Unsupported SQL type information_schema.sql_identifier |
+| information_schema.enabled_roles | missing_function | function pg_has_role() does not exist |
+| information_schema.foreign_data_wrapper_options | other_error | This feature is not implemented: Unsupported SQL type information_schema.sql_identifier |
+| information_schema.foreign_data_wrappers | other_error | This feature is not implemented: Unsupported SQL type information_schema.character_data |
+| information_schema.foreign_server_options | other_error | This feature is not implemented: Unsupported SQL type information_schema.sql_identifier |
+| information_schema.foreign_table_options | other_error | This feature is not implemented: Unsupported SQL type information_schema.sql_identifier |
+| information_schema.information_schema_catalog_name | other_error | This feature is not implemented: Unsupported SQL type information_schema.sql_identifier |
+| information_schema.key_column_usage | missing_function | function pg_is_other_temp_schema() does not exist |
+| information_schema.parameters | missing_function | function pg_has_role() does not exist |
+| information_schema.referential_constraints | missing_function | function pg_has_role() does not exist |
+| information_schema.role_column_grants | other_error | type_coercion caused by Error during planning: Cannot infer common argument type for logical boolean operation Utf8 OR Utf8 |
+| information_schema.role_routine_grants | other_error | type_coercion caused by Error during planning: Cannot infer common argument type for logical boolean operation Utf8 OR Utf8 |
+| information_schema.role_table_grants | other_error | type_coercion caused by Error during planning: Cannot infer common argument type for logical boolean operation Utf8 OR Utf8 |
+| information_schema.role_udt_grants | other_error | type_coercion caused by Error during planning: Cannot infer common argument type for logical boolean operation Utf8 OR Utf8 |
+| information_schema.role_usage_grants | other_error | type_coercion caused by Error during planning: Cannot infer common argument type for logical boolean operation Utf8 OR Utf8 |
+| information_schema.routine_column_usage | missing_function | function pg_has_role() does not exist |
+| information_schema.routine_privileges | missing_function | function aclexplode() does not exist |
+| information_schema.routine_routine_usage | missing_function | function pg_has_role() does not exist |
+| information_schema.routine_sequence_usage | missing_function | function pg_has_role() does not exist |
+| information_schema.routine_table_usage | missing_function | function pg_has_role() does not exist |
+| information_schema.routines | missing_function | function pg_has_role() does not exist |
+| information_schema.schemata | missing_function | function pg_has_role() does not exist |
+| information_schema.sequences | missing_function | function pg_is_other_temp_schema() does not exist |
+| information_schema.table_constraints | other_error | This feature is not implemented: ALL only supports subquery comparison currently |
+| information_schema.table_privileges | missing_function | function aclexplode() does not exist |
+| information_schema.tables | missing_function | function pg_is_other_temp_schema() does not exist |
+| information_schema.transforms | other_error | This feature is not implemented: Unsupported SQL type information_schema.sql_identifier |
+| information_schema.triggered_update_columns | missing_function | function information_schema._pg_expandarray() does not exist |
+| information_schema.triggers | missing_function | function pg_is_other_temp_schema() does not exist |
+| information_schema.udt_privileges | missing_function | function aclexplode() does not exist |
+| information_schema.usage_privileges | missing_column | Schema error: No field named pg_database.datname. Valid fields are subq0_t.datacl, subq0_t.datallowconn, subq0_t.datcollate, subq0_t.datcollversion, subq0_t.dat |
+| information_schema.user_defined_types | missing_function | function pg_has_role() does not exist |
+| information_schema.user_mapping_options | missing_column | Schema error: No field named pg_authid.rolname. Valid fields are subq0_t.oid, subq0_t.rolbypassrls, subq0_t.rolcanlogin, subq0_t.rolconnlimit, subq0_t.rolcreate |
+| information_schema.view_column_usage | missing_function | function pg_has_role() does not exist |
+| information_schema.view_routine_usage | missing_function | function pg_has_role() does not exist |
+| information_schema.view_table_usage | missing_function | function pg_has_role() does not exist |
+| information_schema.views | missing_function | function pg_is_other_temp_schema() does not exist |
+| pg_catalog.pg_available_extension_versions | other_error | Error during planning: Column in SELECT must be in GROUP BY or an aggregate function: While expanding wildcard, column "x.extname" must appear in the GROUP BY c |
+| pg_catalog.pg_available_extensions | missing_table | Error during planning: table function 'pg_catalog' not found |
+| pg_catalog.pg_backend_memory_contexts | missing_table | Error during planning: table function 'pg_get_backend_memory_contexts' not found |
+| pg_catalog.pg_config | missing_table | Error during planning: table function 'pg_catalog' not found |
+| pg_catalog.pg_cursors | missing_table | Error during planning: table function 'pg_cursor' not found |
+| pg_catalog.pg_file_settings | missing_table | Error during planning: table function 'pg_show_all_file_settings' not found |
+| pg_catalog.pg_group | missing_column | Schema error: No field named pg_auth_members.roleid. Valid fields are subq0_t.admin_option, subq0_t.grantor, subq0_t.inherit_option, subq0_t.member, subq0_t.oid |
+| pg_catalog.pg_hba_file_rules | missing_table | Error during planning: table function 'pg_catalog' not found |
+| pg_catalog.pg_ident_file_mappings | missing_table | Error during planning: table function 'pg_catalog' not found |
+| pg_catalog.pg_locks | missing_table | Error during planning: table function 'pg_lock_status' not found |
+| pg_catalog.pg_policies | missing_column | Schema error: No field named pg_authid.rolname. Valid fields are subq0_t.oid, subq0_t.rolbypassrls, subq0_t.rolcanlogin, subq0_t.rolconnlimit, subq0_t.rolcreate |
+| pg_catalog.pg_prepared_statements | missing_table | Error during planning: table function 'pg_prepared_statement' not found |
+| pg_catalog.pg_prepared_xacts | missing_table | Error during planning: table function 'pg_prepared_xact' not found |
+| pg_catalog.pg_publication_tables | parse_error | Error during planning: failed to parse SQL: sql parser error: Expected: ), found: ARRAY at Line: 9, Column: 48 |
+| pg_catalog.pg_replication_origin_status | missing_table | Error during planning: table function 'pg_show_replication_origin_status' not found |
+| pg_catalog.pg_replication_slots | missing_table | Error during planning: table function 'pg_get_replication_slots' not found |
+| pg_catalog.pg_seclabels | missing_function | function pg_table_is_visible() does not exist |
+| pg_catalog.pg_sequences | missing_function | function pg_is_other_temp_schema() does not exist |
+| pg_catalog.pg_settings | missing_table | Error during planning: table function 'pg_show_all_settings' not found |
+| pg_catalog.pg_shmem_allocations | missing_table | Error during planning: table function 'pg_get_shmem_allocations' not found |
+| pg_catalog.pg_stat_activity | missing_table | Error during planning: table function 'pg_stat_get_activity' not found |
+| pg_catalog.pg_stat_all_indexes | missing_function | function pg_stat_get_numscans() does not exist |
+| pg_catalog.pg_stat_all_tables | missing_function | function pg_stat_get_numscans() does not exist |
+| pg_catalog.pg_stat_archiver | missing_table | Error during planning: table function 'pg_stat_get_archiver' not found |
+| pg_catalog.pg_stat_bgwriter | missing_function | function pg_stat_get_bgwriter_buf_written_clean() does not exist |
+| pg_catalog.pg_stat_checkpointer | missing_function | function pg_stat_get_checkpointer_num_timed() does not exist |
+| pg_catalog.pg_stat_database | missing_function | function pg_stat_get_db_numbackends() does not exist |
+| pg_catalog.pg_stat_database_conflicts | missing_function | function pg_stat_get_db_conflict_tablespace() does not exist |
+| pg_catalog.pg_stat_gssapi | missing_table | Error during planning: table function 'pg_stat_get_activity' not found |
+| pg_catalog.pg_stat_io | missing_table | Error during planning: table function 'pg_stat_get_io' not found |
+| pg_catalog.pg_stat_progress_analyze | missing_table | Error during planning: table function 'pg_stat_get_progress_info' not found |
+| pg_catalog.pg_stat_progress_basebackup | missing_table | Error during planning: table function 'pg_stat_get_progress_info' not found |
+| pg_catalog.pg_stat_progress_cluster | missing_table | Error during planning: table function 'pg_stat_get_progress_info' not found |
+| pg_catalog.pg_stat_progress_copy | missing_table | Error during planning: table function 'pg_stat_get_progress_info' not found |
+| pg_catalog.pg_stat_progress_create_index | missing_table | Error during planning: table function 'pg_stat_get_progress_info' not found |
+| pg_catalog.pg_stat_progress_vacuum | missing_table | Error during planning: table function 'pg_stat_get_progress_info' not found |
+| pg_catalog.pg_stat_recovery_prefetch | missing_table | Error during planning: table function 'pg_stat_get_recovery_prefetch' not found |
+| pg_catalog.pg_stat_replication | missing_table | Error during planning: table function 'pg_stat_get_activity' not found |
+| pg_catalog.pg_stat_replication_slots | missing_table | Error during planning: table function 'pg_stat_get_replication_slot' not found |
+| pg_catalog.pg_stat_slru | missing_table | Error during planning: table function 'pg_stat_get_slru' not found |
+| pg_catalog.pg_stat_ssl | missing_table | Error during planning: table function 'pg_stat_get_activity' not found |
+| pg_catalog.pg_stat_subscription | missing_table | Error during planning: table function 'pg_stat_get_subscription' not found |
+| pg_catalog.pg_stat_subscription_stats | missing_table | Error during planning: table function 'pg_stat_get_subscription_stats' not found |
+| pg_catalog.pg_stat_user_functions | missing_function | function pg_stat_get_function_calls() does not exist |
+| pg_catalog.pg_stat_user_indexes | other_error | This feature is not implemented: ALL only supports subquery comparison currently |
+| pg_catalog.pg_stat_user_tables | other_error | This feature is not implemented: ALL only supports subquery comparison currently |
+| pg_catalog.pg_stat_wal | missing_table | Error during planning: table function 'pg_stat_get_wal' not found |
+| pg_catalog.pg_stat_wal_receiver | missing_table | Error during planning: table function 'pg_stat_get_wal_receiver' not found |
+| pg_catalog.pg_stat_xact_all_tables | missing_function | function pg_stat_get_xact_numscans() does not exist |
+| pg_catalog.pg_stat_xact_user_functions | missing_function | function pg_stat_get_xact_function_calls() does not exist |
+| pg_catalog.pg_stat_xact_user_tables | other_error | This feature is not implemented: ALL only supports subquery comparison currently |
+| pg_catalog.pg_statio_all_indexes | missing_function | function pg_stat_get_blocks_fetched() does not exist |
+| pg_catalog.pg_statio_all_sequences | missing_function | function pg_stat_get_blocks_fetched() does not exist |
+| pg_catalog.pg_statio_all_tables | missing_function | function pg_stat_get_blocks_fetched() does not exist |
+| pg_catalog.pg_statio_user_indexes | other_error | This feature is not implemented: ALL only supports subquery comparison currently |
+| pg_catalog.pg_statio_user_sequences | other_error | This feature is not implemented: ALL only supports subquery comparison currently |
+| pg_catalog.pg_statio_user_tables | other_error | This feature is not implemented: ALL only supports subquery comparison currently |
+| pg_catalog.pg_stats | missing_function | function has_column_privilege() does not exist |
+| pg_catalog.pg_stats_ext | missing_column | Schema error: No field named s.stxkeys. |
+| pg_catalog.pg_stats_ext_exprs | missing_function | function pg_get_statisticsobjdef_expressions() does not exist |
+| pg_catalog.pg_timezone_abbrevs | missing_table | Error during planning: table function 'pg_catalog' not found |
+| pg_catalog.pg_timezone_names | missing_table | Error during planning: table function 'pg_catalog' not found |
+| pg_catalog.pg_user_mappings | missing_column | Schema error: No field named pg_authid.rolname. Valid fields are subq0_t.oid, subq0_t.rolbypassrls, subq0_t.rolcanlogin, subq0_t.rolconnlimit, subq0_t.rolcreate |
+| pg_catalog.pg_wait_events | missing_table | Error during planning: table function 'pg_get_wait_events' not found |
