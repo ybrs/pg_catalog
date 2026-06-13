@@ -14,19 +14,19 @@ public:
         object: varchar(256)
         context: varchar(256)
         reads: bigint
-        read_time: float
+        read_time: float8
         writes: bigint
-        write_time: float
+        write_time: float8
         writebacks: bigint
-        writeback_time: float
+        writeback_time: float8
         extends: bigint
-        extend_time: float
+        extend_time: float8
         op_bytes: bigint
         hits: bigint
         evictions: bigint
         reuses: bigint
         fsyncs: bigint
-        fsync_time: float
+        fsync_time: float8
         stats_reset: varchar(256)
       pg_types:
         backend_type: text
@@ -65,7 +65,7 @@ public:
         reuses: 0
         fsyncs: null
         fsync_time: null
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: client backend
         object: relation
         context: bulkwrite
@@ -83,11 +83,11 @@ public:
         reuses: 0
         fsyncs: null
         fsync_time: null
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: client backend
         object: relation
         context: normal
-        reads: 3719
+        reads: 151
         read_time: 0.0
         writes: 0
         write_time: 0.0
@@ -96,12 +96,12 @@ public:
         extends: 0
         extend_time: 0.0
         op_bytes: 8192
-        hits: 1618717
+        hits: 1851
         evictions: 0
         reuses: null
         fsyncs: 0
         fsync_time: 0.0
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: client backend
         object: relation
         context: vacuum
@@ -119,7 +119,7 @@ public:
         reuses: 0
         fsyncs: null
         fsync_time: null
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: client backend
         object: temp relation
         context: normal
@@ -137,7 +137,7 @@ public:
         reuses: null
         fsyncs: null
         fsync_time: null
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: autovacuum launcher
         object: relation
         context: bulkread
@@ -155,11 +155,11 @@ public:
         reuses: 0
         fsyncs: null
         fsync_time: null
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: autovacuum launcher
         object: relation
         context: normal
-        reads: 7
+        reads: 0
         read_time: 0.0
         writes: 0
         write_time: 0.0
@@ -168,12 +168,12 @@ public:
         extends: null
         extend_time: null
         op_bytes: 8192
-        hits: 83
+        hits: 0
         evictions: 0
         reuses: null
         fsyncs: 0
         fsync_time: 0.0
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: autovacuum worker
         object: relation
         context: bulkread
@@ -191,29 +191,29 @@ public:
         reuses: 0
         fsyncs: null
         fsync_time: null
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: autovacuum worker
         object: relation
         context: normal
-        reads: 785
+        reads: 0
         read_time: 0.0
         writes: 0
         write_time: 0.0
         writebacks: 0
         writeback_time: 0.0
-        extends: 10
+        extends: 0
         extend_time: 0.0
         op_bytes: 8192
-        hits: 24771
+        hits: 0
         evictions: 0
         reuses: null
         fsyncs: 0
         fsync_time: 0.0
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: autovacuum worker
         object: relation
         context: vacuum
-        reads: 120
+        reads: 0
         read_time: 0.0
         writes: 0
         write_time: 0.0
@@ -222,12 +222,12 @@ public:
         extends: 0
         extend_time: 0.0
         op_bytes: 8192
-        hits: 127
+        hits: 0
         evictions: 0
         reuses: 0
         fsyncs: null
         fsync_time: null
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: background worker
         object: relation
         context: bulkread
@@ -245,7 +245,7 @@ public:
         reuses: 0
         fsyncs: null
         fsync_time: null
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: background worker
         object: relation
         context: bulkwrite
@@ -263,7 +263,7 @@ public:
         reuses: 0
         fsyncs: null
         fsync_time: null
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: background worker
         object: relation
         context: normal
@@ -281,7 +281,7 @@ public:
         reuses: null
         fsyncs: 0
         fsync_time: 0.0
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: background worker
         object: relation
         context: vacuum
@@ -299,7 +299,7 @@ public:
         reuses: 0
         fsyncs: null
         fsync_time: null
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: background worker
         object: temp relation
         context: normal
@@ -317,7 +317,7 @@ public:
         reuses: null
         fsyncs: null
         fsync_time: null
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: walsender
         object: relation
         context: bulkread
@@ -335,7 +335,7 @@ public:
         reuses: 0
         fsyncs: null
         fsync_time: null
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: walsender
         object: relation
         context: bulkwrite
@@ -353,7 +353,7 @@ public:
         reuses: 0
         fsyncs: null
         fsync_time: null
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: walsender
         object: relation
         context: normal
@@ -371,7 +371,7 @@ public:
         reuses: null
         fsyncs: 0
         fsync_time: 0.0
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: walsender
         object: relation
         context: vacuum
@@ -389,7 +389,7 @@ public:
         reuses: 0
         fsyncs: null
         fsync_time: null
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: walsender
         object: temp relation
         context: normal
@@ -407,7 +407,7 @@ public:
         reuses: null
         fsyncs: null
         fsync_time: null
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: slotsync worker
         object: relation
         context: bulkread
@@ -425,7 +425,7 @@ public:
         reuses: 0
         fsyncs: null
         fsync_time: null
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: slotsync worker
         object: relation
         context: bulkwrite
@@ -443,7 +443,7 @@ public:
         reuses: 0
         fsyncs: null
         fsync_time: null
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: slotsync worker
         object: relation
         context: normal
@@ -461,7 +461,7 @@ public:
         reuses: null
         fsyncs: 0
         fsync_time: 0.0
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: slotsync worker
         object: relation
         context: vacuum
@@ -479,7 +479,7 @@ public:
         reuses: 0
         fsyncs: null
         fsync_time: null
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: slotsync worker
         object: temp relation
         context: normal
@@ -497,7 +497,7 @@ public:
         reuses: null
         fsyncs: null
         fsync_time: null
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: standalone backend
         object: relation
         context: bulkread
@@ -515,7 +515,7 @@ public:
         reuses: 0
         fsyncs: null
         fsync_time: null
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: standalone backend
         object: relation
         context: bulkwrite
@@ -533,25 +533,25 @@ public:
         reuses: 0
         fsyncs: null
         fsync_time: null
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: standalone backend
         object: relation
         context: normal
         reads: 537
         read_time: 0.0
-        writes: 989
+        writes: 979
         write_time: 0.0
-        writebacks: 0
+        writebacks: 979
         writeback_time: 0.0
-        extends: 641
+        extends: 632
         extend_time: 0.0
         op_bytes: 8192
-        hits: 78581
+        hits: 75852
         evictions: 0
         reuses: null
         fsyncs: 0
         fsync_time: 0.0
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: standalone backend
         object: relation
         context: vacuum
@@ -564,12 +564,12 @@ public:
         extends: 0
         extend_time: 0.0
         op_bytes: 8192
-        hits: 880
+        hits: 868
         evictions: 0
         reuses: 0
         fsyncs: null
         fsync_time: null
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: background writer
         object: relation
         context: normal
@@ -587,13 +587,13 @@ public:
         reuses: null
         fsyncs: 0
         fsync_time: 0.0
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: checkpointer
         object: relation
         context: normal
         reads: null
         read_time: null
-        writes: 45
+        writes: 0
         write_time: 0.0
         writebacks: 0
         writeback_time: 0.0
@@ -603,9 +603,9 @@ public:
         hits: null
         evictions: null
         reuses: null
-        fsyncs: 10
+        fsyncs: 0
         fsync_time: 0.0
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: startup
         object: relation
         context: bulkread
@@ -623,7 +623,7 @@ public:
         reuses: 0
         fsyncs: null
         fsync_time: null
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: startup
         object: relation
         context: bulkwrite
@@ -641,7 +641,7 @@ public:
         reuses: 0
         fsyncs: null
         fsync_time: null
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: startup
         object: relation
         context: normal
@@ -659,7 +659,7 @@ public:
         reuses: null
         fsyncs: 0
         fsync_time: 0.0
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - backend_type: startup
         object: relation
         context: vacuum
@@ -677,4 +677,4 @@ public:
         reuses: 0
         fsyncs: null
         fsync_time: null
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'

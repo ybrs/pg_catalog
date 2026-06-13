@@ -34,9 +34,9 @@ public:
         level: 0
         total_bytes: 97792
         total_nblocks: 5
-        free_bytes: 5344
-        free_chunks: 7
-        used_bytes: 92448
+        free_bytes: 5496
+        free_chunks: 5
+        used_bytes: 92296
       - name: Record information cache
         ident: null
         parent: TopMemoryContext
@@ -115,9 +115,9 @@ public:
         level: 1
         total_bytes: 32768
         total_nblocks: 3
-        free_bytes: 4488
+        free_bytes: 4552
         free_chunks: 1
-        used_bytes: 28280
+        used_bytes: 28216
       - name: Operator class cache
         ident: null
         parent: TopMemoryContext
@@ -127,6 +127,15 @@ public:
         free_bytes: 616
         free_chunks: 0
         used_bytes: 7576
+      - name: smgr relation table
+        ident: null
+        parent: TopMemoryContext
+        level: 1
+        total_bytes: 32768
+        total_nblocks: 3
+        free_bytes: 12800
+        free_chunks: 9
+        used_bytes: 19968
       - name: PgStat Shared Ref Hash
         ident: null
         parent: TopMemoryContext
@@ -142,27 +151,18 @@ public:
         level: 1
         total_bytes: 8192
         total_nblocks: 4
-        free_bytes: 2360
+        free_bytes: 2288
         free_chunks: 5
-        used_bytes: 5832
+        used_bytes: 5904
       - name: PgStat Pending
         ident: null
         parent: TopMemoryContext
         level: 1
         total_bytes: 24576
         total_nblocks: 6
-        free_bytes: 5392
+        free_bytes: 5656
         free_chunks: 13
-        used_bytes: 19184
-      - name: smgr relation table
-        ident: null
-        parent: TopMemoryContext
-        level: 1
-        total_bytes: 32768
-        total_nblocks: 3
-        free_bytes: 12800
-        free_chunks: 9
-        used_bytes: 19968
+        used_bytes: 18920
       - name: TransactionAbortContext
         ident: null
         parent: TopMemoryContext
@@ -250,9 +250,9 @@ public:
         level: 1
         total_bytes: 4243600
         total_nblocks: 13
-        free_bytes: 1894560
-        free_chunks: 10
-        used_bytes: 2349040
+        free_bytes: 2043488
+        free_chunks: 6
+        used_bytes: 2200112
       - name: CachedPlan
         ident: "\n            SELECT column_name, udt_name\n            FROM information_schema.columns\n\
           \            WHERE table_schema = $1 AND table_name = $2\n            ORDER\
@@ -261,9 +261,9 @@ public:
         level: 2
         total_bytes: 131072
         total_nblocks: 8
-        free_bytes: 5440
+        free_bytes: 6256
         free_chunks: 0
-        used_bytes: 125632
+        used_bytes: 124816
       - name: relation rules
         ident: pg_backend_memory_contexts
         parent: CacheMemoryContext
@@ -539,131 +539,86 @@ public:
         free_chunks: 1
         used_bytes: 1440
       - name: index info
-        ident: pg_user_mapping_user_server_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 2048
-        total_nblocks: 2
-        free_bytes: 752
-        free_chunks: 2
-        used_bytes: 1296
-      - name: index info
-        ident: pg_user_mapping_oid_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 1024
-        total_nblocks: 1
-        free_bytes: 96
-        free_chunks: 0
-        used_bytes: 928
-      - name: index info
-        ident: pg_type_oid_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 2048
-        total_nblocks: 2
-        free_bytes: 936
-        free_chunks: 1
-        used_bytes: 1112
-      - name: index info
-        ident: pg_type_typname_nsp_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 2048
-        total_nblocks: 2
-        free_bytes: 568
-        free_chunks: 2
-        used_bytes: 1480
-      - name: index info
-        ident: pg_ts_template_oid_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 1024
-        total_nblocks: 1
-        free_bytes: 96
-        free_chunks: 0
-        used_bytes: 928
-      - name: index info
-        ident: pg_ts_template_tmplname_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 2048
-        total_nblocks: 2
-        free_bytes: 784
-        free_chunks: 3
-        used_bytes: 1264
-      - name: index info
-        ident: pg_ts_parser_oid_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 1024
-        total_nblocks: 1
-        free_bytes: 96
-        free_chunks: 0
-        used_bytes: 928
-      - name: index info
-        ident: pg_ts_parser_prsname_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 2048
-        total_nblocks: 2
-        free_bytes: 784
-        free_chunks: 3
-        used_bytes: 1264
-      - name: index info
-        ident: pg_ts_dict_oid_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 1024
-        total_nblocks: 1
-        free_bytes: 96
-        free_chunks: 0
-        used_bytes: 928
-      - name: index info
-        ident: pg_ts_dict_dictname_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 2048
-        total_nblocks: 2
-        free_bytes: 784
-        free_chunks: 3
-        used_bytes: 1264
-      - name: index info
-        ident: pg_ts_config_oid_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 2048
-        total_nblocks: 2
-        free_bytes: 936
-        free_chunks: 1
-        used_bytes: 1112
-      - name: index info
-        ident: pg_ts_config_cfgname_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 2048
-        total_nblocks: 2
-        free_bytes: 568
-        free_chunks: 2
-        used_bytes: 1480
-      - name: index info
-        ident: pg_ts_config_map_index
+        ident: pg_opclass_am_name_nsp_index
         parent: CacheMemoryContext
         level: 2
         total_bytes: 3072
         total_nblocks: 2
-        free_bytes: 1256
+        free_bytes: 1112
         free_chunks: 2
-        used_bytes: 1816
+        used_bytes: 1960
       - name: index info
-        ident: pg_transform_type_lang_index
+        ident: pg_foreign_data_wrapper_name_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 1024
+        total_nblocks: 1
+        free_bytes: 64
+        free_chunks: 0
+        used_bytes: 960
+      - name: index info
+        ident: pg_enum_oid_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 1024
+        total_nblocks: 1
+        free_bytes: 96
+        free_chunks: 0
+        used_bytes: 928
+      - name: index info
+        ident: pg_class_relname_nsp_index
         parent: CacheMemoryContext
         level: 2
         total_bytes: 2048
         total_nblocks: 2
-        free_bytes: 784
+        free_bytes: 568
         free_chunks: 3
-        used_bytes: 1264
+        used_bytes: 1480
+      - name: index info
+        ident: pg_foreign_server_oid_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 1024
+        total_nblocks: 1
+        free_bytes: 96
+        free_chunks: 0
+        used_bytes: 928
+      - name: index info
+        ident: pg_publication_pubname_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 1024
+        total_nblocks: 1
+        free_bytes: 96
+        free_chunks: 0
+        used_bytes: 928
+      - name: index info
+        ident: pg_statistic_relid_att_inh_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 3072
+        total_nblocks: 2
+        free_bytes: 936
+        free_chunks: 2
+        used_bytes: 2136
+      - name: index info
+        ident: pg_cast_source_target_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 2048
+        total_nblocks: 2
+        free_bytes: 568
+        free_chunks: 3
+        used_bytes: 1480
+      - name: index info
+        ident: pg_language_name_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 1024
+        total_nblocks: 1
+        free_bytes: 96
+        free_chunks: 0
+        used_bytes: 928
       - name: index info
         ident: pg_transform_oid_index
         parent: CacheMemoryContext
@@ -674,7 +629,7 @@ public:
         free_chunks: 0
         used_bytes: 928
       - name: index info
-        ident: pg_tablespace_oid_index
+        ident: pg_collation_oid_index
         parent: CacheMemoryContext
         level: 2
         total_bytes: 2048
@@ -683,25 +638,25 @@ public:
         free_chunks: 1
         used_bytes: 1112
       - name: index info
-        ident: pg_subscription_rel_srrelid_srsubid_index
+        ident: pg_amop_fam_strat_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 3072
+        total_nblocks: 2
+        free_bytes: 832
+        free_chunks: 1
+        used_bytes: 2240
+      - name: index info
+        ident: pg_index_indexrelid_index
         parent: CacheMemoryContext
         level: 2
         total_bytes: 2048
         total_nblocks: 2
-        free_bytes: 752
-        free_chunks: 2
-        used_bytes: 1296
+        free_bytes: 936
+        free_chunks: 1
+        used_bytes: 1112
       - name: index info
-        ident: pg_subscription_oid_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 1024
-        total_nblocks: 1
-        free_bytes: 96
-        free_chunks: 0
-        used_bytes: 928
-      - name: index info
-        ident: pg_subscription_subname_index
+        ident: pg_ts_template_tmplname_index
         parent: CacheMemoryContext
         level: 2
         total_bytes: 2048
@@ -710,16 +665,43 @@ public:
         free_chunks: 3
         used_bytes: 1264
       - name: index info
-        ident: pg_statistic_relid_att_inh_index
+        ident: pg_ts_config_map_index
         parent: CacheMemoryContext
         level: 2
         total_bytes: 3072
         total_nblocks: 2
+        free_bytes: 1256
+        free_chunks: 2
+        used_bytes: 1816
+      - name: index info
+        ident: pg_opclass_oid_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 2048
+        total_nblocks: 2
         free_bytes: 936
         free_chunks: 1
-        used_bytes: 2136
+        used_bytes: 1112
       - name: index info
-        ident: pg_statistic_ext_oid_index
+        ident: pg_foreign_data_wrapper_oid_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 1024
+        total_nblocks: 1
+        free_bytes: 64
+        free_chunks: 0
+        used_bytes: 960
+      - name: index info
+        ident: pg_publication_namespace_oid_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 1024
+        total_nblocks: 1
+        free_bytes: 64
+        free_chunks: 0
+        used_bytes: 960
+      - name: index info
+        ident: pg_event_trigger_evtname_index
         parent: CacheMemoryContext
         level: 2
         total_bytes: 1024
@@ -737,87 +719,6 @@ public:
         free_chunks: 3
         used_bytes: 1264
       - name: index info
-        ident: pg_statistic_ext_data_stxoid_inh_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 2048
-        total_nblocks: 2
-        free_bytes: 752
-        free_chunks: 2
-        used_bytes: 1296
-      - name: index info
-        ident: pg_sequence_seqrelid_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 1024
-        total_nblocks: 1
-        free_bytes: 96
-        free_chunks: 0
-        used_bytes: 928
-      - name: index info
-        ident: pg_replication_origin_roname_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 1024
-        total_nblocks: 1
-        free_bytes: 64
-        free_chunks: 0
-        used_bytes: 960
-      - name: index info
-        ident: pg_replication_origin_roiident_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 1024
-        total_nblocks: 1
-        free_bytes: 64
-        free_chunks: 0
-        used_bytes: 960
-      - name: index info
-        ident: pg_class_relname_nsp_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 2048
-        total_nblocks: 2
-        free_bytes: 568
-        free_chunks: 2
-        used_bytes: 1480
-      - name: index info
-        ident: pg_range_rngtypid_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 1024
-        total_nblocks: 1
-        free_bytes: 96
-        free_chunks: 0
-        used_bytes: 928
-      - name: index info
-        ident: pg_range_rngmultitypid_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 1024
-        total_nblocks: 1
-        free_bytes: 96
-        free_chunks: 0
-        used_bytes: 928
-      - name: index info
-        ident: pg_publication_rel_prrelid_prpubid_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 2048
-        total_nblocks: 2
-        free_bytes: 752
-        free_chunks: 2
-        used_bytes: 1296
-      - name: index info
-        ident: pg_publication_rel_oid_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 1024
-        total_nblocks: 1
-        free_bytes: 96
-        free_chunks: 0
-        used_bytes: 928
-      - name: index info
         ident: pg_publication_oid_index
         parent: CacheMemoryContext
         level: 2
@@ -827,25 +728,7 @@ public:
         free_chunks: 0
         used_bytes: 928
       - name: index info
-        ident: pg_publication_namespace_pnnspid_pnpubid_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 2048
-        total_nblocks: 2
-        free_bytes: 752
-        free_chunks: 2
-        used_bytes: 1296
-      - name: index info
-        ident: pg_publication_namespace_oid_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 1024
-        total_nblocks: 1
-        free_bytes: 64
-        free_chunks: 0
-        used_bytes: 960
-      - name: index info
-        ident: pg_publication_pubname_index
+        ident: pg_ts_dict_oid_index
         parent: CacheMemoryContext
         level: 2
         total_bytes: 1024
@@ -854,7 +737,52 @@ public:
         free_chunks: 0
         used_bytes: 928
       - name: index info
-        ident: pg_proc_oid_index
+        ident: pg_event_trigger_oid_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 1024
+        total_nblocks: 1
+        free_bytes: 96
+        free_chunks: 0
+        used_bytes: 928
+      - name: index info
+        ident: pg_conversion_default_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 3072
+        total_nblocks: 2
+        free_bytes: 1192
+        free_chunks: 2
+        used_bytes: 1880
+      - name: index info
+        ident: pg_operator_oprname_l_r_n_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 3072
+        total_nblocks: 2
+        free_bytes: 904
+        free_chunks: 1
+        used_bytes: 2168
+      - name: index info
+        ident: pg_trigger_tgrelid_tgname_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 2048
+        total_nblocks: 2
+        free_bytes: 784
+        free_chunks: 3
+        used_bytes: 1264
+      - name: index info
+        ident: pg_enum_typid_label_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 2048
+        total_nblocks: 2
+        free_bytes: 784
+        free_chunks: 3
+        used_bytes: 1264
+      - name: index info
+        ident: pg_ts_config_oid_index
         parent: CacheMemoryContext
         level: 2
         total_bytes: 2048
@@ -863,43 +791,7 @@ public:
         free_chunks: 1
         used_bytes: 1112
       - name: index info
-        ident: pg_proc_proname_args_nsp_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 3072
-        total_nblocks: 2
-        free_bytes: 1112
-        free_chunks: 1
-        used_bytes: 1960
-      - name: index info
-        ident: pg_partitioned_table_partrelid_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 1024
-        total_nblocks: 1
-        free_bytes: 64
-        free_chunks: 0
-        used_bytes: 960
-      - name: index info
-        ident: pg_parameter_acl_oid_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 1024
-        total_nblocks: 1
-        free_bytes: 96
-        free_chunks: 0
-        used_bytes: 928
-      - name: index info
-        ident: pg_parameter_acl_parname_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 1024
-        total_nblocks: 1
-        free_bytes: 96
-        free_chunks: 0
-        used_bytes: 928
-      - name: index info
-        ident: pg_opfamily_oid_index
+        ident: pg_user_mapping_oid_index
         parent: CacheMemoryContext
         level: 2
         total_bytes: 1024
@@ -917,60 +809,6 @@ public:
         free_chunks: 2
         used_bytes: 1816
       - name: index info
-        ident: pg_operator_oid_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 2048
-        total_nblocks: 2
-        free_bytes: 936
-        free_chunks: 1
-        used_bytes: 1112
-      - name: index info
-        ident: pg_operator_oprname_l_r_n_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 3072
-        total_nblocks: 2
-        free_bytes: 904
-        free_chunks: 1
-        used_bytes: 2168
-      - name: index info
-        ident: pg_namespace_oid_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 2048
-        total_nblocks: 2
-        free_bytes: 936
-        free_chunks: 1
-        used_bytes: 1112
-      - name: index info
-        ident: pg_namespace_nspname_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 2048
-        total_nblocks: 2
-        free_bytes: 936
-        free_chunks: 1
-        used_bytes: 1112
-      - name: index info
-        ident: pg_language_oid_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 1024
-        total_nblocks: 1
-        free_bytes: 96
-        free_chunks: 0
-        used_bytes: 928
-      - name: index info
-        ident: pg_language_name_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 1024
-        total_nblocks: 1
-        free_bytes: 96
-        free_chunks: 0
-        used_bytes: 928
-      - name: index info
         ident: pg_foreign_table_relid_index
         parent: CacheMemoryContext
         level: 2
@@ -980,88 +818,16 @@ public:
         free_chunks: 0
         used_bytes: 928
       - name: index info
-        ident: pg_foreign_server_oid_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 1024
-        total_nblocks: 1
-        free_bytes: 96
-        free_chunks: 0
-        used_bytes: 928
-      - name: index info
-        ident: pg_foreign_server_name_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 1024
-        total_nblocks: 1
-        free_bytes: 96
-        free_chunks: 0
-        used_bytes: 928
-      - name: index info
-        ident: pg_foreign_data_wrapper_oid_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 1024
-        total_nblocks: 1
-        free_bytes: 64
-        free_chunks: 0
-        used_bytes: 960
-      - name: index info
-        ident: pg_foreign_data_wrapper_name_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 1024
-        total_nblocks: 1
-        free_bytes: 64
-        free_chunks: 0
-        used_bytes: 960
-      - name: index info
-        ident: pg_event_trigger_oid_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 1024
-        total_nblocks: 1
-        free_bytes: 96
-        free_chunks: 0
-        used_bytes: 928
-      - name: index info
-        ident: pg_event_trigger_evtname_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 1024
-        total_nblocks: 1
-        free_bytes: 96
-        free_chunks: 0
-        used_bytes: 928
-      - name: index info
-        ident: pg_enum_typid_label_index
+        ident: pg_type_oid_index
         parent: CacheMemoryContext
         level: 2
         total_bytes: 2048
         total_nblocks: 2
-        free_bytes: 784
-        free_chunks: 3
-        used_bytes: 1264
-      - name: index info
-        ident: pg_enum_oid_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 1024
-        total_nblocks: 1
-        free_bytes: 96
-        free_chunks: 0
-        used_bytes: 928
-      - name: index info
-        ident: pg_default_acl_role_nsp_obj_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 3072
-        total_nblocks: 2
-        free_bytes: 1224
+        free_bytes: 936
         free_chunks: 1
-        used_bytes: 1848
+        used_bytes: 1112
       - name: index info
-        ident: pg_conversion_oid_index
+        ident: pg_aggregate_fnoid_index
         parent: CacheMemoryContext
         level: 2
         total_bytes: 1024
@@ -1079,6 +845,321 @@ public:
         free_chunks: 0
         used_bytes: 928
       - name: index info
+        ident: pg_rewrite_rel_rulename_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 2048
+        total_nblocks: 2
+        free_bytes: 568
+        free_chunks: 3
+        used_bytes: 1480
+      - name: index info
+        ident: pg_ts_parser_prsname_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 2048
+        total_nblocks: 2
+        free_bytes: 784
+        free_chunks: 3
+        used_bytes: 1264
+      - name: index info
+        ident: pg_ts_config_cfgname_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 2048
+        total_nblocks: 2
+        free_bytes: 568
+        free_chunks: 3
+        used_bytes: 1480
+      - name: index info
+        ident: pg_ts_parser_oid_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 1024
+        total_nblocks: 1
+        free_bytes: 96
+        free_chunks: 0
+        used_bytes: 928
+      - name: index info
+        ident: pg_publication_rel_prrelid_prpubid_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 2048
+        total_nblocks: 2
+        free_bytes: 752
+        free_chunks: 2
+        used_bytes: 1296
+      - name: index info
+        ident: pg_operator_oid_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 2048
+        total_nblocks: 2
+        free_bytes: 936
+        free_chunks: 1
+        used_bytes: 1112
+      - name: index info
+        ident: pg_namespace_nspname_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 2048
+        total_nblocks: 2
+        free_bytes: 936
+        free_chunks: 1
+        used_bytes: 1112
+      - name: index info
+        ident: pg_ts_template_oid_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 1024
+        total_nblocks: 1
+        free_bytes: 96
+        free_chunks: 0
+        used_bytes: 928
+      - name: index info
+        ident: pg_amop_opr_fam_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 3072
+        total_nblocks: 2
+        free_bytes: 968
+        free_chunks: 2
+        used_bytes: 2104
+      - name: index info
+        ident: pg_default_acl_role_nsp_obj_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 3072
+        total_nblocks: 2
+        free_bytes: 1224
+        free_chunks: 3
+        used_bytes: 1848
+      - name: index info
+        ident: pg_collation_name_enc_nsp_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 3072
+        total_nblocks: 2
+        free_bytes: 1184
+        free_chunks: 2
+        used_bytes: 1888
+      - name: index info
+        ident: pg_publication_rel_oid_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 1024
+        total_nblocks: 1
+        free_bytes: 96
+        free_chunks: 0
+        used_bytes: 928
+      - name: index info
+        ident: pg_range_rngtypid_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 1024
+        total_nblocks: 1
+        free_bytes: 96
+        free_chunks: 0
+        used_bytes: 928
+      - name: index info
+        ident: pg_ts_dict_dictname_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 2048
+        total_nblocks: 2
+        free_bytes: 784
+        free_chunks: 3
+        used_bytes: 1264
+      - name: index info
+        ident: pg_type_typname_nsp_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 2048
+        total_nblocks: 2
+        free_bytes: 568
+        free_chunks: 3
+        used_bytes: 1480
+      - name: index info
+        ident: pg_opfamily_oid_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 1024
+        total_nblocks: 1
+        free_bytes: 96
+        free_chunks: 0
+        used_bytes: 928
+      - name: index info
+        ident: pg_statistic_ext_oid_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 1024
+        total_nblocks: 1
+        free_bytes: 96
+        free_chunks: 0
+        used_bytes: 928
+      - name: index info
+        ident: pg_statistic_ext_data_stxoid_inh_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 2048
+        total_nblocks: 2
+        free_bytes: 752
+        free_chunks: 2
+        used_bytes: 1296
+      - name: index info
+        ident: pg_class_oid_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 2048
+        total_nblocks: 2
+        free_bytes: 936
+        free_chunks: 1
+        used_bytes: 1112
+      - name: index info
+        ident: pg_proc_proname_args_nsp_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 3072
+        total_nblocks: 2
+        free_bytes: 1112
+        free_chunks: 2
+        used_bytes: 1960
+      - name: index info
+        ident: pg_partitioned_table_partrelid_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 1024
+        total_nblocks: 1
+        free_bytes: 64
+        free_chunks: 0
+        used_bytes: 960
+      - name: index info
+        ident: pg_range_rngmultitypid_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 1024
+        total_nblocks: 1
+        free_bytes: 96
+        free_chunks: 0
+        used_bytes: 928
+      - name: index info
+        ident: pg_transform_type_lang_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 2048
+        total_nblocks: 2
+        free_bytes: 784
+        free_chunks: 3
+        used_bytes: 1264
+      - name: index info
+        ident: pg_attribute_relid_attnum_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 2048
+        total_nblocks: 2
+        free_bytes: 568
+        free_chunks: 3
+        used_bytes: 1480
+      - name: index info
+        ident: pg_proc_oid_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 2048
+        total_nblocks: 2
+        free_bytes: 936
+        free_chunks: 1
+        used_bytes: 1112
+      - name: index info
+        ident: pg_language_oid_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 1024
+        total_nblocks: 1
+        free_bytes: 96
+        free_chunks: 0
+        used_bytes: 928
+      - name: index info
+        ident: pg_namespace_oid_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 2048
+        total_nblocks: 2
+        free_bytes: 936
+        free_chunks: 1
+        used_bytes: 1112
+      - name: index info
+        ident: pg_amproc_fam_proc_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 3072
+        total_nblocks: 2
+        free_bytes: 832
+        free_chunks: 1
+        used_bytes: 2240
+      - name: index info
+        ident: pg_foreign_server_name_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 1024
+        total_nblocks: 1
+        free_bytes: 96
+        free_chunks: 0
+        used_bytes: 928
+      - name: index info
+        ident: pg_attribute_relid_attnam_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 2048
+        total_nblocks: 2
+        free_bytes: 712
+        free_chunks: 3
+        used_bytes: 1336
+      - name: index info
+        ident: pg_publication_namespace_pnnspid_pnpubid_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 2048
+        total_nblocks: 2
+        free_bytes: 752
+        free_chunks: 2
+        used_bytes: 1296
+      - name: index info
+        ident: pg_conversion_oid_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 1024
+        total_nblocks: 1
+        free_bytes: 96
+        free_chunks: 0
+        used_bytes: 928
+      - name: index info
+        ident: pg_user_mapping_user_server_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 2048
+        total_nblocks: 2
+        free_bytes: 752
+        free_chunks: 2
+        used_bytes: 1296
+      - name: index info
+        ident: pg_subscription_rel_srrelid_srsubid_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 2048
+        total_nblocks: 2
+        free_bytes: 752
+        free_chunks: 2
+        used_bytes: 1296
+      - name: index info
+        ident: pg_sequence_seqrelid_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 1024
+        total_nblocks: 1
+        free_bytes: 96
+        free_chunks: 0
+        used_bytes: 928
+      - name: index info
         ident: pg_conversion_name_nsp_index
         parent: CacheMemoryContext
         level: 2
@@ -1088,16 +1169,7 @@ public:
         free_chunks: 3
         used_bytes: 1264
       - name: index info
-        ident: pg_conversion_default_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 3072
-        total_nblocks: 2
-        free_bytes: 1192
-        free_chunks: 1
-        used_bytes: 1880
-      - name: index info
-        ident: pg_collation_oid_index
+        ident: pg_authid_oid_index
         parent: CacheMemoryContext
         level: 2
         total_bytes: 2048
@@ -1106,70 +1178,43 @@ public:
         free_chunks: 1
         used_bytes: 1112
       - name: index info
-        ident: pg_collation_name_enc_nsp_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 3072
-        total_nblocks: 2
-        free_bytes: 1184
-        free_chunks: 1
-        used_bytes: 1888
-      - name: index info
-        ident: pg_opclass_am_name_nsp_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 3072
-        total_nblocks: 2
-        free_bytes: 1112
-        free_chunks: 1
-        used_bytes: 1960
-      - name: index info
-        ident: pg_cast_source_target_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 2048
-        total_nblocks: 2
-        free_bytes: 568
-        free_chunks: 2
-        used_bytes: 1480
-      - name: index info
-        ident: pg_auth_members_role_member_index
+        ident: pg_auth_members_member_role_index
         parent: CacheMemoryContext
         level: 2
         total_bytes: 3072
         total_nblocks: 2
         free_bytes: 1224
-        free_chunks: 1
+        free_chunks: 3
         used_bytes: 1848
       - name: index info
-        ident: pg_attribute_relid_attnam_index
+        ident: pg_subscription_oid_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 1024
+        total_nblocks: 1
+        free_bytes: 96
+        free_chunks: 0
+        used_bytes: 928
+      - name: index info
+        ident: pg_parameter_acl_oid_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 1024
+        total_nblocks: 1
+        free_bytes: 96
+        free_chunks: 0
+        used_bytes: 928
+      - name: index info
+        ident: pg_tablespace_oid_index
         parent: CacheMemoryContext
         level: 2
         total_bytes: 2048
         total_nblocks: 2
-        free_bytes: 712
-        free_chunks: 2
-        used_bytes: 1336
-      - name: index info
-        ident: pg_amop_fam_strat_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 3072
-        total_nblocks: 2
-        free_bytes: 832
+        free_bytes: 936
         free_chunks: 1
-        used_bytes: 2240
+        used_bytes: 1112
       - name: index info
-        ident: pg_amop_opr_fam_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 3072
-        total_nblocks: 2
-        free_bytes: 968
-        free_chunks: 1
-        used_bytes: 2104
-      - name: index info
-        ident: pg_aggregate_fnoid_index
+        ident: pg_parameter_acl_parname_index
         parent: CacheMemoryContext
         level: 2
         total_bytes: 1024
@@ -1187,16 +1232,52 @@ public:
         free_chunks: 2
         used_bytes: 1816
       - name: index info
-        ident: pg_auth_members_member_role_index
+        ident: pg_replication_origin_roname_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 1024
+        total_nblocks: 1
+        free_bytes: 64
+        free_chunks: 0
+        used_bytes: 960
+      - name: index info
+        ident: pg_database_datname_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 2048
+        total_nblocks: 2
+        free_bytes: 936
+        free_chunks: 1
+        used_bytes: 1112
+      - name: index info
+        ident: pg_subscription_subname_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 2048
+        total_nblocks: 2
+        free_bytes: 784
+        free_chunks: 3
+        used_bytes: 1264
+      - name: index info
+        ident: pg_replication_origin_roiident_index
+        parent: CacheMemoryContext
+        level: 2
+        total_bytes: 1024
+        total_nblocks: 1
+        free_bytes: 64
+        free_chunks: 0
+        used_bytes: 960
+      - name: index info
+        ident: pg_auth_members_role_member_index
         parent: CacheMemoryContext
         level: 2
         total_bytes: 3072
         total_nblocks: 2
         free_bytes: 1224
-        free_chunks: 1
+        free_chunks: 3
         used_bytes: 1848
       - name: index info
-        ident: pg_authid_oid_index
+        ident: pg_database_oid_index
         parent: CacheMemoryContext
         level: 2
         total_bytes: 2048
@@ -1208,87 +1289,6 @@ public:
         ident: pg_authid_rolname_index
         parent: CacheMemoryContext
         level: 2
-        total_bytes: 1024
-        total_nblocks: 1
-        free_bytes: 24
-        free_chunks: 0
-        used_bytes: 1000
-      - name: index info
-        ident: pg_database_oid_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 2048
-        total_nblocks: 2
-        free_bytes: 936
-        free_chunks: 1
-        used_bytes: 1112
-      - name: index info
-        ident: pg_database_datname_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 1024
-        total_nblocks: 1
-        free_bytes: 96
-        free_chunks: 0
-        used_bytes: 928
-      - name: index info
-        ident: pg_trigger_tgrelid_tgname_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 2048
-        total_nblocks: 2
-        free_bytes: 784
-        free_chunks: 3
-        used_bytes: 1264
-      - name: index info
-        ident: pg_rewrite_rel_rulename_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 2048
-        total_nblocks: 2
-        free_bytes: 568
-        free_chunks: 2
-        used_bytes: 1480
-      - name: index info
-        ident: pg_amproc_fam_proc_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 3072
-        total_nblocks: 2
-        free_bytes: 832
-        free_chunks: 1
-        used_bytes: 2240
-      - name: index info
-        ident: pg_opclass_oid_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 2048
-        total_nblocks: 2
-        free_bytes: 936
-        free_chunks: 1
-        used_bytes: 1112
-      - name: index info
-        ident: pg_index_indexrelid_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 2048
-        total_nblocks: 2
-        free_bytes: 936
-        free_chunks: 1
-        used_bytes: 1112
-      - name: index info
-        ident: pg_attribute_relid_attnum_index
-        parent: CacheMemoryContext
-        level: 2
-        total_bytes: 2048
-        total_nblocks: 2
-        free_bytes: 568
-        free_chunks: 2
-        used_bytes: 1480
-      - name: index info
-        ident: pg_class_oid_index
-        parent: CacheMemoryContext
-        level: 2
         total_bytes: 2048
         total_nblocks: 2
         free_bytes: 936
@@ -1298,29 +1298,29 @@ public:
         ident: null
         parent: TopMemoryContext
         level: 1
-        total_bytes: 49760
+        total_bytes: 50200
         total_nblocks: 2
         free_bytes: 6400
         free_chunks: 0
-        used_bytes: 43360
+        used_bytes: 43800
       - name: PrivateRefCount
         ident: null
         parent: TopMemoryContext
         level: 1
         total_bytes: 8192
         total_nblocks: 1
-        free_bytes: 1640
+        free_bytes: 2672
         free_chunks: 0
-        used_bytes: 6552
+        used_bytes: 5520
       - name: MdSmgr
         ident: null
         parent: TopMemoryContext
         level: 1
         total_bytes: 8192
         total_nblocks: 1
-        free_bytes: 6640
+        free_bytes: 6912
         free_chunks: 0
-        used_bytes: 1552
+        used_bytes: 1280
       - name: LOCALLOCK hash
         ident: null
         parent: TopMemoryContext
@@ -1336,9 +1336,9 @@ public:
         level: 1
         total_bytes: 24576
         total_nblocks: 2
-        free_bytes: 12848
-        free_chunks: 7
-        used_bytes: 11728
+        free_bytes: 12872
+        free_chunks: 8
+        used_bytes: 11704
       - name: GUC hash table
         ident: null
         parent: GUCMemoryContext

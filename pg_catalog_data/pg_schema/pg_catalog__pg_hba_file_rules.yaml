@@ -33,7 +33,7 @@ public:
         error: text
       rows:
       - rule_number: 1
-        file_name: /Users/abadur/projects/query/postgres-data/pg_hba.conf
+        file_name: /workspace/pg_catalog/postgres-data/pg_hba.conf
         line_number: 117
         type: local
         database:
@@ -46,7 +46,7 @@ public:
         options: null
         error: null
       - rule_number: 2
-        file_name: /Users/abadur/projects/query/postgres-data/pg_hba.conf
+        file_name: /workspace/pg_catalog/postgres-data/pg_hba.conf
         line_number: 119
         type: host
         database:
@@ -59,7 +59,7 @@ public:
         options: null
         error: null
       - rule_number: 3
-        file_name: /Users/abadur/projects/query/postgres-data/pg_hba.conf
+        file_name: /workspace/pg_catalog/postgres-data/pg_hba.conf
         line_number: 121
         type: host
         database:
@@ -72,7 +72,7 @@ public:
         options: null
         error: null
       - rule_number: 4
-        file_name: /Users/abadur/projects/query/postgres-data/pg_hba.conf
+        file_name: /workspace/pg_catalog/postgres-data/pg_hba.conf
         line_number: 124
         type: local
         database:
@@ -85,7 +85,7 @@ public:
         options: null
         error: null
       - rule_number: 5
-        file_name: /Users/abadur/projects/query/postgres-data/pg_hba.conf
+        file_name: /workspace/pg_catalog/postgres-data/pg_hba.conf
         line_number: 125
         type: host
         database:
@@ -98,7 +98,7 @@ public:
         options: null
         error: null
       - rule_number: 6
-        file_name: /Users/abadur/projects/query/postgres-data/pg_hba.conf
+        file_name: /workspace/pg_catalog/postgres-data/pg_hba.conf
         line_number: 126
         type: host
         database:

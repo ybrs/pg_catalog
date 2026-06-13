@@ -30,7 +30,7 @@ public:
         block_distance: int4
         io_depth: int4
       rows:
-      - stats_reset: '2025-06-02T12:40:53.534050+02:00'
+      - stats_reset: '2026-06-13T02:30:35.405467+02:00'
         prefetch: 0
         hit: 0
         skip_init: 0
@@ -38,5 +38,5 @@ public:
         skip_fpw: 0
         skip_rep: 0
         wal_distance: 0
-        block_distance: 1
+        block_distance: 0
         io_depth: 0

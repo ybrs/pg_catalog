@@ -69,9 +69,9 @@ public:
       - relid: 3601
         schemaname: pg_catalog
         relname: pg_ts_parser
-        seq_scan: 9
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 9
+        seq_scan: 0
+        last_seq_scan: null
+        seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
         idx_tup_fetch: 0
@@ -95,12 +95,12 @@ public:
       - relid: 2602
         schemaname: pg_catalog
         relname: pg_amop
-        seq_scan: 13
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 12285
-        idx_scan: 905
-        last_idx_scan: '2025-05-23T09:37:17.979608+02:00'
-        idx_tup_fetch: 1472
+        seq_scan: 0
+        last_seq_scan: null
+        seq_tup_read: 0
+        idx_scan: 2
+        last_idx_scan: '2026-06-13T02:30:38.387013+02:00'
+        idx_tup_fetch: 6
         n_tup_ins: 0
         n_tup_upd: 0
         n_tup_del: 0
@@ -147,8 +147,8 @@ public:
       - relid: 6104
         schemaname: pg_catalog
         relname: pg_publication
-        seq_scan: 19
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 0
+        last_seq_scan: null
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -173,8 +173,8 @@ public:
       - relid: 3429
         schemaname: pg_catalog
         relname: pg_statistic_ext_data
-        seq_scan: 9
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 0
+        last_seq_scan: null
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -200,7 +200,7 @@ public:
         schemaname: pg_toast
         relname: pg_toast_2396
         seq_scan: 1
-        last_seq_scan: '2025-05-21T13:14:40.635111+02:00'
+        last_seq_scan: '2026-06-13T02:30:32.536916+02:00'
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -214,7 +214,7 @@ public:
         n_dead_tup: 0
         n_mod_since_analyze: 0
         n_ins_since_vacuum: 0
-        last_vacuum: '2025-05-21T13:14:41.174799+02:00'
+        last_vacuum: '2026-06-13T02:30:32.775577+02:00'
         last_autovacuum: null
         last_analyze: null
         last_autoanalyze: null
@@ -251,12 +251,12 @@ public:
       - relid: 2619
         schemaname: pg_catalog
         relname: pg_statistic
-        seq_scan: 18
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 7380
-        idx_scan: 8225
-        last_idx_scan: '2025-05-23T09:37:17.979608+02:00'
-        idx_tup_fetch: 4555
+        seq_scan: 0
+        last_seq_scan: null
+        seq_tup_read: 0
+        idx_scan: 2
+        last_idx_scan: '2026-06-13T02:30:38.387013+02:00'
+        idx_tup_fetch: 2
         n_tup_ins: 0
         n_tup_upd: 0
         n_tup_del: 0
@@ -303,11 +303,11 @@ public:
       - relid: 3541
         schemaname: pg_catalog
         relname: pg_range
-        seq_scan: 9
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 54
-        idx_scan: 78
-        last_idx_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 0
+        last_seq_scan: null
+        seq_tup_read: 0
+        idx_scan: 0
+        last_idx_scan: null
         idx_tup_fetch: 0
         n_tup_ins: 0
         n_tup_upd: 0
@@ -329,12 +329,12 @@ public:
       - relid: 3602
         schemaname: pg_catalog
         relname: pg_ts_config
-        seq_scan: 9
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 261
-        idx_scan: 18
-        last_idx_scan: '2025-05-23T09:37:17.979608+02:00'
-        idx_tup_fetch: 18
+        seq_scan: 0
+        last_seq_scan: null
+        seq_tup_read: 0
+        idx_scan: 0
+        last_idx_scan: null
+        idx_tup_fetch: 0
         n_tup_ins: 0
         n_tup_upd: 0
         n_tup_del: 0
@@ -355,11 +355,11 @@ public:
       - relid: 3381
         schemaname: pg_catalog
         relname: pg_statistic_ext
-        seq_scan: 28
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 0
+        last_seq_scan: null
         seq_tup_read: 0
-        idx_scan: 764
-        last_idx_scan: '2025-05-23T09:37:17.979608+02:00'
+        idx_scan: 1
+        last_idx_scan: '2026-06-13T02:30:38.387013+02:00'
         idx_tup_fetch: 0
         n_tup_ins: 0
         n_tup_upd: 0
@@ -382,7 +382,7 @@ public:
         schemaname: pg_toast
         relname: pg_toast_1260
         seq_scan: 1
-        last_seq_scan: '2025-05-21T13:14:40.635111+02:00'
+        last_seq_scan: '2026-06-13T02:30:32.536916+02:00'
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -396,7 +396,7 @@ public:
         n_dead_tup: 0
         n_mod_since_analyze: 0
         n_ins_since_vacuum: 0
-        last_vacuum: '2025-05-21T13:14:41.156042+02:00'
+        last_vacuum: '2026-06-13T02:30:32.769054+02:00'
         last_autovacuum: null
         last_analyze: null
         last_autoanalyze: null
@@ -407,8 +407,8 @@ public:
       - relid: 6106
         schemaname: pg_catalog
         relname: pg_publication_rel
-        seq_scan: 9
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 0
+        last_seq_scan: null
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -433,12 +433,12 @@ public:
       - relid: 2605
         schemaname: pg_catalog
         relname: pg_cast
-        seq_scan: 14
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 3206
-        idx_scan: 3807
-        last_idx_scan: '2025-05-23T09:37:17.979608+02:00'
-        idx_tup_fetch: 423
+        seq_scan: 0
+        last_seq_scan: null
+        seq_tup_read: 0
+        idx_scan: 42
+        last_idx_scan: '2026-06-13T02:30:38.387013+02:00'
+        idx_tup_fetch: 3
         n_tup_ins: 0
         n_tup_upd: 0
         n_tup_del: 0
@@ -460,7 +460,7 @@ public:
         schemaname: pg_toast
         relname: pg_toast_6100
         seq_scan: 1
-        last_seq_scan: '2025-05-21T13:14:40.635111+02:00'
+        last_seq_scan: '2026-06-13T02:30:32.536916+02:00'
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -474,7 +474,7 @@ public:
         n_dead_tup: 0
         n_mod_since_analyze: 0
         n_ins_since_vacuum: 0
-        last_vacuum: '2025-05-21T13:14:41.156681+02:00'
+        last_vacuum: '2026-06-13T02:30:32.769411+02:00'
         last_autovacuum: null
         last_analyze: null
         last_autoanalyze: null
@@ -511,8 +511,8 @@ public:
       - relid: 2224
         schemaname: pg_catalog
         relname: pg_sequence
-        seq_scan: 51
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 0
+        last_seq_scan: null
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -537,8 +537,8 @@ public:
       - relid: 2611
         schemaname: pg_catalog
         relname: pg_inherits
-        seq_scan: 11
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 0
+        last_seq_scan: null
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -586,11 +586,37 @@ public:
         autovacuum_count: 0
         analyze_count: 0
         autoanalyze_count: 0
+      - relid: 12612
+        schemaname: pg_toast
+        relname: pg_toast_12609
+        seq_scan: 0
+        last_seq_scan: null
+        seq_tup_read: 0
+        idx_scan: 0
+        last_idx_scan: null
+        idx_tup_fetch: 0
+        n_tup_ins: 0
+        n_tup_upd: 0
+        n_tup_del: 0
+        n_tup_hot_upd: 0
+        n_tup_newpage_upd: 0
+        n_live_tup: 0
+        n_dead_tup: 0
+        n_mod_since_analyze: 0
+        n_ins_since_vacuum: 0
+        last_vacuum: null
+        last_autovacuum: null
+        last_analyze: null
+        last_autoanalyze: null
+        vacuum_count: 0
+        autovacuum_count: 0
+        analyze_count: 0
+        autoanalyze_count: 0
       - relid: 1417
         schemaname: pg_catalog
         relname: pg_foreign_server
-        seq_scan: 53
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 0
+        last_seq_scan: null
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -615,12 +641,12 @@ public:
       - relid: 1262
         schemaname: pg_catalog
         relname: pg_database
-        seq_scan: 616
-        last_seq_scan: '2025-06-02T12:41:00.075536+02:00'
-        seq_tup_read: 1800
-        idx_scan: 351
-        last_idx_scan: '2025-06-02T12:41:00.075536+02:00'
-        idx_tup_fetch: 347
+        seq_scan: 10
+        last_seq_scan: '2026-06-13T02:30:38.385665+02:00'
+        seq_tup_read: 12
+        idx_scan: 23
+        last_idx_scan: '2026-06-13T02:30:38.527815+02:00'
+        idx_tup_fetch: 19
         n_tup_ins: 3
         n_tup_upd: 4
         n_tup_del: 0
@@ -630,9 +656,9 @@ public:
         n_dead_tup: 4
         n_mod_since_analyze: 6
         n_ins_since_vacuum: 2
-        last_vacuum: '2025-05-21T13:14:41.357263+02:00'
+        last_vacuum: '2026-06-13T02:30:32.796147+02:00'
         last_autovacuum: null
-        last_analyze: '2025-05-21T13:14:41.146333+02:00'
+        last_analyze: '2026-06-13T02:30:32.763585+02:00'
         last_autoanalyze: null
         vacuum_count: 2
         autovacuum_count: 0
@@ -642,7 +668,7 @@ public:
         schemaname: pg_toast
         relname: pg_toast_6243
         seq_scan: 1
-        last_seq_scan: '2025-05-21T13:14:40.635111+02:00'
+        last_seq_scan: '2026-06-13T02:30:32.536916+02:00'
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -656,7 +682,7 @@ public:
         n_dead_tup: 0
         n_mod_since_analyze: 0
         n_ins_since_vacuum: 0
-        last_vacuum: '2025-05-21T13:14:41.181847+02:00'
+        last_vacuum: '2026-06-13T02:30:32.778190+02:00'
         last_autovacuum: null
         last_analyze: null
         last_autoanalyze: null
@@ -693,8 +719,8 @@ public:
       - relid: 3501
         schemaname: pg_catalog
         relname: pg_enum
-        seq_scan: 9
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 0
+        last_seq_scan: null
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -719,58 +745,6 @@ public:
       - relid: 2607
         schemaname: pg_catalog
         relname: pg_conversion
-        seq_scan: 9
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 1152
-        idx_scan: 0
-        last_idx_scan: null
-        idx_tup_fetch: 0
-        n_tup_ins: 0
-        n_tup_upd: 0
-        n_tup_del: 0
-        n_tup_hot_upd: 0
-        n_tup_newpage_upd: 0
-        n_live_tup: 0
-        n_dead_tup: 0
-        n_mod_since_analyze: 0
-        n_ins_since_vacuum: 0
-        last_vacuum: null
-        last_autovacuum: null
-        last_analyze: null
-        last_autoanalyze: null
-        vacuum_count: 0
-        autovacuum_count: 0
-        analyze_count: 0
-        autoanalyze_count: 0
-      - relid: 12980
-        schemaname: information_schema
-        relname: sql_sizing
-        seq_scan: 7
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 161
-        idx_scan: null
-        last_idx_scan: null
-        idx_tup_fetch: null
-        n_tup_ins: 0
-        n_tup_upd: 0
-        n_tup_del: 0
-        n_tup_hot_upd: 0
-        n_tup_newpage_upd: 0
-        n_live_tup: 0
-        n_dead_tup: 0
-        n_mod_since_analyze: 0
-        n_ins_since_vacuum: 0
-        last_vacuum: null
-        last_autovacuum: null
-        last_analyze: null
-        last_autoanalyze: null
-        vacuum_count: 0
-        autovacuum_count: 0
-        analyze_count: 0
-        autoanalyze_count: 0
-      - relid: 12978
-        schemaname: pg_toast
-        relname: pg_toast_12975
         seq_scan: 0
         last_seq_scan: null
         seq_tup_read: 0
@@ -794,11 +768,89 @@ public:
         autovacuum_count: 0
         analyze_count: 0
         autoanalyze_count: 0
+      - relid: 12594
+        schemaname: information_schema
+        relname: sql_features
+        seq_scan: 0
+        last_seq_scan: null
+        seq_tup_read: 0
+        idx_scan: null
+        last_idx_scan: null
+        idx_tup_fetch: null
+        n_tup_ins: 0
+        n_tup_upd: 0
+        n_tup_del: 0
+        n_tup_hot_upd: 0
+        n_tup_newpage_upd: 0
+        n_live_tup: 0
+        n_dead_tup: 0
+        n_mod_since_analyze: 0
+        n_ins_since_vacuum: 0
+        last_vacuum: null
+        last_autovacuum: null
+        last_analyze: null
+        last_autoanalyze: null
+        vacuum_count: 0
+        autovacuum_count: 0
+        analyze_count: 0
+        autoanalyze_count: 0
+      - relid: 12607
+        schemaname: pg_toast
+        relname: pg_toast_12604
+        seq_scan: 0
+        last_seq_scan: null
+        seq_tup_read: 0
+        idx_scan: 0
+        last_idx_scan: null
+        idx_tup_fetch: 0
+        n_tup_ins: 0
+        n_tup_upd: 0
+        n_tup_del: 0
+        n_tup_hot_upd: 0
+        n_tup_newpage_upd: 0
+        n_live_tup: 0
+        n_dead_tup: 0
+        n_mod_since_analyze: 0
+        n_ins_since_vacuum: 0
+        last_vacuum: null
+        last_autovacuum: null
+        last_analyze: null
+        last_autoanalyze: null
+        vacuum_count: 0
+        autovacuum_count: 0
+        analyze_count: 0
+        autoanalyze_count: 0
+      - relid: 12609
+        schemaname: information_schema
+        relname: sql_sizing
+        seq_scan: 0
+        last_seq_scan: null
+        seq_tup_read: 0
+        idx_scan: null
+        last_idx_scan: null
+        idx_tup_fetch: null
+        n_tup_ins: 0
+        n_tup_upd: 0
+        n_tup_del: 0
+        n_tup_hot_upd: 0
+        n_tup_newpage_upd: 0
+        n_live_tup: 0
+        n_dead_tup: 0
+        n_mod_since_analyze: 0
+        n_ins_since_vacuum: 0
+        last_vacuum: null
+        last_autovacuum: null
+        last_analyze: null
+        last_autoanalyze: null
+        vacuum_count: 0
+        autovacuum_count: 0
+        analyze_count: 0
+        autoanalyze_count: 0
       - relid: 3576
         schemaname: pg_catalog
         relname: pg_transform
-        seq_scan: 23
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 0
+        last_seq_scan: null
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -823,8 +875,8 @@ public:
       - relid: 826
         schemaname: pg_catalog
         relname: pg_default_acl
-        seq_scan: 9
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 0
+        last_seq_scan: null
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -849,11 +901,11 @@ public:
       - relid: 2601
         schemaname: pg_catalog
         relname: pg_am
-        seq_scan: 85
-        last_seq_scan: '2025-06-02T12:41:00.075536+02:00'
-        seq_tup_read: 169
-        idx_scan: 1
-        last_idx_scan: '2025-05-22T17:31:16.407113+02:00'
+        seq_scan: 2
+        last_seq_scan: '2026-06-13T02:30:38.527815+02:00'
+        seq_tup_read: 2
+        idx_scan: 0
+        last_idx_scan: null
         idx_tup_fetch: 0
         n_tup_ins: 0
         n_tup_upd: 0
@@ -875,8 +927,8 @@ public:
       - relid: 2604
         schemaname: pg_catalog
         relname: pg_attrdef
-        seq_scan: 26
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 0
+        last_seq_scan: null
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -898,38 +950,12 @@ public:
         autovacuum_count: 0
         analyze_count: 0
         autoanalyze_count: 0
-      - relid: 12970
-        schemaname: information_schema
-        relname: sql_implementation_info
-        seq_scan: 7
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 84
-        idx_scan: null
-        last_idx_scan: null
-        idx_tup_fetch: null
-        n_tup_ins: 0
-        n_tup_upd: 0
-        n_tup_del: 0
-        n_tup_hot_upd: 0
-        n_tup_newpage_upd: 0
-        n_live_tup: 0
-        n_dead_tup: 0
-        n_mod_since_analyze: 0
-        n_ins_since_vacuum: 0
-        last_vacuum: null
-        last_autovacuum: null
-        last_analyze: null
-        last_autoanalyze: null
-        vacuum_count: 0
-        autovacuum_count: 0
-        analyze_count: 0
-        autoanalyze_count: 0
       - relid: 3394
         schemaname: pg_catalog
         relname: pg_init_privs
-        seq_scan: 9
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 2007
+        seq_scan: 0
+        last_seq_scan: null
+        seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
         idx_tup_fetch: 0
@@ -1057,8 +1083,8 @@ public:
       - relid: 6000
         schemaname: pg_catalog
         relname: pg_replication_origin
-        seq_scan: 11
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 2
+        last_seq_scan: '2026-06-13T02:30:32.536916+02:00'
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -1072,9 +1098,9 @@ public:
         n_dead_tup: 0
         n_mod_since_analyze: 0
         n_ins_since_vacuum: 0
-        last_vacuum: '2025-05-21T13:14:41.179499+02:00'
+        last_vacuum: '2026-06-13T02:30:32.777057+02:00'
         last_autovacuum: null
-        last_analyze: '2025-05-21T13:14:41.149330+02:00'
+        last_analyze: '2026-06-13T02:30:32.765352+02:00'
         last_autoanalyze: null
         vacuum_count: 1
         autovacuum_count: 0
@@ -1083,12 +1109,12 @@ public:
       - relid: 2603
         schemaname: pg_catalog
         relname: pg_amproc
-        seq_scan: 29
-        last_seq_scan: '2025-06-02T12:41:00.075536+02:00'
-        seq_tup_read: 9104
-        idx_scan: 366
-        last_idx_scan: '2025-06-02T12:41:00.075536+02:00'
-        idx_tup_fetch: 610
+        seq_scan: 2
+        last_seq_scan: '2026-06-13T02:30:38.385665+02:00'
+        seq_tup_read: 7
+        idx_scan: 7
+        last_idx_scan: '2026-06-13T02:30:38.527815+02:00'
+        idx_tup_fetch: 19
         n_tup_ins: 0
         n_tup_upd: 0
         n_tup_del: 0
@@ -1109,12 +1135,12 @@ public:
       - relid: 2606
         schemaname: pg_catalog
         relname: pg_constraint
-        seq_scan: 81
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 9072
-        idx_scan: 392
-        last_idx_scan: '2025-05-23T09:37:17.979608+02:00'
-        idx_tup_fetch: 74
+        seq_scan: 0
+        last_seq_scan: null
+        seq_tup_read: 0
+        idx_scan: 0
+        last_idx_scan: null
+        idx_tup_fetch: 0
         n_tup_ins: 0
         n_tup_upd: 0
         n_tup_del: 0
@@ -1135,12 +1161,12 @@ public:
       - relid: 1255
         schemaname: pg_catalog
         relname: pg_proc
-        seq_scan: 129
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 429570
-        idx_scan: 46094
-        last_idx_scan: '2025-05-23T09:37:17.979608+02:00'
-        idx_tup_fetch: 48735
+        seq_scan: 0
+        last_seq_scan: null
+        seq_tup_read: 0
+        idx_scan: 1
+        last_idx_scan: '2026-06-13T02:30:38.387013+02:00'
+        idx_tup_fetch: 1
         n_tup_ins: 0
         n_tup_upd: 0
         n_tup_del: 0
@@ -1164,9 +1190,9 @@ public:
         seq_scan: 0
         last_seq_scan: null
         seq_tup_read: 0
-        idx_scan: 233
-        last_idx_scan: '2025-05-23T09:37:17.979608+02:00'
-        idx_tup_fetch: 382
+        idx_scan: 0
+        last_idx_scan: null
+        idx_tup_fetch: 0
         n_tup_ins: 0
         n_tup_upd: 0
         n_tup_del: 0
@@ -1213,8 +1239,8 @@ public:
       - relid: 2328
         schemaname: pg_catalog
         relname: pg_foreign_data_wrapper
-        seq_scan: 53
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 0
+        last_seq_scan: null
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -1239,8 +1265,8 @@ public:
       - relid: 2620
         schemaname: pg_catalog
         relname: pg_trigger
-        seq_scan: 3030
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 0
+        last_seq_scan: null
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -1291,12 +1317,12 @@ public:
       - relid: 1260
         schemaname: pg_catalog
         relname: pg_authid
-        seq_scan: 6490
-        last_seq_scan: '2025-06-02T12:41:00.075536+02:00'
-        seq_tup_read: 100825
-        idx_scan: 175711
-        last_idx_scan: '2025-05-23T09:37:17.979608+02:00'
-        idx_tup_fetch: 143309
+        seq_scan: 7
+        last_seq_scan: '2026-06-13T02:30:38.387013+02:00'
+        seq_tup_read: 51
+        idx_scan: 12
+        last_idx_scan: '2026-06-13T02:30:38.527815+02:00'
+        idx_tup_fetch: 12
         n_tup_ins: 16
         n_tup_upd: 0
         n_tup_del: 0
@@ -1306,48 +1332,22 @@ public:
         n_dead_tup: 0
         n_mod_since_analyze: 0
         n_ins_since_vacuum: 0
-        last_vacuum: '2025-05-21T13:14:41.155854+02:00'
+        last_vacuum: '2026-06-13T02:30:32.768989+02:00'
         last_autovacuum: null
-        last_analyze: '2025-05-21T13:14:41.115592+02:00'
+        last_analyze: '2026-06-13T02:30:32.725107+02:00'
         last_autoanalyze: null
         vacuum_count: 1
         autovacuum_count: 0
         analyze_count: 1
         autoanalyze_count: 0
-      - relid: 12965
-        schemaname: information_schema
-        relname: sql_features
-        seq_scan: 7
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 5285
-        idx_scan: null
-        last_idx_scan: null
-        idx_tup_fetch: null
-        n_tup_ins: 0
-        n_tup_upd: 0
-        n_tup_del: 0
-        n_tup_hot_upd: 0
-        n_tup_newpage_upd: 0
-        n_live_tup: 0
-        n_dead_tup: 0
-        n_mod_since_analyze: 0
-        n_ins_since_vacuum: 0
-        last_vacuum: null
-        last_autovacuum: null
-        last_analyze: null
-        last_autoanalyze: null
-        vacuum_count: 0
-        autovacuum_count: 0
-        analyze_count: 0
-        autoanalyze_count: 0
       - relid: 2612
         schemaname: pg_catalog
         relname: pg_language
-        seq_scan: 44
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 176
-        idx_scan: 52
-        last_idx_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 0
+        last_seq_scan: null
+        seq_tup_read: 0
+        idx_scan: 0
+        last_idx_scan: null
         idx_tup_fetch: 0
         n_tup_ins: 0
         n_tup_upd: 0
@@ -1395,8 +1395,8 @@ public:
       - relid: 6102
         schemaname: pg_catalog
         relname: pg_subscription_rel
-        seq_scan: 9
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 0
+        last_seq_scan: null
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -1421,11 +1421,11 @@ public:
       - relid: 1214
         schemaname: pg_catalog
         relname: pg_shdepend
-        seq_scan: 11
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 2
+        last_seq_scan: '2026-06-13T02:30:32.536916+02:00'
         seq_tup_read: 0
         idx_scan: 86
-        last_idx_scan: '2025-05-21T13:14:41.433585+02:00'
+        last_idx_scan: '2026-06-13T02:30:32.807137+02:00'
         idx_tup_fetch: 0
         n_tup_ins: 0
         n_tup_upd: 0
@@ -1436,9 +1436,9 @@ public:
         n_dead_tup: 0
         n_mod_since_analyze: 0
         n_ins_since_vacuum: 0
-        last_vacuum: '2025-05-21T13:14:41.174211+02:00'
+        last_vacuum: '2026-06-13T02:30:32.775331+02:00'
         last_autovacuum: null
-        last_analyze: '2025-05-21T13:14:41.147510+02:00'
+        last_analyze: '2026-06-13T02:30:32.764105+02:00'
         last_autoanalyze: null
         vacuum_count: 1
         autovacuum_count: 0
@@ -1453,6 +1453,32 @@ public:
         idx_scan: 0
         last_idx_scan: null
         idx_tup_fetch: 0
+        n_tup_ins: 0
+        n_tup_upd: 0
+        n_tup_del: 0
+        n_tup_hot_upd: 0
+        n_tup_newpage_upd: 0
+        n_live_tup: 0
+        n_dead_tup: 0
+        n_mod_since_analyze: 0
+        n_ins_since_vacuum: 0
+        last_vacuum: null
+        last_autovacuum: null
+        last_analyze: null
+        last_autoanalyze: null
+        vacuum_count: 0
+        autovacuum_count: 0
+        analyze_count: 0
+        autoanalyze_count: 0
+      - relid: 12599
+        schemaname: information_schema
+        relname: sql_implementation_info
+        seq_scan: 0
+        last_seq_scan: null
+        seq_tup_read: 0
+        idx_scan: null
+        last_idx_scan: null
+        idx_tup_fetch: null
         n_tup_ins: 0
         n_tup_upd: 0
         n_tup_del: 0
@@ -1525,12 +1551,12 @@ public:
       - relid: 2615
         schemaname: pg_catalog
         relname: pg_namespace
-        seq_scan: 124455
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 271296
-        idx_scan: 38597
-        last_idx_scan: '2025-05-23T09:37:17.979608+02:00'
-        idx_tup_fetch: 12242
+        seq_scan: 0
+        last_seq_scan: null
+        seq_tup_read: 0
+        idx_scan: 2
+        last_idx_scan: '2026-06-13T02:30:38.387013+02:00'
+        idx_tup_fetch: 1
         n_tup_ins: 0
         n_tup_upd: 0
         n_tup_del: 0
@@ -1554,58 +1580,6 @@ public:
         seq_scan: 0
         last_seq_scan: null
         seq_tup_read: 0
-        idx_scan: 43
-        last_idx_scan: '2025-05-23T09:37:17.979608+02:00'
-        idx_tup_fetch: 59
-        n_tup_ins: 0
-        n_tup_upd: 0
-        n_tup_del: 0
-        n_tup_hot_upd: 0
-        n_tup_newpage_upd: 0
-        n_live_tup: 0
-        n_dead_tup: 0
-        n_mod_since_analyze: 0
-        n_ins_since_vacuum: 0
-        last_vacuum: null
-        last_autovacuum: null
-        last_analyze: null
-        last_autoanalyze: null
-        vacuum_count: 0
-        autovacuum_count: 0
-        analyze_count: 0
-        autoanalyze_count: 0
-      - relid: 3456
-        schemaname: pg_catalog
-        relname: pg_collation
-        seq_scan: 79
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 29862
-        idx_scan: 19933
-        last_idx_scan: '2025-05-23T09:37:17.979608+02:00'
-        idx_tup_fetch: 8023
-        n_tup_ins: 0
-        n_tup_upd: 0
-        n_tup_del: 0
-        n_tup_hot_upd: 0
-        n_tup_newpage_upd: 0
-        n_live_tup: 0
-        n_dead_tup: 0
-        n_mod_since_analyze: 0
-        n_ins_since_vacuum: 0
-        last_vacuum: null
-        last_autovacuum: null
-        last_analyze: null
-        last_autoanalyze: null
-        vacuum_count: 0
-        autovacuum_count: 0
-        analyze_count: 0
-        autoanalyze_count: 0
-      - relid: 3079
-        schemaname: pg_catalog
-        relname: pg_extension
-        seq_scan: 36
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 36
         idx_scan: 0
         last_idx_scan: null
         idx_tup_fetch: 0
@@ -1626,9 +1600,35 @@ public:
         autovacuum_count: 0
         analyze_count: 0
         autoanalyze_count: 0
-      - relid: 12968
-        schemaname: pg_toast
-        relname: pg_toast_12965
+      - relid: 3456
+        schemaname: pg_catalog
+        relname: pg_collation
+        seq_scan: 0
+        last_seq_scan: null
+        seq_tup_read: 0
+        idx_scan: 0
+        last_idx_scan: null
+        idx_tup_fetch: 0
+        n_tup_ins: 0
+        n_tup_upd: 0
+        n_tup_del: 0
+        n_tup_hot_upd: 0
+        n_tup_newpage_upd: 0
+        n_live_tup: 0
+        n_dead_tup: 0
+        n_mod_since_analyze: 0
+        n_ins_since_vacuum: 0
+        last_vacuum: null
+        last_autovacuum: null
+        last_analyze: null
+        last_autoanalyze: null
+        vacuum_count: 0
+        autovacuum_count: 0
+        analyze_count: 0
+        autoanalyze_count: 0
+      - relid: 3079
+        schemaname: pg_catalog
+        relname: pg_extension
         seq_scan: 0
         last_seq_scan: null
         seq_tup_read: 0
@@ -1655,8 +1655,8 @@ public:
       - relid: 6100
         schemaname: pg_catalog
         relname: pg_subscription
-        seq_scan: 53
-        last_seq_scan: '2025-05-23T09:37:24.481959+02:00'
+        seq_scan: 2
+        last_seq_scan: '2026-06-13T02:30:32.536916+02:00'
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -1670,9 +1670,9 @@ public:
         n_dead_tup: 0
         n_mod_since_analyze: 0
         n_ins_since_vacuum: 0
-        last_vacuum: '2025-05-21T13:14:41.156557+02:00'
+        last_vacuum: '2026-06-13T02:30:32.769341+02:00'
         last_autovacuum: null
-        last_analyze: '2025-05-21T13:14:41.116877+02:00'
+        last_analyze: '2026-06-13T02:30:32.725881+02:00'
         last_autoanalyze: null
         vacuum_count: 1
         autovacuum_count: 0
@@ -1707,11 +1707,11 @@ public:
       - relid: 2396
         schemaname: pg_catalog
         relname: pg_shdescription
-        seq_scan: 21
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 61
+        seq_scan: 1
+        last_seq_scan: '2026-06-13T02:30:32.536916+02:00'
+        seq_tup_read: 1
         idx_scan: 2
-        last_idx_scan: '2025-05-21T13:14:41.433585+02:00'
+        last_idx_scan: '2026-06-13T02:30:32.807137+02:00'
         idx_tup_fetch: 0
         n_tup_ins: 3
         n_tup_upd: 0
@@ -1722,9 +1722,9 @@ public:
         n_dead_tup: 0
         n_mod_since_analyze: 2
         n_ins_since_vacuum: 2
-        last_vacuum: '2025-05-21T13:14:41.174665+02:00'
+        last_vacuum: '2026-06-13T02:30:32.775487+02:00'
         last_autovacuum: null
-        last_analyze: '2025-05-21T13:14:41.147733+02:00'
+        last_analyze: '2026-06-13T02:30:32.764211+02:00'
         last_autoanalyze: null
         vacuum_count: 1
         autovacuum_count: 0
@@ -1733,8 +1733,8 @@ public:
       - relid: 3256
         schemaname: pg_catalog
         relname: pg_policy
-        seq_scan: 27
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 0
+        last_seq_scan: null
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -1759,32 +1759,6 @@ public:
       - relid: 3600
         schemaname: pg_catalog
         relname: pg_ts_dict
-        seq_scan: 9
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 261
-        idx_scan: 0
-        last_idx_scan: null
-        idx_tup_fetch: 0
-        n_tup_ins: 0
-        n_tup_upd: 0
-        n_tup_del: 0
-        n_tup_hot_upd: 0
-        n_tup_newpage_upd: 0
-        n_live_tup: 0
-        n_dead_tup: 0
-        n_mod_since_analyze: 0
-        n_ins_since_vacuum: 0
-        last_vacuum: null
-        last_autovacuum: null
-        last_analyze: null
-        last_autoanalyze: null
-        vacuum_count: 0
-        autovacuum_count: 0
-        analyze_count: 0
-        autoanalyze_count: 0
-      - relid: 12973
-        schemaname: pg_toast
-        relname: pg_toast_12970
         seq_scan: 0
         last_seq_scan: null
         seq_tup_read: 0
@@ -1811,8 +1785,8 @@ public:
       - relid: 3596
         schemaname: pg_catalog
         relname: pg_seclabel
-        seq_scan: 90
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 0
+        last_seq_scan: null
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -1837,12 +1811,12 @@ public:
       - relid: 2609
         schemaname: pg_catalog
         relname: pg_description
-        seq_scan: 14
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 62062
-        idx_scan: 2012
-        last_idx_scan: '2025-05-23T09:37:17.979608+02:00'
-        idx_tup_fetch: 39
+        seq_scan: 0
+        last_seq_scan: null
+        seq_tup_read: 0
+        idx_scan: 0
+        last_idx_scan: null
+        idx_tup_fetch: 0
         n_tup_ins: 0
         n_tup_upd: 0
         n_tup_del: 0
@@ -1863,8 +1837,8 @@ public:
       - relid: 3466
         schemaname: pg_catalog
         relname: pg_event_trigger
-        seq_scan: 14
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 0
+        last_seq_scan: null
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -1889,8 +1863,8 @@ public:
       - relid: 3592
         schemaname: pg_catalog
         relname: pg_shseclabel
-        seq_scan: 46
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 1
+        last_seq_scan: '2026-06-13T02:30:32.536916+02:00'
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -1904,9 +1878,9 @@ public:
         n_dead_tup: 0
         n_mod_since_analyze: 0
         n_ins_since_vacuum: 0
-        last_vacuum: '2025-05-21T13:14:41.180809+02:00'
+        last_vacuum: '2026-06-13T02:30:32.777706+02:00'
         last_autovacuum: null
-        last_analyze: '2025-05-21T13:14:41.149996+02:00'
+        last_analyze: '2026-06-13T02:30:32.765717+02:00'
         last_autoanalyze: null
         vacuum_count: 1
         autovacuum_count: 0
@@ -1915,9 +1889,9 @@ public:
       - relid: 3764
         schemaname: pg_catalog
         relname: pg_ts_template
-        seq_scan: 9
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 45
+        seq_scan: 0
+        last_seq_scan: null
+        seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
         idx_tup_fetch: 0
@@ -1941,8 +1915,8 @@ public:
       - relid: 6237
         schemaname: pg_catalog
         relname: pg_publication_namespace
-        seq_scan: 9
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 0
+        last_seq_scan: null
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -1967,9 +1941,9 @@ public:
       - relid: 3603
         schemaname: pg_catalog
         relname: pg_ts_config_map
-        seq_scan: 9
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 4959
+        seq_scan: 0
+        last_seq_scan: null
+        seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
         idx_tup_fetch: 0
@@ -1993,12 +1967,12 @@ public:
       - relid: 1213
         schemaname: pg_catalog
         relname: pg_tablespace
-        seq_scan: 33
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 66
-        idx_scan: 157
-        last_idx_scan: '2025-05-23T09:37:17.979608+02:00'
-        idx_tup_fetch: 40
+        seq_scan: 6
+        last_seq_scan: '2026-06-13T02:30:32.807137+02:00'
+        seq_tup_read: 12
+        idx_scan: 3
+        last_idx_scan: '2026-06-13T02:30:38.387013+02:00'
+        idx_tup_fetch: 3
         n_tup_ins: 2
         n_tup_upd: 0
         n_tup_del: 0
@@ -2008,9 +1982,9 @@ public:
         n_dead_tup: 0
         n_mod_since_analyze: 0
         n_ins_since_vacuum: 0
-        last_vacuum: '2025-05-21T13:14:41.173578+02:00'
+        last_vacuum: '2026-06-13T02:30:32.775019+02:00'
         last_autovacuum: null
-        last_analyze: '2025-05-21T13:14:41.146781+02:00'
+        last_analyze: '2026-06-13T02:30:32.763795+02:00'
         last_autoanalyze: null
         vacuum_count: 1
         autovacuum_count: 0
@@ -2019,12 +1993,12 @@ public:
       - relid: 2608
         schemaname: pg_catalog
         relname: pg_depend
-        seq_scan: 9
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 15381
-        idx_scan: 23447
-        last_idx_scan: '2025-05-23T09:37:17.979608+02:00'
-        idx_tup_fetch: 417134
+        seq_scan: 0
+        last_seq_scan: null
+        seq_tup_read: 0
+        idx_scan: 0
+        last_idx_scan: null
+        idx_tup_fetch: 0
         n_tup_ins: 0
         n_tup_upd: 0
         n_tup_del: 0
@@ -2045,11 +2019,11 @@ public:
       - relid: 2964
         schemaname: pg_catalog
         relname: pg_db_role_setting
-        seq_scan: 41
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 1
+        last_seq_scan: '2026-06-13T02:30:32.536916+02:00'
         seq_tup_read: 0
-        idx_scan: 408
-        last_idx_scan: '2025-06-02T12:41:00.075536+02:00'
+        idx_scan: 8
+        last_idx_scan: '2026-06-13T02:30:38.527815+02:00'
         idx_tup_fetch: 0
         n_tup_ins: 0
         n_tup_upd: 0
@@ -2060,9 +2034,9 @@ public:
         n_dead_tup: 0
         n_mod_since_analyze: 0
         n_ins_since_vacuum: 0
-        last_vacuum: '2025-05-21T13:14:41.172916+02:00'
+        last_vacuum: '2026-06-13T02:30:32.774828+02:00'
         last_autovacuum: null
-        last_analyze: '2025-05-21T13:14:41.146604+02:00'
+        last_analyze: '2026-06-13T02:30:32.763680+02:00'
         last_autoanalyze: null
         vacuum_count: 1
         autovacuum_count: 0
@@ -2071,8 +2045,34 @@ public:
       - relid: 2995
         schemaname: pg_catalog
         relname: pg_largeobject_metadata
-        seq_scan: 9
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 0
+        last_seq_scan: null
+        seq_tup_read: 0
+        idx_scan: 0
+        last_idx_scan: null
+        idx_tup_fetch: 0
+        n_tup_ins: 0
+        n_tup_upd: 0
+        n_tup_del: 0
+        n_tup_hot_upd: 0
+        n_tup_newpage_upd: 0
+        n_live_tup: 0
+        n_dead_tup: 0
+        n_mod_since_analyze: 0
+        n_ins_since_vacuum: 0
+        last_vacuum: null
+        last_autovacuum: null
+        last_analyze: null
+        last_autoanalyze: null
+        vacuum_count: 0
+        autovacuum_count: 0
+        analyze_count: 0
+        autoanalyze_count: 0
+      - relid: 12602
+        schemaname: pg_toast
+        relname: pg_toast_12599
+        seq_scan: 0
+        last_seq_scan: null
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -2124,7 +2124,7 @@ public:
         schemaname: pg_toast
         relname: pg_toast_1213
         seq_scan: 1
-        last_seq_scan: '2025-05-21T13:14:40.635111+02:00'
+        last_seq_scan: '2026-06-13T02:30:32.536916+02:00'
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -2138,7 +2138,7 @@ public:
         n_dead_tup: 0
         n_mod_since_analyze: 0
         n_ins_since_vacuum: 0
-        last_vacuum: '2025-05-21T13:14:41.173722+02:00'
+        last_vacuum: '2026-06-13T02:30:32.775082+02:00'
         last_autovacuum: null
         last_analyze: null
         last_autoanalyze: null
@@ -2149,8 +2149,8 @@ public:
       - relid: 6243
         schemaname: pg_catalog
         relname: pg_parameter_acl
-        seq_scan: 11
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 2
+        last_seq_scan: '2026-06-13T02:30:32.536916+02:00'
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -2164,9 +2164,9 @@ public:
         n_dead_tup: 0
         n_mod_since_analyze: 0
         n_ins_since_vacuum: 0
-        last_vacuum: '2025-05-21T13:14:41.181687+02:00'
+        last_vacuum: '2026-06-13T02:30:32.778105+02:00'
         last_autovacuum: null
-        last_analyze: '2025-05-21T13:14:41.150656+02:00'
+        last_analyze: '2026-06-13T02:30:32.765926+02:00'
         last_autoanalyze: null
         vacuum_count: 1
         autovacuum_count: 0
@@ -2175,8 +2175,8 @@ public:
       - relid: 1418
         schemaname: pg_catalog
         relname: pg_user_mapping
-        seq_scan: 44
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 0
+        last_seq_scan: null
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -2201,8 +2201,8 @@ public:
       - relid: 2613
         schemaname: pg_catalog
         relname: pg_largeobject
-        seq_scan: 9
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 0
+        last_seq_scan: null
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -2253,12 +2253,12 @@ public:
       - relid: 1261
         schemaname: pg_catalog
         relname: pg_auth_members
-        seq_scan: 170
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 498
-        idx_scan: 48
-        last_idx_scan: '2025-05-23T09:37:17.979608+02:00'
-        idx_tup_fetch: 21
+        seq_scan: 4
+        last_seq_scan: '2026-06-13T02:30:32.536916+02:00'
+        seq_tup_read: 0
+        idx_scan: 9
+        last_idx_scan: '2026-06-13T02:30:32.807137+02:00'
+        idx_tup_fetch: 0
         n_tup_ins: 3
         n_tup_upd: 0
         n_tup_del: 0
@@ -2268,9 +2268,9 @@ public:
         n_dead_tup: 0
         n_mod_since_analyze: 3
         n_ins_since_vacuum: 3
-        last_vacuum: '2025-05-21T13:14:41.174160+02:00'
+        last_vacuum: '2026-06-13T02:30:32.775278+02:00'
         last_autovacuum: null
-        last_analyze: '2025-05-21T13:14:41.147341+02:00'
+        last_analyze: '2026-06-13T02:30:32.763979+02:00'
         last_autoanalyze: null
         vacuum_count: 1
         autovacuum_count: 0
@@ -2279,12 +2279,12 @@ public:
       - relid: 2616
         schemaname: pg_catalog
         relname: pg_opclass
-        seq_scan: 33
-        last_seq_scan: '2025-06-02T12:41:00.075536+02:00'
-        seq_tup_read: 3025
-        idx_scan: 2478
-        last_idx_scan: '2025-06-02T12:41:00.075536+02:00'
-        idx_tup_fetch: 91391
+        seq_scan: 2
+        last_seq_scan: '2026-06-13T02:30:38.385665+02:00'
+        seq_tup_read: 2
+        idx_scan: 7
+        last_idx_scan: '2026-06-13T02:30:38.527815+02:00'
+        idx_tup_fetch: 7
         n_tup_ins: 0
         n_tup_upd: 0
         n_tup_del: 0
@@ -2305,12 +2305,12 @@ public:
       - relid: 2617
         schemaname: pg_catalog
         relname: pg_operator
-        seq_scan: 21
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 16779
-        idx_scan: 763
-        last_idx_scan: '2025-05-23T09:37:17.979608+02:00'
-        idx_tup_fetch: 1815
+        seq_scan: 0
+        last_seq_scan: null
+        seq_tup_read: 0
+        idx_scan: 3
+        last_idx_scan: '2026-06-13T02:30:38.387013+02:00'
+        idx_tup_fetch: 64
         n_tup_ins: 0
         n_tup_upd: 0
         n_tup_del: 0
@@ -2334,9 +2334,9 @@ public:
         seq_scan: 0
         last_seq_scan: null
         seq_tup_read: 0
-        idx_scan: 3471
-        last_idx_scan: '2025-05-23T09:37:17.979608+02:00'
-        idx_tup_fetch: 11752
+        idx_scan: 0
+        last_idx_scan: null
+        idx_tup_fetch: 0
         n_tup_ins: 0
         n_tup_upd: 0
         n_tup_del: 0
@@ -2383,12 +2383,12 @@ public:
       - relid: 2610
         schemaname: pg_catalog
         relname: pg_index
-        seq_scan: 4397
-        last_seq_scan: '2025-06-02T12:41:00.075536+02:00'
-        seq_tup_read: 710676
-        idx_scan: 2860
-        last_idx_scan: '2025-06-02T12:41:00.075536+02:00'
-        idx_tup_fetch: 3185
+        seq_scan: 7
+        last_seq_scan: '2026-06-13T02:30:38.385665+02:00'
+        seq_tup_read: 7
+        idx_scan: 82
+        last_idx_scan: '2026-06-13T02:30:38.527815+02:00'
+        idx_tup_fetch: 83
         n_tup_ins: 0
         n_tup_upd: 0
         n_tup_del: 0
@@ -2409,12 +2409,12 @@ public:
       - relid: 1249
         schemaname: pg_catalog
         relname: pg_attribute
-        seq_scan: 206
-        last_seq_scan: '2025-06-02T12:41:00.075536+02:00'
-        seq_tup_read: 369292
-        idx_scan: 37540
-        last_idx_scan: '2025-06-02T12:41:00.075536+02:00'
-        idx_tup_fetch: 81476
+        seq_scan: 11
+        last_seq_scan: '2026-06-13T02:30:38.385665+02:00'
+        seq_tup_read: 53
+        idx_scan: 252
+        last_idx_scan: '2026-06-13T02:30:38.527815+02:00'
+        idx_tup_fetch: 565
         n_tup_ins: 0
         n_tup_upd: 0
         n_tup_del: 0
@@ -2432,9 +2432,9 @@ public:
         autovacuum_count: 0
         analyze_count: 0
         autoanalyze_count: 0
-      - relid: 12983
-        schemaname: pg_toast
-        relname: pg_toast_12980
+      - relid: 2600
+        schemaname: pg_catalog
+        relname: pg_aggregate
         seq_scan: 0
         last_seq_scan: null
         seq_tup_read: 0
@@ -2458,12 +2458,38 @@ public:
         autovacuum_count: 0
         analyze_count: 0
         autoanalyze_count: 0
-      - relid: 12975
+      - relid: 12597
+        schemaname: pg_toast
+        relname: pg_toast_12594
+        seq_scan: 0
+        last_seq_scan: null
+        seq_tup_read: 0
+        idx_scan: 0
+        last_idx_scan: null
+        idx_tup_fetch: 0
+        n_tup_ins: 0
+        n_tup_upd: 0
+        n_tup_del: 0
+        n_tup_hot_upd: 0
+        n_tup_newpage_upd: 0
+        n_live_tup: 0
+        n_dead_tup: 0
+        n_mod_since_analyze: 0
+        n_ins_since_vacuum: 0
+        last_vacuum: null
+        last_autovacuum: null
+        last_analyze: null
+        last_autoanalyze: null
+        vacuum_count: 0
+        autovacuum_count: 0
+        analyze_count: 0
+        autoanalyze_count: 0
+      - relid: 12604
         schemaname: information_schema
         relname: sql_parts
-        seq_scan: 7
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 77
+        seq_scan: 0
+        last_seq_scan: null
+        seq_tup_read: 0
         idx_scan: null
         last_idx_scan: null
         idx_tup_fetch: null
@@ -2484,37 +2510,11 @@ public:
         autovacuum_count: 0
         analyze_count: 0
         autoanalyze_count: 0
-      - relid: 2600
-        schemaname: pg_catalog
-        relname: pg_aggregate
-        seq_scan: 17
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 1421
-        idx_scan: 56
-        last_idx_scan: '2025-05-23T09:37:17.979608+02:00'
-        idx_tup_fetch: 40
-        n_tup_ins: 0
-        n_tup_upd: 0
-        n_tup_del: 0
-        n_tup_hot_upd: 0
-        n_tup_newpage_upd: 0
-        n_live_tup: 0
-        n_dead_tup: 0
-        n_mod_since_analyze: 0
-        n_ins_since_vacuum: 0
-        last_vacuum: null
-        last_autovacuum: null
-        last_analyze: null
-        last_autoanalyze: null
-        vacuum_count: 0
-        autovacuum_count: 0
-        analyze_count: 0
-        autoanalyze_count: 0
       - relid: 3118
         schemaname: pg_catalog
         relname: pg_foreign_table
-        seq_scan: 48
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 0
+        last_seq_scan: null
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -2539,12 +2539,12 @@ public:
       - relid: 1259
         schemaname: pg_catalog
         relname: pg_class
-        seq_scan: 744
-        last_seq_scan: '2025-06-02T12:41:00.075536+02:00'
-        seq_tup_read: 249993
-        idx_scan: 26043
-        last_idx_scan: '2025-06-02T12:41:00.075536+02:00'
-        idx_tup_fetch: 24235
+        seq_scan: 11
+        last_seq_scan: '2026-06-13T02:30:38.385665+02:00'
+        seq_tup_read: 11
+        idx_scan: 130
+        last_idx_scan: '2026-06-13T02:30:38.527815+02:00'
+        idx_tup_fetch: 130
         n_tup_ins: 0
         n_tup_upd: 0
         n_tup_del: 0
@@ -2566,7 +2566,7 @@ public:
         schemaname: pg_toast
         relname: pg_toast_2964
         seq_scan: 1
-        last_seq_scan: '2025-05-21T13:14:40.635111+02:00'
+        last_seq_scan: '2026-06-13T02:30:32.536916+02:00'
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -2580,7 +2580,7 @@ public:
         n_dead_tup: 0
         n_mod_since_analyze: 0
         n_ins_since_vacuum: 0
-        last_vacuum: '2025-05-21T13:14:41.173162+02:00'
+        last_vacuum: '2026-06-13T02:30:32.774893+02:00'
         last_autovacuum: null
         last_analyze: null
         last_autoanalyze: null
@@ -2591,8 +2591,8 @@ public:
       - relid: 3350
         schemaname: pg_catalog
         relname: pg_partitioned_table
-        seq_scan: 9
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
+        seq_scan: 0
+        last_seq_scan: null
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -2617,12 +2617,12 @@ public:
       - relid: 2618
         schemaname: pg_catalog
         relname: pg_rewrite
-        seq_scan: 18
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 2610
-        idx_scan: 4841
-        last_idx_scan: '2025-05-23T09:37:17.979608+02:00'
-        idx_tup_fetch: 4825
+        seq_scan: 0
+        last_seq_scan: null
+        seq_tup_read: 0
+        idx_scan: 0
+        last_idx_scan: null
+        idx_tup_fetch: 0
         n_tup_ins: 0
         n_tup_upd: 0
         n_tup_del: 0
@@ -2670,7 +2670,7 @@ public:
         schemaname: pg_toast
         relname: pg_toast_1262
         seq_scan: 1
-        last_seq_scan: '2025-05-21T13:14:40.635111+02:00'
+        last_seq_scan: '2026-06-13T02:30:32.536916+02:00'
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -2684,7 +2684,7 @@ public:
         n_dead_tup: 0
         n_mod_since_analyze: 0
         n_ins_since_vacuum: 0
-        last_vacuum: '2025-05-21T13:14:41.357324+02:00'
+        last_vacuum: '2026-06-13T02:30:32.796196+02:00'
         last_autovacuum: null
         last_analyze: null
         last_autoanalyze: null
@@ -2696,7 +2696,7 @@ public:
         schemaname: pg_toast
         relname: pg_toast_3592
         seq_scan: 1
-        last_seq_scan: '2025-05-21T13:14:40.635111+02:00'
+        last_seq_scan: '2026-06-13T02:30:32.536916+02:00'
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -2710,7 +2710,7 @@ public:
         n_dead_tup: 0
         n_mod_since_analyze: 0
         n_ins_since_vacuum: 0
-        last_vacuum: '2025-05-21T13:14:41.180956+02:00'
+        last_vacuum: '2026-06-13T02:30:32.777789+02:00'
         last_autovacuum: null
         last_analyze: null
         last_autoanalyze: null
@@ -2799,11 +2799,11 @@ public:
       - relid: 2753
         schemaname: pg_catalog
         relname: pg_opfamily
-        seq_scan: 29
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 3654
-        idx_scan: 36
-        last_idx_scan: '2025-05-22T16:43:50.419437+02:00'
+        seq_scan: 0
+        last_seq_scan: null
+        seq_tup_read: 0
+        idx_scan: 0
+        last_idx_scan: null
         idx_tup_fetch: 0
         n_tup_ins: 0
         n_tup_upd: 0
@@ -2826,7 +2826,7 @@ public:
         schemaname: pg_toast
         relname: pg_toast_6000
         seq_scan: 1
-        last_seq_scan: '2025-05-21T13:14:40.635111+02:00'
+        last_seq_scan: '2026-06-13T02:30:32.536916+02:00'
         seq_tup_read: 0
         idx_scan: 0
         last_idx_scan: null
@@ -2840,7 +2840,7 @@ public:
         n_dead_tup: 0
         n_mod_since_analyze: 0
         n_ins_since_vacuum: 0
-        last_vacuum: '2025-05-21T13:14:41.179736+02:00'
+        last_vacuum: '2026-06-13T02:30:32.777147+02:00'
         last_autovacuum: null
         last_analyze: null
         last_autoanalyze: null
@@ -2851,12 +2851,12 @@ public:
       - relid: 1247
         schemaname: pg_catalog
         relname: pg_type
-        seq_scan: 189
-        last_seq_scan: '2025-05-23T09:37:17.979608+02:00'
-        seq_tup_read: 112301
-        idx_scan: 124622
-        last_idx_scan: '2025-05-23T09:37:17.979608+02:00'
-        idx_tup_fetch: 115455
+        seq_scan: 0
+        last_seq_scan: null
+        seq_tup_read: 0
+        idx_scan: 42
+        last_idx_scan: '2026-06-13T02:30:38.387013+02:00'
+        idx_tup_fetch: 42
         n_tup_ins: 0
         n_tup_upd: 0
         n_tup_del: 0

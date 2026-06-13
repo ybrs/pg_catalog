@@ -71,7 +71,7 @@ def test_text_array_return(server):
             "SELECT datacl FROM pg_catalog.pg_database WHERE datname = 'template1'"
         )
         row = cur.fetchone()
-        assert row[0] == ["=c/abadur", "abadur=CTc/abadur"]
+        assert row[0] == ["=c/sysuser", "sysuser=CTc/sysuser"]
 
         cur.execute(
             "SELECT datacl FROM pg_catalog.pg_database WHERE datname = 'pgtry'"

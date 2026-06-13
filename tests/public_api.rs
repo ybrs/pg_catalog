@@ -47,7 +47,24 @@ async fn test_get_base_session_context_public() -> datafusion::error::Result<()>
 
 #[tokio::test]
 async fn test_get_base_session_context_embedded() -> datafusion::error::Result<()> {
-    let _ = get_base_session_context(None, "pgtry".to_string(), "public".to_string(), None).await?;
+    // `None` loads the embedded postgres-schema-nightly.zip (the path riffq uses).
+    let (ctx, _log) =
+        get_base_session_context(None, "pgtry".to_string(), "public".to_string(), None).await?;
+
+    // The embedded zip must carry the float-precision fix: pg_class.reltuples is
+    // declared float4 and must materialize as Float32 (FLOAT4 / OID 700 on the
+    // wire), not Float32->NULL or Float64. This guards the embedded artifact, not
+    // just the on-disk YAML directory.
+    let batches = ctx
+        .sql("SELECT reltuples FROM pg_catalog.pg_class LIMIT 1")
+        .await?
+        .collect()
+        .await?;
+    assert_eq!(
+        batches[0].schema().field(0).data_type(),
+        &arrow::datatypes::DataType::Float32,
+        "embedded zip must map float4 -> Float32 for pg_class.reltuples"
+    );
     Ok(())
 }
 

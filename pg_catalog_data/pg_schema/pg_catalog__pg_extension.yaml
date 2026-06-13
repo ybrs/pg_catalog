@@ -21,7 +21,7 @@ public:
         extconfig: _oid
         extcondition: _text
       rows:
-      - oid: 13132
+      - oid: 12761
         extname: plpgsql
         extowner: 10
         extnamespace: 11

@@ -2525,7 +2525,7 @@ from pg_catalog.pg_roles R
     is_replication: true
     is_super: true
     role_id: 10
-    role_name: "abadur"
+    role_name: "sysuser"
     valid_until: null
   - 
     bypass_rls: false
@@ -2802,13 +2802,13 @@ from pg_catalog.pg_tablespace T
     object_id: 5
   - 
     acl: 
-      - "=c/abadur"
-      - "abadur=CTc/abadur"
+      - "=c/sysuser"
+      - "sysuser=CTc/sysuser"
     object_id: 1
   - 
     acl: 
-      - "=c/abadur"
-      - "abadur=CTc/abadur"
+      - "=c/sysuser"
+      - "sysuser=CTc/sysuser"
     object_id: 4
   - 
     acl: 

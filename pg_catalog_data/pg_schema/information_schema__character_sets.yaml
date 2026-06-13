@@ -41,4 +41,4 @@ public:
         form_of_use: UTF8
         default_collate_catalog: postgres
         default_collate_schema: pg_catalog
-        default_collate_name: nl_NL.UTF-8
+        default_collate_name: C

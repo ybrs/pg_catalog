@@ -50,12 +50,12 @@ public:
         laninline: 0
         lanvalidator: 2248
         lanacl: null
-      - oid: 13136
+      - oid: 12765
         lanname: plpgsql
         lanowner: 10
         lanispl: true
         lanpltrusted: true
-        lanplcallfoid: 13133
-        laninline: 13134
-        lanvalidator: 13135
+        lanplcallfoid: 12762
+        laninline: 12763
+        lanvalidator: 12764
         lanacl: null

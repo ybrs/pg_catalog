@@ -557,7 +557,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: bgwriter_flush_after
-        setting: '0'
+        setting: '64'
         unit: 8kB
         category: Resource Usage / Background Writer
         short_desc: Number of pages after which previously performed writes are flushed
@@ -569,8 +569,8 @@ public:
         min_val: '0'
         max_val: '256'
         enumvals: null
-        boot_val: '0'
-        reset_val: '0'
+        boot_val: '64'
+        reset_val: '64'
         sourcefile: null
         sourceline: null
         pending_restart: false
@@ -714,7 +714,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: checkpoint_flush_after
-        setting: '0'
+        setting: '32'
         unit: 8kB
         category: Write-Ahead Log / Checkpoints
         short_desc: Number of pages after which previously performed writes are flushed
@@ -726,8 +726,8 @@ public:
         min_val: '0'
         max_val: '256'
         enumvals: null
-        boot_val: '0'
-        reset_val: '0'
+        boot_val: '32'
+        reset_val: '32'
         sourcefile: null
         sourceline: null
         pending_restart: false
@@ -924,7 +924,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: config_file
-        setting: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        setting: /workspace/pg_catalog/postgres-data/postgresql.conf
         unit: null
         category: File Locations
         short_desc: Sets the server's main configuration file.
@@ -936,7 +936,7 @@ public:
         max_val: null
         enumvals: null
         boot_val: null
-        reset_val: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        reset_val: /workspace/pg_catalog/postgres-data/postgresql.conf
         sourcefile: null
         sourceline: null
         pending_restart: false
@@ -1069,7 +1069,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: data_directory
-        setting: /Users/abadur/projects/query/postgres-data
+        setting: /workspace/pg_catalog/postgres-data
         unit: null
         category: File Locations
         short_desc: Sets the server's data directory.
@@ -1081,7 +1081,7 @@ public:
         max_val: null
         enumvals: null
         boot_val: null
-        reset_val: /Users/abadur/projects/query/postgres-data
+        reset_val: /workspace/pg_catalog/postgres-data
         sourcefile: null
         sourceline: null
         pending_restart: false
@@ -1122,7 +1122,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: DateStyle
-        setting: ISO, DMY
+        setting: ISO, MDY
         unit: null
         category: Client Connection Defaults / Locale and Formatting
         short_desc: Sets the display format for date and time values.
@@ -1134,8 +1134,8 @@ public:
         max_val: null
         enumvals: null
         boot_val: ISO, MDY
-        reset_val: ISO, DMY
-        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        reset_val: ISO, MDY
+        sourcefile: /workspace/pg_catalog/postgres-data/postgresql.conf
         sourceline: 736
         pending_restart: false
       - name: deadlock_timeout
@@ -1372,7 +1372,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: default_text_search_config
-        setting: pg_catalog.dutch
+        setting: pg_catalog.english
         unit: null
         category: Client Connection Defaults / Locale and Formatting
         short_desc: Sets default text search configuration.
@@ -1384,8 +1384,8 @@ public:
         max_val: null
         enumvals: null
         boot_val: pg_catalog.simple
-        reset_val: pg_catalog.dutch
-        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        reset_val: pg_catalog.english
+        sourcefile: /workspace/pg_catalog/postgres-data/postgresql.conf
         sourceline: 762
         pending_restart: false
       - name: default_toast_compression
@@ -1401,6 +1401,7 @@ public:
         max_val: null
         enumvals:
         - pglz
+        - lz4
         boot_val: pglz
         reset_val: pglz
         sourcefile: null
@@ -1497,7 +1498,7 @@ public:
         - mmap
         boot_val: posix
         reset_val: posix
-        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        sourcefile: /workspace/pg_catalog/postgres-data/postgresql.conf
         sourceline: 152
         pending_restart: false
       - name: effective_cache_size
@@ -1521,7 +1522,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: effective_io_concurrency
-        setting: '0'
+        setting: '1'
         unit: null
         category: Resource Usage / Asynchronous Behavior
         short_desc: Number of simultaneous requests that can be handled efficiently
@@ -1533,8 +1534,8 @@ public:
         min_val: '0'
         max_val: '1000'
         enumvals: null
-        boot_val: '0'
-        reset_val: '0'
+        boot_val: '1'
+        reset_val: '1'
         sourcefile: null
         sourceline: null
         pending_restart: false
@@ -2268,7 +2269,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: hba_file
-        setting: /Users/abadur/projects/query/postgres-data/pg_hba.conf
+        setting: /workspace/pg_catalog/postgres-data/pg_hba.conf
         unit: null
         category: File Locations
         short_desc: Sets the server's "hba" configuration file.
@@ -2280,7 +2281,7 @@ public:
         max_val: null
         enumvals: null
         boot_val: null
-        reset_val: /Users/abadur/projects/query/postgres-data/pg_hba.conf
+        reset_val: /workspace/pg_catalog/postgres-data/pg_hba.conf
         sourcefile: null
         sourceline: null
         pending_restart: false
@@ -2404,7 +2405,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: ident_file
-        setting: /Users/abadur/projects/query/postgres-data/pg_ident.conf
+        setting: /workspace/pg_catalog/postgres-data/pg_ident.conf
         unit: null
         category: File Locations
         short_desc: Sets the server's "ident" configuration file.
@@ -2416,7 +2417,7 @@ public:
         max_val: null
         enumvals: null
         boot_val: null
-        reset_val: /Users/abadur/projects/query/postgres-data/pg_ident.conf
+        reset_val: /workspace/pg_catalog/postgres-data/pg_ident.conf
         sourcefile: null
         sourceline: null
         pending_restart: false
@@ -2797,7 +2798,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: krb_server_keyfile
-        setting: ''
+        setting: FILE:/opt/postgresql/etc/krb5.keytab
         unit: null
         category: Connections and Authentication / Authentication
         short_desc: Sets the location of the Kerberos server key file.
@@ -2808,13 +2809,13 @@ public:
         min_val: null
         max_val: null
         enumvals: null
-        boot_val: ''
-        reset_val: ''
+        boot_val: FILE:/opt/postgresql/etc/krb5.keytab
+        reset_val: FILE:/opt/postgresql/etc/krb5.keytab
         sourcefile: null
         sourceline: null
         pending_restart: false
       - name: lc_messages
-        setting: nl_NL.UTF-8
+        setting: C
         unit: null
         category: Client Connection Defaults / Locale and Formatting
         short_desc: Sets the language in which messages are displayed.
@@ -2826,12 +2827,12 @@ public:
         max_val: null
         enumvals: null
         boot_val: ''
-        reset_val: nl_NL.UTF-8
-        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        reset_val: C
+        sourcefile: /workspace/pg_catalog/postgres-data/postgresql.conf
         sourceline: 752
         pending_restart: false
       - name: lc_monetary
-        setting: nl_NL.UTF-8
+        setting: C
         unit: null
         category: Client Connection Defaults / Locale and Formatting
         short_desc: Sets the locale for formatting monetary amounts.
@@ -2843,12 +2844,12 @@ public:
         max_val: null
         enumvals: null
         boot_val: C
-        reset_val: nl_NL.UTF-8
-        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        reset_val: C
+        sourcefile: /workspace/pg_catalog/postgres-data/postgresql.conf
         sourceline: 754
         pending_restart: false
       - name: lc_numeric
-        setting: nl_NL.UTF-8
+        setting: C
         unit: null
         category: Client Connection Defaults / Locale and Formatting
         short_desc: Sets the locale for formatting numbers.
@@ -2860,12 +2861,12 @@ public:
         max_val: null
         enumvals: null
         boot_val: C
-        reset_val: nl_NL.UTF-8
-        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        reset_val: C
+        sourcefile: /workspace/pg_catalog/postgres-data/postgresql.conf
         sourceline: 755
         pending_restart: false
       - name: lc_time
-        setting: nl_NL.UTF-8
+        setting: C
         unit: null
         category: Client Connection Defaults / Locale and Formatting
         short_desc: Sets the locale for formatting date and time values.
@@ -2877,8 +2878,8 @@ public:
         max_val: null
         enumvals: null
         boot_val: C
-        reset_val: nl_NL.UTF-8
-        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        reset_val: C
+        sourcefile: /workspace/pg_catalog/postgres-data/postgresql.conf
         sourceline: 756
         pending_restart: false
       - name: listen_addresses
@@ -3526,7 +3527,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: log_timezone
-        setting: Europe/Amsterdam
+        setting: Europe/Berlin
         unit: null
         category: Reporting and Logging / What to Log
         short_desc: Sets the time zone to use in log messages.
@@ -3538,8 +3539,8 @@ public:
         max_val: null
         enumvals: null
         boot_val: GMT
-        reset_val: Europe/Amsterdam
-        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        reset_val: Europe/Berlin
+        sourcefile: /workspace/pg_catalog/postgres-data/postgresql.conf
         sourceline: 622
         pending_restart: false
       - name: log_transaction_sample_rate
@@ -3614,7 +3615,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: maintenance_io_concurrency
-        setting: '0'
+        setting: '10'
         unit: null
         category: Resource Usage / Asynchronous Behavior
         short_desc: A variant of "effective_io_concurrency" that is used for maintenance
@@ -3626,8 +3627,8 @@ public:
         min_val: '0'
         max_val: '1000'
         enumvals: null
-        boot_val: '0'
-        reset_val: '0'
+        boot_val: '10'
+        reset_val: '10'
         sourcefile: null
         sourceline: null
         pending_restart: false
@@ -3662,7 +3663,7 @@ public:
         enumvals: null
         boot_val: '100'
         reset_val: '100'
-        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        sourcefile: /workspace/pg_catalog/postgres-data/postgresql.conf
         sourceline: 65
         pending_restart: false
       - name: max_files_per_process
@@ -4070,7 +4071,7 @@ public:
         enumvals: null
         boot_val: '1024'
         reset_val: '1024'
-        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        sourcefile: /workspace/pg_catalog/postgres-data/postgresql.conf
         sourceline: 257
         pending_restart: false
       - name: max_worker_processes
@@ -4157,7 +4158,7 @@ public:
         enumvals: null
         boot_val: '80'
         reset_val: '80'
-        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        sourcefile: /workspace/pg_catalog/postgres-data/postgresql.conf
         sourceline: 258
         pending_restart: false
       - name: multixact_member_buffers
@@ -4463,6 +4464,7 @@ public:
         max_val: null
         enumvals:
         - fsync
+        - syncfs
         boot_val: fsync
         reset_val: fsync
         sourcefile: null
@@ -4991,7 +4993,7 @@ public:
         enumvals: null
         boot_val: '16384'
         reset_val: '16384'
-        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        sourcefile: /workspace/pg_catalog/postgres-data/postgresql.conf
         sourceline: 129
         pending_restart: false
       - name: shared_memory_size
@@ -5013,7 +5015,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: shared_memory_size_in_huge_pages
-        setting: '-1'
+        setting: '72'
         unit: null
         category: Preset Options
         short_desc: Shows the number of huge pages needed for the main shared memory
@@ -5026,7 +5028,7 @@ public:
         max_val: '2147483647'
         enumvals: null
         boot_val: '-1'
-        reset_val: '-1'
+        reset_val: '72'
         sourcefile: null
         sourceline: null
         pending_restart: false
@@ -5611,7 +5613,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: tcp_keepalives_count
-        setting: '8'
+        setting: '9'
         unit: null
         category: Connections and Authentication / TCP Settings
         short_desc: Maximum number of TCP keepalive retransmits.
@@ -5731,7 +5733,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: TimeZone
-        setting: Europe/Amsterdam
+        setting: Europe/Berlin
         unit: null
         category: Client Connection Defaults / Locale and Formatting
         short_desc: Sets the time zone for displaying and interpreting time stamps.
@@ -5743,8 +5745,8 @@ public:
         max_val: null
         enumvals: null
         boot_val: GMT
-        reset_val: Europe/Amsterdam
-        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        reset_val: Europe/Berlin
+        sourcefile: /workspace/pg_catalog/postgres-data/postgresql.conf
         sourceline: 738
         pending_restart: false
       - name: timezone_abbreviations
@@ -6380,6 +6382,8 @@ public:
         max_val: null
         enumvals:
         - pglz
+        - lz4
+        - zstd
         - 'on'
         - 'off'
         boot_val: 'off'
@@ -6653,7 +6657,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: wal_sync_method
-        setting: open_datasync
+        setting: fdatasync
         unit: null
         category: Write-Ahead Log / Settings
         short_desc: Selects the method used for forcing WAL updates to disk.
@@ -6665,12 +6669,11 @@ public:
         max_val: null
         enumvals:
         - fsync
-        - fsync_writethrough
         - fdatasync
         - open_sync
         - open_datasync
-        boot_val: open_datasync
-        reset_val: open_datasync
+        boot_val: fdatasync
+        reset_val: fdatasync
         sourcefile: null
         sourceline: null
         pending_restart: false

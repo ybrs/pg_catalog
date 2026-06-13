@@ -18,5 +18,5 @@ public:
       rows:
       - buffers_clean: 0
         maxwritten_clean: 0
-        buffers_alloc: 5218
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        buffers_alloc: 659
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'

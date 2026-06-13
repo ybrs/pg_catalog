@@ -21,17 +21,17 @@ public:
         nspname: pg_catalog
         nspowner: 10
         nspacl:
-        - abadur=UC/abadur
-        - =U/abadur
+        - sysuser=UC/sysuser
+        - =U/sysuser
       - oid: 2200
         nspname: public
         nspowner: 6171
         nspacl:
         - pg_database_owner=UC/pg_database_owner
         - =U/pg_database_owner
-      - oid: 12782
+      - oid: 12411
         nspname: information_schema
         nspowner: 10
         nspacl:
-        - abadur=UC/abadur
-        - =U/abadur
+        - sysuser=UC/sysuser
+        - =U/sysuser

@@ -13,8 +13,8 @@ public:
         schemaname: varchar(64)
         funcname: varchar(64)
         calls: bigint
-        total_time: float
-        self_time: float
+        total_time: float8
+        self_time: float8
       pg_types:
         funcid: oid
         schemaname: name

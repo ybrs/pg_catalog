@@ -24,8 +24,12 @@ PG_TYPE_MAPPING = {
     "varchar": "varchar(256)",
     "bpchar": "varchar(64)",
     "bool": "boolean",
-    "float4": "float",
-    "float8": "float",
+    # Keep single/double precision distinct: float4 -> Float32 (FLOAT4 / OID 700),
+    # float8 -> Float64 (FLOAT8 / OID 701) on the Rust side. Collapsing both to a
+    # bare "float" made every float4 column (e.g. pg_class.reltuples) report as
+    # float8 over the wire.
+    "float4": "float4",
+    "float8": "float8",
 }
 
 def map_pg_type(pg_type):
@@ -196,7 +200,9 @@ if __name__ == "__main__":
 
     cmd = sys.argv[1]
 
-    conn = psycopg.connect("host=localhost port=5434 dbname=postgres")
+    # Connect as the fixed bootstrap superuser created by run-postgres.sh
+    # (-U sysuser), so catalog ownership/ACLs read "sysuser" everywhere.
+    conn = psycopg.connect("host=localhost port=5434 dbname=postgres user=sysuser")
 
 
     if cmd == "generate":

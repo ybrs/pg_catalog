@@ -2893,7 +2893,7 @@ mod tests {
             schema.clone(),
             vec![
                 Arc::new(Int32Array::from(vec![10])),
-                Arc::new(StringArray::from(vec!["abadur"])),
+                Arc::new(StringArray::from(vec!["sysuser"])),
             ],
         )?;
         let table = MemTable::try_new(schema, vec![vec![batch]])?;
@@ -2916,7 +2916,7 @@ mod tests {
             .as_any()
             .downcast_ref::<StringArray>()
             .unwrap();
-        assert_eq!(col.value(0), "abadur");
+        assert_eq!(col.value(0), "sysuser");
 
         let batches = ctx
             .sql("SELECT pg_get_userbyid(111110)")

@@ -108,16 +108,16 @@ LEFT OUTER JOIN pg_catalog.pg_description d ON d.objoid=n.oid AND d.objsubid=0 A
   - 
     description: null
     nspacl: 
-      - "abadur=UC/abadur"
-      - "=U/abadur"
+      - "sysuser=UC/sysuser"
+      - "=U/sysuser"
     nspname: "information_schema"
     nspowner: 10
     oid: 12782
   - 
     description: null
     nspacl: 
-      - "abadur=UC/abadur"
-      - "=U/abadur"
+      - "sysuser=UC/sysuser"
+      - "=U/sysuser"
     nspname: "pg_catalog"
     nspowner: 10
     oid: 11
@@ -7402,7 +7402,7 @@ ORDER BY a.rolname"
     rolcreatedb: true
     rolcreaterole: true
     rolinherit: true
-    rolname: "abadur"
+    rolname: "sysuser"
     rolpassword: "********"
     rolreplication: true
     rolsuper: true

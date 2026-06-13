@@ -60,13 +60,13 @@ public:
         statistics_owner: varchar(64)
         expr: varchar(256)
         inherited: boolean
-        null_frac: float
+        null_frac: float4
         avg_width: int
-        n_distinct: float
+        n_distinct: float4
         most_common_vals: varchar(256)
         most_common_freqs: _text
         histogram_bounds: varchar(256)
-        correlation: float
+        correlation: float4
         most_common_elems: varchar(256)
         most_common_elem_freqs: _text
         elem_count_histogram: _text

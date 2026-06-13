@@ -33,27 +33,27 @@ public:
         blks_read: 0
         blks_written: 0
         blks_exists: 0
-        flushes: 17
+        flushes: 6
         truncates: 0
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - name: multixact_member
         blks_zeroed: 1
         blks_hit: 0
         blks_read: 0
         blks_written: 1
         blks_exists: 0
-        flushes: 17
+        flushes: 6
         truncates: 0
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - name: multixact_offset
         blks_zeroed: 1
         blks_hit: 1
-        blks_read: 9
-        blks_written: 10
+        blks_read: 2
+        blks_written: 3
         blks_exists: 0
-        flushes: 17
+        flushes: 6
         truncates: 0
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - name: notify
         blks_zeroed: 0
         blks_hit: 0
@@ -62,7 +62,7 @@ public:
         blks_exists: 0
         flushes: 0
         truncates: 0
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - name: serializable
         blks_zeroed: 0
         blks_hit: 0
@@ -71,25 +71,25 @@ public:
         blks_exists: 0
         flushes: 0
         truncates: 0
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - name: subtransaction
-        blks_zeroed: 12
+        blks_zeroed: 5
         blks_hit: 0
         blks_read: 0
-        blks_written: 10
+        blks_written: 3
         blks_exists: 0
-        flushes: 17
-        truncates: 17
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        flushes: 6
+        truncates: 6
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - name: transaction
         blks_zeroed: 2
-        blks_hit: 3875
-        blks_read: 9
-        blks_written: 13
+        blks_hit: 3815
+        blks_read: 2
+        blks_written: 5
         blks_exists: 0
-        flushes: 17
+        flushes: 6
         truncates: 0
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
       - name: other
         blks_zeroed: 0
         blks_hit: 0
@@ -98,4 +98,4 @@ public:
         blks_exists: 0
         flushes: 0
         truncates: 0
-        stats_reset: '2025-05-21T13:14:40.486669+02:00'
+        stats_reset: '2026-06-13T02:30:32.455086+02:00'
