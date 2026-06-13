@@ -26,13 +26,4 @@ public:
         wal_write_time: float8
         wal_sync_time: float8
         stats_reset: timestamptz
-      rows:
-      - wal_records: 19387
-        wal_fpi: 495
-        wal_bytes: '4651907'
-        wal_buffers_full: 0
-        wal_write: 746
-        wal_sync: 1
-        wal_write_time: 0.0
-        wal_sync_time: 0.0
-        stats_reset: '2026-06-13T02:30:32.455086+02:00'
+      rows: []

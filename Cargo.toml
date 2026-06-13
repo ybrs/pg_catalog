@@ -3,6 +3,9 @@ name = "datafusion_pg_catalog"
 version = "0.1.0"
 edition = "2021"
 publish = false
+# Bare `cargo run` launches the server, not the gen_schema_ipc helper bin
+# (which is run explicitly via `cargo run --bin gen_schema_ipc`).
+default-run = "datafusion_pg_catalog"
 
 [lib]
 path = "src/lib.rs"

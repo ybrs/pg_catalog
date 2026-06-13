@@ -53,9 +53,13 @@ use bytes::Bytes;
 use datafusion::common::{config::ConfigEntry, config_err};
 use datafusion::scalar::ScalarValue;
 
-static SCHEMA_ZIP: &[u8] = include_bytes!(concat!(
+/// The embedded catalog, as a zip of per-table Arrow IPC streams. Loaded at
+/// startup (when no explicit schema path is given) far faster than parsing the
+/// YAML. Regenerate with `cargo run --release --bin gen_schema_ipc` after the
+/// YAML catalog changes; the YAML zip remains the human-editable source.
+static SCHEMA_IPC: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/pg_catalog_data/postgres-schema-nightly.zip"
+    "/pg_catalog_data/postgres-schema-nightly-ipc.zip"
 ));
 use crate::db_table::{map_pg_type, ObservableMemTable, ScanTrace};
 use crate::lazy_catalog::{register_lazy_catalog, LazyCatalogOptions, LazyCatalogSource};
@@ -463,7 +467,8 @@ fn parse_schema(
 ) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
     if let Some(schema_path) = schema_path {
         if schema_path.is_empty() {
-            return parse_schema_zip_bytes(SCHEMA_ZIP);
+            // Empty path means "use the embedded catalog" -> fast IPC artifact.
+            return parse_schema_ipc_bytes(SCHEMA_IPC);
         }
         let path = Path::new(schema_path);
         if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("zip") {
@@ -479,7 +484,10 @@ fn parse_schema(
             );
         }
     } else {
-        parse_schema_zip_bytes(SCHEMA_ZIP)
+        // No path -> embedded catalog, loaded from the Arrow IPC artifact. This
+        // skips YAML parsing + JSON->Arrow conversion (the entire ~1.85s cold
+        // start); explicit file/dir/zip paths still load YAML.
+        parse_schema_ipc_bytes(SCHEMA_IPC)
     }
 }
 
@@ -526,6 +534,129 @@ fn parse_schema_zip_bytes(
         merge_schema_maps(&mut all, parsed);
     }
     all
+}
+
+/// Serialize the parsed catalog into a zip of per-table Arrow IPC streams.
+///
+/// Each table becomes one IPC stream whose Arrow schema carries the table's
+/// identity and view info under `pgcat.*` metadata keys. This is the
+/// fast-loading counterpart to the YAML zip: reading it back skips YAML parsing
+/// and the JSON->Arrow conversion entirely (those two dominate cold start —
+/// ~1.85s vs ~9ms for everything else).
+fn schemas_to_ipc_zip(
+    schemas: &HashMap<String, HashMap<String, HashMap<String, ParsedTable>>>,
+) -> Vec<u8> {
+    use arrow::ipc::writer::StreamWriter;
+    use std::io::Write as _;
+    use zip::write::FileOptions;
+
+    let mut out: Vec<u8> = Vec::new();
+    {
+        let mut zip = zip::ZipWriter::new(Cursor::new(&mut out));
+        let options: FileOptions<()> = FileOptions::default();
+        let mut idx = 0usize;
+        for (catalog, schemas) in schemas {
+            for (schema_name, tables) in schemas {
+                for (table, parsed) in tables {
+                    let mut md = HashMap::new();
+                    md.insert("pgcat.catalog".to_string(), catalog.clone());
+                    md.insert("pgcat.schema".to_string(), schema_name.clone());
+                    md.insert("pgcat.table".to_string(), table.clone());
+                    md.insert(
+                        "pgcat.is_view".to_string(),
+                        if parsed.is_view { "1" } else { "0" }.to_string(),
+                    );
+                    if let Some(sql) = &parsed.view_sql {
+                        md.insert("pgcat.view_sql".to_string(), sql.clone());
+                    }
+                    let meta_schema =
+                        Arc::new(Schema::new_with_metadata(parsed.schema.fields().clone(), md));
+
+                    let mut buf: Vec<u8> = Vec::new();
+                    {
+                        let mut writer =
+                            StreamWriter::try_new(&mut buf, &meta_schema).expect("ipc writer");
+                        for batch in &parsed.batches {
+                            // Rebind each batch onto the metadata-carrying schema.
+                            let rebound =
+                                RecordBatch::try_new(meta_schema.clone(), batch.columns().to_vec())
+                                    .expect("ipc batch");
+                            writer.write(&rebound).expect("ipc write");
+                        }
+                        writer.finish().expect("ipc finish");
+                    }
+
+                    zip.start_file(format!("{idx:05}.arrow"), options)
+                        .expect("zip entry");
+                    zip.write_all(&buf).expect("zip write");
+                    idx += 1;
+                }
+            }
+        }
+        zip.finish().expect("zip finish");
+    }
+    out
+}
+
+/// Load the catalog from a zip of per-table Arrow IPC streams (the fast path for
+/// the embedded artifact). The inverse of [`schemas_to_ipc_zip`].
+fn parse_schema_ipc_bytes(
+    bytes: &[u8],
+) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
+    use arrow::ipc::reader::StreamReader;
+
+    let reader = Cursor::new(bytes);
+    let mut archive = ZipArchive::new(reader).expect("Failed to read ipc zip");
+    let mut all: HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> = HashMap::new();
+    for i in 0..archive.len() {
+        let mut entry = archive.by_index(i).expect("Invalid zip entry");
+        if !entry.name().ends_with(".arrow") {
+            continue;
+        }
+        let mut buf: Vec<u8> = Vec::new();
+        entry.read_to_end(&mut buf).expect("read ipc entry");
+
+        let mut stream = StreamReader::try_new(Cursor::new(buf), None).expect("ipc reader");
+        let md_schema = stream.schema();
+        let md = md_schema.metadata();
+        let catalog = md.get("pgcat.catalog").cloned().expect("missing catalog md");
+        let schema_name = md.get("pgcat.schema").cloned().expect("missing schema md");
+        let table = md.get("pgcat.table").cloned().expect("missing table md");
+        let is_view = md.get("pgcat.is_view").map(|v| v == "1").unwrap_or(false);
+        let view_sql = md.get("pgcat.view_sql").cloned();
+
+        // Drop the pgcat.* metadata so the schema matches the YAML path exactly.
+        let clean_schema: SchemaRef = Arc::new(Schema::new(md_schema.fields().clone()));
+        let mut batches = Vec::new();
+        for batch in stream.by_ref() {
+            let batch = batch.expect("ipc batch");
+            batches.push(
+                RecordBatch::try_new(clean_schema.clone(), batch.columns().to_vec())
+                    .expect("rebind batch"),
+            );
+        }
+
+        let parsed = ParsedTable {
+            schema: clean_schema,
+            batches,
+            view_sql,
+            is_view,
+        };
+        all.entry(catalog)
+            .or_default()
+            .entry(schema_name)
+            .or_default()
+            .insert(table, parsed);
+    }
+    all
+}
+
+/// Build the embedded IPC catalog artifact from the YAML schema zip. Used by the
+/// `gen_schema_ipc` tool to (re)generate `postgres-schema-nightly-ipc.zip`
+/// whenever the YAML catalog changes.
+pub fn build_ipc_artifact(yaml_zip_bytes: &[u8]) -> Vec<u8> {
+    let schemas = parse_schema_zip_bytes(yaml_zip_bytes);
+    schemas_to_ipc_zip(&schemas)
 }
 
 fn parse_schema_contents(

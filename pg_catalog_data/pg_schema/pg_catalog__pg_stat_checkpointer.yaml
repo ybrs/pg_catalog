@@ -29,13 +29,4 @@ public:
         sync_time: float8
         buffers_written: int8
         stats_reset: timestamptz
-      rows:
-      - num_timed: 0
-        num_requested: 0
-        restartpoints_timed: 0
-        restartpoints_req: 0
-        restartpoints_done: 0
-        write_time: 0.0
-        sync_time: 0.0
-        buffers_written: 0
-        stats_reset: '2026-06-13T02:30:32.455086+02:00'
+      rows: []

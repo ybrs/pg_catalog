@@ -29,14 +29,4 @@ public:
         wal_distance: int4
         block_distance: int4
         io_depth: int4
-      rows:
-      - stats_reset: '2026-06-13T02:30:35.405467+02:00'
-        prefetch: 0
-        hit: 0
-        skip_init: 0
-        skip_new: 0
-        skip_fpw: 0
-        skip_rep: 0
-        wal_distance: 0
-        block_distance: 0
-        io_depth: 0
+      rows: []

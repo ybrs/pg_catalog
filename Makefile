@@ -10,6 +10,17 @@ create_schema_yaml_files:
 create_schema_zip:
 	zip -r pg_schema.zip pg_catalog_data/pg_schema
 
+# Regenerate the embedded fast-load artifact (Arrow IPC) from the YAML catalog
+# zip. Run this whenever pg_catalog_data/postgres-schema-nightly.zip changes;
+# the startup path loads this instead of parsing YAML (~50x faster cold start).
+create_schema_ipc:
+	cargo run --release --bin gen_schema_ipc
+
+# Full one-shot pipeline: download+start PostgreSQL, extract the catalog to YAML,
+# rebuild the YAML zip, and rebuild the embedded Arrow IPC artifact.
+regenerate-catalog:
+	./regenerate-catalog.sh
+
 
 dev_server:
 	RUST_LOG=info RUST_MIN_STACK=33554432 cargo run -- ./pg_schema.zip --default-catalog pgtry --default-schema pg_catalog --port 5444

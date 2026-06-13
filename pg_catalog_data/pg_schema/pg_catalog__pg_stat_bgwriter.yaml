@@ -15,8 +15,4 @@ public:
         maxwritten_clean: int8
         buffers_alloc: int8
         stats_reset: timestamptz
-      rows:
-      - buffers_clean: 0
-        maxwritten_clean: 0
-        buffers_alloc: 659
-        stats_reset: '2026-06-13T02:30:32.455086+02:00'
+      rows: []

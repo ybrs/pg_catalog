@@ -37,6 +37,22 @@ def map_pg_type(pg_type):
         return "_text"
     return PG_TYPE_MAPPING.get(pg_type, "varchar(256)")
 
+# Tables/views whose contents are runtime/session state (statistics, locks,
+# activity, memory, prepared statements). Their rows change on every server
+# start, so we emit them with an empty `rows:` to keep the generated catalog
+# deterministic (their schema is still captured). Anything matching `pg_stat*`
+# (which also covers `pg_statio*`) plus the names below.
+VOLATILE_TABLE_NAMES = {
+    "pg_locks",
+    "pg_prepared_statements",
+    "pg_cursors",
+    "pg_backend_memory_contexts",
+    "pg_shmem_allocations",
+}
+
+def is_volatile_table(name: str) -> bool:
+    return name.startswith("pg_stat") or name in VOLATILE_TABLE_NAMES
+
 def fetch_objects(conn, schema):
     with conn.cursor() as cur:
         cur.execute("""
@@ -115,7 +131,7 @@ def generate(output_dir):
                 table_schema, raw_types, table_rows = fetch_table_schema_and_rows(conn, schema_name, objname)
                 entry["schema"] = table_schema
                 entry["pg_types"] = raw_types
-                entry["rows"] = table_rows
+                entry["rows"] = [] if is_volatile_table(objname) else table_rows
             elif relkind == "v":  # View
                 entry["type"] = "view"
                 view_sql = fetch_view_definition(conn, schema_name, objname)
@@ -123,7 +139,7 @@ def generate(output_dir):
                 entry["view_sql"] = view_sql
                 entry["schema"] = table_schema
                 entry["pg_types"] = raw_types
-                entry["rows"] = table_rows
+                entry["rows"] = [] if is_volatile_table(objname) else table_rows
 
             if description:
                 # TODO: description is not working

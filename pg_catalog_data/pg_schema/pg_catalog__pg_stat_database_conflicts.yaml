@@ -26,28 +26,4 @@ public:
         confl_bufferpin: int8
         confl_deadlock: int8
         confl_active_logicalslot: int8
-      rows:
-      - datid: 5
-        datname: postgres
-        confl_tablespace: 0
-        confl_lock: 0
-        confl_snapshot: 0
-        confl_bufferpin: 0
-        confl_deadlock: 0
-        confl_active_logicalslot: 0
-      - datid: 1
-        datname: template1
-        confl_tablespace: 0
-        confl_lock: 0
-        confl_snapshot: 0
-        confl_bufferpin: 0
-        confl_deadlock: 0
-        confl_active_logicalslot: 0
-      - datid: 4
-        datname: template0
-        confl_tablespace: 0
-        confl_lock: 0
-        confl_snapshot: 0
-        confl_bufferpin: 0
-        confl_deadlock: 0
-        confl_active_logicalslot: 0
+      rows: []
