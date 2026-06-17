@@ -463,6 +463,160 @@ pub fn rewrite_schema_qualified_custom_types(sql: &str) -> Result<String> {
         .join(" "))
 }
 
+/// Rewrite `EXISTS (<subquery>)` predicates into `(<subquery-with-count>) > 0`
+/// (and `NOT EXISTS` into `... = 0`).
+///
+/// DataFusion 54 decorrelates correlated `EXISTS` only when it sits as a
+/// top-level WHERE filter; it cannot physically plan the `EXISTS` operator when
+/// it appears as a scalar value (inside `CASE WHEN EXISTS(...)`, a `SELECT`
+/// list, etc.) — exactly how the information_schema views use it. It *can*,
+/// however, decorrelate an equivalent correlated **scalar** subquery. So we turn
+/// the EXISTS subquery's projection into `count(*)` and compare it against zero,
+/// which DataFusion handles natively in any expression position. This replaces
+/// the old `df_subquery_udf` rewrite for the one pattern DataFusion still can't
+/// do on its own.
+///
+/// Only simple `SELECT` subqueries are transformed (no `GROUP BY`, `HAVING`, or
+/// set operation), since `count(*)` is existence-equivalent only there; other
+/// shapes — which the catalog views don't use — are left untouched.
+pub fn rewrite_exists_to_count(sql: &str) -> Result<String> {
+    use sqlparser::ast::{
+        visit_expressions_mut, visit_statements_mut, BinaryOperator, Expr, GroupByExpr, SelectItem,
+        SetExpr, Statement,
+    };
+    use sqlparser::dialect::PostgreSqlDialect;
+    use sqlparser::parser::Parser;
+    use std::ops::ControlFlow;
+
+    let dialect = PostgreSqlDialect {};
+
+    // Borrow a `count(*)` projection item and a `0` literal from a parsed
+    // template, so we don't hand-build version-specific AST literal nodes.
+    let (count_item, zero_expr): (SelectItem, Expr) = {
+        let tmpl = Parser::parse_sql(&dialect, "SELECT count(*), 0")
+            .map_err(|e| DataFusionError::External(Box::new(e)))?;
+        match &tmpl[0] {
+            Statement::Query(q) => match q.body.as_ref() {
+                SetExpr::Select(s) => {
+                    let count = s.projection[0].clone();
+                    let zero = match &s.projection[1] {
+                        SelectItem::UnnamedExpr(e) => e.clone(),
+                        _ => unreachable!("template projection[1] is `0`"),
+                    };
+                    (count, zero)
+                }
+                _ => unreachable!("template body is a SELECT"),
+            },
+            _ => unreachable!("template is a query"),
+        }
+    };
+
+    let mut stmts =
+        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
+
+    let _ = visit_statements_mut(&mut stmts, |stmt| {
+        visit_expressions_mut(stmt, |e| {
+            if let Expr::Exists { subquery, negated } = e {
+                // Only transform a plain SELECT with no grouping/having; count(*)
+                // is existence-equivalent only there.
+                let simple = match subquery.body.as_ref() {
+                    SetExpr::Select(s) => {
+                        s.having.is_none()
+                            && matches!(&s.group_by, GroupByExpr::Expressions(g, _) if g.is_empty())
+                    }
+                    _ => false,
+                };
+                if simple {
+                    let negated = *negated;
+                    if let SetExpr::Select(select) = subquery.body.as_mut() {
+                        select.projection = vec![count_item.clone()];
+                        select.distinct = None;
+                    }
+                    let op = if negated {
+                        BinaryOperator::Eq
+                    } else {
+                        BinaryOperator::Gt
+                    };
+                    *e = Expr::BinaryOp {
+                        left: Box::new(Expr::Subquery(subquery.clone())),
+                        op,
+                        right: Box::new(zero_expr.clone()),
+                    };
+                }
+            }
+            ControlFlow::<()>::Continue(())
+        })?;
+        ControlFlow::Continue(())
+    });
+
+    Ok(stmts
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join(" "))
+}
+
+/// Rewrite casts to the information_schema standard domain types
+/// (`sql_identifier`, `character_data`, `cardinal_number`, `yes_or_no`,
+/// `time_stamp`) into their underlying base types. Those domains are thin,
+/// value-preserving wrappers over base types that exist only for SQL-standard
+/// conformance, but DataFusion doesn't know them — so every
+/// `expr::information_schema.<domain>` cast in the information_schema views
+/// fails to plan. Mapping them to the base type makes the views executable.
+pub fn rewrite_information_schema_casts(sql: &str) -> Result<String> {
+    use sqlparser::ast::{
+        visit_expressions_mut, visit_statements_mut, DataType, Expr, ObjectName, ObjectNamePart,
+        TimezoneInfo,
+    };
+    use sqlparser::dialect::PostgreSqlDialect;
+    use sqlparser::parser::Parser;
+    use std::ops::ControlFlow;
+
+    // Map an `information_schema.<domain>` cast target to its base DataType.
+    fn base_type(name: &ObjectName) -> Option<DataType> {
+        if name.0.len() != 2 {
+            return None;
+        }
+        let (schema, ty) = match (&name.0[0], &name.0[1]) {
+            (ObjectNamePart::Identifier(a), ObjectNamePart::Identifier(b)) => (a, b),
+            _ => return None,
+        };
+        if !schema.value.eq_ignore_ascii_case("information_schema") {
+            return None;
+        }
+        match ty.value.to_ascii_lowercase().as_str() {
+            "sql_identifier" | "character_data" | "yes_or_no" => Some(DataType::Text),
+            "cardinal_number" => Some(DataType::Integer(None)),
+            "time_stamp" => Some(DataType::Timestamp(None, TimezoneInfo::None)),
+            _ => None,
+        }
+    }
+
+    let dialect = PostgreSqlDialect {};
+    let mut stmts =
+        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
+
+    let _ = visit_statements_mut(&mut stmts, |stmt| {
+        let _ = visit_expressions_mut(stmt, |e| {
+            if let Expr::Cast { data_type, .. } = e {
+                if let DataType::Custom(obj, _) = data_type {
+                    if let Some(base) = base_type(obj) {
+                        *data_type = base;
+                    }
+                }
+            }
+            ControlFlow::<()>::Continue(())
+        })?;
+        ControlFlow::Continue(())
+    });
+
+    Ok(stmts
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join(" "))
+}
+
 /// Replace casts to regtype / pg_catalog.regtype with TEXT,
 /// or drop them entirely if they are immediately followed by a TEXT cast.
 pub fn rewrite_regtype_cast(sql: &str) -> Result<String> {
@@ -1851,6 +2005,68 @@ mod tests {
         for (input, expected) in cases {
             assert_eq!(rewrite_schema_qualified_text(input).unwrap(), expected);
         }
+        Ok(())
+    }
+
+    #[test]
+    fn test_rewrite_information_schema_casts() -> Result<(), Box<dyn std::error::Error>> {
+        // Each information_schema domain cast becomes its base type.
+        let cases = vec![
+            ("SELECT x::information_schema.sql_identifier", "TEXT"),
+            ("SELECT x::information_schema.character_data", "TEXT"),
+            ("SELECT x::information_schema.yes_or_no", "TEXT"),
+            ("SELECT x::information_schema.cardinal_number", "INTEGER"),
+            ("SELECT x::information_schema.time_stamp", "TIMESTAMP"),
+            (
+                "SELECT CAST(c.relname AS information_schema.sql_identifier)",
+                "TEXT",
+            ),
+        ];
+        for (input, base) in cases {
+            let out = rewrite_information_schema_casts(input)?;
+            assert!(
+                !out.to_lowercase().contains("information_schema"),
+                "domain type should be gone, got: {out}"
+            );
+            assert!(
+                out.to_uppercase().contains(base),
+                "expected base type {base} in: {out}"
+            );
+        }
+
+        // Casts to other schemas are left untouched.
+        let untouched = rewrite_information_schema_casts("SELECT 'a'::pg_catalog.text")?;
+        assert!(untouched.to_lowercase().contains("pg_catalog.text"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_rewrite_exists_to_count() -> Result<(), Box<dyn std::error::Error>> {
+        // EXISTS in a CASE position -> (SELECT count(*) ...) > 0
+        let out = rewrite_exists_to_count(
+            "SELECT CASE WHEN EXISTS (SELECT 1 FROM t2 WHERE t2.id = t1.id) THEN 1 ELSE 0 END FROM t1",
+        )?;
+        let lo = out.to_lowercase();
+        assert!(!lo.contains("exists"), "EXISTS should be gone: {out}");
+        assert!(lo.contains("count(*)"), "expected count(*): {out}");
+        assert!(lo.contains("> 0"), "expected > 0 comparison: {out}");
+
+        // NOT EXISTS -> = 0
+        let neg = rewrite_exists_to_count(
+            "SELECT id FROM t1 WHERE NOT EXISTS (SELECT 1 FROM t2 WHERE t2.id = t1.id)",
+        )?;
+        let nlo = neg.to_lowercase();
+        assert!(!nlo.contains("exists"), "NOT EXISTS should be gone: {neg}");
+        assert!(nlo.contains("= 0"), "expected = 0 comparison: {neg}");
+
+        // A subquery with GROUP BY is left untouched (count(*) not equivalent).
+        let grouped = rewrite_exists_to_count(
+            "SELECT 1 WHERE EXISTS (SELECT 1 FROM t GROUP BY x)",
+        )?;
+        assert!(
+            grouped.to_lowercase().contains("exists"),
+            "grouped EXISTS must be left as-is: {grouped}"
+        );
         Ok(())
     }
 

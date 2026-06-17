@@ -83,10 +83,16 @@ def main() -> None:
 
     views = collect_all_views(args.schema_dir)
     results = []
-    with psycopg.connect(CONN_STR, autocommit=True) as conn:
-        for view in views:
-            res = run_view_query(conn, view)
-            results.append((view, res, classify(res), missing_symbol(res)))
+    # Use a fresh connection per view: a view that triggers a server-side panic
+    # (e.g. a DataFusion runtime overflow) drops only its own connection, so it
+    # can't poison the results of the views that follow it.
+    for view in views:
+        try:
+            with psycopg.connect(CONN_STR, autocommit=True) as conn:
+                res = run_view_query(conn, view)
+        except Exception as exc:  # noqa: BLE001 — connection-level failure (e.g. backend crash)
+            res = ViewResult(view=view, status="error", error=f"connection error: {exc}".strip())
+        results.append((view, res, classify(res), missing_symbol(res)))
 
     # ---- aggregate ----
     by_schema = Counter(v.schema for v, *_ in results)

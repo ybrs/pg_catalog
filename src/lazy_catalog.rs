@@ -728,10 +728,6 @@ impl std::fmt::Debug for LazyCatalogTableProvider {
 #[async_trait]
 impl TableProvider for LazyCatalogTableProvider {
     /// Return self as `Any` for downcasting by DataFusion.
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
     /// The Arrow schema for this catalog table.
     fn schema(&self) -> SchemaRef {
         self.schema.clone()

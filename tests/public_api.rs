@@ -1,7 +1,7 @@
 use arrow::datatypes::Schema;
 use datafusion::execution::context::SessionContext;
 use datafusion_pg_catalog::{
-    db_table::ObservableMemTable, dispatch_query, get_base_session_context, start_server,
+    dispatch_query, get_base_session_context, start_server,
 };
 use std::fs::File;
 use std::io::Read;
@@ -96,11 +96,11 @@ async fn test_pg_views_registered_as_view() -> datafusion::error::Result<()> {
         .table("pg_views")
         .await?
         .expect("pg_views table should be registered");
-    assert!(
-        provider
-            .as_any()
-            .downcast_ref::<ObservableMemTable>()
-            .is_none(),
+    // datafusion 54 removed `as_any` from `TableProvider`; a registered view
+    // reports `TableType::View`, whereas our `ObservableMemTable` reports `Base`.
+    assert_eq!(
+        provider.table_type(),
+        datafusion::datasource::TableType::View,
         "pg_views should be registered as a view, not an ObservableMemTable"
     );
     Ok(())

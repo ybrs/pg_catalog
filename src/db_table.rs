@@ -99,10 +99,6 @@ impl ObservableMemTable {
 
 #[async_trait]
 impl TableProvider for ObservableMemTable {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }

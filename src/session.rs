@@ -17,7 +17,9 @@ use crate::replace::{
     rewrite_brace_array_literal, rewrite_char_cast, rewrite_name_cast, rewrite_oid_cast,
     rewrite_oidvector_any, rewrite_oidvector_unnest, rewrite_pg_custom_operator,
     rewrite_regoper_cast, rewrite_regoperator_cast, rewrite_regproc_cast,
-    rewrite_regprocedure_cast, rewrite_regtype_cast, rewrite_schema_qualified_custom_types,
+    rewrite_exists_to_count, rewrite_information_schema_casts, rewrite_regprocedure_cast,
+    rewrite_regtype_cast,
+    rewrite_schema_qualified_custom_types,
     rewrite_schema_qualified_text, rewrite_schema_qualified_udtfs, rewrite_time_zone_utc,
     rewrite_tuple_equality, rewrite_xid_cast, strip_default_collate,
 };
@@ -31,7 +33,9 @@ use zip::ZipArchive;
 
 use crate::user_functions::{
     register_array_agg, register_current_schema, register_current_schemas, register_encode,
-    register_has_database_privilege, register_has_schema_privilege, register_oidvector_to_array,
+    register_has_database_privilege, register_has_privilege_family, register_has_schema_privilege,
+    register_nameconcatoid, register_oidvector_to_array, register_pg_has_role,
+    register_pg_is_other_temp_schema,
     register_pg_available_extension_versions, register_pg_get_array,
     register_pg_get_function_arguments, register_pg_get_function_result,
     register_pg_get_function_sqlbody, register_pg_get_indexdef, register_pg_get_keywords,
@@ -65,7 +69,6 @@ use crate::db_table::{map_pg_type, ObservableMemTable, ScanTrace};
 use crate::lazy_catalog::{register_lazy_catalog, LazyCatalogOptions, LazyCatalogSource};
 use crate::replace_any_group_by::rewrite_group_by_for_any;
 use datafusion::common::config::{ConfigExtension, ExtensionOptions};
-use df_subquery_udf::rewrite_query;
 
 #[derive(Clone, Debug)]
 pub struct ClientOpts {
@@ -320,6 +323,7 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     let sql = rewrite_pg_custom_operator(&sql)?;
     let sql = rewrite_schema_qualified_text(&sql)?;
     let sql = rewrite_schema_qualified_custom_types(&sql)?;
+    let sql = rewrite_information_schema_casts(&sql)?;
     let sql = rewrite_schema_qualified_udtfs(&sql)?;
     let sql = rewrite_char_cast(&sql)?;
     let sql = replace_regclass(&sql)?;
@@ -351,7 +355,10 @@ pub async fn execute_sql_inner(
 
     let (sql, aliases) = rewrite_filters(&sql)?;
 
-    let (sql, temp_udfs) = rewrite_query(&sql, &mut ctx.clone()).await?;
+    // DataFusion 54 decorrelates correlated subqueries natively; the one gap is
+    // `EXISTS` used as a scalar value (e.g. inside CASE), which we convert to a
+    // `(SELECT count(*) ...) > 0` scalar subquery it can plan.
+    let sql = rewrite_exists_to_count(&sql)?;
 
     let df = if let (Some(params), Some(types)) = (vec, vec0) {
         log::debug!("params {:?}", params);
@@ -435,11 +442,6 @@ pub async fn execute_sql_inner(
         .collect::<Vec<_>>();
 
     let (results, schema) = remove_virtual_system_columns(&sql, results, schema);
-
-    // after the execution of the query we do a cleanup for added udfs
-    for name in temp_udfs {
-        ctx.deregister_udf(&name);
-    }
 
     Ok((results, schema))
 }
@@ -1055,15 +1057,12 @@ async fn create_registered_views(
             )));
         }
 
-        let (rewritten_select, temp_udfs) = {
+        let rewritten_select = {
             let (rewritten, _) = rewrite_filters(&definition)?;
-            rewrite_query(&rewritten, &mut ctx.clone()).await?
+            rewrite_exists_to_count(&rewritten)?
         };
         let create_sql = format!("CREATE OR REPLACE VIEW {qualified} AS {rewritten_select}");
         ctx.sql(&create_sql).await?.collect().await?;
-        for udf in temp_udfs {
-            ctx.deregister_udf(&udf);
-        }
     }
 
     if active_default_schema != original_default_schema {
@@ -1193,6 +1192,10 @@ async fn build_base_session_context(
     register_pg_relation_is_publishable(&ctx)?;
     register_has_database_privilege(&ctx)?;
     register_has_schema_privilege(&ctx)?;
+    register_has_privilege_family(&ctx)?;
+    register_nameconcatoid(&ctx)?;
+    register_pg_has_role(&ctx)?;
+    register_pg_is_other_temp_schema(&ctx)?;
     register_pg_postmaster_start_time(&ctx)?;
     register_pg_relation_size(&ctx)?;
     register_pg_total_relation_size(&ctx)?;

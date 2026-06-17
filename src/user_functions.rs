@@ -67,10 +67,6 @@ struct RegClassOidTable {
 
 #[async_trait]
 impl TableProvider for RegClassOidTable {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
@@ -415,9 +411,6 @@ pub fn register_scalar_pg_get_expr(ctx: &SessionContext) -> Result<()> {
     }
 
     impl ScalarUDFImpl for PgGetExpr {
-        fn as_any(&self) -> &dyn std::any::Any {
-            self
-        }
         fn name(&self) -> &str {
             "pg_catalog.pg_get_expr"
         }
@@ -582,6 +575,271 @@ pub fn register_has_schema_privilege(ctx: &SessionContext) -> Result<()> {
         .with_aliases(["has_schema_privilege"]);
         ctx.register_udf(udf);
     }
+    Ok(())
+}
+
+/// pg_catalog.pg_has_role(\[user,\] role, privilege) -> bool
+///
+/// Compatibility stub that always returns `true`: the emulated single
+/// superuser is treated as a member of every role. This unblocks the many
+/// information_schema role/privilege views that filter rows with
+/// `pg_has_role(...)`. Covers both the 2-argument `pg_has_role(role, privilege)`
+/// and 3-argument `pg_has_role(user, role, privilege)` forms, with `user`/`role`
+/// given either as an OID (int) or a role name (text).
+pub fn register_pg_has_role(ctx: &SessionContext) -> Result<()> {
+    use arrow::array::{ArrayRef, BooleanArray};
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::{
+        ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature,
+        Volatility,
+    };
+    use std::sync::Arc;
+
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    struct PgHasRole {
+        sig: Signature,
+    }
+
+    impl PgHasRole {
+        fn new() -> Self {
+            // Accept `pg_has_role(role, priv)` and `pg_has_role(user, role, priv)`.
+            // role/user may be an OID (int) or a name (text); since this is a stub
+            // that ignores its inputs, accept any argument types.
+            Self {
+                sig: Signature::one_of(
+                    vec![TypeSignature::Any(2), TypeSignature::Any(3)],
+                    Volatility::Stable,
+                ),
+            }
+        }
+    }
+
+    impl ScalarUDFImpl for PgHasRole {
+        fn name(&self) -> &str {
+            "pg_catalog.pg_has_role"
+        }
+        fn signature(&self) -> &Signature {
+            &self.sig
+        }
+        fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
+            Ok(DataType::Boolean)
+        }
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            // The emulated single superuser is a member of every role -> always true.
+            let arrays = ColumnarValue::values_to_arrays(&args.args)?;
+            let len = arrays.first().map(|a| a.len()).unwrap_or(1);
+            Ok(ColumnarValue::Array(
+                Arc::new(BooleanArray::from(vec![true; len])) as ArrayRef,
+            ))
+        }
+    }
+
+    let udf = ScalarUDF::new_from_impl(PgHasRole::new()).with_aliases(["pg_has_role"]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
+/// pg_catalog.pg_is_other_temp_schema(oid) -> bool
+///
+/// Compatibility stub that always returns `false`: we emulate a single session
+/// with no other backends, so no schema is "another session's temp schema".
+/// Many information_schema views filter rows with
+/// `NOT pg_is_other_temp_schema(...)`.
+pub fn register_pg_is_other_temp_schema(ctx: &SessionContext) -> Result<()> {
+    use arrow::array::{ArrayRef, BooleanArray};
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::{
+        ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature,
+        Volatility,
+    };
+    use std::sync::Arc;
+
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    struct PgIsOtherTempSchema {
+        sig: Signature,
+    }
+
+    impl PgIsOtherTempSchema {
+        fn new() -> Self {
+            // One OID argument, given as int or name -> accept any single arg.
+            Self {
+                sig: Signature::one_of(vec![TypeSignature::Any(1)], Volatility::Stable),
+            }
+        }
+    }
+
+    impl ScalarUDFImpl for PgIsOtherTempSchema {
+        fn name(&self) -> &str {
+            "pg_catalog.pg_is_other_temp_schema"
+        }
+        fn signature(&self) -> &Signature {
+            &self.sig
+        }
+        fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
+            Ok(DataType::Boolean)
+        }
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            let arrays = ColumnarValue::values_to_arrays(&args.args)?;
+            let len = arrays.first().map(|a| a.len()).unwrap_or(1);
+            Ok(ColumnarValue::Array(
+                Arc::new(BooleanArray::from(vec![false; len])) as ArrayRef,
+            ))
+        }
+    }
+
+    let udf = ScalarUDF::new_from_impl(PgIsOtherTempSchema::new())
+        .with_aliases(["pg_is_other_temp_schema"]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
+/// Register a `has_<object>_privilege` compatibility stub that always returns
+/// `true` (the emulated single superuser holds every privilege).
+///
+/// One flexible UDF per function name handles all real call shapes:
+/// `has_*_privilege(object, privilege)` and
+/// `has_*_privilege(user, object, privilege)`, with user/object given as an OID
+/// (int) or a name (text). `base_name` is the unqualified function name (e.g.
+/// `has_table_privilege`); it is registered under `pg_catalog.<base_name>` with
+/// the bare name as an alias.
+fn register_has_privilege_stub(ctx: &SessionContext, base_name: &'static str) -> Result<()> {
+    use arrow::array::{ArrayRef, BooleanArray};
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::{
+        ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature,
+        Volatility,
+    };
+    use std::sync::Arc;
+
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    struct HasPrivilege {
+        qualified: String,
+        sig: Signature,
+    }
+
+    impl ScalarUDFImpl for HasPrivilege {
+        fn name(&self) -> &str {
+            &self.qualified
+        }
+        fn signature(&self) -> &Signature {
+            &self.sig
+        }
+        fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
+            Ok(DataType::Boolean)
+        }
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            let arrays = ColumnarValue::values_to_arrays(&args.args)?;
+            let len = arrays.first().map(|a| a.len()).unwrap_or(1);
+            Ok(ColumnarValue::Array(
+                Arc::new(BooleanArray::from(vec![true; len])) as ArrayRef,
+            ))
+        }
+    }
+
+    let imp = HasPrivilege {
+        qualified: format!("pg_catalog.{base_name}"),
+        sig: Signature::one_of(
+            vec![TypeSignature::Any(2), TypeSignature::Any(3)],
+            Volatility::Stable,
+        ),
+    };
+    let udf = ScalarUDF::new_from_impl(imp).with_aliases([base_name]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
+/// Register the full `has_*_privilege` family as always-true compatibility stubs.
+///
+/// PostgreSQL has one such function per object class; the information_schema
+/// privilege views call most of them. The emulated single superuser holds every
+/// privilege, so each returns `true`. (`has_database_privilege` /
+/// `has_schema_privilege` keep their existing dedicated registrations.)
+pub fn register_has_privilege_family(ctx: &SessionContext) -> Result<()> {
+    for name in [
+        "has_table_privilege",
+        "has_column_privilege",
+        "has_any_column_privilege",
+        "has_type_privilege",
+        "has_sequence_privilege",
+        "has_function_privilege",
+        "has_server_privilege",
+        "has_foreign_data_wrapper_privilege",
+        "has_tablespace_privilege",
+        "has_language_privilege",
+        "has_parameter_privilege",
+    ] {
+        register_has_privilege_stub(ctx, name)?;
+    }
+    Ok(())
+}
+
+/// pg_catalog.nameconcatoid(name, oid) -> text
+///
+/// PostgreSQL helper that builds a unique label by appending an object's OID to
+/// its name (used by the routine/parameter information_schema views to make
+/// `specific_name`s unique). Returns `"<name>_<oid>"`.
+pub fn register_nameconcatoid(ctx: &SessionContext) -> Result<()> {
+    use arrow::array::{ArrayRef, StringBuilder};
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::{
+        ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature,
+        Volatility,
+    };
+    use std::sync::Arc;
+
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    struct NameConcatOid {
+        sig: Signature,
+    }
+
+    impl ScalarUDFImpl for NameConcatOid {
+        fn name(&self) -> &str {
+            "pg_catalog.nameconcatoid"
+        }
+        fn signature(&self) -> &Signature {
+            &self.sig
+        }
+        fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
+            Ok(DataType::Utf8)
+        }
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            use arrow::array::Array;
+            let arrays = ColumnarValue::values_to_arrays(&args.args)?;
+            let names = arrays[0].as_any().downcast_ref::<arrow::array::StringArray>();
+            let len = arrays.first().map(|a| a.len()).unwrap_or(1);
+            // The oid column may arrive as int or text; stringify generically.
+            let oid_str = |i: usize| -> Option<String> {
+                let a = &arrays[1];
+                if a.is_null(i) {
+                    return None;
+                }
+                if let Some(s) = a.as_any().downcast_ref::<arrow::array::StringArray>() {
+                    Some(s.value(i).to_string())
+                } else if let Some(v) = a.as_any().downcast_ref::<arrow::array::Int32Array>() {
+                    Some(v.value(i).to_string())
+                } else if let Some(v) = a.as_any().downcast_ref::<arrow::array::Int64Array>() {
+                    Some(v.value(i).to_string())
+                } else {
+                    None
+                }
+            };
+            let mut b = StringBuilder::with_capacity(len, 32 * len);
+            for i in 0..len {
+                let name = names.and_then(|n| (!n.is_null(i)).then(|| n.value(i).to_string()));
+                match (name, oid_str(i)) {
+                    (Some(n), Some(o)) => b.append_value(format!("{n}_{o}")),
+                    _ => b.append_null(),
+                }
+            }
+            Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
+        }
+    }
+
+    let udf = ScalarUDF::new_from_impl(NameConcatOid {
+        sig: Signature::one_of(vec![TypeSignature::Any(2)], Volatility::Immutable),
+    })
+    .with_aliases(["nameconcatoid"]);
+    ctx.register_udf(udf);
     Ok(())
 }
 
@@ -831,10 +1089,6 @@ impl std::hash::Hash for PgGetUserById {
 }
 
 impl ScalarUDFImpl for PgGetUserById {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
     fn name(&self) -> &str {
         "pg_catalog.pg_get_userbyid"
     }
@@ -1002,9 +1256,6 @@ pub fn register_scalar_array_to_string(ctx: &SessionContext) -> Result<()> {
     }
 
     impl ScalarUDFImpl for ArrayToString {
-        fn as_any(&self) -> &dyn std::any::Any {
-            self
-        }
         fn name(&self) -> &str {
             "pg_catalog.array_to_string"
         }
@@ -1187,9 +1438,6 @@ pub fn register_pg_get_one(ctx: &SessionContext) -> Result<()> {
     }
 
     impl ScalarUDFImpl for PgGetOne {
-        fn as_any(&self) -> &dyn std::any::Any {
-            self
-        }
         fn name(&self) -> &str {
             "pg_get_one"
         }
@@ -1374,9 +1622,6 @@ struct PostmasterStartTimeTable {
 
 #[async_trait]
 impl TableProvider for PostmasterStartTimeTable {
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
@@ -1741,9 +1986,6 @@ pub fn register_pg_get_viewdef(ctx: &SessionContext) -> Result<()> {
     }
 
     impl ScalarUDFImpl for PgGetViewDef {
-        fn as_any(&self) -> &dyn std::any::Any {
-            self
-        }
         fn name(&self) -> &str {
             "pg_catalog.pg_get_viewdef"
         }
@@ -1957,9 +2199,6 @@ pub fn register_pg_get_triggerdef(ctx: &SessionContext) -> Result<()> {
     }
 
     impl ScalarUDFImpl for PgGetTriggerDef {
-        fn as_any(&self) -> &dyn std::any::Any {
-            self
-        }
         fn name(&self) -> &str {
             "pg_catalog.pg_get_triggerdef"
         }
@@ -2016,9 +2255,6 @@ pub fn register_pg_get_ruledef(ctx: &SessionContext) -> Result<()> {
     }
 
     impl ScalarUDFImpl for PgGetRuleDef {
-        fn as_any(&self) -> &dyn std::any::Any {
-            self
-        }
         fn name(&self) -> &str {
             "pg_catalog.pg_get_ruledef"
         }
@@ -2077,10 +2313,6 @@ pub fn register_pg_available_extension_versions(ctx: &SessionContext) -> Result<
 
     #[async_trait]
     impl TableProvider for TableFn {
-        fn as_any(&self) -> &dyn std::any::Any {
-            self
-        }
-
         fn schema(&self) -> SchemaRef {
             self.schema.clone()
         }
@@ -2157,10 +2389,6 @@ pub fn register_pg_get_keywords(ctx: &SessionContext) -> Result<()> {
 
     #[async_trait]
     impl TableProvider for TableFn {
-        fn as_any(&self) -> &dyn std::any::Any {
-            self
-        }
-
         fn schema(&self) -> SchemaRef {
             self.schema.clone()
         }
