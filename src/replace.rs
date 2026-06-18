@@ -599,10 +599,20 @@ pub fn rewrite_information_schema_casts(sql: &str) -> Result<String> {
     let _ = visit_statements_mut(&mut stmts, |stmt| {
         let _ = visit_expressions_mut(stmt, |e| {
             if let Expr::Cast { data_type, .. } = e {
-                if let DataType::Custom(obj, _) = data_type {
-                    if let Some(base) = base_type(obj) {
-                        *data_type = base;
+                match data_type {
+                    DataType::Custom(obj, _) => {
+                        if let Some(base) = base_type(obj) {
+                            *data_type = base;
+                        }
                     }
+                    // `x::character varying` / `x::varchar` with no length is how
+                    // the information_schema views spell their text casts;
+                    // DataFusion can't plan a cast to unbounded varchar, so map it
+                    // to TEXT. Length-qualified varchar(n) is left as-is.
+                    DataType::CharacterVarying(None) | DataType::Varchar(None) => {
+                        *data_type = DataType::Text
+                    }
+                    _ => {}
                 }
             }
             ControlFlow::<()>::Continue(())
@@ -2037,6 +2047,16 @@ mod tests {
         // Casts to other schemas are left untouched.
         let untouched = rewrite_information_schema_casts("SELECT 'a'::pg_catalog.text")?;
         assert!(untouched.to_lowercase().contains("pg_catalog.text"));
+
+        // Bare `character varying` (unbounded varchar) -> TEXT.
+        let cv = rewrite_information_schema_casts("SELECT NULL::character varying")?;
+        assert!(
+            cv.to_uppercase().contains("TEXT") && !cv.to_uppercase().contains("CHARACTER VARYING"),
+            "character varying should become TEXT: {cv}"
+        );
+        // Length-qualified varchar is left as-is (DataFusion plans it).
+        let vl = rewrite_information_schema_casts("SELECT NULL::varchar(10)")?;
+        assert!(vl.to_lowercase().contains("varchar(10)"), "got {vl}");
         Ok(())
     }
 

@@ -33,9 +33,10 @@ use zip::ZipArchive;
 
 use crate::user_functions::{
     register_array_agg, register_current_schema, register_current_schemas, register_encode,
-    register_has_database_privilege, register_has_privilege_family, register_has_schema_privilege,
-    register_nameconcatoid, register_oidvector_to_array, register_pg_has_role,
-    register_pg_is_other_temp_schema,
+    register_getdatabaseencoding, register_has_database_privilege, register_has_privilege_family,
+    register_has_schema_privilege, register_nameconcatoid, register_oidvector_to_array,
+    register_pg_char_max_length, register_pg_has_role, register_pg_is_other_temp_schema,
+    register_pg_my_temp_schema, register_pg_relation_is_updatable,
     register_pg_available_extension_versions, register_pg_get_array,
     register_pg_get_function_arguments, register_pg_get_function_result,
     register_pg_get_function_sqlbody, register_pg_get_indexdef, register_pg_get_keywords,
@@ -1196,6 +1197,10 @@ async fn build_base_session_context(
     register_nameconcatoid(&ctx)?;
     register_pg_has_role(&ctx)?;
     register_pg_is_other_temp_schema(&ctx)?;
+    register_pg_my_temp_schema(&ctx)?;
+    register_getdatabaseencoding(&ctx)?;
+    register_pg_relation_is_updatable(&ctx)?;
+    register_pg_char_max_length(&ctx)?;
     register_pg_postmaster_start_time(&ctx)?;
     register_pg_relation_size(&ctx)?;
     register_pg_total_relation_size(&ctx)?;

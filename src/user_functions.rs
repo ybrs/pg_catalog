@@ -693,6 +693,126 @@ pub fn register_pg_is_other_temp_schema(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
+/// pg_catalog.pg_my_temp_schema() -> oid
+///
+/// Compatibility stub returning `0`: we emulate a session with no temp schema,
+/// and PostgreSQL returns `0` (InvalidOid) when the session has none.
+pub fn register_pg_my_temp_schema(ctx: &SessionContext) -> Result<()> {
+    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
+    use std::sync::Arc;
+
+    let fun = |_args: &[ColumnarValue]| -> Result<ColumnarValue> {
+        Ok(ColumnarValue::Scalar(ScalarValue::Int32(Some(0))))
+    };
+    let udf = create_udf(
+        "pg_catalog.pg_my_temp_schema",
+        vec![],
+        ArrowDataType::Int32,
+        Volatility::Stable,
+        Arc::new(fun),
+    )
+    .with_aliases(["pg_my_temp_schema"]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
+/// pg_catalog.getdatabaseencoding() -> name
+///
+/// Compatibility stub returning `'UTF8'` (the catalog is generated as UTF8).
+pub fn register_getdatabaseencoding(ctx: &SessionContext) -> Result<()> {
+    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
+    use std::sync::Arc;
+
+    let fun = |_args: &[ColumnarValue]| -> Result<ColumnarValue> {
+        Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(
+            "UTF8".to_string(),
+        ))))
+    };
+    let udf = create_udf(
+        "pg_catalog.getdatabaseencoding",
+        vec![],
+        ArrowDataType::Utf8,
+        Volatility::Stable,
+        Arc::new(fun),
+    )
+    .with_aliases(["getdatabaseencoding"]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
+/// pg_catalog.pg_relation_is_updatable(relation, include_triggers) -> int4
+///
+/// Compatibility stub returning `0` (the bitmask for "not updatable"). The
+/// information_schema view columns derived from it (`is_updatable`, etc.) then
+/// read as `'NO'`, which is a safe default for an emulated read-mostly catalog.
+pub fn register_pg_relation_is_updatable(ctx: &SessionContext) -> Result<()> {
+    register_int_stub(ctx, "pg_catalog.pg_relation_is_updatable", 2, Some(0))
+}
+
+/// pg_catalog.information_schema._pg_char_max_length(typid, typmod) -> int4
+///
+/// Compatibility stub returning NULL: we don't derive a character maximum
+/// length, and NULL is the correct value for non-character types anyway, so the
+/// `character_maximum_length` column simply reads as NULL.
+pub fn register_pg_char_max_length(ctx: &SessionContext) -> Result<()> {
+    register_int_stub(ctx, "information_schema._pg_char_max_length", 2, None)
+}
+
+/// Register a scalar stub under the fully-qualified function name `qualified`
+/// (plus its bare last-segment alias) that takes exactly `arity` arguments of
+/// any type and returns the constant int4 `value` (or NULL when `value` is
+/// `None`), broadcast over the input length.
+fn register_int_stub(
+    ctx: &SessionContext,
+    qualified: &'static str,
+    arity: usize,
+    value: Option<i32>,
+) -> Result<()> {
+    use arrow::array::{ArrayRef, Int32Array};
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::{
+        ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature,
+        Volatility,
+    };
+    use std::sync::Arc;
+
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    struct IntStub {
+        qualified: String,
+        value: Option<i32>,
+        sig: Signature,
+    }
+
+    impl ScalarUDFImpl for IntStub {
+        fn name(&self) -> &str {
+            &self.qualified
+        }
+        fn signature(&self) -> &Signature {
+            &self.sig
+        }
+        fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
+            Ok(DataType::Int32)
+        }
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            let arrays = ColumnarValue::values_to_arrays(&args.args)?;
+            let len = arrays.first().map(|a| a.len()).unwrap_or(1);
+            Ok(ColumnarValue::Array(
+                Arc::new(Int32Array::from(vec![self.value; len])) as ArrayRef,
+            ))
+        }
+    }
+
+    let imp = IntStub {
+        qualified: qualified.to_string(),
+        value,
+        sig: Signature::one_of(vec![TypeSignature::Any(arity)], Volatility::Stable),
+    };
+    let bare = qualified.rsplit('.').next().unwrap_or(qualified);
+    let udf = ScalarUDF::new_from_impl(imp).with_aliases([bare]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
 /// Register a `has_<object>_privilege` compatibility stub that always returns
 /// `true` (the emulated single superuser holds every privilege).
 ///
