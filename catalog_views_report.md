@@ -8,27 +8,25 @@ Ran every `type: view` from `pg_catalog_data/pg_schema` against the live engine 
 
 | Category | Count |
 |---|---|
-| success | 59 |
+| success | 64 |
 | missing_table | 37 |
-| missing_function | 32 |
+| missing_function | 24 |
 | missing_column | 9 |
-| other_error | 5 |
+| other_error | 8 |
 | parse_error | 1 |
 
 ## Outcome by schema
 
 | Schema | success | missing_table | missing_function | missing_column | other_error | parse_error |
 |---|---|---|---|---|---|---|
-| information_schema | 39 | 1 | 16 | 5 | 4 | 0 |
+| information_schema | 44 | 1 | 8 | 5 | 7 | 0 |
 | pg_catalog | 20 | 36 | 16 | 4 | 1 | 1 |
 
 ## Missing functions (most impactful to implement)
 
 | Function | Views blocked |
 |---|---|
-| `pg_options_to_table()` | 4 |
 | `aclexplode()` | 4 |
-| `information_schema._pg_expandarray()` | 4 |
 | `pg_stat_get_blocks_fetched()` | 3 |
 | `information_schema._pg_truetypid()` | 2 |
 | `pg_stat_get_numscans()` | 2 |
@@ -61,14 +59,18 @@ Ran every `type: view` from `pg_catalog_data/pg_schema` against the live engine 
 | information_schema.check_constraint_routine_usage | success |  |
 | information_schema.column_column_usage | success |  |
 | information_schema.column_domain_usage | success |  |
+| information_schema.column_options | success |  |
 | information_schema.column_udt_usage | success |  |
 | information_schema.constraint_table_usage | success |  |
 | information_schema.data_type_privileges | success |  |
 | information_schema.domain_constraints | success |  |
 | information_schema.domain_udt_usage | success |  |
 | information_schema.enabled_roles | success |  |
+| information_schema.foreign_data_wrapper_options | success |  |
 | information_schema.foreign_data_wrappers | success |  |
+| information_schema.foreign_server_options | success |  |
 | information_schema.foreign_servers | success |  |
+| information_schema.foreign_table_options | success |  |
 | information_schema.foreign_tables | success |  |
 | information_schema.information_schema_catalog_name | success |  |
 | information_schema.referential_constraints | success |  |
@@ -84,6 +86,7 @@ Ran every `type: view` from `pg_catalog_data/pg_schema` against the live engine 
 | information_schema.routines | success |  |
 | information_schema.schemata | success |  |
 | information_schema.transforms | success |  |
+| information_schema.triggers | success |  |
 | information_schema.user_defined_types | success |  |
 | information_schema.user_mappings | success |  |
 | information_schema.view_column_usage | success |  |
@@ -113,24 +116,19 @@ Ran every `type: view` from `pg_catalog_data/pg_schema` against the live engine 
 | information_schema.check_constraints | missing_function | function format() does not exist |
 | information_schema.collation_character_set_applicability | missing_column | Schema error: No field named pg_database.datname. Valid fields are subq0_t.datacl, subq0_t.datallowconn, subq0_t.datcollate, subq0_t.datcollversion, subq0_t.dat |
 | information_schema.collations | missing_column | Schema error: No field named pg_database.datname. Valid fields are subq0_t.datacl, subq0_t.datallowconn, subq0_t.datcollate, subq0_t.datcollversion, subq0_t.dat |
-| information_schema.column_options | missing_function | function pg_options_to_table() does not exist |
 | information_schema.column_privileges | missing_function | function aclexplode() does not exist |
 | information_schema.columns | missing_function | function information_schema._pg_truetypid() does not exist |
 | information_schema.constraint_column_usage | other_error | Internal error: Assertion failed: col.name() == matching_name: Input field name nspname does not match with the projection expression nspname_1. This issue was  |
 | information_schema.domains | missing_function | function information_schema._pg_char_octet_length() does not exist |
-| information_schema.element_types | missing_function | function information_schema._pg_expandarray() does not exist |
-| information_schema.foreign_data_wrapper_options | missing_function | function pg_options_to_table() does not exist |
-| information_schema.foreign_server_options | missing_function | function pg_options_to_table() does not exist |
-| information_schema.foreign_table_options | missing_function | function pg_options_to_table() does not exist |
-| information_schema.key_column_usage | missing_function | function information_schema._pg_expandarray() does not exist |
-| information_schema.parameters | missing_function | function information_schema._pg_expandarray() does not exist |
+| information_schema.element_types | other_error | This feature is not implemented: Unsupported SQL type oid |
+| information_schema.key_column_usage | other_error | This feature is not implemented: Dot access not supported for non-string expr: Identifier(Ident { value: "x", quote_style: None, span: Span(Location(1,1163)..Lo |
+| information_schema.parameters | other_error | This feature is not implemented: Unsupported SQL type oid |
 | information_schema.routine_privileges | missing_function | function aclexplode() does not exist |
 | information_schema.sequences | missing_table | Error during planning: table 'pgtry.public.pg_depend' not found |
 | information_schema.table_constraints | missing_column | Schema error: No field named pg_index.indexrelid. Did you mean 'subq0_t.indexrelid'?. |
 | information_schema.table_privileges | missing_function | function aclexplode() does not exist |
 | information_schema.tables | other_error | This feature is not implemented: Unsupported SQL type REGCLASS |
-| information_schema.triggered_update_columns | missing_function | function information_schema._pg_expandarray() does not exist |
-| information_schema.triggers | other_error | Error during planning: Column in SELECT must be in GROUP BY or an aggregate function: While expanding wildcard, column "em.num" must appear in the GROUP BY clau |
+| information_schema.triggered_update_columns | other_error | This feature is not implemented: Dot access not supported for non-string expr: Identifier(Ident { value: "x", quote_style: None, span: Span(Location(1,407)..Loc |
 | information_schema.udt_privileges | missing_function | function aclexplode() does not exist |
 | information_schema.usage_privileges | missing_column | Schema error: No field named pg_database.datname. Valid fields are subq0_t.datacl, subq0_t.datallowconn, subq0_t.datcollate, subq0_t.datcollversion, subq0_t.dat |
 | information_schema.user_mapping_options | missing_column | Schema error: No field named pg_authid.rolname. Valid fields are subq0_t.oid, subq0_t.rolbypassrls, subq0_t.rolcanlogin, subq0_t.rolconnlimit, subq0_t.rolcreate |

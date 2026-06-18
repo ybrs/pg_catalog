@@ -813,6 +813,190 @@ fn register_int_stub(
     Ok(())
 }
 
+/// pg_catalog.pg_options_to_table(options text[]) -> setof (option_name, option_value)
+///
+/// PostgreSQL set-returning function that splits each `"name=value"` option
+/// string into a row. DataFusion can't host a set-returning function in the
+/// projection, so we model the result as a **scalar** function returning
+/// `List<Struct{option_name, option_value}>`; the `rewrite_srf_to_unnest` pass
+/// then `unnest`s it so `(pg_options_to_table(x)).option_name` works. The
+/// argument is the catalog's `_text` array (Arrow `List<Utf8>`).
+pub fn register_pg_options_to_table(ctx: &SessionContext) -> Result<()> {
+    use arrow::array::{ArrayRef, ListArray, ListBuilder, StringBuilder, StructBuilder};
+    use arrow::datatypes::{DataType, Field, Fields};
+    use datafusion::logical_expr::{
+        ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature,
+        Volatility,
+    };
+    use std::sync::Arc;
+
+    fn item_fields() -> Fields {
+        vec![
+            Field::new("option_name", DataType::Utf8, true),
+            Field::new("option_value", DataType::Utf8, true),
+        ]
+        .into()
+    }
+
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    struct PgOptionsToTable {
+        sig: Signature,
+    }
+
+    impl ScalarUDFImpl for PgOptionsToTable {
+        fn name(&self) -> &str {
+            "pg_catalog.pg_options_to_table"
+        }
+        fn signature(&self) -> &Signature {
+            &self.sig
+        }
+        fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
+            Ok(DataType::List(Arc::new(Field::new(
+                "item",
+                DataType::Struct(item_fields()),
+                true,
+            ))))
+        }
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            let arrays = ColumnarValue::values_to_arrays(&args.args)?;
+            let input = arrays[0].as_any().downcast_ref::<ListArray>();
+            let fields = item_fields();
+            let mut builder = ListBuilder::new(StructBuilder::new(
+                fields,
+                vec![
+                    Box::new(StringBuilder::new()),
+                    Box::new(StringBuilder::new()),
+                ],
+            ));
+            let len = arrays.first().map(|a| a.len()).unwrap_or(0);
+            for i in 0..len {
+                let opts = input.filter(|a| !a.is_null(i)).map(|a| a.value(i));
+                match opts {
+                    None => builder.append_null(),
+                    Some(opts) => {
+                        if let Some(strs) = opts.as_any().downcast_ref::<arrow::array::StringArray>()
+                        {
+                            let sb = builder.values();
+                            for j in 0..strs.len() {
+                                if strs.is_null(j) {
+                                    continue;
+                                }
+                                let s = strs.value(j);
+                                let (name, value) = s.split_once('=').unwrap_or((s, ""));
+                                sb.field_builder::<StringBuilder>(0)
+                                    .unwrap()
+                                    .append_value(name);
+                                sb.field_builder::<StringBuilder>(1)
+                                    .unwrap()
+                                    .append_value(value);
+                                sb.append(true);
+                            }
+                        }
+                        builder.append(true);
+                    }
+                }
+            }
+            Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
+        }
+    }
+
+    let udf = ScalarUDF::new_from_impl(PgOptionsToTable {
+        sig: Signature::one_of(vec![TypeSignature::Any(1)], Volatility::Immutable),
+    })
+    .with_aliases(["pg_options_to_table"]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
+/// information_schema._pg_expandarray(arr) -> setof (x, n)
+///
+/// PostgreSQL set-returning helper that expands an array into rows of
+/// `(x = element, n = 1-based ordinal)`. Modeled as a scalar function returning
+/// `List<Struct{x, n}>` so `(_pg_expandarray(a)).x` works via the
+/// `rewrite_srf_to_unnest` pass. The catalog's arrays arrive as `List<Utf8>`, so
+/// `x` is text and `n` is int4.
+pub fn register_pg_expandarray(ctx: &SessionContext) -> Result<()> {
+    use arrow::array::{ArrayRef, Int32Builder, ListArray, ListBuilder, StringBuilder, StructBuilder};
+    use arrow::datatypes::{DataType, Field, Fields};
+    use datafusion::logical_expr::{
+        ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature,
+        Volatility,
+    };
+    use std::sync::Arc;
+
+    fn item_fields() -> Fields {
+        vec![
+            Field::new("x", DataType::Utf8, true),
+            Field::new("n", DataType::Int32, true),
+        ]
+        .into()
+    }
+
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    struct PgExpandArray {
+        sig: Signature,
+    }
+
+    impl ScalarUDFImpl for PgExpandArray {
+        fn name(&self) -> &str {
+            "information_schema._pg_expandarray"
+        }
+        fn signature(&self) -> &Signature {
+            &self.sig
+        }
+        fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
+            Ok(DataType::List(Arc::new(Field::new(
+                "item",
+                DataType::Struct(item_fields()),
+                true,
+            ))))
+        }
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            let arrays = ColumnarValue::values_to_arrays(&args.args)?;
+            let input = arrays[0].as_any().downcast_ref::<ListArray>();
+            let mut builder = ListBuilder::new(StructBuilder::new(
+                item_fields(),
+                vec![Box::new(StringBuilder::new()), Box::new(Int32Builder::new())],
+            ));
+            let len = arrays.first().map(|a| a.len()).unwrap_or(0);
+            for i in 0..len {
+                let elems = input.filter(|a| !a.is_null(i)).map(|a| a.value(i));
+                match elems {
+                    None => builder.append_null(),
+                    Some(elems) => {
+                        if let Some(strs) =
+                            elems.as_any().downcast_ref::<arrow::array::StringArray>()
+                        {
+                            let sb = builder.values();
+                            for j in 0..strs.len() {
+                                let x = sb.field_builder::<StringBuilder>(0).unwrap();
+                                if strs.is_null(j) {
+                                    x.append_null();
+                                } else {
+                                    x.append_value(strs.value(j));
+                                }
+                                sb.field_builder::<Int32Builder>(1)
+                                    .unwrap()
+                                    .append_value((j + 1) as i32);
+                                sb.append(true);
+                            }
+                        }
+                        builder.append(true);
+                    }
+                }
+            }
+            Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
+        }
+    }
+
+    let udf = ScalarUDF::new_from_impl(PgExpandArray {
+        sig: Signature::one_of(vec![TypeSignature::Any(1)], Volatility::Immutable),
+    })
+    .with_aliases(["_pg_expandarray"]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
 /// Register a `has_<object>_privilege` compatibility stub that always returns
 /// `true` (the emulated single superuser holds every privilege).
 ///

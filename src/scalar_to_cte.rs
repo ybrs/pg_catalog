@@ -482,6 +482,25 @@ mod rewriter {
         /// walk an expression tree, returning:
         ///   * `has_aggr` – did we see any aggregate function?
         ///   * `cols`     – top-level column references *outside* aggregates
+        /// True if `e` (or any sub-expression) does an array/struct subscript
+        /// access like `x['field']` — the marker of the SRF->unnest rewrite.
+        fn has_subscript_access(e: &Expr) -> bool {
+            use sqlparser::ast::AccessExpr;
+            let mut found = false;
+            let _ = sqlparser::ast::visit_expressions(e, |x| {
+                if let Expr::CompoundFieldAccess { access_chain, .. } = x {
+                    if access_chain
+                        .iter()
+                        .any(|a| matches!(a, AccessExpr::Subscript(_)))
+                    {
+                        found = true;
+                    }
+                }
+                std::ops::ControlFlow::<()>::Continue(())
+            });
+            found
+        }
+
         fn scan_expr(e: &Expr, inside_aggr: bool, has_aggr: &mut bool, cols: &mut Vec<Expr>) {
             match e {
                 Expr::Function(f) => {
@@ -566,6 +585,20 @@ mod rewriter {
         fn inject_group_by(&self, sel: &mut Select) {
             // bail if user already has a GROUP BY
             if Self::has_user_group_by(&sel.group_by) {
+                return;
+            }
+
+            // Don't inject GROUP BY when the projection does struct/array
+            // subscript access (`x['field']`). That shape is produced by the
+            // SRF->unnest rewrite (`__srf_unnest['option_name']`) and never
+            // appears in the PostgreSQL catalog views otherwise; auto-grouping
+            // it would wrongly require the unnested column in the GROUP BY.
+            if sel.projection.iter().any(|item| match item {
+                SelectItem::UnnamedExpr(e) | SelectItem::ExprWithAlias { expr: e, .. } => {
+                    Self::has_subscript_access(e)
+                }
+                _ => false,
+            }) {
                 return;
             }
 

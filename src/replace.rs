@@ -556,6 +556,262 @@ pub fn rewrite_exists_to_count(sql: &str) -> Result<String> {
         .join(" "))
 }
 
+/// The set-returning functions we model as scalar `List<Struct>` functions, so
+/// `(srf(x)).field` in a projection can be unnested. See [`rewrite_srf_to_unnest`].
+const PROJECTION_SRFS: &[&str] = &["aclexplode", "_pg_expandarray", "pg_options_to_table"];
+
+/// Rewrite `(srf(x)).field` projections (set-returning function used as a scalar
+/// value, which DataFusion can't plan) into an `unnest`-of-`List<Struct>` form
+/// that it can.
+///
+/// PostgreSQL's information_schema views call SRFs like `aclexplode` directly in
+/// the SELECT list: `(aclexplode(acl)).grantee`. We register those SRFs as scalar
+/// functions returning `List<Struct{...}>` (see `register_pg_options_to_table`
+/// etc.), then transform
+///
+/// ```sql
+/// SELECT (srf(x)).a, (srf(x)).b, other FROM t WHERE w
+/// ```
+/// into
+/// ```sql
+/// SELECT __srf_unnest['a'], __srf_unnest['b'], other
+/// FROM (SELECT *, unnest(srf(x)) AS __srf_unnest FROM t WHERE w) AS __srf_src
+/// ```
+///
+/// which DataFusion executes (unnest in projection + `struct['field']` access).
+/// Only the simple shape the catalog views use is handled: a single distinct
+/// `srf(x)` per `SELECT`, accessed in the projection. Other shapes are left
+/// unchanged. `UNION` branches are each rewritten independently.
+pub fn rewrite_srf_to_unnest(sql: &str) -> Result<String> {
+    use sqlparser::ast::{Query, SetExpr, Statement};
+    use sqlparser::dialect::PostgreSqlDialect;
+    use sqlparser::parser::Parser;
+
+    fn walk_query(q: &mut Query) {
+        if let Some(with) = q.with.as_mut() {
+            for cte in &mut with.cte_tables {
+                walk_query(&mut cte.query);
+            }
+        }
+        walk_setexpr(q.body.as_mut());
+    }
+
+    fn walk_setexpr(body: &mut SetExpr) {
+        match body {
+            SetExpr::Select(select) => rewrite_select(select),
+            SetExpr::Query(q) => walk_query(q),
+            SetExpr::SetOperation { left, right, .. } => {
+                walk_setexpr(left);
+                walk_setexpr(right);
+            }
+            _ => {}
+        }
+    }
+
+    let dialect = PostgreSqlDialect {};
+    let mut stmts =
+        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
+    for stmt in &mut stmts {
+        if let Statement::Query(q) = stmt {
+            walk_query(q);
+        }
+    }
+    Ok(stmts
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join(" "))
+}
+
+/// Is `e` an `(srf(args)).field` access on one of [`PROJECTION_SRFS`]? If so,
+/// return the inner `srf(args)` function expression.
+fn srf_field_access(e: &sqlparser::ast::Expr) -> Option<sqlparser::ast::Expr> {
+    use sqlparser::ast::{AccessExpr, Expr, FunctionArguments, ObjectNamePart};
+    if let Expr::CompoundFieldAccess { root, access_chain } = e {
+        if access_chain.len() == 1 {
+            if let AccessExpr::Dot(_) = &access_chain[0] {
+                if let Expr::Nested(inner) = root.as_ref() {
+                    if let Expr::Function(f) = inner.as_ref() {
+                        let name = f
+                            .name
+                            .0
+                            .last()
+                            .and_then(|p| match p {
+                                ObjectNamePart::Identifier(i) => Some(i.value.to_lowercase()),
+                                _ => None,
+                            })
+                            .unwrap_or_default();
+                        if PROJECTION_SRFS.contains(&name.as_str())
+                            && matches!(f.args, FunctionArguments::List(_))
+                        {
+                            return Some((**inner).clone());
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
+}
+
+/// Rewrite one `SELECT` that uses `(srf(x)).field` in its projection. See
+/// [`rewrite_srf_to_unnest`].
+fn rewrite_select(select: &mut Box<sqlparser::ast::Select>) {
+    use sqlparser::ast::{
+        visit_expressions_mut, AccessExpr, Expr, SelectItem, TableFactor, TableWithJoins,
+    };
+    use sqlparser::dialect::PostgreSqlDialect;
+    use sqlparser::parser::Parser;
+    use std::ops::ControlFlow;
+
+    fn item_expr_mut(item: &mut SelectItem) -> Option<&mut Expr> {
+        match item {
+            SelectItem::UnnamedExpr(e) | SelectItem::ExprWithAlias { expr: e, .. } => Some(e),
+            _ => None,
+        }
+    }
+
+    // Collect the distinct srf(x) calls referenced in the projection.
+    let mut found: Option<Expr> = None;
+    let mut multiple = false;
+    for item in &mut select.projection {
+        if let Some(expr) = item_expr_mut(item) {
+            let _ = visit_expressions_mut(expr, |e| {
+                if let Some(call) = srf_field_access(e) {
+                    match &found {
+                        None => found = Some(call),
+                        Some(prev) if prev.to_string() != call.to_string() => multiple = true,
+                        _ => {}
+                    }
+                }
+                ControlFlow::<()>::Continue(())
+            });
+        }
+    }
+
+    let srf = match found {
+        Some(_) if multiple => return, // >1 distinct SRF: leave unchanged
+        Some(s) => s,
+        None => return,
+    };
+    let srf_str = srf.to_string();
+
+    // Templates: `unnest(<srf>) AS __srf_unnest` and `__srf_unnest['<field>']`.
+    let dialect = PostgreSqlDialect {};
+    let mut unnest_item = {
+        let q = Parser::parse_sql(&dialect, "SELECT unnest(NULL) AS __srf_unnest").unwrap();
+        match q.into_iter().next().unwrap() {
+            sqlparser::ast::Statement::Query(q) => match *q.body {
+                sqlparser::ast::SetExpr::Select(s) => s.projection.into_iter().next().unwrap(),
+                _ => unreachable!(),
+            },
+            _ => unreachable!(),
+        }
+    };
+    // Substitute the real srf call for the NULL placeholder argument.
+    if let SelectItem::ExprWithAlias { expr, .. } = &mut unnest_item {
+        if let Expr::Function(f) = expr {
+            if let sqlparser::ast::FunctionArguments::List(list) = &mut f.args {
+                if let Some(sqlparser::ast::FunctionArg::Unnamed(
+                    sqlparser::ast::FunctionArgExpr::Expr(arg),
+                )) = list.args.first_mut()
+                {
+                    *arg = srf.clone();
+                }
+            }
+        }
+    }
+
+    // Replace each `(srf(x)).field` with `__srf_unnest['field']`.
+    for item in &mut select.projection {
+        if let Some(expr) = item_expr_mut(item) {
+            let _ = visit_expressions_mut(expr, |e| {
+                if let Some(call) = srf_field_access(e) {
+                    if call.to_string() == srf_str {
+                        if let Expr::CompoundFieldAccess { access_chain, .. } = e {
+                            if let AccessExpr::Dot(Expr::Identifier(field)) = &access_chain[0] {
+                                *e = bracket_access("__srf_unnest", &field.value);
+                            }
+                        }
+                    }
+                }
+                ControlFlow::<()>::Continue(())
+            });
+        }
+    }
+
+    // Inner subquery carries the original FROM/WHERE plus the unnest.
+    let mut inner = select.clone();
+    inner.projection = vec![SelectItem::Wildcard(Default::default()), unnest_item];
+    inner.selection = select.selection.clone();
+    inner.group_by = sqlparser::ast::GroupByExpr::Expressions(vec![], vec![]);
+    inner.having = None;
+    inner.distinct = None;
+    inner.sort_by = vec![];
+    inner.qualify = None;
+
+    let inner_query = sqlparser::ast::Query {
+        with: None,
+        body: Box::new(sqlparser::ast::SetExpr::Select(inner)),
+        order_by: None,
+        limit_clause: None,
+        fetch: None,
+        locks: vec![],
+        for_clause: None,
+        settings: None,
+        format_clause: None,
+        pipe_operators: vec![],
+    };
+
+    // Build a `FROM (SELECT 1) AS __srf_src` template, then swap the placeholder
+    // subquery for our inner query (avoids enumerating sqlparser's struct fields).
+    let mut derived: TableWithJoins = {
+        let q = Parser::parse_sql(&dialect, "SELECT 1 FROM (SELECT 1) AS __srf_src").unwrap();
+        match q.into_iter().next().unwrap() {
+            sqlparser::ast::Statement::Query(q) => match *q.body {
+                sqlparser::ast::SetExpr::Select(s) => s.from.into_iter().next().unwrap(),
+                _ => unreachable!(),
+            },
+            _ => unreachable!(),
+        }
+    };
+    if let TableFactor::Derived { subquery, .. } = &mut derived.relation {
+        *subquery = Box::new(inner_query);
+    }
+
+    // The outer SELECT keeps its (rewritten) projection and post-FROM clauses,
+    // but its FROM is now the derived subquery and its WHERE moved inward.
+    select.from = vec![derived];
+    select.selection = None;
+}
+
+/// Build the expression `<root>['<field>']` (struct field access) via a parsed
+/// template, substituting the field name.
+fn bracket_access(root: &str, field: &str) -> sqlparser::ast::Expr {
+    use sqlparser::ast::{AccessExpr, Expr, Subscript, Value};
+    use sqlparser::dialect::PostgreSqlDialect;
+    use sqlparser::parser::Parser;
+
+    let sql = format!("SELECT {root}['__field__']");
+    let q = Parser::parse_sql(&PostgreSqlDialect {}, &sql).unwrap();
+    let mut expr = match q.into_iter().next().unwrap() {
+        sqlparser::ast::Statement::Query(q) => match *q.body {
+            sqlparser::ast::SetExpr::Select(s) => match s.projection.into_iter().next().unwrap() {
+                sqlparser::ast::SelectItem::UnnamedExpr(e) => e,
+                _ => unreachable!(),
+            },
+            _ => unreachable!(),
+        },
+        _ => unreachable!(),
+    };
+    if let Expr::CompoundFieldAccess { access_chain, .. } = &mut expr {
+        if let Some(AccessExpr::Subscript(Subscript::Index { index })) = access_chain.first_mut() {
+            *index = Expr::Value(Value::SingleQuotedString(field.to_string()).into());
+        }
+    }
+    expr
+}
+
 /// Rewrite casts to the information_schema standard domain types
 /// (`sql_identifier`, `character_data`, `cardinal_number`, `yes_or_no`,
 /// `time_stamp`) into their underlying base types. Those domains are thin,

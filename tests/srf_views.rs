@@ -1,0 +1,82 @@
+//! Tests for the set-returning-function support that lets information_schema
+//! views using `(srf(x)).field` run on DataFusion: the SRFs are scalar functions
+//! returning `List<Struct>` and `rewrite_srf_to_unnest` turns the projection
+//! access into an `unnest` + struct-subscript form.
+
+use arrow::array::{Array, StringArray};
+use datafusion::error::Result as DFResult;
+use datafusion_pg_catalog::get_base_session_context;
+use datafusion_pg_catalog::replace::rewrite_srf_to_unnest;
+use datafusion_pg_catalog::session::execute_sql;
+
+async fn base_ctx() -> DFResult<datafusion::execution::context::SessionContext> {
+    let (ctx, _log) = get_base_session_context(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
+        None,
+    )
+    .await?;
+    Ok(ctx)
+}
+
+#[test]
+fn test_rewrite_srf_shape() {
+    // `(srf(x)).a, (srf(x)).b FROM t` -> unnest in a derived table, fields via [].
+    let out = rewrite_srf_to_unnest(
+        "SELECT (pg_options_to_table(opts)).option_name AS n, \
+         (pg_options_to_table(opts)).option_value AS v FROM t WHERE id > 0",
+    )
+    .unwrap();
+    let lo = out.to_lowercase();
+    assert!(lo.contains("unnest(pg_options_to_table(opts))"), "got {out}");
+    assert!(lo.contains("__srf_unnest['option_name']"), "got {out}");
+    assert!(lo.contains("__srf_unnest['option_value']"), "got {out}");
+    assert!(lo.contains("where id > 0"), "WHERE should move inside: {out}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_pg_options_to_table_unnest_executes() -> DFResult<()> {
+    let ctx = base_ctx().await?;
+    // The rewritten form executes and parses "k=v" options into rows.
+    let sql = rewrite_srf_to_unnest(
+        "SELECT (pg_options_to_table(opts)).option_name AS n, \
+         (pg_options_to_table(opts)).option_value AS v \
+         FROM (SELECT ARRAY['host=h','port=5432'] AS opts) d",
+    )
+    .unwrap();
+    let batches = ctx.sql(&sql).await?.collect().await?;
+    assert_eq!(batches.iter().map(|b| b.num_rows()).sum::<usize>(), 2);
+    let n = batches[0]
+        .column_by_name("n")
+        .unwrap()
+        .as_any()
+        .downcast_ref::<StringArray>()
+        .unwrap();
+    let v = batches[0]
+        .column_by_name("v")
+        .unwrap()
+        .as_any()
+        .downcast_ref::<StringArray>()
+        .unwrap();
+    // Rows: (host, h) and (port, 5432) in array order.
+    assert!(!n.is_null(0) && n.value(0) == "host" && v.value(0) == "h");
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_foreign_data_wrapper_options_view_runs() -> DFResult<()> {
+    // The real information_schema view SQL, end-to-end through the full pipeline
+    // (this is the case that previously failed: SRF in projection + the
+    // group-by-injection heuristic). It must plan and execute (0 rows is fine —
+    // no foreign-data wrappers exist in the base catalog).
+    let ctx = base_ctx().await?;
+    let raw = "SELECT foreign_data_wrapper_catalog, foreign_data_wrapper_name, \
+        (pg_options_to_table(fdwoptions)).option_name::information_schema.sql_identifier AS option_name, \
+        (pg_options_to_table(fdwoptions)).option_value::information_schema.character_data AS option_value \
+        FROM information_schema._pg_foreign_data_wrappers w";
+    let (batches, _schema) = execute_sql(&ctx, raw, None, None).await?;
+    // Executes without error; row count is 0 (no FDWs).
+    assert_eq!(batches.iter().map(|b| b.num_rows()).sum::<usize>(), 0);
+    Ok(())
+}

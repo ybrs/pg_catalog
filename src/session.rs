@@ -18,6 +18,7 @@ use crate::replace::{
     rewrite_oidvector_any, rewrite_oidvector_unnest, rewrite_pg_custom_operator,
     rewrite_regoper_cast, rewrite_regoperator_cast, rewrite_regproc_cast,
     rewrite_exists_to_count, rewrite_information_schema_casts, rewrite_regprocedure_cast,
+    rewrite_srf_to_unnest,
     rewrite_regtype_cast,
     rewrite_schema_qualified_custom_types,
     rewrite_schema_qualified_text, rewrite_schema_qualified_udtfs, rewrite_time_zone_utc,
@@ -35,8 +36,9 @@ use crate::user_functions::{
     register_array_agg, register_current_schema, register_current_schemas, register_encode,
     register_getdatabaseencoding, register_has_database_privilege, register_has_privilege_family,
     register_has_schema_privilege, register_nameconcatoid, register_oidvector_to_array,
-    register_pg_char_max_length, register_pg_has_role, register_pg_is_other_temp_schema,
-    register_pg_my_temp_schema, register_pg_relation_is_updatable,
+    register_pg_char_max_length, register_pg_expandarray, register_pg_has_role,
+    register_pg_is_other_temp_schema, register_pg_my_temp_schema, register_pg_options_to_table,
+    register_pg_relation_is_updatable,
     register_pg_available_extension_versions, register_pg_get_array,
     register_pg_get_function_arguments, register_pg_get_function_result,
     register_pg_get_function_sqlbody, register_pg_get_indexdef, register_pg_get_keywords,
@@ -353,6 +355,12 @@ pub async fn execute_sql_inner(
     vec0: Option<Vec<Type>>,
 ) -> datafusion::error::Result<(Vec<RecordBatch>, Arc<Schema>)> {
     log::debug!("input sql {:?}", sql);
+
+    // Turn `(srf(x)).field` set-returning-function projections into an
+    // `unnest(List<Struct>)` form DataFusion can plan. Runs BEFORE rewrite_filters
+    // so the resulting `__srf_unnest['field']` access is in place before the
+    // group-by-injection heuristic there inspects the projection.
+    let sql = rewrite_srf_to_unnest(&sql)?;
 
     let (sql, aliases) = rewrite_filters(&sql)?;
 
@@ -1059,7 +1067,8 @@ async fn create_registered_views(
         }
 
         let rewritten_select = {
-            let (rewritten, _) = rewrite_filters(&definition)?;
+            let rewritten = rewrite_srf_to_unnest(&definition)?;
+            let (rewritten, _) = rewrite_filters(&rewritten)?;
             rewrite_exists_to_count(&rewritten)?
         };
         let create_sql = format!("CREATE OR REPLACE VIEW {qualified} AS {rewritten_select}");
@@ -1201,6 +1210,8 @@ async fn build_base_session_context(
     register_getdatabaseencoding(&ctx)?;
     register_pg_relation_is_updatable(&ctx)?;
     register_pg_char_max_length(&ctx)?;
+    register_pg_options_to_table(&ctx)?;
+    register_pg_expandarray(&ctx)?;
     register_pg_postmaster_start_time(&ctx)?;
     register_pg_relation_size(&ctx)?;
     register_pg_total_relation_size(&ctx)?;
