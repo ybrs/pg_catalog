@@ -583,7 +583,7 @@ const PROJECTION_SRFS: &[&str] = &["aclexplode", "_pg_expandarray", "pg_options_
 /// `srf(x)` per `SELECT`, accessed in the projection. Other shapes are left
 /// unchanged. `UNION` branches are each rewritten independently.
 pub fn rewrite_srf_to_unnest(sql: &str) -> Result<String> {
-    use sqlparser::ast::{Query, SetExpr, Statement};
+    use sqlparser::ast::{Query, SetExpr, Statement, TableFactor};
     use sqlparser::dialect::PostgreSqlDialect;
     use sqlparser::parser::Parser;
 
@@ -596,9 +596,26 @@ pub fn rewrite_srf_to_unnest(sql: &str) -> Result<String> {
         walk_setexpr(q.body.as_mut());
     }
 
+    fn recurse_table_factor(tf: &mut TableFactor) {
+        if let TableFactor::Derived { subquery, .. } = tf {
+            walk_query(subquery);
+        }
+    }
+
     fn walk_setexpr(body: &mut SetExpr) {
         match body {
-            SetExpr::Select(select) => rewrite_select(select),
+            SetExpr::Select(select) => {
+                // Recurse into FROM-clause subqueries (and joined ones) first, so
+                // an SRF aliased inside a derived table is handled before the
+                // outer SELECT's `(alias).field` access is rewritten to a bracket.
+                for twj in &mut select.from {
+                    recurse_table_factor(&mut twj.relation);
+                    for join in &mut twj.joins {
+                        recurse_table_factor(&mut join.relation);
+                    }
+                }
+                rewrite_select(select);
+            }
             SetExpr::Query(q) => walk_query(q),
             SetExpr::SetOperation { left, right, .. } => {
                 walk_setexpr(left);
@@ -616,6 +633,47 @@ pub fn rewrite_srf_to_unnest(sql: &str) -> Result<String> {
             walk_query(q);
         }
     }
+    // Finally, convert any remaining composite field access `(expr).field` into
+    // DataFusion's struct-subscript form `expr['field']` (e.g. the outer query's
+    // `(ss.x).n` reference to an unnested SRF column).
+    let out = stmts
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join(" ");
+    convert_dot_field_to_subscript(&out)
+}
+
+/// Convert composite field access `(<expr>).<field>` into the struct-subscript
+/// form `(<expr>)['<field>']` that DataFusion supports. Inline-SRF accesses have
+/// already been replaced with `__srf_unnest['field']` by the time this runs, so
+/// the remaining `.field` Dot accesses are column/struct references.
+fn convert_dot_field_to_subscript(sql: &str) -> Result<String> {
+    use sqlparser::ast::{
+        visit_expressions_mut, visit_statements_mut, AccessExpr, Expr, Value,
+    };
+    use sqlparser::dialect::PostgreSqlDialect;
+    use sqlparser::parser::Parser;
+    use std::ops::ControlFlow;
+
+    let mut stmts = Parser::parse_sql(&PostgreSqlDialect {}, sql)
+        .map_err(|e| DataFusionError::External(Box::new(e)))?;
+    let _ = visit_statements_mut(&mut stmts, |stmt| {
+        let _ = visit_expressions_mut(stmt, |e| {
+            if let Expr::CompoundFieldAccess { access_chain, .. } = e {
+                for acc in access_chain.iter_mut() {
+                    if let AccessExpr::Dot(Expr::Identifier(field)) = acc {
+                        let name = field.value.clone();
+                        *acc = AccessExpr::Subscript(sqlparser::ast::Subscript::Index {
+                            index: Expr::Value(Value::SingleQuotedString(name).into()),
+                        });
+                    }
+                }
+            }
+            ControlFlow::<()>::Continue(())
+        })?;
+        ControlFlow::Continue(())
+    });
     Ok(stmts
         .into_iter()
         .map(|s| s.to_string())
@@ -669,6 +727,43 @@ fn rewrite_select(select: &mut Box<sqlparser::ast::Select>) {
             SelectItem::UnnamedExpr(e) | SelectItem::ExprWithAlias { expr: e, .. } => Some(e),
             _ => None,
         }
+    }
+
+    // Is `e` a bare call to a projection SRF (e.g. `_pg_expandarray(c.conkey)`),
+    // not field-accessed? Such aliased SRFs are wrapped in `unnest(...)` in place.
+    fn is_bare_srf(e: &Expr) -> bool {
+        use sqlparser::ast::{FunctionArguments, ObjectNamePart};
+        if let Expr::Function(f) = e {
+            let name = f
+                .name
+                .0
+                .last()
+                .and_then(|p| match p {
+                    ObjectNamePart::Identifier(i) => Some(i.value.to_lowercase()),
+                    _ => None,
+                })
+                .unwrap_or_default();
+            return PROJECTION_SRFS.contains(&name.as_str())
+                && matches!(f.args, FunctionArguments::List(_));
+        }
+        false
+    }
+
+    // Aliased mode: `srf(x) AS alias` -> `unnest(srf(x)) AS alias`, in place. The
+    // outer query's `(alias).field` access becomes `alias['field']` via the final
+    // dot->subscript pass. This is the form the `_pg_expandarray` views use.
+    let mut wrapped_bare = false;
+    for item in &mut select.projection {
+        if let Some(expr) = item_expr_mut(item) {
+            if is_bare_srf(expr) {
+                let inner = expr.clone();
+                *expr = wrap_in_unnest(inner);
+                wrapped_bare = true;
+            }
+        }
+    }
+    if wrapped_bare {
+        return; // handled the aliased form; no inline wrap needed here
     }
 
     // Collect the distinct srf(x) calls referenced in the projection.
@@ -740,6 +835,29 @@ fn rewrite_select(select: &mut Box<sqlparser::ast::Select>) {
         }
     }
 
+    // Collect the table qualifiers used in the original FROM (e.g. `pg_class`,
+    // or an alias). The wrap turns the FROM into a single derived table aliased
+    // `__srf_src`, so outer references like `pg_class.oid` must be re-qualified.
+    let mut orig_quals: std::collections::HashSet<String> = std::collections::HashSet::new();
+    {
+        use sqlparser::ast::{ObjectNamePart, TableFactor};
+        for twj in &select.from {
+            let mut note = |tf: &TableFactor| {
+                if let TableFactor::Table { name, alias, .. } = tf {
+                    if let Some(a) = alias {
+                        orig_quals.insert(a.name.value.to_lowercase());
+                    } else if let Some(ObjectNamePart::Identifier(i)) = name.0.last() {
+                        orig_quals.insert(i.value.to_lowercase());
+                    }
+                }
+            };
+            note(&twj.relation);
+            for j in &twj.joins {
+                note(&j.relation);
+            }
+        }
+    }
+
     // Inner subquery carries the original FROM/WHERE plus the unnest.
     let mut inner = select.clone();
     inner.projection = vec![SelectItem::Wildcard(Default::default()), unnest_item];
@@ -783,6 +901,25 @@ fn rewrite_select(select: &mut Box<sqlparser::ast::Select>) {
     // but its FROM is now the derived subquery and its WHERE moved inward.
     select.from = vec![derived];
     select.selection = None;
+
+    // Re-qualify outer references from the original FROM tables to `__srf_src`
+    // (e.g. `pg_class.oid` -> `__srf_src.oid`), since the original tables are now
+    // hidden behind the derived table.
+    if !orig_quals.is_empty() {
+        use sqlparser::ast::{Expr, Ident};
+        for item in &mut select.projection {
+            if let Some(expr) = item_expr_mut(item) {
+                let _ = visit_expressions_mut(expr, |e| {
+                    if let Expr::CompoundIdentifier(parts) = e {
+                        if parts.len() == 2 && orig_quals.contains(&parts[0].value.to_lowercase()) {
+                            parts[0] = Ident::new("__srf_src");
+                        }
+                    }
+                    ControlFlow::<()>::Continue(())
+                });
+            }
+        }
+    }
 }
 
 /// Build the expression `<root>['<field>']` (struct field access) via a parsed
@@ -807,6 +944,33 @@ fn bracket_access(root: &str, field: &str) -> sqlparser::ast::Expr {
     if let Expr::CompoundFieldAccess { access_chain, .. } = &mut expr {
         if let Some(AccessExpr::Subscript(Subscript::Index { index })) = access_chain.first_mut() {
             *index = Expr::Value(Value::SingleQuotedString(field.to_string()).into());
+        }
+    }
+    expr
+}
+
+/// Wrap `inner` in a call `unnest(<inner>)` via a parsed template.
+fn wrap_in_unnest(inner: sqlparser::ast::Expr) -> sqlparser::ast::Expr {
+    use sqlparser::ast::{Expr, FunctionArg, FunctionArgExpr, FunctionArguments};
+    use sqlparser::dialect::PostgreSqlDialect;
+    use sqlparser::parser::Parser;
+
+    let q = Parser::parse_sql(&PostgreSqlDialect {}, "SELECT unnest(NULL)").unwrap();
+    let mut expr = match q.into_iter().next().unwrap() {
+        sqlparser::ast::Statement::Query(q) => match *q.body {
+            sqlparser::ast::SetExpr::Select(s) => match s.projection.into_iter().next().unwrap() {
+                sqlparser::ast::SelectItem::UnnamedExpr(e) => e,
+                _ => unreachable!(),
+            },
+            _ => unreachable!(),
+        },
+        _ => unreachable!(),
+    };
+    if let Expr::Function(f) = &mut expr {
+        if let FunctionArguments::List(list) = &mut f.args {
+            if let Some(FunctionArg::Unnamed(FunctionArgExpr::Expr(arg))) = list.args.first_mut() {
+                *arg = inner;
+            }
         }
     }
     expr
@@ -885,6 +1049,160 @@ pub fn rewrite_information_schema_casts(sql: &str) -> Result<String> {
 
 /// Replace casts to regtype / pg_catalog.regtype with TEXT,
 /// or drop them entirely if they are immediately followed by a TEXT cast.
+/// Neutralize the remaining `<expr>::regclass` and `<expr>::oid` casts that the
+/// literal-oriented `replace_regclass` / `rewrite_oid_cast` passes don't cover
+/// (e.g. `c.oid::regclass`, `proargtypes::oid`).
+///
+/// `regclass`/`oid` are display types over an integer OID, so for a non-literal
+/// argument the cast is value-preserving and DataFusion can't plan it; we simply
+/// drop the cast, keeping the inner expression. String-literal casts
+/// (`'pg_class'::regclass`) are left untouched — those need the OID lookup that
+/// the earlier passes perform — as are numeric `::oid` casts (already mapped to
+/// BIGINT by `rewrite_oid_cast`).
+pub fn rewrite_remaining_oid_regclass_casts(sql: &str) -> Result<String> {
+    use sqlparser::ast::{
+        visit_expressions_mut, visit_statements_mut, DataType, Expr, ObjectNamePart, Value,
+        ValueWithSpan,
+    };
+    use sqlparser::dialect::PostgreSqlDialect;
+    use sqlparser::parser::Parser;
+    use std::ops::ControlFlow;
+
+    fn is_string_literal(e: &Expr) -> bool {
+        matches!(
+            e,
+            Expr::Value(ValueWithSpan { value: Value::SingleQuotedString(_), .. })
+        )
+    }
+    fn is_number(e: &Expr) -> bool {
+        matches!(e, Expr::Value(ValueWithSpan { value: Value::Number(_, _), .. }))
+    }
+    fn is_oid_custom(dt: &DataType) -> bool {
+        matches!(dt, DataType::Custom(obj, _)
+            if obj.0.len() == 1
+            && matches!(&obj.0[0], ObjectNamePart::Identifier(i) if i.value.eq_ignore_ascii_case("oid")))
+    }
+
+    let mut stmts = Parser::parse_sql(&PostgreSqlDialect {}, sql)
+        .map_err(|e| DataFusionError::External(Box::new(e)))?;
+    let _ = visit_statements_mut(&mut stmts, |stmt| {
+        let _ = visit_expressions_mut(stmt, |e| {
+            if let Expr::Cast { expr, data_type, .. } = e {
+                let drop = match data_type {
+                    DataType::Regclass => !is_string_literal(expr),
+                    dt if is_oid_custom(dt) => !is_string_literal(expr) && !is_number(expr),
+                    _ => false,
+                };
+                if drop {
+                    *e = (**expr).clone();
+                }
+            }
+            ControlFlow::<()>::Continue(())
+        })?;
+        ControlFlow::Continue(())
+    });
+    Ok(stmts
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join(" "))
+}
+
+/// Expand the whole-row composite arguments of `information_schema._pg_truetypid`
+/// and `_pg_truetypmod` into the individual columns their bodies read.
+///
+/// PostgreSQL declares these as `_pg_truetypid(pg_attribute, pg_type)` and the
+/// catalog views call them as `_pg_truetypid(a.*, t.*)`. DataFusion cannot pass a
+/// whole row (`a.*`) as a single scalar argument, so we rewrite each call into
+/// the three columns the function actually touches:
+///
+/// * `_pg_truetypid(a.*, t.*)`  → `_pg_truetypid(a.atttypid,  t.typtype, t.typbasetype)`
+/// * `_pg_truetypmod(a.*, t.*)` → `_pg_truetypmod(a.atttypmod, t.typtype, t.typtypmod)`
+///
+/// The first wildcard's qualifier (`a`) is the `pg_attribute` alias and the
+/// second (`t`) the `pg_type` alias; both are taken from the call site so the
+/// rewrite works regardless of the aliases a view chose. Calls that aren't in the
+/// `(x.*, y.*)` shape are left untouched. Pairs with
+/// [`crate::user_functions::register_pg_truetypid_helpers`].
+pub fn rewrite_pg_truetypid_composite_args(sql: &str) -> Result<String> {
+    use sqlparser::ast::{
+        visit_expressions_mut, visit_statements_mut, Expr, FunctionArg, FunctionArgExpr,
+        FunctionArguments, Ident, ObjectNamePart,
+    };
+    use sqlparser::dialect::PostgreSqlDialect;
+    use sqlparser::parser::Parser;
+    use std::ops::ControlFlow;
+
+    /// The `(source-row argument index, column)` triples each function expands
+    /// into, keyed by the function's bare (last-segment) name. Returns `None`
+    /// for any other function.
+    fn fields_for(name: &str) -> Option<[(usize, &'static str); 3]> {
+        if name.eq_ignore_ascii_case("_pg_truetypid") {
+            Some([(0, "atttypid"), (1, "typtype"), (1, "typbasetype")])
+        } else if name.eq_ignore_ascii_case("_pg_truetypmod") {
+            Some([(0, "atttypmod"), (1, "typtype"), (1, "typtypmod")])
+        } else {
+            None
+        }
+    }
+
+    /// The qualifier of a `qualifier.*` function argument (e.g. `a` for `a.*`),
+    /// or `None` if the argument isn't a qualified wildcard.
+    fn wildcard_qualifier(arg: &FunctionArg) -> Option<String> {
+        if let FunctionArg::Unnamed(FunctionArgExpr::QualifiedWildcard(obj)) = arg {
+            obj.0.last().and_then(|p| match p {
+                ObjectNamePart::Identifier(id) => Some(id.value.clone()),
+                _ => None,
+            })
+        } else {
+            None
+        }
+    }
+
+    let mut stmts = Parser::parse_sql(&PostgreSqlDialect {}, sql)
+        .map_err(|e| DataFusionError::External(Box::new(e)))?;
+    let _ = visit_statements_mut(&mut stmts, |stmt| {
+        let _ = visit_expressions_mut(stmt, |e| {
+            if let Expr::Function(f) = e {
+                let bare = f.name.0.last().and_then(|p| match p {
+                    ObjectNamePart::Identifier(id) => Some(id.value.clone()),
+                    _ => None,
+                });
+                if let Some(fields) = bare.as_deref().and_then(fields_for) {
+                    if let FunctionArguments::List(list) = &mut f.args {
+                        if list.args.len() == 2 {
+                            if let (Some(att), Some(typ)) = (
+                                wildcard_qualifier(&list.args[0]),
+                                wildcard_qualifier(&list.args[1]),
+                            ) {
+                                let quals = [att, typ];
+                                list.args = fields
+                                    .iter()
+                                    .map(|(src, col)| {
+                                        FunctionArg::Unnamed(FunctionArgExpr::Expr(
+                                            Expr::CompoundIdentifier(vec![
+                                                Ident::new(quals[*src].clone()),
+                                                Ident::new(*col),
+                                            ]),
+                                        ))
+                                    })
+                                    .collect();
+                            }
+                        }
+                    }
+                }
+            }
+            ControlFlow::<()>::Continue(())
+        })?;
+        ControlFlow::Continue(())
+    });
+    Ok(stmts
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join(" "))
+}
+
 pub fn rewrite_regtype_cast(sql: &str) -> Result<String> {
     use sqlparser::ast::{
         visit_expressions_mut, visit_statements_mut, DataType, Expr, ObjectName, ObjectNamePart,
@@ -2122,26 +2440,60 @@ pub fn alias_subquery_tables(sql: &str) -> Result<String> {
     fn alias_tables(query: &mut Query, counter: &mut usize) {
         use sqlparser::ast::{SetExpr, TableWithJoins};
 
+        // (original bare table name -> synthetic alias) for tables we just aliased.
+        let mut renames: Vec<(String, String)> = Vec::new();
         if let SetExpr::Select(select) = query.body.as_mut() {
             for TableWithJoins { relation, joins } in &mut select.from {
-                alias_table_factor(relation, counter);
+                alias_table_factor(relation, counter, &mut renames);
                 for j in joins {
-                    alias_table_factor(&mut j.relation, counter);
+                    alias_table_factor(&mut j.relation, counter, &mut renames);
                 }
             }
         }
+
+        // Re-qualify column refs that used the original table name to the new
+        // alias (e.g. `pg_database.datname` -> `subq0_t.datname`). References to
+        // OTHER tables (e.g. a correlated outer `rel.oid`) are left untouched.
+        if !renames.is_empty() {
+            let _ = visit_expressions_mut(query, |e| {
+                if let Expr::CompoundIdentifier(parts) = e {
+                    if parts.len() == 2 {
+                        if let Some((_, alias)) = renames
+                            .iter()
+                            .find(|(orig, _)| orig.eq_ignore_ascii_case(&parts[0].value))
+                        {
+                            parts[0] = Ident::new(alias.clone());
+                        }
+                    }
+                }
+                ControlFlow::<()>::Continue(())
+            });
+        }
     }
 
-    fn alias_table_factor(tf: &mut TableFactor, counter: &mut usize) {
+    fn alias_table_factor(
+        tf: &mut TableFactor,
+        counter: &mut usize,
+        renames: &mut Vec<(String, String)>,
+    ) {
         if let TableFactor::Table { name, alias, .. } = tf {
+            // The bare table name the subquery body refers to (last name part).
+            let bare = name.0.last().and_then(|p| match p {
+                ObjectNamePart::Identifier(i) => Some(i.value.clone()),
+                _ => None,
+            });
             if name.0.len() == 1 {
                 name.0
                     .insert(0, ObjectNamePart::Identifier(Ident::new("pg_catalog")));
             }
             if alias.is_none() {
+                let new_alias = format!("subq{}_t", counter);
+                if let Some(bare) = bare {
+                    renames.push((bare, new_alias.clone()));
+                }
                 *alias = Some(TableAlias {
                     explicit: true,
-                    name: Ident::new(format!("subq{}_t", counter)),
+                    name: Ident::new(new_alias),
                     columns: vec![],
                     at: None,
                 });
@@ -2157,8 +2509,14 @@ pub fn alias_subquery_tables(sql: &str) -> Result<String> {
     let mut counter = 0usize;
     let _ = visit_statements_mut(&mut stmts, |stmt| {
         visit_expressions_mut(stmt, |expr| {
-            if let Expr::Subquery(subq) = expr {
-                alias_tables(subq, &mut counter);
+            // Qualify/alias tables inside scalar subqueries AND `EXISTS (...)` and
+            // `IN (...)` subqueries — the latter become scalar subqueries via the
+            // later EXISTS->count rewrite, but their tables must be qualified here.
+            match expr {
+                Expr::Subquery(subq) => alias_tables(subq, &mut counter),
+                Expr::Exists { subquery, .. } => alias_tables(subquery, &mut counter),
+                Expr::InSubquery { subquery, .. } => alias_tables(subquery, &mut counter),
+                _ => {}
             }
             ControlFlow::<()>::Continue(())
         })?;
@@ -2271,6 +2629,50 @@ mod tests {
         for (input, expected) in cases {
             assert_eq!(rewrite_schema_qualified_text(input).unwrap(), expected);
         }
+        Ok(())
+    }
+
+    #[test]
+    fn test_rewrite_remaining_oid_regclass_casts() -> Result<(), Box<dyn std::error::Error>> {
+        // Non-literal `::regclass` / `::oid` casts are dropped (value preserved).
+        let r = rewrite_remaining_oid_regclass_casts("SELECT c.oid::regclass")?;
+        assert!(!r.to_lowercase().contains("regclass"), "regclass dropped: {r}");
+        assert!(r.contains("c.oid"), "{r}");
+
+        let o = rewrite_remaining_oid_regclass_casts("SELECT proargtypes::oid")?;
+        assert!(o.contains("proargtypes") && !o.to_lowercase().contains("::oid"), "{o}");
+
+        // String-literal regclass and numeric ::oid are left for the dedicated
+        // passes (OID lookup / BIGINT mapping).
+        let lit = rewrite_remaining_oid_regclass_casts("SELECT 'pg_class'::regclass")?;
+        assert!(lit.to_lowercase().contains("regclass"), "literal kept: {lit}");
+        let num = rewrite_remaining_oid_regclass_casts("SELECT 0::oid")?;
+        assert!(num.to_lowercase().contains("::oid") || num.contains("oid"), "num kept: {num}");
+        Ok(())
+    }
+
+    #[test]
+    fn test_rewrite_pg_truetypid_composite_args() -> Result<(), Box<dyn std::error::Error>> {
+        // The whole-row wildcard args expand into the columns each function reads,
+        // preserving the call-site aliases.
+        let id = rewrite_pg_truetypid_composite_args(
+            "SELECT information_schema._pg_truetypid(a.*, t.*) FROM pg_attribute a, pg_type t",
+        )?;
+        assert!(id.contains("a.atttypid"), "{id}");
+        assert!(id.contains("t.typtype"), "{id}");
+        assert!(id.contains("t.typbasetype"), "{id}");
+        assert!(!id.contains(".*"), "wildcards gone: {id}");
+
+        let md = rewrite_pg_truetypid_composite_args(
+            "SELECT information_schema._pg_truetypmod(att.*, ty.*) FROM pg_attribute att, pg_type ty",
+        )?;
+        assert!(md.contains("att.atttypmod"), "{md}");
+        assert!(md.contains("ty.typtype"), "{md}");
+        assert!(md.contains("ty.typtypmod"), "{md}");
+
+        // Unrelated functions and already-scalar calls are untouched.
+        let other = rewrite_pg_truetypid_composite_args("SELECT some_func(a.*, t.*)")?;
+        assert!(other.contains("a.*") && other.contains("t.*"), "{other}");
         Ok(())
     }
 
@@ -2661,6 +3063,41 @@ mod tests {
             "SELECT (SELECT count(*) FROM pg_trigger WHERE tgrelid = rel.oid) FROM pg_class rel";
         let out = alias_subquery_tables(sql)?;
         assert!(out.contains("FROM pg_catalog.pg_trigger AS subq0_t"));
+        // The outer correlated reference `rel.oid` must NOT be re-aliased.
+        assert!(out.contains("rel.oid"), "outer ref must be preserved: {out}");
+        Ok(())
+    }
+
+    #[test]
+    fn test_alias_subquery_tables_requalifies_self_refs() -> Result<(), Box<dyn std::error::Error>> {
+        // When the subquery refers to its OWN table by name (`pg_database.datname`),
+        // aliasing the table to `subq0_t` must re-qualify those refs too — otherwise
+        // they no longer resolve. (Regression: the information_schema `collations`,
+        // `usage_privileges`, etc. views hit exactly this.)
+        let sql = "SELECT 1 WHERE x = (SELECT pg_database.encoding FROM pg_database \
+                   WHERE pg_database.datname = 'd')";
+        let out = alias_subquery_tables(sql)?;
+        assert!(out.contains("FROM pg_catalog.pg_database AS subq0_t"), "{out}");
+        // Both the projected and the WHERE self-references are re-qualified.
+        assert!(out.contains("subq0_t.encoding"), "projection ref: {out}");
+        assert!(out.contains("subq0_t.datname"), "where ref: {out}");
+        assert!(
+            !out.contains("pg_database.datname"),
+            "stale self-ref left behind: {out}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_alias_subquery_tables_handles_exists() -> Result<(), Box<dyn std::error::Error>> {
+        // Tables inside EXISTS (and IN) subqueries must also be qualified to
+        // pg_catalog and aliased — the `views` information_schema view relies on
+        // this for its `EXISTS (SELECT 1 FROM pg_trigger ...)`.
+        let sql = "SELECT 1 WHERE EXISTS (SELECT 1 FROM pg_trigger WHERE pg_trigger.tgrelid = c.oid)";
+        let out = alias_subquery_tables(sql)?;
+        assert!(out.contains("FROM pg_catalog.pg_trigger AS subq0_t"), "{out}");
+        assert!(out.contains("subq0_t.tgrelid"), "self-ref requalified: {out}");
+        assert!(out.contains("c.oid"), "outer correlated ref preserved: {out}");
         Ok(())
     }
 }

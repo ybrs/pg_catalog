@@ -8,30 +8,26 @@ Ran every `type: view` from `pg_catalog_data/pg_schema` against the live engine 
 
 | Category | Count |
 |---|---|
-| success | 64 |
+| success | 79 |
 | missing_table | 37 |
-| missing_function | 24 |
-| missing_column | 9 |
-| other_error | 8 |
+| missing_function | 16 |
+| other_error | 6 |
+| missing_column | 4 |
 | parse_error | 1 |
 
 ## Outcome by schema
 
-| Schema | success | missing_table | missing_function | missing_column | other_error | parse_error |
+| Schema | success | missing_table | missing_function | other_error | missing_column | parse_error |
 |---|---|---|---|---|---|---|
-| information_schema | 44 | 1 | 8 | 5 | 7 | 0 |
-| pg_catalog | 20 | 36 | 16 | 4 | 1 | 1 |
+| information_schema | 58 | 1 | 0 | 4 | 2 | 0 |
+| pg_catalog | 21 | 36 | 16 | 2 | 2 | 1 |
 
 ## Missing functions (most impactful to implement)
 
 | Function | Views blocked |
 |---|---|
-| `aclexplode()` | 4 |
 | `pg_stat_get_blocks_fetched()` | 3 |
-| `information_schema._pg_truetypid()` | 2 |
 | `pg_stat_get_numscans()` | 2 |
-| `format()` | 1 |
-| `information_schema._pg_char_octet_length()` | 1 |
 | `pg_table_is_visible()` | 1 |
 | `pg_sequence_last_value()` | 1 |
 | `pg_stat_get_bgwriter_buf_written_clean()` | 1 |
@@ -55,16 +51,22 @@ Ran every `type: view` from `pg_catalog_data/pg_schema` against the live engine 
 | information_schema._pg_user_mappings | success |  |
 | information_schema.administrable_role_authorizations | success |  |
 | information_schema.applicable_roles | success |  |
+| information_schema.attributes | success |  |
 | information_schema.character_sets | success |  |
 | information_schema.check_constraint_routine_usage | success |  |
+| information_schema.collation_character_set_applicability | success |  |
+| information_schema.collations | success |  |
 | information_schema.column_column_usage | success |  |
 | information_schema.column_domain_usage | success |  |
 | information_schema.column_options | success |  |
+| information_schema.column_privileges | success |  |
 | information_schema.column_udt_usage | success |  |
+| information_schema.columns | success |  |
 | information_schema.constraint_table_usage | success |  |
 | information_schema.data_type_privileges | success |  |
 | information_schema.domain_constraints | success |  |
 | information_schema.domain_udt_usage | success |  |
+| information_schema.domains | success |  |
 | information_schema.enabled_roles | success |  |
 | information_schema.foreign_data_wrapper_options | success |  |
 | information_schema.foreign_data_wrappers | success |  |
@@ -80,18 +82,26 @@ Ran every `type: view` from `pg_catalog_data/pg_schema` against the live engine 
 | information_schema.role_udt_grants | success |  |
 | information_schema.role_usage_grants | success |  |
 | information_schema.routine_column_usage | success |  |
+| information_schema.routine_privileges | success |  |
 | information_schema.routine_routine_usage | success |  |
 | information_schema.routine_sequence_usage | success |  |
 | information_schema.routine_table_usage | success |  |
 | information_schema.routines | success |  |
 | information_schema.schemata | success |  |
+| information_schema.sequences | success |  |
+| information_schema.table_privileges | success |  |
+| information_schema.tables | success |  |
 | information_schema.transforms | success |  |
+| information_schema.triggered_update_columns | success |  |
 | information_schema.triggers | success |  |
+| information_schema.udt_privileges | success |  |
+| information_schema.usage_privileges | success |  |
 | information_schema.user_defined_types | success |  |
 | information_schema.user_mappings | success |  |
 | information_schema.view_column_usage | success |  |
 | information_schema.view_routine_usage | success |  |
 | information_schema.view_table_usage | success |  |
+| information_schema.views | success |  |
 | pg_catalog.pg_indexes | success |  |
 | pg_catalog.pg_matviews | success |  |
 | pg_catalog.pg_roles | success |  |
@@ -111,39 +121,26 @@ Ran every `type: view` from `pg_catalog_data/pg_schema` against the live engine 
 | pg_catalog.pg_statio_user_tables | success |  |
 | pg_catalog.pg_tables | success |  |
 | pg_catalog.pg_user | success |  |
+| pg_catalog.pg_user_mappings | success |  |
 | pg_catalog.pg_views | success |  |
-| information_schema.attributes | missing_function | function information_schema._pg_truetypid() does not exist |
-| information_schema.check_constraints | missing_function | function format() does not exist |
-| information_schema.collation_character_set_applicability | missing_column | Schema error: No field named pg_database.datname. Valid fields are subq0_t.datacl, subq0_t.datallowconn, subq0_t.datcollate, subq0_t.datcollversion, subq0_t.dat |
-| information_schema.collations | missing_column | Schema error: No field named pg_database.datname. Valid fields are subq0_t.datacl, subq0_t.datallowconn, subq0_t.datcollate, subq0_t.datcollversion, subq0_t.dat |
-| information_schema.column_privileges | missing_function | function aclexplode() does not exist |
-| information_schema.columns | missing_function | function information_schema._pg_truetypid() does not exist |
+| information_schema.check_constraints | missing_column | Schema error: No field named con. Valid fields are con.conbin, con.condeferrable, con.condeferred, con.conexclop, con.confdelsetcols, con.confdeltype, con.conff |
 | information_schema.constraint_column_usage | other_error | Internal error: Assertion failed: col.name() == matching_name: Input field name nspname does not match with the projection expression nspname_1. This issue was  |
-| information_schema.domains | missing_function | function information_schema._pg_char_octet_length() does not exist |
 | information_schema.element_types | other_error | This feature is not implemented: Unsupported SQL type oid |
-| information_schema.key_column_usage | other_error | This feature is not implemented: Dot access not supported for non-string expr: Identifier(Ident { value: "x", quote_style: None, span: Span(Location(1,1163)..Lo |
+| information_schema.key_column_usage | missing_column | Schema error: No field named ss. Did you mean 'ss.x'?. |
 | information_schema.parameters | other_error | This feature is not implemented: Unsupported SQL type oid |
-| information_schema.routine_privileges | missing_function | function aclexplode() does not exist |
-| information_schema.sequences | missing_table | Error during planning: table 'pgtry.public.pg_depend' not found |
-| information_schema.table_constraints | missing_column | Schema error: No field named pg_index.indexrelid. Did you mean 'subq0_t.indexrelid'?. |
-| information_schema.table_privileges | missing_function | function aclexplode() does not exist |
-| information_schema.tables | other_error | This feature is not implemented: Unsupported SQL type REGCLASS |
-| information_schema.triggered_update_columns | other_error | This feature is not implemented: Dot access not supported for non-string expr: Identifier(Ident { value: "x", quote_style: None, span: Span(Location(1,407)..Loc |
-| information_schema.udt_privileges | missing_function | function aclexplode() does not exist |
-| information_schema.usage_privileges | missing_column | Schema error: No field named pg_database.datname. Valid fields are subq0_t.datacl, subq0_t.datallowconn, subq0_t.datcollate, subq0_t.datcollversion, subq0_t.dat |
-| information_schema.user_mapping_options | missing_column | Schema error: No field named pg_authid.rolname. Valid fields are subq0_t.oid, subq0_t.rolbypassrls, subq0_t.rolcanlogin, subq0_t.rolconnlimit, subq0_t.rolcreate |
-| information_schema.views | other_error | This feature is not implemented: Unsupported SQL type REGCLASS |
+| information_schema.table_constraints | other_error | Invalid (non-executable) plan after Analyzer caused by Error during planning: Correlated scalar subquery must be aggregated to return at most one row |
+| information_schema.user_mapping_options | missing_table | Error during planning: table function 'pg_options_to_table' not found |
 | pg_catalog.pg_available_extension_versions | other_error | Error during planning: Column in SELECT must be in GROUP BY or an aggregate function: While expanding wildcard, column "x.extname" must appear in the GROUP BY c |
 | pg_catalog.pg_available_extensions | missing_table | Error during planning: table function 'pg_catalog' not found |
 | pg_catalog.pg_backend_memory_contexts | missing_table | Error during planning: table function 'pg_get_backend_memory_contexts' not found |
 | pg_catalog.pg_config | missing_table | Error during planning: table function 'pg_catalog' not found |
 | pg_catalog.pg_cursors | missing_table | Error during planning: table function 'pg_cursor' not found |
 | pg_catalog.pg_file_settings | missing_table | Error during planning: table function 'pg_show_all_file_settings' not found |
-| pg_catalog.pg_group | missing_column | Schema error: No field named pg_auth_members.roleid. Valid fields are subq0_t.admin_option, subq0_t.grantor, subq0_t.inherit_option, subq0_t.member, subq0_t.oid |
+| pg_catalog.pg_group | missing_column | Schema error: No field named pg_authid.oid. Valid fields are subq0_t.admin_option, subq0_t.grantor, subq0_t.inherit_option, subq0_t.member, subq0_t.oid, subq0_t |
 | pg_catalog.pg_hba_file_rules | missing_table | Error during planning: table function 'pg_catalog' not found |
 | pg_catalog.pg_ident_file_mappings | missing_table | Error during planning: table function 'pg_catalog' not found |
 | pg_catalog.pg_locks | missing_table | Error during planning: table function 'pg_lock_status' not found |
-| pg_catalog.pg_policies | missing_column | Schema error: No field named pg_authid.rolname. Valid fields are subq0_t.oid, subq0_t.rolbypassrls, subq0_t.rolcanlogin, subq0_t.rolconnlimit, subq0_t.rolcreate |
+| pg_catalog.pg_policies | other_error | This feature is not implemented: Unsupported SQL type oid |
 | pg_catalog.pg_prepared_statements | missing_table | Error during planning: table function 'pg_prepared_statement' not found |
 | pg_catalog.pg_prepared_xacts | missing_table | Error during planning: table function 'pg_prepared_xact' not found |
 | pg_catalog.pg_publication_tables | parse_error | Error during planning: failed to parse SQL: sql parser error: Expected: ), found: ARRAY at Line: 9, Column: 48 |
@@ -189,5 +186,4 @@ Ran every `type: view` from `pg_catalog_data/pg_schema` against the live engine 
 | pg_catalog.pg_stats_ext_exprs | missing_function | function pg_get_statisticsobjdef_expressions() does not exist |
 | pg_catalog.pg_timezone_abbrevs | missing_table | Error during planning: table function 'pg_catalog' not found |
 | pg_catalog.pg_timezone_names | missing_table | Error during planning: table function 'pg_catalog' not found |
-| pg_catalog.pg_user_mappings | missing_column | Schema error: No field named pg_authid.rolname. Valid fields are subq0_t.oid, subq0_t.rolbypassrls, subq0_t.rolcanlogin, subq0_t.rolconnlimit, subq0_t.rolcreate |
 | pg_catalog.pg_wait_events | missing_table | Error during planning: table function 'pg_get_wait_events' not found |

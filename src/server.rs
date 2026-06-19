@@ -360,6 +360,31 @@ impl AuthSource for DummyAuthSource {
     }
 }
 
+/// Stringify the elements of a string-like Arrow array (Utf8, Utf8View, or
+/// LargeUtf8) for array-text encoding, rendering NULL elements as `"NULL"`.
+fn stringify_string_array(arr: &arrow::array::ArrayRef) -> Vec<String> {
+    use arrow::array::Array;
+    let n = arr.len();
+    let mut out = Vec::with_capacity(n);
+    let push = |out: &mut Vec<String>, is_null: bool, val: &str| {
+        out.push(if is_null { "NULL".to_string() } else { val.to_string() });
+    };
+    if let Some(a) = arr.as_any().downcast_ref::<StringArray>() {
+        for i in 0..n {
+            push(&mut out, a.is_null(i), if a.is_null(i) { "" } else { a.value(i) });
+        }
+    } else if let Some(a) = arr.as_any().downcast_ref::<StringViewArray>() {
+        for i in 0..n {
+            push(&mut out, a.is_null(i), if a.is_null(i) { "" } else { a.value(i) });
+        }
+    } else if let Some(a) = arr.as_any().downcast_ref::<LargeStringArray>() {
+        for i in 0..n {
+            push(&mut out, a.is_null(i), if a.is_null(i) { "" } else { a.value(i) });
+        }
+    }
+    out
+}
+
 fn arrow_to_pg_type(dt: &DataType) -> Type {
     use arrow::datatypes::DataType::*;
 
@@ -375,12 +400,19 @@ fn arrow_to_pg_type(dt: &DataType) -> Type {
 
         // ── arrays ───────────────────────────────────────────────
         List(inner) => match inner.data_type() {
-            Utf8 => Type::TEXT_ARRAY,    // text[]
-            Int32 => Type::INT4_ARRAY,   // int4[]
-            Int64 => Type::INT8_ARRAY,   // int8[]
-            Boolean => Type::BOOL_ARRAY, // bool[]
-            // add more element types here as you need them
-            other => panic!("arrow_to_pg_type: no pgwire::Type for list<{other:?}>"),
+            Utf8 | Utf8View | LargeUtf8 => Type::TEXT_ARRAY, // text[]
+            Int16 => Type::INT2_ARRAY,                       // int2[]
+            Int32 => Type::INT4_ARRAY,                       // int4[]
+            Int64 => Type::INT8_ARRAY,                       // int8[]
+            Boolean => Type::BOOL_ARRAY,                     // bool[]
+            Float32 => Type::FLOAT4_ARRAY,                   // real[]
+            Float64 => Type::FLOAT8_ARRAY,                   // double precision[]
+            // Never panic on an unmapped element type: fall back to text[] so the
+            // client gets a sensible (if generic) array type instead of a crash.
+            other => {
+                log::warn!("arrow_to_pg_type: no array type for list<{other:?}>, using text[]");
+                Type::TEXT_ARRAY
+            }
         },
 
         // anything else – send as plain text so the client can at
@@ -703,22 +735,17 @@ fn batch_to_row_stream(
                     encoder.encode_field(&value).unwrap();
                 }
 
-                DataType::List(inner) if inner.data_type() == &DataType::Utf8 => {
+                DataType::List(inner)
+                    if matches!(
+                        inner.data_type(),
+                        DataType::Utf8 | DataType::Utf8View | DataType::LargeUtf8
+                    ) =>
+                {
                     let list = col.as_any().downcast_ref::<ListArray>().unwrap();
                     let value: Option<Vec<String>> = if list.is_null(row_idx) {
                         None
                     } else {
-                        let arr = list.value(row_idx);
-                        let sa = arr.as_any().downcast_ref::<StringArray>().unwrap();
-                        let mut items = Vec::with_capacity(sa.len());
-                        for i in 0..sa.len() {
-                            if sa.is_null(i) {
-                                items.push("NULL".to_string());
-                            } else {
-                                items.push(sa.value(i).to_string());
-                            }
-                        }
-                        Some(items)
+                        Some(stringify_string_array(&list.value(row_idx)))
                     };
                     encoder.encode_field(&value).unwrap();
                 }
@@ -1318,6 +1345,45 @@ mod tests {
         assert_eq!(arrow_to_pg_type(&DataType::LargeUtf8), Type::TEXT);
         assert_eq!(arrow_to_pg_type(&DataType::Float32), Type::FLOAT4);
         assert_eq!(arrow_to_pg_type(&DataType::Float64), Type::FLOAT8);
+    }
+
+    #[test]
+    fn test_arrow_to_pg_type_lists_never_panic() {
+        use arrow::datatypes::Field;
+        let list = |dt: DataType| DataType::List(Arc::new(Field::new("item", dt, true)));
+        // Previously `list<Utf8View>` panicked; it (and any list) must map to an
+        // array type, never crash.
+        assert_eq!(arrow_to_pg_type(&list(DataType::Utf8View)), Type::TEXT_ARRAY);
+        assert_eq!(arrow_to_pg_type(&list(DataType::LargeUtf8)), Type::TEXT_ARRAY);
+        assert_eq!(arrow_to_pg_type(&list(DataType::Utf8)), Type::TEXT_ARRAY);
+        assert_eq!(arrow_to_pg_type(&list(DataType::Int16)), Type::INT2_ARRAY);
+        assert_eq!(arrow_to_pg_type(&list(DataType::Float64)), Type::FLOAT8_ARRAY);
+        // An unmapped element type falls back to text[] instead of panicking.
+        assert_eq!(arrow_to_pg_type(&list(DataType::Date32)), Type::TEXT_ARRAY);
+    }
+
+    #[test]
+    fn test_row_stream_list_utf8view_no_panic() {
+        use arrow::array::{ListBuilder, StringViewBuilder};
+        // A list<Utf8View> column must encode without panicking.
+        let mut lb = ListBuilder::new(StringViewBuilder::new());
+        lb.values().append_value("a");
+        lb.values().append_value("b");
+        lb.append(true);
+        let arr = lb.finish();
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "tags",
+            arr.data_type().clone(),
+            true,
+        )]));
+        let batch = RecordBatch::try_new(schema, vec![Arc::new(arr) as ArrayRef]).unwrap();
+        let info = batch_to_field_info(&batch, &Format::UnifiedText).unwrap();
+        assert_eq!(info[0].datatype(), &Type::TEXT_ARRAY);
+        let rows = futures::executor::block_on(
+            batch_to_row_stream(&batch, Arc::new(info)).collect::<Vec<_>>(),
+        );
+        assert_eq!(rows.len(), 1);
+        assert!(rows[0].is_ok());
     }
 
     #[test]

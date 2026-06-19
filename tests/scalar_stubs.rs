@@ -81,3 +81,115 @@ async fn test_pg_char_max_length_is_null() -> DFResult<()> {
     assert!(a.is_null(0), "expected NULL char max length");
     Ok(())
 }
+
+#[tokio::test]
+async fn test_pg_column_is_updatable_is_false() -> DFResult<()> {
+    use arrow::array::BooleanArray;
+    let ctx = base_ctx().await?;
+    // Three-arg form, any arg types; returns false (not updatable) per row, the
+    // per-column counterpart of pg_relation_is_updatable's 0.
+    let b = ctx
+        .sql("SELECT pg_column_is_updatable(oid, 1, false) FROM pg_catalog.pg_class LIMIT 3")
+        .await?
+        .collect()
+        .await?;
+    let a = b[0]
+        .column(0)
+        .as_any()
+        .downcast_ref::<BooleanArray>()
+        .unwrap();
+    assert!(a.len() > 0 && (0..a.len()).all(|i| !a.value(i)));
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_pg_truetypid_selects_base_for_domains() -> DFResult<()> {
+    let ctx = base_ctx().await?;
+    // _pg_truetypid(own, typtype, base): returns `base` when typtype = 'd'
+    // (a domain), otherwise `own`. Here oids are textual in this catalog.
+    let b = ctx
+        .sql(
+            "SELECT \
+               information_schema._pg_truetypid('23', 'd', '1700') AS domain_id, \
+               information_schema._pg_truetypid('23', 'b', '1700') AS base_id",
+        )
+        .await?
+        .collect()
+        .await?;
+    let dom = b[0]
+        .column(0)
+        .as_any()
+        .downcast_ref::<StringArray>()
+        .unwrap();
+    let base = b[0]
+        .column(1)
+        .as_any()
+        .downcast_ref::<StringArray>()
+        .unwrap();
+    assert_eq!(dom.value(0), "1700", "domain picks base type oid");
+    assert_eq!(base.value(0), "23", "non-domain picks own type oid");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_pg_truetypmod_selects_base_for_domains() -> DFResult<()> {
+    let ctx = base_ctx().await?;
+    // _pg_truetypmod(own, typtype, base) over int4 typmods.
+    let b = ctx
+        .sql(
+            "SELECT \
+               information_schema._pg_truetypmod(CAST(5 AS INT), 'd', CAST(9 AS INT)) AS domain_mod, \
+               information_schema._pg_truetypmod(CAST(5 AS INT), 'b', CAST(9 AS INT)) AS base_mod",
+        )
+        .await?
+        .collect()
+        .await?;
+    let dom = b[0]
+        .column(0)
+        .as_any()
+        .downcast_ref::<Int32Array>()
+        .unwrap();
+    let base = b[0]
+        .column(1)
+        .as_any()
+        .downcast_ref::<Int32Array>()
+        .unwrap();
+    assert_eq!(dom.value(0), 9, "domain picks base typmod");
+    assert_eq!(base.value(0), 5, "non-domain picks own typmod");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_information_schema_type_helpers_resolve_to_null() -> DFResult<()> {
+    let ctx = base_ctx().await?;
+    // The int4-returning helpers all resolve and return NULL.
+    for f in [
+        "information_schema._pg_char_octet_length(23, -1)",
+        "information_schema._pg_index_position(2619, 1)",
+        "information_schema._pg_numeric_precision(23, -1)",
+        "information_schema._pg_numeric_precision_radix(23, -1)",
+        "information_schema._pg_numeric_scale(23, -1)",
+        "information_schema._pg_datetime_precision(23, -1)",
+    ] {
+        let b = ctx.sql(&format!("SELECT {f}")).await?.collect().await?;
+        let a = b[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<Int32Array>()
+            .unwrap_or_else(|| panic!("{f} should be Int32"));
+        assert!(a.is_null(0), "{f} should be NULL");
+    }
+    // The text-returning helper resolves and returns NULL.
+    let b = ctx
+        .sql("SELECT information_schema._pg_interval_type(23, -1)")
+        .await?
+        .collect()
+        .await?;
+    let a = b[0]
+        .column(0)
+        .as_any()
+        .downcast_ref::<StringArray>()
+        .unwrap();
+    assert!(a.is_null(0), "_pg_interval_type should be NULL");
+    Ok(())
+}

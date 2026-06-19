@@ -758,6 +758,250 @@ pub fn register_pg_char_max_length(ctx: &SessionContext) -> Result<()> {
     register_int_stub(ctx, "information_schema._pg_char_max_length", 2, None)
 }
 
+/// information_schema._pg_char_octet_length(typid, typmod) -> int4
+///
+/// Compatibility stub returning NULL (we don't derive octet lengths), so the
+/// `character_octet_length` column reads as NULL. Used by the `domains` view.
+pub fn register_pg_char_octet_length(ctx: &SessionContext) -> Result<()> {
+    register_int_stub(ctx, "information_schema._pg_char_octet_length", 2, None)
+}
+
+/// information_schema._pg_index_position(indexoid, column) -> smallint
+///
+/// Compatibility stub returning NULL (we don't resolve a column's position
+/// within an index), so `position_in_unique_constraint` reads as NULL. Used by
+/// the `key_column_usage` view.
+pub fn register_pg_index_position(ctx: &SessionContext) -> Result<()> {
+    register_int_stub(ctx, "information_schema._pg_index_position", 2, None)
+}
+
+/// The remaining `information_schema._pg_*` numeric/datetime type-introspection
+/// helpers, all returning NULL int4 stubs. They derive precision/scale facts we
+/// don't model, and NULL is the correct value for types they don't apply to, so
+/// the corresponding columns (numeric_precision, numeric_scale, ...) read NULL.
+/// Used by `domains` (with scalar args). `_pg_interval_type` returns NULL text.
+pub fn register_pg_numeric_helpers(ctx: &SessionContext) -> Result<()> {
+    register_int_stub(ctx, "information_schema._pg_numeric_precision", 2, None)?;
+    register_int_stub(ctx, "information_schema._pg_numeric_precision_radix", 2, None)?;
+    register_int_stub(ctx, "information_schema._pg_numeric_scale", 2, None)?;
+    register_int_stub(ctx, "information_schema._pg_datetime_precision", 2, None)?;
+    register_null_text_stub(ctx, "information_schema._pg_interval_type", 2)?;
+    Ok(())
+}
+
+/// Register `information_schema._pg_truetypid` and `_pg_truetypmod`.
+///
+/// In PostgreSQL these take two *whole-row* composite arguments — a
+/// `pg_attribute` row and a `pg_type` row — and resolve a column's "true" type:
+/// when the column's type is a domain (`typtype = 'd'`) they return the domain's
+/// base type id / typmod, otherwise the attribute's own `atttypid` / `atttypmod`.
+///
+/// DataFusion has no composite/record scalar type, so it cannot bind `a.*` /
+/// `t.*` as single arguments. The `rewrite_pg_truetypid_composite_args` pass
+/// therefore expands each call into the three scalar columns the body actually
+/// reads — `(atttypid|atttypmod, typtype, base)` — and these UDFs implement the
+/// `CASE WHEN typtype = 'd' THEN base ELSE own END` selection over them. Used by
+/// the `columns` and `attributes` information_schema views.
+pub fn register_pg_truetypid_helpers(ctx: &SessionContext) -> Result<()> {
+    register_truetype_select(ctx, "information_schema._pg_truetypid")?;
+    register_truetype_select(ctx, "information_schema._pg_truetypmod")?;
+    Ok(())
+}
+
+/// Register one "true type" selector under `qualified` (plus its bare alias).
+///
+/// The UDF takes three arguments `(own, typtype, base)`: per row it returns
+/// `base` when `typtype = 'd'` (a domain) and `own` otherwise. `own` and `base`
+/// carry the same type (both oid for `_pg_truetypid`, both int4 for
+/// `_pg_truetypmod`), and that type is preserved on output.
+fn register_truetype_select(ctx: &SessionContext, qualified: &'static str) -> Result<()> {
+    use arrow::array::StringArray;
+    use arrow::compute::cast;
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::{
+        ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature,
+        Volatility,
+    };
+
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    struct TrueType {
+        qualified: String,
+        sig: Signature,
+    }
+
+    impl ScalarUDFImpl for TrueType {
+        /// The fully-qualified function name.
+        fn name(&self) -> &str {
+            &self.qualified
+        }
+        /// The argument signature: exactly three arguments of any type.
+        fn signature(&self) -> &Signature {
+            &self.sig
+        }
+        /// The result type mirrors the first argument (`own`), which always
+        /// shares its type with the third (`base`).
+        fn return_type(&self, arg_types: &[DataType]) -> Result<DataType> {
+            Ok(arg_types.first().cloned().unwrap_or(DataType::Int32))
+        }
+        /// For each row pick `base` (arg 2) when `typtype` (arg 1) equals `'d'`,
+        /// otherwise `own` (arg 0). Built row-wise via `ScalarValue` so the
+        /// concrete element type of `own`/`base` is preserved untouched.
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            let arrays = ColumnarValue::values_to_arrays(&args.args)?;
+            if arrays.len() != 3 {
+                return Err(DataFusionError::Internal(format!(
+                    "{} expects 3 arguments, got {}",
+                    self.qualified,
+                    arrays.len()
+                )));
+            }
+            let len = arrays[0].len();
+            let typtype = cast(&arrays[1], &DataType::Utf8)?;
+            let typtype = typtype
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .expect("cast to Utf8 yields StringArray");
+            let mut picked = Vec::with_capacity(len);
+            for i in 0..len {
+                let is_domain = !typtype.is_null(i) && typtype.value(i) == "d";
+                let src = if is_domain { &arrays[2] } else { &arrays[0] };
+                picked.push(ScalarValue::try_from_array(src, i)?);
+            }
+            let out = ScalarValue::iter_to_array(picked)?;
+            Ok(ColumnarValue::Array(out))
+        }
+    }
+
+    let imp = TrueType {
+        qualified: qualified.to_string(),
+        sig: Signature::one_of(vec![TypeSignature::Any(3)], Volatility::Immutable),
+    };
+    let bare = qualified.rsplit('.').next().unwrap_or(qualified);
+    let udf = ScalarUDF::new_from_impl(imp).with_aliases([bare]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
+/// pg_catalog.pg_column_is_updatable(relation, column, include_triggers) -> bool
+///
+/// Compatibility stub returning `false`, the per-column counterpart of
+/// [`register_pg_relation_is_updatable`] (which returns the "not updatable"
+/// bitmask). The `columns` information_schema view's `is_updatable` column then
+/// reads `'NO'`, a safe default for an emulated read-mostly catalog.
+pub fn register_pg_column_is_updatable(ctx: &SessionContext) -> Result<()> {
+    register_bool_stub(ctx, "pg_catalog.pg_column_is_updatable", 3, false)
+}
+
+/// Register a scalar stub under the fully-qualified `qualified` (plus its bare
+/// last-segment alias) taking exactly `arity` args of any type and returning the
+/// constant boolean `value`, broadcast over the input length.
+fn register_bool_stub(
+    ctx: &SessionContext,
+    qualified: &'static str,
+    arity: usize,
+    value: bool,
+) -> Result<()> {
+    use arrow::array::{ArrayRef, BooleanArray};
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::{
+        ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature,
+        Volatility,
+    };
+    use std::sync::Arc;
+
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    struct BoolStub {
+        qualified: String,
+        value: bool,
+        sig: Signature,
+    }
+
+    impl ScalarUDFImpl for BoolStub {
+        /// The fully-qualified function name.
+        fn name(&self) -> &str {
+            &self.qualified
+        }
+        /// The argument signature: exactly `arity` arguments of any type.
+        fn signature(&self) -> &Signature {
+            &self.sig
+        }
+        /// Always boolean.
+        fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
+            Ok(DataType::Boolean)
+        }
+        /// The constant boolean, one value per input row.
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            let arrays = ColumnarValue::values_to_arrays(&args.args)?;
+            let len = arrays.first().map(|a| a.len()).unwrap_or(1);
+            Ok(ColumnarValue::Array(
+                Arc::new(BooleanArray::from(vec![self.value; len])) as ArrayRef,
+            ))
+        }
+    }
+
+    let imp = BoolStub {
+        qualified: qualified.to_string(),
+        value,
+        sig: Signature::one_of(vec![TypeSignature::Any(arity)], Volatility::Stable),
+    };
+    let bare = qualified.rsplit('.').next().unwrap_or(qualified);
+    let udf = ScalarUDF::new_from_impl(imp).with_aliases([bare]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
+/// Register a scalar stub under `qualified` (plus its bare alias) taking `arity`
+/// args of any type and returning NULL text.
+fn register_null_text_stub(
+    ctx: &SessionContext,
+    qualified: &'static str,
+    arity: usize,
+) -> Result<()> {
+    use arrow::array::{ArrayRef, StringBuilder};
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::{
+        ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature,
+        Volatility,
+    };
+    use std::sync::Arc;
+
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    struct NullText {
+        qualified: String,
+        sig: Signature,
+    }
+
+    impl ScalarUDFImpl for NullText {
+        fn name(&self) -> &str {
+            &self.qualified
+        }
+        fn signature(&self) -> &Signature {
+            &self.sig
+        }
+        fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
+            Ok(DataType::Utf8)
+        }
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            let arrays = ColumnarValue::values_to_arrays(&args.args)?;
+            let len = arrays.first().map(|a| a.len()).unwrap_or(1);
+            let mut b = StringBuilder::new();
+            for _ in 0..len {
+                b.append_null();
+            }
+            Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
+        }
+    }
+
+    let imp = NullText {
+        qualified: qualified.to_string(),
+        sig: Signature::one_of(vec![TypeSignature::Any(arity)], Volatility::Stable),
+    };
+    let bare = qualified.rsplit('.').next().unwrap_or(qualified);
+    let udf = ScalarUDF::new_from_impl(imp).with_aliases([bare]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
 /// Register a scalar stub under the fully-qualified function name `qualified`
 /// (plus its bare last-segment alias) that takes exactly `arity` arguments of
 /// any type and returns the constant int4 `value` (or NULL when `value` is
@@ -993,6 +1237,133 @@ pub fn register_pg_expandarray(ctx: &SessionContext) -> Result<()> {
         sig: Signature::one_of(vec![TypeSignature::Any(1)], Volatility::Immutable),
     })
     .with_aliases(["_pg_expandarray"]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
+/// pg_catalog.aclexplode(acl) -> setof (grantor, grantee, privilege_type, is_grantable)
+///
+/// Compatibility stub returning an **empty** set: this catalog does not model
+/// per-object access privileges, so there are no grants to explode. The
+/// information_schema privilege views (table_privileges, etc.) then plan and run,
+/// returning no rows — which is accurate for an emulated catalog with no ACLs.
+/// Modeled as a scalar function returning an empty `List<Struct{...}>` so the
+/// inline `(aclexplode(x)).grantee` form unnests to zero rows.
+pub fn register_aclexplode(ctx: &SessionContext) -> Result<()> {
+    use arrow::array::{ArrayRef, BooleanBuilder, Int32Builder, ListBuilder, StringBuilder, StructBuilder};
+    use arrow::datatypes::{DataType, Field, Fields};
+    use datafusion::logical_expr::{
+        ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature,
+        Volatility,
+    };
+    use std::sync::Arc;
+
+    fn item_fields() -> Fields {
+        vec![
+            Field::new("grantor", DataType::Int32, true),
+            Field::new("grantee", DataType::Int32, true),
+            Field::new("privilege_type", DataType::Utf8, true),
+            Field::new("is_grantable", DataType::Boolean, true),
+        ]
+        .into()
+    }
+
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    struct AclExplode {
+        sig: Signature,
+    }
+
+    impl ScalarUDFImpl for AclExplode {
+        fn name(&self) -> &str {
+            "pg_catalog.aclexplode"
+        }
+        fn signature(&self) -> &Signature {
+            &self.sig
+        }
+        fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
+            Ok(DataType::List(Arc::new(Field::new(
+                "item",
+                DataType::Struct(item_fields()),
+                true,
+            ))))
+        }
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            // Every row gets an empty list (no grants).
+            let arrays = ColumnarValue::values_to_arrays(&args.args)?;
+            let len = arrays.first().map(|a| a.len()).unwrap_or(1);
+            let mut builder = ListBuilder::new(StructBuilder::new(
+                item_fields(),
+                vec![
+                    Box::new(Int32Builder::new()),
+                    Box::new(Int32Builder::new()),
+                    Box::new(StringBuilder::new()),
+                    Box::new(BooleanBuilder::new()),
+                ],
+            ));
+            for _ in 0..len {
+                builder.append(true); // empty list element
+            }
+            Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
+        }
+    }
+
+    let udf = ScalarUDF::new_from_impl(AclExplode {
+        sig: Signature::one_of(vec![TypeSignature::Any(1)], Volatility::Immutable),
+    })
+    .with_aliases(["aclexplode"]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
+/// pg_catalog.acldefault(type, owner) -> aclitem[]
+///
+/// Compatibility stub returning an **empty** ACL array. Paired with the
+/// `aclexplode` stub, the information_schema privilege views' usual
+/// `COALESCE(relacl, acldefault(...))` yields an empty ACL, which explodes to no
+/// rows. The result is a `List<Utf8>` matching how the catalog stores `_aclitem`.
+pub fn register_acldefault(ctx: &SessionContext) -> Result<()> {
+    use arrow::array::{ArrayRef, ListBuilder, StringBuilder};
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::{
+        ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature,
+        Volatility,
+    };
+    use std::sync::Arc;
+
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    struct AclDefault {
+        sig: Signature,
+    }
+
+    impl ScalarUDFImpl for AclDefault {
+        fn name(&self) -> &str {
+            "pg_catalog.acldefault"
+        }
+        fn signature(&self) -> &Signature {
+            &self.sig
+        }
+        fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
+            Ok(DataType::List(Arc::new(arrow::datatypes::Field::new(
+                "item",
+                DataType::Utf8,
+                true,
+            ))))
+        }
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            let arrays = ColumnarValue::values_to_arrays(&args.args)?;
+            let len = arrays.first().map(|a| a.len()).unwrap_or(1);
+            let mut builder = ListBuilder::new(StringBuilder::new());
+            for _ in 0..len {
+                builder.append(true); // empty acl array
+            }
+            Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
+        }
+    }
+
+    let udf = ScalarUDF::new_from_impl(AclDefault {
+        sig: Signature::one_of(vec![TypeSignature::Any(2)], Volatility::Immutable),
+    })
+    .with_aliases(["acldefault"]);
     ctx.register_udf(udf);
     Ok(())
 }

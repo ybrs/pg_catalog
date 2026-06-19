@@ -483,18 +483,31 @@ mod rewriter {
         ///   * `has_aggr` – did we see any aggregate function?
         ///   * `cols`     – top-level column references *outside* aggregates
         /// True if `e` (or any sub-expression) does an array/struct subscript
-        /// access like `x['field']` — the marker of the SRF->unnest rewrite.
+        /// access like `x['field']`, or calls `unnest(...)` — both markers of the
+        /// SRF->unnest rewrite, which must not get an injected GROUP BY.
         fn has_subscript_access(e: &Expr) -> bool {
             use sqlparser::ast::AccessExpr;
             let mut found = false;
             let _ = sqlparser::ast::visit_expressions(e, |x| {
-                if let Expr::CompoundFieldAccess { access_chain, .. } = x {
-                    if access_chain
-                        .iter()
-                        .any(|a| matches!(a, AccessExpr::Subscript(_)))
+                match x {
+                    Expr::CompoundFieldAccess { access_chain, .. }
+                        if access_chain
+                            .iter()
+                            .any(|a| matches!(a, AccessExpr::Subscript(_))) =>
                     {
                         found = true;
                     }
+                    Expr::Function(f)
+                        if f.name
+                            .0
+                            .last()
+                            .and_then(|p| p.as_ident())
+                            .map(|i| i.value.eq_ignore_ascii_case("unnest"))
+                            .unwrap_or(false) =>
+                    {
+                        found = true;
+                    }
+                    _ => {}
                 }
                 std::ops::ControlFlow::<()>::Continue(())
             });
@@ -598,6 +611,20 @@ mod rewriter {
                     Self::has_subscript_access(e)
                 }
                 _ => false,
+            }) {
+                return;
+            }
+
+            // Don't inject GROUP BY when the projection contains a wildcard
+            // (`*` or `tbl.*`): the grouped columns can't be enumerated, and
+            // DataFusion rejects the plan with "While expanding wildcard, column
+            // ... must appear in the GROUP BY". The `columns` information_schema
+            // view hits this once its other blockers are cleared.
+            if sel.projection.iter().any(|item| {
+                matches!(
+                    item,
+                    SelectItem::Wildcard(_) | SelectItem::QualifiedWildcard(_, _)
+                )
             }) {
                 return;
             }

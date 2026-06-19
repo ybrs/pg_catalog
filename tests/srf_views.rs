@@ -80,3 +80,56 @@ async fn test_foreign_data_wrapper_options_view_runs() -> DFResult<()> {
     assert_eq!(batches.iter().map(|b| b.num_rows()).sum::<usize>(), 0);
     Ok(())
 }
+
+#[test]
+fn test_rewrite_srf_aliased_form() {
+    // `_pg_expandarray(x) AS a` in a subquery + `(ss.a).field` one level up:
+    // the SRF is wrapped in `unnest`, and the `(ss.a).field` becomes a subscript.
+    let out = rewrite_srf_to_unnest(
+        "SELECT (ss.a).n AS n FROM (SELECT _pg_expandarray(c.conkey) AS a FROM t c) ss \
+         WHERE x = (ss.a).x",
+    )
+    .unwrap();
+    let lo = out.to_lowercase();
+    assert!(lo.contains("unnest(_pg_expandarray(c.conkey)) as a"), "got {out}");
+    assert!(lo.contains("(ss.a)['n']"), "got {out}");
+    assert!(lo.contains("(ss.a)['x']"), "got {out}");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_triggered_update_columns_view_runs() -> DFResult<()> {
+    // A real `_pg_expandarray` view end-to-end (0 rows: no triggers).
+    let ctx = base_ctx().await?;
+    let raw = "SELECT (ss.x).n AS ordinal_position, (ss.x).x AS attnum \
+        FROM ( SELECT information_schema._pg_expandarray(ARRAY['1','2']) AS x ) ss";
+    let (batches, _schema) = execute_sql(&ctx, raw, None, None).await?;
+    // unnest fans the 2-element array to 2 rows.
+    assert_eq!(batches.iter().map(|b| b.num_rows()).sum::<usize>(), 2);
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_aclexplode_stub_empty() -> DFResult<()> {
+    // aclexplode returns no rows (we model no grants), so the inline privilege
+    // pattern unnests to zero rows and the surrounding view returns empty.
+    let ctx = base_ctx().await?;
+    let raw = "SELECT (aclexplode(acldefault('r', 10))).grantee AS grantee \
+        FROM (SELECT 1) d";
+    let (batches, _schema) = execute_sql(&ctx, raw, None, None).await?;
+    assert_eq!(batches.iter().map(|b| b.num_rows()).sum::<usize>(), 0);
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_table_privileges_view_runs() -> DFResult<()> {
+    // The full table_privileges view (inline aclexplode over pg_class, with a
+    // positional column-alias list and qualified column refs) must plan and run.
+    let ctx = base_ctx().await?;
+    let raw = "SELECT c.relname FROM ( SELECT pg_class.oid, pg_class.relname, \
+        (aclexplode(COALESCE(pg_class.relacl, acldefault('r', pg_class.relowner)))).grantee AS grantee \
+        FROM pg_catalog.pg_class) c(oid, relname, grantee)";
+    let (batches, _schema) = execute_sql(&ctx, raw, None, None).await?;
+    // No grants -> aclexplode empty -> 0 rows.
+    assert_eq!(batches.iter().map(|b| b.num_rows()).sum::<usize>(), 0);
+    Ok(())
+}

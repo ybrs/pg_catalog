@@ -15,10 +15,11 @@ use crate::replace::{
     alias_subquery_tables, regclass_udfs, replace_regclass, replace_set_command_with_namespace,
     rewrite_array_agg_varchar_cast, rewrite_array_subquery, rewrite_available_updates,
     rewrite_brace_array_literal, rewrite_char_cast, rewrite_name_cast, rewrite_oid_cast,
+    rewrite_remaining_oid_regclass_casts,
     rewrite_oidvector_any, rewrite_oidvector_unnest, rewrite_pg_custom_operator,
     rewrite_regoper_cast, rewrite_regoperator_cast, rewrite_regproc_cast,
     rewrite_exists_to_count, rewrite_information_schema_casts, rewrite_regprocedure_cast,
-    rewrite_srf_to_unnest,
+    rewrite_pg_truetypid_composite_args, rewrite_srf_to_unnest,
     rewrite_regtype_cast,
     rewrite_schema_qualified_custom_types,
     rewrite_schema_qualified_text, rewrite_schema_qualified_udtfs, rewrite_time_zone_utc,
@@ -36,7 +37,10 @@ use crate::user_functions::{
     register_array_agg, register_current_schema, register_current_schemas, register_encode,
     register_getdatabaseencoding, register_has_database_privilege, register_has_privilege_family,
     register_has_schema_privilege, register_nameconcatoid, register_oidvector_to_array,
-    register_pg_char_max_length, register_pg_expandarray, register_pg_has_role,
+    register_acldefault, register_aclexplode, register_pg_char_max_length,
+    register_pg_char_octet_length, register_pg_expandarray, register_pg_has_role,
+    register_pg_column_is_updatable, register_pg_index_position, register_pg_numeric_helpers,
+    register_pg_truetypid_helpers,
     register_pg_is_other_temp_schema, register_pg_my_temp_schema, register_pg_options_to_table,
     register_pg_relation_is_updatable,
     register_pg_available_extension_versions, register_pg_get_array,
@@ -326,6 +330,9 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     let sql = rewrite_pg_custom_operator(&sql)?;
     let sql = rewrite_schema_qualified_text(&sql)?;
     let sql = rewrite_schema_qualified_custom_types(&sql)?;
+    // Expand `_pg_truetypid(a.*, t.*)` whole-row args into the columns those
+    // functions read, so DataFusion can bind them (it has no composite type).
+    let sql = rewrite_pg_truetypid_composite_args(&sql)?;
     let sql = rewrite_information_schema_casts(&sql)?;
     let sql = rewrite_schema_qualified_udtfs(&sql)?;
     let sql = rewrite_char_cast(&sql)?;
@@ -334,6 +341,9 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     let sql = rewrite_xid_cast(&sql)?;
     let sql = rewrite_name_cast(&sql)?;
     let sql = rewrite_oid_cast(&sql)?;
+    // Drop the remaining non-literal `::regclass` / `::oid` casts the passes above
+    // don't cover (e.g. `c.oid::regclass`, `proargtypes::oid`).
+    let sql = rewrite_remaining_oid_regclass_casts(&sql)?;
     let sql = rewrite_oidvector_unnest(&sql)?;
     let sql = rewrite_oidvector_any(&sql)?;
     let sql = rewrite_array_agg_varchar_cast(&sql)?;
@@ -1209,9 +1219,16 @@ async fn build_base_session_context(
     register_pg_my_temp_schema(&ctx)?;
     register_getdatabaseencoding(&ctx)?;
     register_pg_relation_is_updatable(&ctx)?;
+    register_pg_column_is_updatable(&ctx)?;
     register_pg_char_max_length(&ctx)?;
+    register_pg_char_octet_length(&ctx)?;
+    register_pg_index_position(&ctx)?;
+    register_pg_numeric_helpers(&ctx)?;
+    register_pg_truetypid_helpers(&ctx)?;
     register_pg_options_to_table(&ctx)?;
     register_pg_expandarray(&ctx)?;
+    register_aclexplode(&ctx)?;
+    register_acldefault(&ctx)?;
     register_pg_postmaster_start_time(&ctx)?;
     register_pg_relation_size(&ctx)?;
     register_pg_total_relation_size(&ctx)?;

@@ -24,7 +24,16 @@ pub fn rewrite_group_by_for_any(sql: &str) -> String {
         if let Some(p) = up.find("ANY(") {
             let start = p + 4;
             if let Some(end) = up[start..].find(')') {
-                return Some(s[start..start + end].to_string());
+                let arg = &s[start..start + end];
+                // Only a *column* reference is meaningful to add to GROUP BY. An
+                // array literal — `= ANY(ARRAY['a','d'])` or `= ANY('{a,d}')` —
+                // has no column to group on; adding it produces a bogus
+                // `GROUP BY ARRAY[...]` (this is how the `columns` view tripped).
+                let argup = arg.to_uppercase();
+                if argup.starts_with("ARRAY[") || arg.starts_with('{') || arg.starts_with('\'') {
+                    return None;
+                }
+                return Some(arg.to_string());
             }
         }
         None
@@ -40,6 +49,14 @@ pub fn rewrite_group_by_for_any(sql: &str) -> String {
                     GroupByExpr::Expressions(vec, _) => vec,
                     _ => return ControlFlow::<()>::Continue(()),
                 };
+
+                // sqlparser models "no GROUP BY" as an *empty* expression list,
+                // so an empty `exprs` means the query never grouped at all. Don't
+                // fabricate a GROUP BY from `= ANY(...)` predicates in that case —
+                // only augment a GROUP BY the query already has.
+                if exprs.is_empty() {
+                    return ControlFlow::<()>::Continue(());
+                }
 
                 let mut seen: HashSet<String> =
                     exprs.iter().map(|e| e.to_string().to_lowercase()).collect();
@@ -98,6 +115,28 @@ mod tests {
         let input = "SELECT a, 'x' = ANY(b) FROM t GROUP BY a, b";
         let output = rewrite_group_by_for_any(input);
         assert_eq!(output, input);
+    }
+
+    #[test]
+    fn test_noop_when_no_group_by() {
+        // A query with no GROUP BY must not gain one from `= ANY(...)`.
+        let input = "SELECT a, 'x' = ANY(b) FROM t";
+        let output = rewrite_group_by_for_any(input);
+        assert!(
+            !output.to_uppercase().contains("GROUP BY"),
+            "no GROUP BY fabricated: {output}"
+        );
+    }
+
+    #[test]
+    fn test_noop_on_array_literal_any_arg() {
+        // `= ANY(ARRAY[...])` has no column to group on (the `columns` view case).
+        let input = "SELECT a, x = ANY(ARRAY['a', 'd']) FROM t GROUP BY a";
+        let output = rewrite_group_by_for_any(input);
+        assert_eq!(
+            output, "SELECT a, x = ANY(ARRAY['a', 'd']) FROM t GROUP BY a",
+            "array-literal ANY arg not added to GROUP BY"
+        );
     }
 
     #[test]
