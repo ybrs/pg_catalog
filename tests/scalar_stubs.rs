@@ -115,6 +115,24 @@ async fn test_format_function() -> DFResult<()> {
 }
 
 #[tokio::test]
+async fn test_pg_get_function_arg_default_is_null() -> DFResult<()> {
+    let ctx = base_ctx().await?;
+    // Two-arg form (func oid, argnum); we don't model defaults, so it returns NULL.
+    let b = ctx
+        .sql("SELECT pg_get_function_arg_default(2619, 1)")
+        .await?
+        .collect()
+        .await?;
+    let a = b[0]
+        .column(0)
+        .as_any()
+        .downcast_ref::<StringArray>()
+        .unwrap();
+    assert!(a.is_null(0), "expected NULL parameter default");
+    Ok(())
+}
+
+#[tokio::test]
 async fn test_pg_column_is_updatable_is_false() -> DFResult<()> {
     use arrow::array::BooleanArray;
     let ctx = base_ctx().await?;

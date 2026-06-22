@@ -1024,6 +1024,16 @@ fn register_truetype_select(ctx: &SessionContext, qualified: &'static str) -> Re
     Ok(())
 }
 
+/// pg_catalog.pg_get_function_arg_default(func oid, argnum int) -> text
+///
+/// Compatibility stub returning NULL: we don't model per-parameter default
+/// expressions, so the `parameter_default` column of the `parameters`
+/// information_schema view reads as NULL (the correct value for a parameter
+/// without a default).
+pub fn register_pg_get_function_arg_default(ctx: &SessionContext) -> Result<()> {
+    register_null_text_stub(ctx, "pg_catalog.pg_get_function_arg_default", 2)
+}
+
 /// pg_catalog.pg_column_is_updatable(relation, column, include_triggers) -> bool
 ///
 /// Compatibility stub returning `false`, the per-column counterpart of

@@ -1076,8 +1076,8 @@ pub fn rewrite_information_schema_casts(sql: &str) -> Result<String> {
 /// BIGINT by `rewrite_oid_cast`).
 pub fn drop_redundant_oid_and_regclass_casts(sql: &str) -> Result<String> {
     use sqlparser::ast::{
-        visit_expressions_mut, visit_statements_mut, ArrayElemTypeDef, DataType, Expr,
-        ObjectNamePart, Value, ValueWithSpan,
+        visit_expressions_mut, visit_statements_mut, DataType, Expr, ObjectNamePart, Value,
+        ValueWithSpan,
     };
     use sqlparser::dialect::PostgreSqlDialect;
     use sqlparser::parser::Parser;
@@ -1097,20 +1097,6 @@ pub fn drop_redundant_oid_and_regclass_casts(sql: &str) -> Result<String> {
             if obj.0.len() == 1
             && matches!(&obj.0[0], ObjectNamePart::Identifier(i) if i.value.eq_ignore_ascii_case("oid")))
     }
-    /// True for an array-of-oid cast like `proargtypes::oid[]`, which parses as
-    /// `Array(SquareBracket(Custom(oid)))`. The element is already a list in our
-    /// catalog, so the cast is value-preserving and DataFusion can't plan it.
-    fn is_oid_array(dt: &DataType) -> bool {
-        if let DataType::Array(elem) = dt {
-            let inner = match elem {
-                ArrayElemTypeDef::SquareBracket(inner, _) => Some(inner.as_ref()),
-                ArrayElemTypeDef::AngleBracket(inner) => Some(inner.as_ref()),
-                _ => None,
-            };
-            return inner.map(is_oid_custom).unwrap_or(false);
-        }
-        false
-    }
 
     let mut stmts = Parser::parse_sql(&PostgreSqlDialect {}, sql)
         .map_err(|e| DataFusionError::External(Box::new(e)))?;
@@ -1120,11 +1106,67 @@ pub fn drop_redundant_oid_and_regclass_casts(sql: &str) -> Result<String> {
                 let drop = match data_type {
                     DataType::Regclass => !is_string_literal(expr),
                     dt if is_oid_custom(dt) => !is_string_literal(expr) && !is_number(expr),
-                    dt if is_oid_array(dt) => true,
                     _ => false,
                 };
                 if drop {
                     *e = (**expr).clone();
+                }
+            }
+            ControlFlow::<()>::Continue(())
+        })?;
+        ControlFlow::Continue(())
+    });
+    Ok(stmts
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join(" "))
+}
+
+/// Rewrite `<expr>::oid[]` casts to `<expr>::text[]`.
+///
+/// DataFusion can't plan the bare `oid` element type, and scalar oids are already
+/// represented as text in this catalog (see [`crate::db_table::map_pg_type`]), so
+/// the faithful array equivalent is a text array. This also makes the two arms of
+/// `COALESCE(proallargtypes, proargtypes::oid[])` agree on element type — without
+/// it, `proallargtypes` (a `List<Utf8>` for `oid[]`) and `proargtypes` (a
+/// `List<Int64>` for `oidvector`) can't be coerced to a common list type. Used by
+/// the `element_types` and `parameters` information_schema views.
+pub fn rewrite_oid_array_cast_to_text_array(sql: &str) -> Result<String> {
+    use sqlparser::ast::{
+        visit_expressions_mut, visit_statements_mut, ArrayElemTypeDef, DataType, Expr,
+        ObjectNamePart,
+    };
+    use sqlparser::dialect::PostgreSqlDialect;
+    use sqlparser::parser::Parser;
+    use std::ops::ControlFlow;
+
+    /// True for an array-of-oid cast like `proargtypes::oid[]`, which parses as
+    /// `Array(SquareBracket(Custom(oid)))` / `Array(AngleBracket(Custom(oid)))`.
+    fn is_oid_array(dt: &DataType) -> bool {
+        let DataType::Array(elem) = dt else {
+            return false;
+        };
+        let inner = match elem {
+            ArrayElemTypeDef::SquareBracket(inner, _) => Some(inner.as_ref()),
+            ArrayElemTypeDef::AngleBracket(inner) => Some(inner.as_ref()),
+            _ => None,
+        };
+        matches!(inner, Some(DataType::Custom(obj, _))
+            if obj.0.len() == 1
+            && matches!(&obj.0[0], ObjectNamePart::Identifier(i) if i.value.eq_ignore_ascii_case("oid")))
+    }
+
+    let mut stmts = Parser::parse_sql(&PostgreSqlDialect {}, sql)
+        .map_err(|e| DataFusionError::External(Box::new(e)))?;
+    let _ = visit_statements_mut(&mut stmts, |stmt| {
+        let _ = visit_expressions_mut(stmt, |e| {
+            if let Expr::Cast { data_type, .. } = e {
+                if is_oid_array(data_type) {
+                    *data_type = DataType::Array(ArrayElemTypeDef::SquareBracket(
+                        Box::new(DataType::Text),
+                        None,
+                    ));
                 }
             }
             ControlFlow::<()>::Continue(())
@@ -2682,14 +2724,21 @@ mod tests {
         assert!(lit.to_lowercase().contains("regclass"), "literal kept: {lit}");
         let num = drop_redundant_oid_and_regclass_casts("SELECT 0::oid")?;
         assert!(num.to_lowercase().contains("::oid") || num.contains("oid"), "num kept: {num}");
+        Ok(())
+    }
 
-        // Array-of-oid casts (`proargtypes::oid[]`, used by element_types/parameters)
-        // are also value-preserving over our list column, so they're dropped.
-        let arr = drop_redundant_oid_and_regclass_casts("SELECT proargtypes::oid[]")?;
-        assert!(
-            arr.contains("proargtypes") && !arr.to_lowercase().contains("oid["),
-            "oid[] cast dropped: {arr}"
-        );
+    #[test]
+    fn test_rewrite_oid_array_cast_to_text_array() -> Result<(), Box<dyn std::error::Error>> {
+        // `proargtypes::oid[]` (element_types/parameters) becomes a text array so
+        // it plans and coerces against `proallargtypes` (also a text list here).
+        let out = rewrite_oid_array_cast_to_text_array("SELECT proargtypes::oid[]")?;
+        assert!(out.contains("proargtypes"), "{out}");
+        assert!(!out.to_lowercase().contains("oid["), "oid[] gone: {out}");
+        assert!(out.to_uppercase().contains("TEXT"), "now a text array: {out}");
+
+        // Scalar `::oid` and unrelated array casts are untouched.
+        let scalar = rewrite_oid_array_cast_to_text_array("SELECT x::oid")?;
+        assert!(scalar.to_lowercase().contains("oid"), "scalar oid kept: {scalar}");
         Ok(())
     }
 

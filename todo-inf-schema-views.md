@@ -2,15 +2,14 @@
 
 Generated from `analyze_catalog_views.py` against the pg_catalog engine on DataFusion 54.
 
-**60 working, 5 to do, 65 total.**
+**61 working, 4 to do, 65 total.**
 
 "Working" = the view SQL plans & executes on our engine (can be promoted to a live view). Today these are still served as materialized-snapshot MemTables.
 
 ## To do
 | View | Status | What's needed |
 |---|---|---|
-| `element_types` | unsupported_cast_or_type | `COALESCE(proallargtypes, proargtypes)` can't coerce `List<Utf8>` (oid[]) vs `List<Int64>` (oidvector) to a common element type. (The earlier `::oid[]` blocker is fixed by `drop_redundant_oid_and_regclass_casts`.) |
-| `parameters` | unsupported_cast_or_type | same `COALESCE` list-element-type mismatch as `element_types` |
+| `element_types` | other_error | multi-column `(nspname, objname, objtype, objdtdid) IN (SELECT ... FROM data_type_privileges)` row-constructor subquery — DataFusion rejects it ("subquery should only return one column"). (Earlier `::oid[]` and `COALESCE` blockers are now fixed.) |
 | `table_constraints` | other_error | correlated scalar subquery must be aggregated to ≤1 row |
 | `constraint_column_usage` | other_error | upstream DataFusion projection-name assertion (`nspname` vs `nspname_1`) |
 | `user_mapping_options` | missing_table | `LATERAL pg_options_to_table(x) opts(c1,c2)` set-returning function in the FROM clause — needs a FROM-clause unnest rewrite (the SRF rewrite only covers projection/aliased forms). View is empty in practice (no user mappings). |
@@ -51,6 +50,7 @@ Generated from `analyze_catalog_views.py` against the pg_catalog engine on DataF
 | `foreign_tables` |
 | `information_schema_catalog_name` |
 | `key_column_usage` |
+| `parameters` |
 | `referential_constraints` |
 | `role_column_grants` |
 | `role_routine_grants` |
@@ -81,12 +81,16 @@ Generated from `analyze_catalog_views.py` against the pg_catalog engine on DataF
 
 ## Grouped by what's needed
 
-- **`COALESCE` over mismatched list element types (`List<Utf8>` vs `List<Int64>`)** — 2: `element_types`, `parameters`
+- **multi-column `(...) IN (SELECT ...)` row-constructor subquery** — 1: `element_types`
 - **correlated scalar subquery must be aggregated to ≤1 row** — 1: `table_constraints`
 - **upstream DataFusion projection-name assertion** — 1: `constraint_column_usage`
 - **`LATERAL srf(...)` set-returning function in FROM** — 1: `user_mapping_options`
 
 ## Recently fixed
+- `parameters` — `proargtypes::oid[]` rewritten to `::text[]` (`rewrite_oid_array_cast_to_text_array`)
+  so the planner accepts it and `COALESCE(proallargtypes, ...)` agrees on element type; plus a
+  `pg_get_function_arg_default` NULL stub. (Same `::oid[]` fix also unblocked the cast layer of
+  `element_types`, which now fails later on a multi-column `IN` subquery.)
 - `key_column_usage`, `check_constraints` — the dot→subscript pass was wrongly turning
   `tbl.arraycol[i]` into `tbl['arraycol'][i]` (sqlparser parses `a.b[1]` as
   `root=a, [Dot(b), Subscript(1)]`); now only parenthesized `(expr).field` / `(srf()).f`

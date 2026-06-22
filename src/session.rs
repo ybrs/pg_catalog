@@ -15,7 +15,7 @@ use crate::replace::{
     alias_subquery_tables, regclass_udfs, replace_regclass, replace_set_command_with_namespace,
     rewrite_array_agg_varchar_cast, rewrite_array_subquery, rewrite_available_updates,
     rewrite_brace_array_literal, rewrite_char_cast, rewrite_name_cast, rewrite_oid_cast,
-    drop_redundant_oid_and_regclass_casts,
+    drop_redundant_oid_and_regclass_casts, rewrite_oid_array_cast_to_text_array,
     rewrite_oidvector_any, rewrite_oidvector_unnest, rewrite_pg_custom_operator,
     rewrite_regoper_cast, rewrite_regoperator_cast, rewrite_regproc_cast,
     rewrite_exists_to_count, rewrite_information_schema_casts, rewrite_regprocedure_cast,
@@ -40,7 +40,8 @@ use crate::user_functions::{
     register_has_schema_privilege, register_nameconcatoid, register_oidvector_to_array,
     register_acldefault, register_aclexplode, register_pg_char_max_length,
     register_pg_char_octet_length, register_pg_expandarray, register_pg_has_role,
-    register_pg_column_is_updatable, register_pg_index_position, register_pg_numeric_helpers,
+    register_pg_column_is_updatable, register_pg_get_function_arg_default,
+    register_pg_index_position, register_pg_numeric_helpers,
     register_pg_truetypid_helpers,
     register_pg_is_other_temp_schema, register_pg_my_temp_schema, register_pg_options_to_table,
     register_pg_relation_is_updatable,
@@ -342,9 +343,12 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     let sql = rewrite_xid_cast(&sql)?;
     let sql = rewrite_name_cast(&sql)?;
     let sql = rewrite_oid_cast(&sql)?;
-    // Drop value-preserving `::regclass` / `::oid` / `::oid[]` casts on column
-    // expressions (e.g. `c.oid::regclass`, `proargtypes::oid`, `proargtypes::oid[]`).
+    // Drop value-preserving `::regclass` / `::oid` casts on column expressions
+    // (e.g. `c.oid::regclass`, `proargtypes::oid`).
     let sql = drop_redundant_oid_and_regclass_casts(&sql)?;
+    // Convert `::oid[]` array casts to `::text[]` (planner can't take a bare `oid`
+    // element type; oids are text in this catalog).
+    let sql = rewrite_oid_array_cast_to_text_array(&sql)?;
     let sql = rewrite_oidvector_unnest(&sql)?;
     let sql = rewrite_oidvector_any(&sql)?;
     let sql = rewrite_array_agg_varchar_cast(&sql)?;
@@ -1221,6 +1225,7 @@ async fn build_base_session_context(
     register_getdatabaseencoding(&ctx)?;
     register_pg_relation_is_updatable(&ctx)?;
     register_pg_column_is_updatable(&ctx)?;
+    register_pg_get_function_arg_default(&ctx)?;
     register_format(&ctx)?;
     register_pg_char_max_length(&ctx)?;
     register_pg_char_octet_length(&ctx)?;
