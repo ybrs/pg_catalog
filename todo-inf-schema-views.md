@@ -2,20 +2,18 @@
 
 Generated from `analyze_catalog_views.py` against the pg_catalog engine on DataFusion 54.
 
-**58 working, 7 to do, 65 total.**
+**60 working, 5 to do, 65 total.**
 
 "Working" = the view SQL plans & executes on our engine (can be promoted to a live view). Today these are still served as materialized-snapshot MemTables.
 
 ## To do
 | View | Status | What's needed |
 |---|---|---|
-| `element_types` | other_error | `Unsupported SQL type oid` — needs an `oid`-typed column/cast path the planner accepts |
-| `parameters` | other_error | `Unsupported SQL type oid` — same `oid`-typed column/cast path as `element_types` |
-| `key_column_usage` | missing_column | SRF rewrite: residual `ss` bare-alias ref in key_column_usage |
-| `check_constraints` | missing_column | column scoping / correlated ref (residual `con` alias) |
+| `element_types` | unsupported_cast_or_type | `COALESCE(proallargtypes, proargtypes)` can't coerce `List<Utf8>` (oid[]) vs `List<Int64>` (oidvector) to a common element type. (The earlier `::oid[]` blocker is fixed by `drop_redundant_oid_and_regclass_casts`.) |
+| `parameters` | unsupported_cast_or_type | same `COALESCE` list-element-type mismatch as `element_types` |
 | `table_constraints` | other_error | correlated scalar subquery must be aggregated to ≤1 row |
 | `constraint_column_usage` | other_error | upstream DataFusion projection-name assertion (`nspname` vs `nspname_1`) |
-| `user_mapping_options` | missing_table | `pg_options_to_table` SRF not resolved in this view's shape |
+| `user_mapping_options` | missing_table | `LATERAL pg_options_to_table(x) opts(c1,c2)` set-returning function in the FROM clause — needs a FROM-clause unnest rewrite (the SRF rewrite only covers projection/aliased forms). View is empty in practice (no user mappings). |
 
 ## Working
 | View |
@@ -30,6 +28,7 @@ Generated from `analyze_catalog_views.py` against the pg_catalog engine on DataF
 | `attributes` |
 | `character_sets` |
 | `check_constraint_routine_usage` |
+| `check_constraints` |
 | `collation_character_set_applicability` |
 | `collations` |
 | `column_column_usage` |
@@ -51,6 +50,7 @@ Generated from `analyze_catalog_views.py` against the pg_catalog engine on DataF
 | `foreign_table_options` |
 | `foreign_tables` |
 | `information_schema_catalog_name` |
+| `key_column_usage` |
 | `referential_constraints` |
 | `role_column_grants` |
 | `role_routine_grants` |
@@ -81,13 +81,17 @@ Generated from `analyze_catalog_views.py` against the pg_catalog engine on DataF
 
 ## Grouped by what's needed
 
-- **`Unsupported SQL type oid`** — 2: `element_types`, `parameters`
-- **column scoping / residual bare-alias ref** — 2: `key_column_usage` (`ss`), `check_constraints` (`con`)
+- **`COALESCE` over mismatched list element types (`List<Utf8>` vs `List<Int64>`)** — 2: `element_types`, `parameters`
 - **correlated scalar subquery must be aggregated to ≤1 row** — 1: `table_constraints`
 - **upstream DataFusion projection-name assertion** — 1: `constraint_column_usage`
-- **`pg_options_to_table` SRF not resolved in this view's shape** — 1: `user_mapping_options`
+- **`LATERAL srf(...)` set-returning function in FROM** — 1: `user_mapping_options`
 
 ## Recently fixed
+- `key_column_usage`, `check_constraints` — the dot→subscript pass was wrongly turning
+  `tbl.arraycol[i]` into `tbl['arraycol'][i]` (sqlparser parses `a.b[1]` as
+  `root=a, [Dot(b), Subscript(1)]`); now only parenthesized `(expr).field` / `(srf()).f`
+  roots convert. `check_constraints` also needed `format()` (`register_format`, supports
+  `%s`/`%I`/`%L`/`%%`).
 - `columns`, `attributes` — `_pg_truetypid(a.*, t.*)` / `_pg_truetypmod(a.*, t.*)` whole-row
   composite args expanded into scalar columns (`rewrite_pg_truetypid_composite_args` +
   `register_pg_truetypid_helpers`); `pg_column_is_updatable` stub added; and a spurious

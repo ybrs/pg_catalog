@@ -327,9 +327,9 @@ fn fetch_columns(
 
 // --- pure row builders (oids taken straight from the source objects) ------
 
-/// Build the JSON object value for a list-typed column, or NULL when absent.
-fn acl_value(acl: &Option<Vec<String>>) -> Value {
-    match acl {
+/// Build a JSON array from a list of strings, or NULL when the list is absent.
+fn string_list_to_json(items: &Option<Vec<String>>) -> Value {
+    match items {
         Some(items) => Value::Array(items.iter().map(|s| json!(s)).collect()),
         None => Value::Null,
     }
@@ -409,7 +409,7 @@ pub fn build_pg_database_row(def: &DatabaseDef) -> Row {
             .map(|v| json!(v))
             .unwrap_or(Value::Null),
     );
-    row.insert("datacl".to_string(), acl_value(&def.datacl));
+    row.insert("datacl".to_string(), string_list_to_json(&def.datacl));
     row
 }
 
@@ -711,7 +711,7 @@ pub struct LazyCatalogTableProvider {
     /// The table's Arrow schema (taken from the YAML-loaded provider).
     schema: SchemaRef,
     /// The built-in system rows, captured once at registration (immutable).
-    builtin: Vec<RecordBatch>,
+    builtin_batches: Vec<RecordBatch>,
     /// The user's callback object.
     source: Arc<dyn LazyCatalogSource>,
 }
@@ -772,8 +772,8 @@ impl TableProvider for LazyCatalogTableProvider {
 
         // Merge: a user row replaces any built-in row with the same identity, so
         // a user-supplied object always wins over the one it shadows.
-        let mut batches = Vec::with_capacity(self.builtin.len() + 1);
-        for builtin in &self.builtin {
+        let mut batches = Vec::with_capacity(self.builtin_batches.len() + 1);
+        for builtin in &self.builtin_batches {
             batches.push(drop_builtin_rows_shadowed_by_users(
                 builtin,
                 &self.schema,
@@ -875,7 +875,7 @@ pub async fn register_lazy_catalog(
         let provider: Arc<dyn TableProvider> = Arc::new(LazyCatalogTableProvider {
             table,
             schema: table_schema,
-            builtin,
+            builtin_batches: builtin,
             source: source.clone(),
         });
 

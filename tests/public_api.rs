@@ -97,11 +97,11 @@ async fn test_pg_views_registered_as_view() -> datafusion::error::Result<()> {
         .await?
         .expect("pg_views table should be registered");
     // datafusion 54 removed `as_any` from `TableProvider`; a registered view
-    // reports `TableType::View`, whereas our `ObservableMemTable` reports `Base`.
+    // reports `TableType::View`, whereas our `ScanRecordingMemTable` reports `Base`.
     assert_eq!(
         provider.table_type(),
         datafusion::datasource::TableType::View,
-        "pg_views should be registered as a view, not an ObservableMemTable"
+        "pg_views should be registered as a view, not an ScanRecordingMemTable"
     );
     Ok(())
 }

@@ -17,7 +17,7 @@ pub fn rewrite_group_by_for_any(sql: &str) -> String {
         Err(_) => return sql.to_string(),
     };
 
-    fn extract_any_arg(e: &Expr) -> Option<String> {
+    fn extract_any_column_name(e: &Expr) -> Option<String> {
         // naive textual scan is enough for our limited patterns `'lit' = ANY(col)`
         let s = e.to_string().replace(' ', "");
         let up = s.to_uppercase();
@@ -67,15 +67,15 @@ pub fn rewrite_group_by_for_any(sql: &str) -> String {
                         SelectItem::ExprWithAlias { expr: e, .. } => e,
                         _ => continue,
                     };
-                    if let Some(col_txt) = extract_any_arg(expr) {
-                        let key = col_txt.to_lowercase();
+                    if let Some(any_column_name) = extract_any_column_name(expr) {
+                        let key = any_column_name.to_lowercase();
                         if !seen.contains(&key) {
-                            let new_e = if col_txt.contains('.') {
+                            let new_e = if any_column_name.contains('.') {
                                 Expr::CompoundIdentifier(
-                                    col_txt.split('.').map(Ident::new).collect(),
+                                    any_column_name.split('.').map(Ident::new).collect(),
                                 )
                             } else {
-                                Expr::Identifier(Ident::new(col_txt))
+                                Expr::Identifier(Ident::new(any_column_name))
                             };
                             exprs.push(new_e);
                             seen.insert(key);

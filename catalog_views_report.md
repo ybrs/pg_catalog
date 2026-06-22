@@ -8,19 +8,20 @@ Ran every `type: view` from `pg_catalog_data/pg_schema` against the live engine 
 
 | Category | Count |
 |---|---|
-| success | 79 |
+| success | 81 |
 | missing_table | 37 |
 | missing_function | 16 |
-| other_error | 6 |
-| missing_column | 4 |
+| other_error | 4 |
+| unsupported_cast_or_type | 2 |
+| missing_column | 2 |
 | parse_error | 1 |
 
 ## Outcome by schema
 
-| Schema | success | missing_table | missing_function | other_error | missing_column | parse_error |
-|---|---|---|---|---|---|---|
-| information_schema | 58 | 1 | 0 | 4 | 2 | 0 |
-| pg_catalog | 21 | 36 | 16 | 2 | 2 | 1 |
+| Schema | success | missing_table | missing_function | other_error | unsupported_cast_or_type | missing_column | parse_error |
+|---|---|---|---|---|---|---|---|
+| information_schema | 60 | 1 | 0 | 2 | 2 | 0 | 0 |
+| pg_catalog | 21 | 36 | 16 | 2 | 0 | 2 | 1 |
 
 ## Missing functions (most impactful to implement)
 
@@ -54,6 +55,7 @@ Ran every `type: view` from `pg_catalog_data/pg_schema` against the live engine 
 | information_schema.attributes | success |  |
 | information_schema.character_sets | success |  |
 | information_schema.check_constraint_routine_usage | success |  |
+| information_schema.check_constraints | success |  |
 | information_schema.collation_character_set_applicability | success |  |
 | information_schema.collations | success |  |
 | information_schema.column_column_usage | success |  |
@@ -75,6 +77,7 @@ Ran every `type: view` from `pg_catalog_data/pg_schema` against the live engine 
 | information_schema.foreign_table_options | success |  |
 | information_schema.foreign_tables | success |  |
 | information_schema.information_schema_catalog_name | success |  |
+| information_schema.key_column_usage | success |  |
 | information_schema.referential_constraints | success |  |
 | information_schema.role_column_grants | success |  |
 | information_schema.role_routine_grants | success |  |
@@ -123,11 +126,9 @@ Ran every `type: view` from `pg_catalog_data/pg_schema` against the live engine 
 | pg_catalog.pg_user | success |  |
 | pg_catalog.pg_user_mappings | success |  |
 | pg_catalog.pg_views | success |  |
-| information_schema.check_constraints | missing_column | Schema error: No field named con. Valid fields are con.conbin, con.condeferrable, con.condeferred, con.conexclop, con.confdelsetcols, con.confdeltype, con.conff |
 | information_schema.constraint_column_usage | other_error | Internal error: Assertion failed: col.name() == matching_name: Input field name nspname does not match with the projection expression nspname_1. This issue was  |
-| information_schema.element_types | other_error | This feature is not implemented: Unsupported SQL type oid |
-| information_schema.key_column_usage | missing_column | Schema error: No field named ss. Did you mean 'ss.x'?. |
-| information_schema.parameters | other_error | This feature is not implemented: Unsupported SQL type oid |
+| information_schema.element_types | unsupported_cast_or_type | Error during planning: Execution error: Function 'coalesce' user-defined coercion failed with: Execution error: Fail to find the coerced type, errors: Execution |
+| information_schema.parameters | unsupported_cast_or_type | Error during planning: Execution error: Function 'coalesce' user-defined coercion failed with: Execution error: Fail to find the coerced type, errors: Execution |
 | information_schema.table_constraints | other_error | Invalid (non-executable) plan after Analyzer caused by Error during planning: Correlated scalar subquery must be aggregated to return at most one row |
 | information_schema.user_mapping_options | missing_table | Error during planning: table function 'pg_options_to_table' not found |
 | pg_catalog.pg_available_extension_versions | other_error | Error during planning: Column in SELECT must be in GROUP BY or an aggregate function: While expanding wildcard, column "x.extname" must appear in the GROUP BY c |
@@ -140,7 +141,7 @@ Ran every `type: view` from `pg_catalog_data/pg_schema` against the live engine 
 | pg_catalog.pg_hba_file_rules | missing_table | Error during planning: table function 'pg_catalog' not found |
 | pg_catalog.pg_ident_file_mappings | missing_table | Error during planning: table function 'pg_catalog' not found |
 | pg_catalog.pg_locks | missing_table | Error during planning: table function 'pg_lock_status' not found |
-| pg_catalog.pg_policies | other_error | This feature is not implemented: Unsupported SQL type oid |
+| pg_catalog.pg_policies | other_error | This feature is not implemented: Unsupported SQL type name |
 | pg_catalog.pg_prepared_statements | missing_table | Error during planning: table function 'pg_prepared_statement' not found |
 | pg_catalog.pg_prepared_xacts | missing_table | Error during planning: table function 'pg_prepared_xact' not found |
 | pg_catalog.pg_publication_tables | parse_error | Error during planning: failed to parse SQL: sql parser error: Expected: ), found: ARRAY at Line: 9, Column: 48 |

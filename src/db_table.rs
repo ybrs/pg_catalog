@@ -1,6 +1,6 @@
-// Wrapper around MemTable that records query scans.
-// Also includes helpers for mapping PostgreSQL types and printing execution logs.
-// Allows tests to inspect which tables and columns were accessed.
+// Wrapper around MemTable that records every scan (table, columns, filters) so
+// tests can inspect which tables and columns were accessed. Also maps
+// PostgreSQL type names to Arrow types.
 
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::record_batch::RecordBatch;
@@ -56,9 +56,9 @@ trait SchemaAccess {
 impl SchemaAccess for ScanTrace {
     fn schema(&self) -> SchemaRef {
         Arc::new(Schema::new(
-            self.types
+            self.column_types
                 .iter()
-                .map(|(k, v)| Field::new(k, map_pg_type(v), true))
+                .map(|(name, pg_type)| Field::new(name, map_pg_type(pg_type), true))
                 .collect::<Vec<_>>(),
         ))
     }
@@ -69,22 +69,22 @@ pub struct ScanTrace {
     table: String,
     projection: Option<Vec<usize>>,
     filters: Vec<Expr>,
-    types: BTreeMap<String, String>,
+    column_types: BTreeMap<String, String>,
 }
 
 #[derive(Debug)]
-pub struct ObservableMemTable {
+pub struct ScanRecordingMemTable {
     schema: SchemaRef,
     mem: Arc<MemTable>,
-    log: Arc<Mutex<Vec<ScanTrace>>>,
+    scan_traces: Arc<Mutex<Vec<ScanTrace>>>,
     table_name: String,
 }
 
-impl ObservableMemTable {
+impl ScanRecordingMemTable {
     pub fn new(
         table_name: String,
         schema: SchemaRef,
-        log: Arc<Mutex<Vec<ScanTrace>>>,
+        scan_traces: Arc<Mutex<Vec<ScanTrace>>>,
         data: Vec<RecordBatch>,
     ) -> Self {
         let mem = MemTable::try_new(schema.clone(), vec![data]).unwrap();
@@ -92,13 +92,13 @@ impl ObservableMemTable {
             table_name,
             schema,
             mem: Arc::new(mem),
-            log,
+            scan_traces,
         }
     }
 }
 
 #[async_trait]
-impl TableProvider for ObservableMemTable {
+impl TableProvider for ScanRecordingMemTable {
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
@@ -123,16 +123,16 @@ impl TableProvider for ObservableMemTable {
     ) -> Result<Arc<dyn ExecutionPlan>> {
         // No special-casing for pg_database; if a lazy source is registered,
         // the provider will be replaced by a LazyCatalogTableProvider.
-        let mut types = BTreeMap::new();
-        for f in self.schema.fields() {
-            types.insert(f.name().clone(), f.data_type().to_string());
+        let mut column_types = BTreeMap::new();
+        for field in self.schema.fields() {
+            column_types.insert(field.name().clone(), field.data_type().to_string());
         }
 
-        self.log.lock().unwrap().push(ScanTrace {
+        self.scan_traces.lock().unwrap().push(ScanTrace {
             table: self.table_name.clone(),
             projection: projection.cloned(),
             filters: filters.to_vec(),
-            types,
+            column_types,
         });
 
         self.mem.scan(state, projection, filters, limit).await
@@ -176,29 +176,31 @@ impl TableProvider for ObservableMemTable {
     }
 }
 
-pub fn print_execution_log(log: Arc<Mutex<Vec<ScanTrace>>>) {
-    let out: Vec<_> = log
+/// Serialize the recorded scan traces to JSON and emit them via `log::info!`,
+/// so tests and debugging can see which tables/columns/filters were scanned.
+pub fn log_scan_traces(scan_traces: Arc<Mutex<Vec<ScanTrace>>>) {
+    let serialized: Vec<_> = scan_traces
         .lock()
         .unwrap()
         .iter()
-        .map(|entry| {
-            let columns: Vec<_> = match &entry.projection {
-                Some(p) => p
+        .map(|trace| {
+            let columns: Vec<_> = match &trace.projection {
+                Some(projected) => projected
                     .iter()
-                    .map(|i| entry.schema().field(*i).name().clone())
+                    .map(|i| trace.schema().field(*i).name().clone())
                     .collect(),
-                None => entry.types.keys().cloned().collect(),
+                None => trace.column_types.keys().cloned().collect(),
             };
             json!({
-                "table": entry.table,
+                "table": trace.table,
                 "columns": columns,
-                "filters": entry.filters.iter().map(|f| f.to_string()).collect::<Vec<_>>(),
-                "types": entry.types,
+                "filters": trace.filters.iter().map(|f| f.to_string()).collect::<Vec<_>>(),
+                "types": trace.column_types,
             })
         })
         .collect();
 
-    log::info!("{}", serde_json::to_string_pretty(&out).unwrap());
+    log::info!("{}", serde_json::to_string_pretty(&serialized).unwrap());
 }
 #[cfg(test)]
 mod tests {

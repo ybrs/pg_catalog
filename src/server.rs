@@ -329,7 +329,7 @@ impl DatafusionBackend {
         Some(Response::Query(QueryResponse::new(fields, rows)))
     }
 
-    fn parse_show_variable(sql: &str) -> Option<String> {
+    fn parse_show_variable_name(sql: &str) -> Option<String> {
         let dialect = PostgreSqlDialect {};
         let mut statements = Parser::parse_sql(&dialect, sql).ok()?;
         if statements.len() != 1 {
@@ -801,7 +801,7 @@ impl SimpleQueryHandler for DatafusionBackend {
 
             let rows = stream::iter(vec![Ok(row)]);
             return Ok(vec![Response::Query(QueryResponse::new(field_infos, rows))]);
-        } else if let Some(var) = Self::parse_show_variable(trimmed) {
+        } else if let Some(var) = Self::parse_show_variable_name(trimmed) {
             if let Some(resp) = self.show_variable_response(&var.to_lowercase(), FieldFormat::Text)
             {
                 return Ok(vec![resp]);
@@ -821,7 +821,7 @@ impl SimpleQueryHandler for DatafusionBackend {
         let _ = self.register_session_user(client);
         let _ = self.register_current_user(client);
 
-        let exec_res = dispatch_query(&self.ctx, query, None, None, |ctx, sql, p, t| async move {
+        let dispatch_result = dispatch_query(&self.ctx, query, None, None, |ctx, sql, p, t| async move {
             let lsql = sql.to_lowercase();
             if lsql.contains("from users") {
                 let schema = Arc::new(Schema::new(vec![
@@ -842,7 +842,7 @@ impl SimpleQueryHandler for DatafusionBackend {
             }
         })
         .await;
-        let (results, schema) = match exec_res {
+        let (results, schema) = match dispatch_result {
             Ok(v) => v,
             Err(e) => {
                 if let Some(c) = &self.capture {
@@ -951,7 +951,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
             let row = encoder.take_row();
             let rows = stream::iter(vec![Ok(row)]);
             return Ok(Response::Query(QueryResponse::new(field_infos, rows)));
-        } else if let Some(var) = Self::parse_show_variable(sql_trim) {
+        } else if let Some(var) = Self::parse_show_variable_name(sql_trim) {
             if let Some(resp) = self.show_variable_response(
                 &var.to_lowercase(),
                 portal.result_column_format.format_for(0),
@@ -964,7 +964,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
         let _ = self.register_session_user(client);
         let _ = self.register_current_user(client);
 
-        let exec_res = dispatch_query(
+        let dispatch_result = dispatch_query(
             &self.ctx,
             portal.statement.statement.as_str(),
             Some(portal.parameters.clone()),
@@ -992,7 +992,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
             },
         )
         .await;
-        let (results, schema) = match exec_res {
+        let (results, schema) = match dispatch_result {
             Ok(v) => v,
             Err(e) => {
                 if let Some(c) = &self.capture {

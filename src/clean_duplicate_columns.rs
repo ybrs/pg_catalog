@@ -14,7 +14,7 @@ fn alias_projection(
     counter: &mut usize,
     alias_map: &mut HashMap<String, String>,
 ) {
-    let mut new_proj = Vec::new();
+    let mut aliased_projection = Vec::new();
     for item in &select.projection {
         match item {
             SelectItem::UnnamedExpr(expr) => match expr {
@@ -32,7 +32,7 @@ fn alias_projection(
                         // find the value "oid" and put it to name
                         alias_map.insert(alias.clone(), name.into());
 
-                        new_proj.push(SelectItem::ExprWithAlias {
+                        aliased_projection.push(SelectItem::ExprWithAlias {
                             expr: expr.clone(),
                             alias: Ident::new(alias),
                         });
@@ -52,7 +52,7 @@ fn alias_projection(
                         // find the value "oid" and put it to name
                         alias_map.insert(alias.clone(), name);
 
-                        new_proj.push(SelectItem::ExprWithAlias {
+                        aliased_projection.push(SelectItem::ExprWithAlias {
                             expr: expr.clone(),
                             alias: Ident::new(alias),
                         });
@@ -61,7 +61,7 @@ fn alias_projection(
                         let alias = format!("alias_{}", *counter);
                         *counter += 1;
                         alias_map.insert(alias.clone(), data_type.to_string().to_lowercase());
-                        new_proj.push(SelectItem::ExprWithAlias {
+                        aliased_projection.push(SelectItem::ExprWithAlias {
                             expr: expr.clone(),
                             alias: Ident::new(alias),
                         });
@@ -73,14 +73,14 @@ fn alias_projection(
                     let name = f.clone().name.to_string();
                     alias_map.insert(alias.clone(), name);
 
-                    new_proj.push(SelectItem::ExprWithAlias {
+                    aliased_projection.push(SelectItem::ExprWithAlias {
                         expr: expr.clone(),
                         alias: Ident::new(alias),
                     });
                 }
 
                 Expr::Wildcard(_) | Expr::QualifiedWildcard(_, _) => {
-                    new_proj.push(SelectItem::UnnamedExpr(expr.clone()));
+                    aliased_projection.push(SelectItem::UnnamedExpr(expr.clone()));
                 }
                 _ => {
                     let alias = format!("alias_{}", *counter);
@@ -97,19 +97,19 @@ fn alias_projection(
 
                     alias_map.insert(alias.clone(), name);
 
-                    new_proj.push(SelectItem::ExprWithAlias {
+                    aliased_projection.push(SelectItem::ExprWithAlias {
                         expr: expr.clone(),
                         alias: Ident::new(alias),
                     });
                 }
             },
-            _ => new_proj.push(item.clone()),
+            _ => aliased_projection.push(item.clone()),
         }
     }
-    select.projection = new_proj;
+    select.projection = aliased_projection;
 }
 
-fn walk_set_expr(
+fn alias_columns_in_set_expr(
     expr: &mut SetExpr,
     counter: &mut usize,
     alias_map: &mut HashMap<String, String>,
@@ -123,7 +123,7 @@ fn walk_set_expr(
             for table_with_joins in &mut select.from {
                 match &mut table_with_joins.relation {
                     TableFactor::Derived { subquery, .. } => {
-                        walk_query(subquery, counter, alias_map, depth + 1);
+                        alias_columns_in_query(subquery, counter, alias_map, depth + 1);
                     }
                     _ => {}
                 }
@@ -131,27 +131,27 @@ fn walk_set_expr(
         }
 
         SetExpr::SetOperation { left, right, .. } => {
-            walk_set_expr(left, counter, alias_map, depth);
-            walk_set_expr(right, counter, alias_map, depth);
+            alias_columns_in_set_expr(left, counter, alias_map, depth);
+            alias_columns_in_set_expr(right, counter, alias_map, depth);
         }
         SetExpr::Query(subquery) => {
-            walk_query(subquery, counter, alias_map, depth + 1);
+            alias_columns_in_query(subquery, counter, alias_map, depth + 1);
         }
         _ => {}
     }
 }
 
-fn walk_query(
+fn alias_columns_in_query(
     query: &mut Query,
     counter: &mut usize,
     alias_map: &mut HashMap<String, String>,
     depth: usize,
 ) {
-    walk_set_expr(&mut query.body, counter, alias_map, depth);
+    alias_columns_in_set_expr(&mut query.body, counter, alias_map, depth);
 
     if let Some(with) = &mut query.with {
         for cte in &mut with.cte_tables {
-            walk_query(&mut cte.query, counter, alias_map, depth + 1);
+            alias_columns_in_query(&mut cte.query, counter, alias_map, depth + 1);
         }
     }
 }
@@ -159,7 +159,7 @@ fn walk_query(
 /// Assign unique aliases to every projected column and return a map
 /// of alias to original name so duplicate column names do not confuse
 /// clients.
-pub fn alias_all_columns(sql: &str) -> Result<(String, HashMap<String, String>)> {
+pub fn alias_unnamed_columns(sql: &str) -> Result<(String, HashMap<String, String>)> {
     let dialect = PostgreSqlDialect {};
     let mut statements =
         Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
@@ -169,7 +169,7 @@ pub fn alias_all_columns(sql: &str) -> Result<(String, HashMap<String, String>)>
 
     let _ = visit_statements_mut(&mut statements, |stmt| {
         if let Statement::Query(query) = stmt {
-            walk_query(query, &mut counter, &mut alias_map, 0);
+            alias_columns_in_query(query, &mut counter, &mut alias_map, 0);
         }
         ControlFlow::<()>::Continue(())
     });
@@ -200,7 +200,7 @@ mod tests {
     }
 
     #[test]
-    fn test_alias_all_columns() -> Result<(), Box<dyn Error>> {
+    fn test_alias_unnamed_columns() -> Result<(), Box<dyn Error>> {
         let cases = vec![
             (
                 "SELECT t.id FROM foo",
@@ -290,7 +290,7 @@ mod tests {
         ];
 
         for (input, expected_substrings, expected_alias_map) in cases {
-            let (transformed, aliases) = alias_all_columns(input).unwrap();
+            let (transformed, aliases) = alias_unnamed_columns(input).unwrap();
             for expected in expected_substrings {
                 assert!(
                     transformed.contains(expected),

@@ -130,7 +130,7 @@ impl TableFunctionImpl for RegClassOidFunc {
 pub fn register_scalar_regclass_oid(ctx: &SessionContext) -> Result<()> {
     let ctx_arc = Arc::new(ctx.clone());
 
-    let fn_ = Arc::new(move |args: &[ColumnarValue]| -> Result<ColumnarValue> {
+    let lookup_oid_fn = Arc::new(move |args: &[ColumnarValue]| -> Result<ColumnarValue> {
         match &args[0] {
             ColumnarValue::Scalar(ScalarValue::Utf8(Some(name))) => {
                 let sql = format!(
@@ -230,7 +230,7 @@ pub fn register_scalar_regclass_oid(ctx: &SessionContext) -> Result<()> {
         vec![DataType::Utf8],
         DataType::Int64,
         Volatility::Immutable,
-        fn_,
+        lookup_oid_fn,
     );
     ctx.register_udf(udf);
     Ok(())
@@ -740,6 +740,148 @@ pub fn register_getdatabaseencoding(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
+/// pg_catalog.format(formatstr, ...args) -> text
+///
+/// PostgreSQL's `format()` string-formatting function. Implements the conversion
+/// specifiers used by the catalog views and the common cases:
+///
+/// * `%s` — the argument as a string (NULL renders as empty, per PostgreSQL),
+/// * `%I` — the argument as a quoted SQL identifier,
+/// * `%L` — the argument as a quoted SQL literal (NULL renders as `NULL`),
+/// * `%%` — a literal percent sign.
+///
+/// Arguments are consumed left to right (positional `%n$` specifiers are not
+/// supported — no catalog view uses them). Used by the `check_constraints` view
+/// (`format('%s IS NOT NULL', ...)`).
+pub fn register_format(ctx: &SessionContext) -> Result<()> {
+    use arrow::array::{ArrayRef, StringArray, StringBuilder};
+    use arrow::compute::cast;
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::{
+        ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, Volatility,
+    };
+    use std::sync::Arc;
+
+    /// Render one `format()` call given the format string and the already
+    /// string-coerced arguments (NULL = `None`) for a single row.
+    fn render_row(fmt: &str, args: &[Option<String>]) -> String {
+        let mut out = String::with_capacity(fmt.len());
+        let mut chars = fmt.chars().peekable();
+        let mut next_arg = 0usize;
+        while let Some(c) = chars.next() {
+            if c != '%' {
+                out.push(c);
+                continue;
+            }
+            match chars.next() {
+                Some('%') => out.push('%'),
+                Some('s') => {
+                    let v = args.get(next_arg).and_then(|o| o.clone());
+                    next_arg += 1;
+                    out.push_str(v.as_deref().unwrap_or(""));
+                }
+                Some('I') => {
+                    let v = args.get(next_arg).and_then(|o| o.clone()).unwrap_or_default();
+                    next_arg += 1;
+                    // Double-quote and escape embedded quotes (a safe superset of
+                    // PostgreSQL's "quote only if needed").
+                    out.push('"');
+                    out.push_str(&v.replace('"', "\"\""));
+                    out.push('"');
+                }
+                Some('L') => {
+                    let v = args.get(next_arg).and_then(|o| o.clone());
+                    next_arg += 1;
+                    match v {
+                        None => out.push_str("NULL"),
+                        Some(s) => {
+                            out.push('\'');
+                            out.push_str(&s.replace('\'', "''"));
+                            out.push('\'');
+                        }
+                    }
+                }
+                Some(other) => {
+                    // Unknown specifier: emit verbatim rather than failing.
+                    out.push('%');
+                    out.push(other);
+                }
+                None => out.push('%'),
+            }
+        }
+        out
+    }
+
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    struct Format {
+        sig: Signature,
+    }
+
+    impl ScalarUDFImpl for Format {
+        /// The function name.
+        fn name(&self) -> &str {
+            "format"
+        }
+        /// Variadic: a format string followed by any number of arguments.
+        fn signature(&self) -> &Signature {
+            &self.sig
+        }
+        /// Always text.
+        fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
+            Ok(DataType::Utf8)
+        }
+        /// Coerce every argument to a string column, then render each row.
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            let n = args.number_rows;
+            let arrays = ColumnarValue::values_to_arrays(&args.args)?;
+            if arrays.is_empty() {
+                return Err(DataFusionError::Internal(
+                    "format() requires at least the format string".to_string(),
+                ));
+            }
+            // Cast every column to Utf8 so we can read string values uniformly.
+            // A length-1 column is a broadcast scalar.
+            let cols: Vec<ArrayRef> = arrays
+                .iter()
+                .map(|a| cast(a, &DataType::Utf8))
+                .collect::<std::result::Result<_, _>>()?;
+            let as_str: Vec<&StringArray> = cols
+                .iter()
+                .map(|c| c.as_any().downcast_ref::<StringArray>().expect("cast to Utf8"))
+                .collect();
+
+            let val_at = |col: &StringArray, row: usize| -> Option<String> {
+                let idx = if col.len() == 1 { 0 } else { row };
+                if idx < col.len() && !col.is_null(idx) {
+                    Some(col.value(idx).to_string())
+                } else {
+                    None
+                }
+            };
+
+            let mut b = StringBuilder::new();
+            for row in 0..n {
+                match val_at(as_str[0], row) {
+                    None => b.append_null(), // NULL format string -> NULL result
+                    Some(fmt) => {
+                        let row_args: Vec<Option<String>> =
+                            as_str[1..].iter().map(|c| val_at(c, row)).collect();
+                        b.append_value(render_row(&fmt, &row_args));
+                    }
+                }
+            }
+            Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
+        }
+    }
+
+    let udf_impl = Format {
+        sig: Signature::variadic_any(Volatility::Immutable),
+    };
+    let udf = ScalarUDF::new_from_impl(udf_impl).with_aliases(["pg_catalog.format"]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
 /// pg_catalog.pg_relation_is_updatable(relation, include_triggers) -> int4
 ///
 /// Compatibility stub returning `0` (the bitmask for "not updatable"). The
@@ -872,12 +1014,12 @@ fn register_truetype_select(ctx: &SessionContext, qualified: &'static str) -> Re
         }
     }
 
-    let imp = TrueType {
+    let udf_impl = TrueType {
         qualified: qualified.to_string(),
         sig: Signature::one_of(vec![TypeSignature::Any(3)], Volatility::Immutable),
     };
     let bare = qualified.rsplit('.').next().unwrap_or(qualified);
-    let udf = ScalarUDF::new_from_impl(imp).with_aliases([bare]);
+    let udf = ScalarUDF::new_from_impl(udf_impl).with_aliases([bare]);
     ctx.register_udf(udf);
     Ok(())
 }
@@ -939,13 +1081,13 @@ fn register_bool_stub(
         }
     }
 
-    let imp = BoolStub {
+    let udf_impl = BoolStub {
         qualified: qualified.to_string(),
         value,
         sig: Signature::one_of(vec![TypeSignature::Any(arity)], Volatility::Stable),
     };
     let bare = qualified.rsplit('.').next().unwrap_or(qualified);
-    let udf = ScalarUDF::new_from_impl(imp).with_aliases([bare]);
+    let udf = ScalarUDF::new_from_impl(udf_impl).with_aliases([bare]);
     ctx.register_udf(udf);
     Ok(())
 }
@@ -992,12 +1134,12 @@ fn register_null_text_stub(
         }
     }
 
-    let imp = NullText {
+    let udf_impl = NullText {
         qualified: qualified.to_string(),
         sig: Signature::one_of(vec![TypeSignature::Any(arity)], Volatility::Stable),
     };
     let bare = qualified.rsplit('.').next().unwrap_or(qualified);
-    let udf = ScalarUDF::new_from_impl(imp).with_aliases([bare]);
+    let udf = ScalarUDF::new_from_impl(udf_impl).with_aliases([bare]);
     ctx.register_udf(udf);
     Ok(())
 }
@@ -1046,13 +1188,13 @@ fn register_int_stub(
         }
     }
 
-    let imp = IntStub {
+    let udf_impl = IntStub {
         qualified: qualified.to_string(),
         value,
         sig: Signature::one_of(vec![TypeSignature::Any(arity)], Volatility::Stable),
     };
     let bare = qualified.rsplit('.').next().unwrap_or(qualified);
-    let udf = ScalarUDF::new_from_impl(imp).with_aliases([bare]);
+    let udf = ScalarUDF::new_from_impl(udf_impl).with_aliases([bare]);
     ctx.register_udf(udf);
     Ok(())
 }
@@ -1120,20 +1262,20 @@ pub fn register_pg_options_to_table(ctx: &SessionContext) -> Result<()> {
                     Some(opts) => {
                         if let Some(strs) = opts.as_any().downcast_ref::<arrow::array::StringArray>()
                         {
-                            let sb = builder.values();
+                            let struct_builder = builder.values();
                             for j in 0..strs.len() {
                                 if strs.is_null(j) {
                                     continue;
                                 }
                                 let s = strs.value(j);
                                 let (name, value) = s.split_once('=').unwrap_or((s, ""));
-                                sb.field_builder::<StringBuilder>(0)
+                                struct_builder.field_builder::<StringBuilder>(0)
                                     .unwrap()
                                     .append_value(name);
-                                sb.field_builder::<StringBuilder>(1)
+                                struct_builder.field_builder::<StringBuilder>(1)
                                     .unwrap()
                                     .append_value(value);
-                                sb.append(true);
+                                struct_builder.append(true);
                             }
                         }
                         builder.append(true);
@@ -1211,18 +1353,18 @@ pub fn register_pg_expandarray(ctx: &SessionContext) -> Result<()> {
                         if let Some(strs) =
                             elems.as_any().downcast_ref::<arrow::array::StringArray>()
                         {
-                            let sb = builder.values();
+                            let struct_builder = builder.values();
                             for j in 0..strs.len() {
-                                let x = sb.field_builder::<StringBuilder>(0).unwrap();
+                                let x = struct_builder.field_builder::<StringBuilder>(0).unwrap();
                                 if strs.is_null(j) {
                                     x.append_null();
                                 } else {
                                     x.append_value(strs.value(j));
                                 }
-                                sb.field_builder::<Int32Builder>(1)
+                                struct_builder.field_builder::<Int32Builder>(1)
                                     .unwrap()
                                     .append_value((j + 1) as i32);
-                                sb.append(true);
+                                struct_builder.append(true);
                             }
                         }
                         builder.append(true);
@@ -1411,14 +1553,14 @@ fn register_has_privilege_stub(ctx: &SessionContext, base_name: &'static str) ->
         }
     }
 
-    let imp = HasPrivilege {
+    let udf_impl = HasPrivilege {
         qualified: format!("pg_catalog.{base_name}"),
         sig: Signature::one_of(
             vec![TypeSignature::Any(2), TypeSignature::Any(3)],
             Volatility::Stable,
         ),
     };
-    let udf = ScalarUDF::new_from_impl(imp).with_aliases([base_name]);
+    let udf = ScalarUDF::new_from_impl(udf_impl).with_aliases([base_name]);
     ctx.register_udf(udf);
     Ok(())
 }
@@ -1963,13 +2105,13 @@ pub fn register_scalar_array_to_string(ctx: &SessionContext) -> Result<()> {
                     build_list::<i64>(a.clone(), &delim, &null_rep)
                 }
                 ColumnarValue::Array(a) if a.as_any().is::<StringArray>() => {
-                    let sa = a.as_any().downcast_ref::<StringArray>().unwrap();
-                    let mut b = StringBuilder::with_capacity(sa.len(), 32 * sa.len());
-                    for i in 0..sa.len() {
-                        if sa.is_null(i) {
+                    let string_array = a.as_any().downcast_ref::<StringArray>().unwrap();
+                    let mut b = StringBuilder::with_capacity(string_array.len(), 32 * string_array.len());
+                    for i in 0..string_array.len() {
+                        if string_array.is_null(i) {
                             b.append_null();
                         } else {
-                            b.append_value(sa.value(i));
+                            b.append_value(string_array.value(i));
                         }
                     }
                     Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
@@ -1980,16 +2122,16 @@ pub fn register_scalar_array_to_string(ctx: &SessionContext) -> Result<()> {
                     }
 
                     let elem = list.value(0);
-                    let sa = elem.as_any().downcast_ref::<StringArray>().unwrap();
+                    let string_array = elem.as_any().downcast_ref::<StringArray>().unwrap();
 
                     let mut parts = Vec::new();
-                    for i in 0..sa.len() {
-                        if sa.is_null(i) {
+                    for i in 0..string_array.len() {
+                        if string_array.is_null(i) {
                             if let Some(ref nr) = null_rep {
                                 parts.push(nr.clone());
                             }
                         } else {
-                            parts.push(sa.value(i).to_string());
+                            parts.push(string_array.value(i).to_string());
                         }
                     }
                     let joined = parts.join(&delim);
@@ -2134,15 +2276,15 @@ pub fn register_pg_get_one(ctx: &SessionContext) -> Result<()> {
 
 #[derive(Debug)]
 struct ArrayCollector {
-    vals: Vec<ScalarValue>,
-    dt: DataType,
+    collected_values: Vec<ScalarValue>,
+    element_type: DataType,
 }
 
 impl ArrayCollector {
-    fn new(dt: DataType) -> Self {
+    fn new(element_type: DataType) -> Self {
         Self {
-            vals: Vec::new(),
-            dt,
+            collected_values: Vec::new(),
+            element_type,
         }
     }
 }
@@ -2151,8 +2293,8 @@ impl Accumulator for ArrayCollector {
     // ---------- state ----------
     fn state(&mut self) -> Result<Vec<ScalarValue>> {
         let arr = ScalarValue::new_list_from_iter(
-            self.vals.clone().into_iter(),
-            &self.dt,
+            self.collected_values.clone().into_iter(),
+            &self.element_type,
             /* contains_null = */ true,
         );
         Ok(vec![ScalarValue::List(arr)])
@@ -2161,7 +2303,7 @@ impl Accumulator for ArrayCollector {
     // ---------- input tuples ----------
     fn update_batch(&mut self, values: &[ArrayRef]) -> Result<()> {
         for i in 0..values[0].len() {
-            self.vals.push(ScalarValue::try_from_array(&values[0], i)?);
+            self.collected_values.push(ScalarValue::try_from_array(&values[0], i)?);
         }
         Ok(())
     }
@@ -2169,13 +2311,13 @@ impl Accumulator for ArrayCollector {
     // ---------- merge partial states ----------
     fn merge_batch(&mut self, states: &[ArrayRef]) -> Result<()> {
         for row in 0..states[0].len() {
-            let sv = ScalarValue::try_from_array(&states[0], row)?;
-            if let ScalarValue::List(arc) = sv {
+            let scalar = ScalarValue::try_from_array(&states[0], row)?;
+            if let ScalarValue::List(arc) = scalar {
                 let list = arc.as_ref();
                 for idx in 0..list.len() {
                     let inner = list.value(idx);
                     for j in 0..inner.len() {
-                        self.vals.push(ScalarValue::try_from_array(&inner, j)?);
+                        self.collected_values.push(ScalarValue::try_from_array(&inner, j)?);
                     }
                 }
             }
@@ -2186,8 +2328,8 @@ impl Accumulator for ArrayCollector {
     // ---------- final result ----------
     fn evaluate(&mut self) -> Result<ScalarValue> {
         let arr = ScalarValue::new_list_from_iter(
-            std::mem::take(&mut self.vals).into_iter(),
-            &self.dt,
+            std::mem::take(&mut self.collected_values).into_iter(),
+            &self.element_type,
             true,
         );
         Ok(ScalarValue::List(arr))
@@ -2196,7 +2338,7 @@ impl Accumulator for ArrayCollector {
     // ---------- memory footprint ----------
     fn size(&self) -> usize {
         // very rough – 24 bytes per value
-        24 * self.vals.len()
+        24 * self.collected_values.len()
     }
 }
 
@@ -2217,7 +2359,7 @@ pub fn register_pg_get_array(ctx: &SessionContext) -> Result<()> {
     use std::sync::Arc;
 
     // factory that builds a new accumulator for the concrete argument type
-    let factory = |args: AccumulatorArgs| -> Result<Box<dyn Accumulator>> {
+    let make_array_collector = |args: AccumulatorArgs| -> Result<Box<dyn Accumulator>> {
         // the datatype of the *first* argument as planned for this agg-call
         let dt = args
             .exprs
@@ -2236,7 +2378,7 @@ pub fn register_pg_get_array(ctx: &SessionContext) -> Result<()> {
         vec![element_dt],          // input types
         Arc::new(list_dt.clone()), // return type
         Volatility::Immutable,     // volatility
-        Arc::new(factory),         // accumulator factory
+        Arc::new(make_array_collector), // accumulator factory
         Arc::new(vec![list_dt]),   // state type
     );
 
@@ -2982,12 +3124,12 @@ pub fn register_pg_available_extension_versions(ctx: &SessionContext) -> Result<
     ]));
 
     #[derive(Debug)]
-    struct TableFn {
+    struct ExtensionVersionsTable {
         schema: SchemaRef,
     }
 
     #[async_trait]
-    impl TableProvider for TableFn {
+    impl TableProvider for ExtensionVersionsTable {
         fn schema(&self) -> SchemaRef {
             self.schema.clone()
         }
@@ -3013,16 +3155,16 @@ pub fn register_pg_available_extension_versions(ctx: &SessionContext) -> Result<
     }
 
     #[derive(Debug)]
-    struct Func {
+    struct ExtensionVersionsTableFunc {
         schema: SchemaRef,
     }
 
-    impl TableFunctionImpl for Func {
+    impl TableFunctionImpl for ExtensionVersionsTableFunc {
         fn call(&self, exprs: &[Expr]) -> Result<Arc<dyn TableProvider>> {
             if !exprs.is_empty() {
                 return plan_err!("pg_available_extension_versions takes no arguments");
             }
-            Ok(Arc::new(TableFn {
+            Ok(Arc::new(ExtensionVersionsTable {
                 schema: self.schema.clone(),
             }))
         }
@@ -3030,13 +3172,13 @@ pub fn register_pg_available_extension_versions(ctx: &SessionContext) -> Result<
 
     ctx.register_udtf(
         "pg_available_extension_versions",
-        Arc::new(Func {
+        Arc::new(ExtensionVersionsTableFunc {
             schema: schema.clone(),
         }),
     );
     ctx.register_udtf(
         "pg_catalog.pg_available_extension_versions",
-        Arc::new(Func { schema }),
+        Arc::new(ExtensionVersionsTableFunc { schema }),
     );
     Ok(())
 }
@@ -3058,12 +3200,12 @@ pub fn register_pg_get_keywords(ctx: &SessionContext) -> Result<()> {
     ]));
 
     #[derive(Debug)]
-    struct TableFn {
+    struct KeywordsTable {
         schema: SchemaRef,
     }
 
     #[async_trait]
-    impl TableProvider for TableFn {
+    impl TableProvider for KeywordsTable {
         fn schema(&self) -> SchemaRef {
             self.schema.clone()
         }
@@ -3089,16 +3231,16 @@ pub fn register_pg_get_keywords(ctx: &SessionContext) -> Result<()> {
     }
 
     #[derive(Debug)]
-    struct Func {
+    struct KeywordsTableFunc {
         schema: SchemaRef,
     }
 
-    impl TableFunctionImpl for Func {
+    impl TableFunctionImpl for KeywordsTableFunc {
         fn call(&self, exprs: &[Expr]) -> Result<Arc<dyn TableProvider>> {
             if !exprs.is_empty() {
                 return plan_err!("pg_get_keywords takes no arguments");
             }
-            Ok(Arc::new(TableFn {
+            Ok(Arc::new(KeywordsTable {
                 schema: self.schema.clone(),
             }))
         }
@@ -3106,11 +3248,11 @@ pub fn register_pg_get_keywords(ctx: &SessionContext) -> Result<()> {
 
     ctx.register_udtf(
         "pg_get_keywords",
-        Arc::new(Func {
+        Arc::new(KeywordsTableFunc {
             schema: schema.clone(),
         }),
     );
-    ctx.register_udtf("pg_catalog.pg_get_keywords", Arc::new(Func { schema }));
+    ctx.register_udtf("pg_catalog.pg_get_keywords", Arc::new(KeywordsTableFunc { schema }));
     Ok(())
 }
 

@@ -83,6 +83,38 @@ async fn test_pg_char_max_length_is_null() -> DFResult<()> {
 }
 
 #[tokio::test]
+async fn test_format_function() -> DFResult<()> {
+    let ctx = base_ctx().await?;
+    // %s substitution (the check_constraints view shape), %% literal, %I/%L
+    // quoting, and NULL %s rendering as empty string.
+    let b = ctx
+        .sql(
+            "SELECT \
+               format('%s IS NOT NULL', 'col') AS a, \
+               format('%I = %L', 'my col', 'x''y') AS b, \
+               format('100%%') AS c, \
+               format('[%s]', CAST(NULL AS TEXT)) AS d",
+        )
+        .await?
+        .collect()
+        .await?;
+    let col = |i: usize| {
+        b[0]
+            .column(i)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap()
+            .value(0)
+            .to_string()
+    };
+    assert_eq!(col(0), "col IS NOT NULL");
+    assert_eq!(col(1), "\"my col\" = 'x''y'");
+    assert_eq!(col(2), "100%");
+    assert_eq!(col(3), "[]", "NULL %s renders as empty string");
+    Ok(())
+}
+
+#[tokio::test]
 async fn test_pg_column_is_updatable_is_false() -> DFResult<()> {
     use arrow::array::BooleanArray;
     let ctx = base_ctx().await?;

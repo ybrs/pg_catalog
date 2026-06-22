@@ -10,12 +10,12 @@ use datafusion::execution::context::SessionContext;
 use serde::Deserialize;
 use serde_yaml;
 
-use crate::clean_duplicate_columns::alias_all_columns;
+use crate::clean_duplicate_columns::alias_unnamed_columns;
 use crate::replace::{
     alias_subquery_tables, regclass_udfs, replace_regclass, replace_set_command_with_namespace,
     rewrite_array_agg_varchar_cast, rewrite_array_subquery, rewrite_available_updates,
     rewrite_brace_array_literal, rewrite_char_cast, rewrite_name_cast, rewrite_oid_cast,
-    rewrite_remaining_oid_regclass_casts,
+    drop_redundant_oid_and_regclass_casts,
     rewrite_oidvector_any, rewrite_oidvector_unnest, rewrite_pg_custom_operator,
     rewrite_regoper_cast, rewrite_regoperator_cast, rewrite_regproc_cast,
     rewrite_exists_to_count, rewrite_information_schema_casts, rewrite_regprocedure_cast,
@@ -35,6 +35,7 @@ use zip::ZipArchive;
 
 use crate::user_functions::{
     register_array_agg, register_current_schema, register_current_schemas, register_encode,
+    register_format,
     register_getdatabaseencoding, register_has_database_privilege, register_has_privilege_family,
     register_has_schema_privilege, register_nameconcatoid, register_oidvector_to_array,
     register_acldefault, register_aclexplode, register_pg_char_max_length,
@@ -72,7 +73,7 @@ static SCHEMA_IPC: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/pg_catalog_data/postgres-schema-nightly-ipc.zip"
 ));
-use crate::db_table::{map_pg_type, ObservableMemTable, ScanTrace};
+use crate::db_table::{map_pg_type, ScanRecordingMemTable, ScanTrace};
 use crate::lazy_catalog::{register_lazy_catalog, LazyCatalogOptions, LazyCatalogSource};
 use crate::replace_any_group_by::rewrite_group_by_for_any;
 use datafusion::common::config::{ConfigExtension, ExtensionOptions};
@@ -341,15 +342,15 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     let sql = rewrite_xid_cast(&sql)?;
     let sql = rewrite_name_cast(&sql)?;
     let sql = rewrite_oid_cast(&sql)?;
-    // Drop the remaining non-literal `::regclass` / `::oid` casts the passes above
-    // don't cover (e.g. `c.oid::regclass`, `proargtypes::oid`).
-    let sql = rewrite_remaining_oid_regclass_casts(&sql)?;
+    // Drop value-preserving `::regclass` / `::oid` / `::oid[]` casts on column
+    // expressions (e.g. `c.oid::regclass`, `proargtypes::oid`, `proargtypes::oid[]`).
+    let sql = drop_redundant_oid_and_regclass_casts(&sql)?;
     let sql = rewrite_oidvector_unnest(&sql)?;
     let sql = rewrite_oidvector_any(&sql)?;
     let sql = rewrite_array_agg_varchar_cast(&sql)?;
     let sql = rewrite_tuple_equality(&sql)?;
     let sql = alias_subquery_tables(&sql)?;
-    let (sql, aliases) = alias_all_columns(&sql)?;
+    let (sql, aliases) = alias_unnamed_columns(&sql)?;
     let sql = rewrite_subquery_as_cte(&sql);
 
     log::debug!("before group by {}", sql);
@@ -358,11 +359,11 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     return Ok((sql, aliases));
 }
 
-pub async fn execute_sql_inner(
+pub async fn rewrite_and_execute_sql(
     ctx: &SessionContext,
     sql: &str,
-    vec: Option<Vec<Option<Bytes>>>,
-    vec0: Option<Vec<Type>>,
+    param_values: Option<Vec<Option<Bytes>>>,
+    param_types: Option<Vec<Type>>,
 ) -> datafusion::error::Result<(Vec<RecordBatch>, Arc<Schema>)> {
     log::debug!("input sql {:?}", sql);
 
@@ -379,7 +380,7 @@ pub async fn execute_sql_inner(
     // `(SELECT count(*) ...) > 0` scalar subquery it can plan.
     let sql = rewrite_exists_to_count(&sql)?;
 
-    let df = if let (Some(params), Some(types)) = (vec, vec0) {
+    let df = if let (Some(params), Some(types)) = (param_values, param_types) {
         log::debug!("params {:?}", params);
         print_params(&params);
 
@@ -468,11 +469,11 @@ pub async fn execute_sql_inner(
 pub async fn execute_sql(
     ctx: &SessionContext,
     sql: &str,
-    vec: Option<Vec<Option<Bytes>>>,
-    vec0: Option<Vec<Type>>,
+    param_values: Option<Vec<Option<Bytes>>>,
+    param_types: Option<Vec<Type>>,
 ) -> datafusion::error::Result<(Vec<RecordBatch>, Arc<Schema>)> {
-    let params_for_log = vec.clone();
-    match execute_sql_inner(ctx, sql, vec, vec0).await {
+    let params_for_log = param_values.clone();
+    match rewrite_and_execute_sql(ctx, sql, param_values, param_types).await {
         Ok(v) => Ok(v),
         Err(e) => {
             log::error!("exec_error query: {:?}", sql);
@@ -1038,7 +1039,7 @@ async fn register_catalogs_from_schemas(
                 let table_name = table.clone();
                 log::debug!("-- table {:?}", &table);
 
-                let base = ObservableMemTable::new(table_name, schema_ref, log.clone(), batches);
+                let base = ScanRecordingMemTable::new(table_name, schema_ref, log.clone(), batches);
                 let provider: Arc<dyn datafusion::datasource::TableProvider> = Arc::new(base);
                 schema_provider.register_table(table, provider)?;
             }
@@ -1160,10 +1161,10 @@ async fn build_base_session_context(
     current_schemas_getter: Option<Arc<dyn Fn(&SessionContext) -> Vec<String> + Send + Sync>>,
     lazy_catalog: Option<(Arc<dyn LazyCatalogSource>, LazyCatalogOptions)>,
 ) -> datafusion::error::Result<(SessionContext, Arc<Mutex<Vec<ScanTrace>>>)> {
-    let _current_schemas_getter: Arc<dyn Fn(&SessionContext) -> Vec<String> + Send + Sync> =
+    let current_schemas_fn: Arc<dyn Fn(&SessionContext) -> Vec<String> + Send + Sync> =
         current_schemas_getter.unwrap_or_else(|| Arc::new(default_current_schemas));
 
-    let log: Arc<Mutex<Vec<ScanTrace>>> = Arc::new(Mutex::new(Vec::new()));
+    let scan_traces: Arc<Mutex<Vec<ScanTrace>>> = Arc::new(Mutex::new(Vec::new()));
 
     let schemas = parse_schema(schema_path);
     let mut session_config = datafusion::execution::context::SessionConfig::new()
@@ -1175,7 +1176,7 @@ async fn build_base_session_context(
 
     let ctx: SessionContext = SessionContext::new_with_config(session_config);
     let pending_views =
-        register_catalogs_from_schemas(&ctx, schemas, default_catalog, log.clone()).await?;
+        register_catalogs_from_schemas(&ctx, schemas, default_catalog, scan_traces.clone()).await?;
 
     for f in regclass_udfs(&ctx) {
         ctx.register_udf(f);
@@ -1194,8 +1195,8 @@ async fn build_base_session_context(
         Arc::new(crate::user_functions::RegClassOidFunc),
     );
 
-    register_current_schema(&ctx, _current_schemas_getter.clone())?;
-    register_current_schemas(&ctx, _current_schemas_getter.clone())?;
+    register_current_schema(&ctx, current_schemas_fn.clone())?;
+    register_current_schemas(&ctx, current_schemas_fn.clone())?;
 
     register_scalar_format_type(&ctx)?;
     register_scalar_pg_get_expr(&ctx)?;
@@ -1220,6 +1221,7 @@ async fn build_base_session_context(
     register_getdatabaseencoding(&ctx)?;
     register_pg_relation_is_updatable(&ctx)?;
     register_pg_column_is_updatable(&ctx)?;
+    register_format(&ctx)?;
     register_pg_char_max_length(&ctx)?;
     register_pg_char_octet_length(&ctx)?;
     register_pg_index_position(&ctx)?;
@@ -1263,7 +1265,7 @@ async fn build_base_session_context(
 
     // println!("Current catalog: {}", default_catalog);
 
-    Ok((ctx, log))
+    Ok((ctx, scan_traces))
 }
 
 #[cfg(test)]

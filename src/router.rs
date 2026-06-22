@@ -81,9 +81,9 @@ fn qualify_factor(ctx: &SessionContext, factor: &mut TableFactor) {
 }
 
 /// Walks a `TableWithJoins` and qualifies catalog table names in all joins.
-fn qualify_table_with_joins(ctx: &SessionContext, twj: &mut TableWithJoins) {
-    qualify_factor(ctx, &mut twj.relation);
-    for join in &mut twj.joins {
+fn qualify_table_with_joins(ctx: &SessionContext, table_with_joins: &mut TableWithJoins) {
+    qualify_factor(ctx, &mut table_with_joins.relation);
+    for join in &mut table_with_joins.joins {
         qualify_factor(ctx, &mut join.relation);
     }
 }
@@ -241,11 +241,14 @@ fn factor_has_catalog(ctx: &SessionContext, factor: &TableFactor) -> bool {
 }
 
 /// Check whether any table in a join tree references catalog tables.
-fn table_with_joins_contains_catalog(ctx: &SessionContext, twj: &TableWithJoins) -> bool {
-    if factor_has_catalog(ctx, &twj.relation) {
+fn table_with_joins_contains_catalog(
+    ctx: &SessionContext,
+    table_with_joins: &TableWithJoins,
+) -> bool {
+    if factor_has_catalog(ctx, &table_with_joins.relation) {
         return true;
     }
-    for join in &twj.joins {
+    for join in &table_with_joins.joins {
         if factor_has_catalog(ctx, &join.relation) {
             return true;
         }
@@ -338,8 +341,8 @@ where
 {
     if is_catalog_query(ctx, sql)? {
         debug!("is_catalog_query True");
-        let qualified = qualify_catalog_tables(ctx, sql)?;
-        execute_sql(ctx, &qualified, params, param_types).await
+        let qualified_sql = qualify_catalog_tables(ctx, sql)?;
+        execute_sql(ctx, &qualified_sql, params, param_types).await
     } else {
         debug!("is_catalog_query False");
         handler(ctx, sql, params, param_types).await

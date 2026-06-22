@@ -103,10 +103,10 @@ pub async fn register_user_database(ctx: &SessionContext, database_name: &str) -
         .await?
         .with_param_values(vec![("database_name", ScalarValue::from(database_name))])?;
     if df.count().await? == 0 {
-        let getiddf = ctx
+        let next_oid_df = ctx
             .sql("select max(oid)+1 from pg_catalog.pg_database")
             .await?;
-        let batches = getiddf.collect().await?;
+        let batches = next_oid_df.collect().await?;
         let array = batches[0]
             .column(0)
             .as_any()
