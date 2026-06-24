@@ -1,8 +1,7 @@
 public:
   pg_catalog:
     pg_config:
-      type: view
-      view_sql: " SELECT name,\n    setting\n   FROM pg_config() pg_config(name, setting);"
+      type: system_catalog
       schema:
         name: varchar(256)
         setting: varchar(256)

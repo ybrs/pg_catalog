@@ -1,10 +1,7 @@
 public:
   pg_catalog:
     pg_ident_file_mappings:
-      type: view
-      view_sql: " SELECT map_number,\n    file_name,\n    line_number,\n    map_name,\n\
-        \    sys_name,\n    pg_username,\n    error\n   FROM pg_ident_file_mappings()\
-        \ a(map_number, file_name, line_number, map_name, sys_name, pg_username, error);"
+      type: system_catalog
       schema:
         map_number: int
         file_name: varchar(256)

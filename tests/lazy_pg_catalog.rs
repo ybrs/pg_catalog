@@ -7,8 +7,9 @@ use arrow::array::Array;
 use datafusion::error::{DataFusionError, Result as DFResult};
 use datafusion_pg_catalog::{
     get_base_session_context, get_base_session_context_with_lazy_catalog, register_lazy_catalog,
-    register_user_database_with_callback, ColumnSpec, DatabaseDef, LazyCatalogOptions,
-    LazyCatalogSource, LazyDatabaseRow, RelationDef, RelationKind, SchemaDef,
+    register_user_database_with_callback, ColumnSpec, ConfigSettingDef, DatabaseDef,
+    LazyCatalogOptions, LazyCatalogSource, LazyDatabaseRow, RelationDef, RelationKind, SchemaDef,
+    SettingDef,
 };
 
 /// Collect a single-column `StringArray` result into a `Vec<String>`.
@@ -825,5 +826,161 @@ async fn test_lazy_catalog_duplicate_relation_errors() -> DFResult<()> {
         msg.contains("duplicate") && msg.contains("pg_class"),
         "expected a duplicate-pg_class error, got: {msg}"
     );
+    Ok(())
+}
+
+/// A source that contributes only `pg_config` settings (nothing else), used to
+/// prove the `config()` callback overrides and extends the built-in defaults.
+struct ConfigSource;
+
+impl LazyCatalogSource for ConfigSource {
+    fn databases(&self, _callback: &mut dyn FnMut(Vec<DatabaseDef>)) -> DFResult<()> {
+        Ok(())
+    }
+    fn schemas(&self, _database: &str, _callback: &mut dyn FnMut(Vec<SchemaDef>)) -> DFResult<()> {
+        Ok(())
+    }
+    fn relations(
+        &self,
+        _database: &str,
+        _schema: &str,
+        _callback: &mut dyn FnMut(Vec<RelationDef>),
+    ) -> DFResult<()> {
+        Ok(())
+    }
+    fn columns(
+        &self,
+        _database: &str,
+        _schema: &str,
+        _relation: &str,
+        _callback: &mut dyn FnMut(Vec<ColumnSpec>),
+    ) -> DFResult<()> {
+        Ok(())
+    }
+    fn config(&self, callback: &mut dyn FnMut(Vec<ConfigSettingDef>)) -> DFResult<()> {
+        callback(vec![
+            // Replaces the built-in VERSION (same name = override).
+            ConfigSettingDef { name: "VERSION".into(), setting: "riffq 1.0".into() },
+            // A brand-new setting not present in the built-ins.
+            ConfigSettingDef { name: "EMBEDDER".into(), setting: "riffq".into() },
+        ]);
+        Ok(())
+    }
+    fn settings(&self, callback: &mut dyn FnMut(Vec<SettingDef>)) -> DFResult<()> {
+        callback(vec![
+            // Override a session-mutable parameter's live value.
+            SettingDef { name: "search_path".into(), setting: "tenant42, public".into() },
+        ]);
+        Ok(())
+    }
+}
+
+#[tokio::test]
+async fn test_pg_config_callback_overrides_and_extends() -> DFResult<()> {
+    let (ctx, _log) = get_base_session_context(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
+        None,
+    )
+    .await?;
+    register_lazy_catalog(&ctx, Arc::new(ConfigSource), LazyCatalogOptions::all()).await?;
+
+    // The override replaces the built-in VERSION row (not duplicated).
+    let version = string_column(
+        &ctx,
+        "SELECT setting FROM pg_catalog.pg_config WHERE name = 'VERSION'",
+    )
+    .await?;
+    assert_eq!(version, vec!["riffq 1.0".to_string()], "VERSION overridden once");
+
+    // The new setting is added.
+    let embedder = string_column(
+        &ctx,
+        "SELECT setting FROM pg_catalog.pg_config WHERE name = 'EMBEDDER'",
+    )
+    .await?;
+    assert_eq!(embedder, vec!["riffq".to_string()]);
+
+    // A built-in the callback didn't touch (BINDIR) is still present.
+    let bindir = string_column(
+        &ctx,
+        "SELECT setting FROM pg_catalog.pg_config WHERE name = 'BINDIR'",
+    )
+    .await?;
+    assert_eq!(bindir.len(), 1, "untouched built-in BINDIR preserved");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_pg_settings_callback_overrides_value() -> DFResult<()> {
+    let (ctx, _log) = get_base_session_context(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
+        None,
+    )
+    .await?;
+    register_lazy_catalog(&ctx, Arc::new(ConfigSource), LazyCatalogOptions::all()).await?;
+
+    // The callback's live value for search_path replaces the snapshot row.
+    let search_path = string_column(
+        &ctx,
+        "SELECT setting FROM pg_catalog.pg_settings WHERE name = 'search_path'",
+    )
+    .await?;
+    assert_eq!(search_path, vec!["tenant42, public".to_string()]);
+
+    // A parameter the callback didn't supply keeps its built-in snapshot value.
+    let max_conn = string_column(
+        &ctx,
+        "SELECT setting FROM pg_catalog.pg_settings WHERE name = 'max_connections'",
+    )
+    .await?;
+    assert_eq!(max_conn.len(), 1, "untouched built-in max_connections preserved");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_pg_settings_defaults_without_callback() -> DFResult<()> {
+    // With no lazy source, pg_settings serves its built-in snapshot as a table.
+    let (ctx, _log) = get_base_session_context(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
+        None,
+    )
+    .await?;
+    let rows = ctx
+        .sql("SELECT count(*) FROM pg_catalog.pg_settings")
+        .await?
+        .collect()
+        .await?;
+    let n = rows[0]
+        .column(0)
+        .as_any()
+        .downcast_ref::<arrow::array::Int64Array>()
+        .unwrap()
+        .value(0);
+    assert!(n > 300, "expected the full settings snapshot, got {n}");
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_pg_config_defaults_without_callback() -> DFResult<()> {
+    // With no lazy source, pg_config serves its built-in defaults as a table.
+    let (ctx, _log) = get_base_session_context(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
+        None,
+    )
+    .await?;
+    let version = string_column(
+        &ctx,
+        "SELECT setting FROM pg_catalog.pg_config WHERE name = 'VERSION'",
+    )
+    .await?;
+    assert_eq!(version, vec!["PostgreSQL 17.4".to_string()]);
     Ok(())
 }

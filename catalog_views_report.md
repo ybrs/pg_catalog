@@ -2,16 +2,16 @@
 
 Ran every `type: view` from `pg_catalog_data/pg_schema` against the live engine and recorded whether DataFusion can execute its `view_sql`.
 
-**143 views total** 65 information_schema, 78 pg_catalog.
+**136 views total** 65 information_schema, 71 pg_catalog.
 
 ## Outcome by category
 
 | Category | Count |
 |---|---|
-| success | 82 |
-| missing_table | 37 |
+| success | 83 |
+| missing_table | 30 |
 | missing_function | 16 |
-| other_error | 5 |
+| other_error | 4 |
 | missing_column | 2 |
 | parse_error | 1 |
 
@@ -19,8 +19,8 @@ Ran every `type: view` from `pg_catalog_data/pg_schema` against the live engine 
 
 | Schema | success | missing_table | missing_function | other_error | missing_column | parse_error |
 |---|---|---|---|---|---|---|
-| information_schema | 61 | 1 | 0 | 3 | 0 | 0 |
-| pg_catalog | 21 | 36 | 16 | 2 | 2 | 1 |
+| information_schema | 62 | 1 | 0 | 2 | 0 | 0 |
+| pg_catalog | 21 | 29 | 16 | 2 | 2 | 1 |
 
 ## Missing functions (most impactful to implement)
 
@@ -92,6 +92,7 @@ Ran every `type: view` from `pg_catalog_data/pg_schema` against the live engine 
 | information_schema.routines | success |  |
 | information_schema.schemata | success |  |
 | information_schema.sequences | success |  |
+| information_schema.table_constraints | success |  |
 | information_schema.table_privileges | success |  |
 | information_schema.tables | success |  |
 | information_schema.transforms | success |  |
@@ -128,17 +129,12 @@ Ran every `type: view` from `pg_catalog_data/pg_schema` against the live engine 
 | pg_catalog.pg_views | success |  |
 | information_schema.constraint_column_usage | other_error | Internal error: Assertion failed: col.name() == matching_name: Input field name nspname does not match with the projection expression nspname_1. This issue was  |
 | information_schema.element_types | other_error | Error during planning: Too many columns! The subquery should only return one column: subq0_t.object_schema, subq0_t.object_name, subq0_t.object_type, subq0_t.dt |
-| information_schema.table_constraints | other_error | Invalid (non-executable) plan after Analyzer caused by Error during planning: Correlated scalar subquery must be aggregated to return at most one row |
 | information_schema.user_mapping_options | missing_table | Error during planning: table function 'pg_options_to_table' not found |
 | pg_catalog.pg_available_extension_versions | other_error | Error during planning: Column in SELECT must be in GROUP BY or an aggregate function: While expanding wildcard, column "x.extname" must appear in the GROUP BY c |
-| pg_catalog.pg_available_extensions | missing_table | Error during planning: table function 'pg_catalog' not found |
 | pg_catalog.pg_backend_memory_contexts | missing_table | Error during planning: table function 'pg_get_backend_memory_contexts' not found |
-| pg_catalog.pg_config | missing_table | Error during planning: table function 'pg_catalog' not found |
 | pg_catalog.pg_cursors | missing_table | Error during planning: table function 'pg_cursor' not found |
 | pg_catalog.pg_file_settings | missing_table | Error during planning: table function 'pg_show_all_file_settings' not found |
 | pg_catalog.pg_group | missing_column | Schema error: No field named pg_authid.oid. Valid fields are subq0_t.admin_option, subq0_t.grantor, subq0_t.inherit_option, subq0_t.member, subq0_t.oid, subq0_t |
-| pg_catalog.pg_hba_file_rules | missing_table | Error during planning: table function 'pg_catalog' not found |
-| pg_catalog.pg_ident_file_mappings | missing_table | Error during planning: table function 'pg_catalog' not found |
 | pg_catalog.pg_locks | missing_table | Error during planning: table function 'pg_lock_status' not found |
 | pg_catalog.pg_policies | other_error | This feature is not implemented: Unsupported SQL type name |
 | pg_catalog.pg_prepared_statements | missing_table | Error during planning: table function 'pg_prepared_statement' not found |
@@ -148,7 +144,6 @@ Ran every `type: view` from `pg_catalog_data/pg_schema` against the live engine 
 | pg_catalog.pg_replication_slots | missing_table | Error during planning: table function 'pg_get_replication_slots' not found |
 | pg_catalog.pg_seclabels | missing_function | function pg_table_is_visible() does not exist |
 | pg_catalog.pg_sequences | missing_function | function pg_sequence_last_value() does not exist |
-| pg_catalog.pg_settings | missing_table | Error during planning: table function 'pg_show_all_settings' not found |
 | pg_catalog.pg_shmem_allocations | missing_table | Error during planning: table function 'pg_get_shmem_allocations' not found |
 | pg_catalog.pg_stat_activity | missing_table | Error during planning: table function 'pg_stat_get_activity' not found |
 | pg_catalog.pg_stat_all_indexes | missing_function | function pg_stat_get_numscans() does not exist |
@@ -184,6 +179,4 @@ Ran every `type: view` from `pg_catalog_data/pg_schema` against the live engine 
 | pg_catalog.pg_stats | missing_function | function row_security_active() does not exist |
 | pg_catalog.pg_stats_ext | missing_column | Schema error: No field named s.stxkeys. |
 | pg_catalog.pg_stats_ext_exprs | missing_function | function pg_get_statisticsobjdef_expressions() does not exist |
-| pg_catalog.pg_timezone_abbrevs | missing_table | Error during planning: table function 'pg_catalog' not found |
-| pg_catalog.pg_timezone_names | missing_table | Error during planning: table function 'pg_catalog' not found |
 | pg_catalog.pg_wait_events | missing_table | Error during planning: table function 'pg_get_wait_events' not found |

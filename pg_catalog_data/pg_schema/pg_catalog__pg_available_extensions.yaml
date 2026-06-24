@@ -1,10 +1,7 @@
 public:
   pg_catalog:
     pg_available_extensions:
-      type: view
-      view_sql: " SELECT e.name,\n    e.default_version,\n    x.extversion AS installed_version,\n\
-        \    e.comment\n   FROM pg_available_extensions() e(name, default_version,\
-        \ comment)\n     LEFT JOIN pg_extension x ON e.name = x.extname;"
+      type: system_catalog
       schema:
         name: varchar(64)
         default_version: varchar(256)

@@ -2,7 +2,7 @@
 
 Generated from `analyze_catalog_views.py` against the pg_catalog engine on DataFusion 54.
 
-**61 working, 4 to do, 65 total.**
+**62 working, 3 to do, 65 total.**
 
 "Working" = the view SQL plans & executes on our engine (can be promoted to a live view). Today these are still served as materialized-snapshot MemTables.
 
@@ -10,7 +10,6 @@ Generated from `analyze_catalog_views.py` against the pg_catalog engine on DataF
 | View | Status | What's needed |
 |---|---|---|
 | `element_types` | other_error | multi-column `(nspname, objname, objtype, objdtdid) IN (SELECT ... FROM data_type_privileges)` row-constructor subquery — DataFusion rejects it ("subquery should only return one column"). (Earlier `::oid[]` and `COALESCE` blockers are now fixed.) |
-| `table_constraints` | other_error | correlated scalar subquery must be aggregated to ≤1 row |
 | `constraint_column_usage` | other_error | upstream DataFusion projection-name assertion (`nspname` vs `nspname_1`) |
 | `user_mapping_options` | missing_table | `LATERAL pg_options_to_table(x) opts(c1,c2)` set-returning function in the FROM clause — needs a FROM-clause unnest rewrite (the SRF rewrite only covers projection/aliased forms). View is empty in practice (no user mappings). |
 
@@ -65,6 +64,7 @@ Generated from `analyze_catalog_views.py` against the pg_catalog engine on DataF
 | `routines` |
 | `schemata` |
 | `sequences` |
+| `table_constraints` |
 | `table_privileges` |
 | `tables` |
 | `transforms` |
@@ -82,11 +82,17 @@ Generated from `analyze_catalog_views.py` against the pg_catalog engine on DataF
 ## Grouped by what's needed
 
 - **multi-column `(...) IN (SELECT ...)` row-constructor subquery** — 1: `element_types`
-- **correlated scalar subquery must be aggregated to ≤1 row** — 1: `table_constraints`
 - **upstream DataFusion projection-name assertion** — 1: `constraint_column_usage`
 - **`LATERAL srf(...)` set-returning function in FROM** — 1: `user_mapping_options`
 
 ## Recently fixed
+- `table_constraints` — two fixes: (1) a wire-layer bug where the server emitted one result set
+  per Arrow RecordBatch, so multi-batch results (every `UNION` view, and any result over ~8192
+  rows) reached the client truncated to a single batch — now all batches are concatenated into
+  one result set (`server.rs`); and (2) its `nulls_distinct` correlated scalar subquery (which
+  DataFusion 54 can't decorrelate) replaced with the constant `'YES'` — the default for unique
+  constraints. NOTE: the wire fix silently corrected *every* `UNION` view that was returning
+  truncated rows while still reporting "success".
 - `parameters` — `proargtypes::oid[]` rewritten to `::text[]` (`rewrite_oid_array_cast_to_text_array`)
   so the planner accepts it and `COALESCE(proallargtypes, ...)` agrees on element type; plus a
   `pg_get_function_arg_default` NULL stub. (Same `::oid[]` fix also unblocked the cast layer of

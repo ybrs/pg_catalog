@@ -50,6 +50,32 @@ pub type Row = std::collections::BTreeMap<String, Value>;
 /// PostgreSQL-compatible values. The `oid` is user-supplied.
 pub type DatabaseDef = LazyDatabaseRow;
 
+/// One `pg_config` build/install setting fed into `pg_catalog.pg_config`
+/// (the static `name`/`setting` pairs the `pg_config` CLI reports). An embedder
+/// supplies these to override or extend the built-in defaults; a setting whose
+/// `name` matches a built-in one replaces it.
+#[derive(Clone, Debug)]
+pub struct ConfigSettingDef {
+    /// The setting name (`pg_config.name`), e.g. `VERSION` or `BINDIR`.
+    pub name: String,
+    /// The setting value (`pg_config.setting`).
+    pub setting: String,
+}
+
+/// One `pg_settings` runtime configuration parameter (GUC) fed into
+/// `pg_catalog.pg_settings`. An embedder supplies these to override the built-in
+/// snapshot — typically the session-mutable settings whose live value it knows
+/// (e.g. `search_path`, `TimeZone`). A setting whose `name` matches a built-in
+/// one replaces that whole row, so the metadata columns of an overridden row are
+/// left NULL unless re-supplied.
+#[derive(Clone, Debug)]
+pub struct SettingDef {
+    /// The parameter name (`pg_settings.name`), e.g. `search_path`.
+    pub name: String,
+    /// The parameter's current value (`pg_settings.setting`).
+    pub setting: String,
+}
+
 /// One user schema fed into `pg_catalog.pg_namespace`. `oid` is user-supplied.
 #[derive(Clone, Debug)]
 pub struct SchemaDef {
@@ -218,6 +244,27 @@ pub trait LazyCatalogSource: Send + Sync {
         relation: &str,
         callback: &mut dyn FnMut(Vec<ColumnSpec>),
     ) -> DFResult<()>;
+
+    /// `pg_config` build/install settings -> `pg_catalog.pg_config`.
+    ///
+    /// Has a default that contributes nothing, so existing implementors keep the
+    /// built-in `pg_config` defaults. Override it to report the embedding
+    /// application's own build settings (e.g. its real `VERSION`); a setting
+    /// whose `name` matches a built-in one replaces it.
+    fn config(&self, _callback: &mut dyn FnMut(Vec<ConfigSettingDef>)) -> DFResult<()> {
+        Ok(())
+    }
+
+    /// `pg_settings` runtime parameters -> `pg_catalog.pg_settings`.
+    ///
+    /// Has a default that contributes nothing, so existing implementors keep the
+    /// built-in settings snapshot. Override it to report the embedding
+    /// application's live values for session-mutable parameters (e.g.
+    /// `search_path`, `TimeZone`); a setting whose `name` matches a built-in one
+    /// replaces it.
+    fn settings(&self, _callback: &mut dyn FnMut(Vec<SettingDef>)) -> DFResult<()> {
+        Ok(())
+    }
 }
 
 /// Identifies which catalog table a [`LazyCatalogTableProvider`] serves.
@@ -233,6 +280,10 @@ pub enum CatalogTable {
     PgType,
     /// `pg_catalog.pg_attribute`.
     PgAttribute,
+    /// `pg_catalog.pg_config`.
+    PgConfig,
+    /// `pg_catalog.pg_settings`.
+    PgSettings,
     /// `information_schema.tables`.
     InformationSchemaTables,
     /// `information_schema.columns`.
@@ -251,6 +302,8 @@ impl CatalogTable {
             CatalogTable::PgClass => ("pg_catalog", "pg_class"),
             CatalogTable::PgType => ("pg_catalog", "pg_type"),
             CatalogTable::PgAttribute => ("pg_catalog", "pg_attribute"),
+            CatalogTable::PgConfig => ("pg_catalog", "pg_config"),
+            CatalogTable::PgSettings => ("pg_catalog", "pg_settings"),
             CatalogTable::InformationSchemaTables => ("information_schema", "tables"),
             CatalogTable::InformationSchemaColumns => ("information_schema", "columns"),
             CatalogTable::InformationSchemaSchemata => ("information_schema", "schemata"),
@@ -274,6 +327,8 @@ impl CatalogTable {
             CatalogTable::PgClass => &["relnamespace", "relname"],
             CatalogTable::PgType => &["typnamespace", "typname"],
             CatalogTable::PgAttribute => &["attrelid", "attname"],
+            CatalogTable::PgConfig => &["name"],
+            CatalogTable::PgSettings => &["name"],
             CatalogTable::InformationSchemaTables => {
                 &["table_catalog", "table_schema", "table_name"]
             }
@@ -313,6 +368,20 @@ fn fetch_relations(
     Ok(out)
 }
 
+/// Pull the `pg_config` settings from `source`.
+fn fetch_config(source: &dyn LazyCatalogSource) -> DFResult<Vec<ConfigSettingDef>> {
+    let mut out = Vec::new();
+    source.config(&mut |rows| out.extend(rows))?;
+    Ok(out)
+}
+
+/// Pull the `pg_settings` parameters from `source`.
+fn fetch_settings(source: &dyn LazyCatalogSource) -> DFResult<Vec<SettingDef>> {
+    let mut out = Vec::new();
+    source.settings(&mut |rows| out.extend(rows))?;
+    Ok(out)
+}
+
 /// Pull the columns of `database`.`schema`.`relation` from `source`.
 fn fetch_columns(
     source: &dyn LazyCatalogSource,
@@ -333,6 +402,25 @@ fn string_list_to_json(items: &Option<Vec<String>>) -> Value {
         Some(items) => Value::Array(items.iter().map(|s| json!(s)).collect()),
         None => Value::Null,
     }
+}
+
+/// Build one `pg_catalog.pg_config` row (a `name`/`setting` pair) from a
+/// [`ConfigSettingDef`].
+pub fn build_pg_config_row(def: &ConfigSettingDef) -> Row {
+    let mut row = Row::new();
+    row.insert("name".to_string(), json!(def.name));
+    row.insert("setting".to_string(), json!(def.setting));
+    row
+}
+
+/// Build one `pg_catalog.pg_settings` row from a [`SettingDef`]. Only `name` and
+/// `setting` are populated; the remaining metadata columns are left to default to
+/// NULL (they describe the parameter, not its value).
+pub fn build_pg_settings_row(def: &SettingDef) -> Row {
+    let mut row = Row::new();
+    row.insert("name".to_string(), json!(def.name));
+    row.insert("setting".to_string(), json!(def.setting));
+    row
 }
 
 /// Build one `pg_catalog.pg_database` row from a [`DatabaseDef`], filling unset
@@ -549,6 +637,16 @@ pub fn build_info_schemata_row(catalog: &str, def: &SchemaDef) -> Row {
 pub fn build_rows_for(table: CatalogTable, source: &dyn LazyCatalogSource) -> DFResult<Vec<Row>> {
     let mut rows = Vec::new();
     match table {
+        CatalogTable::PgConfig => {
+            for setting in fetch_config(source)? {
+                rows.push(build_pg_config_row(&setting));
+            }
+        }
+        CatalogTable::PgSettings => {
+            for setting in fetch_settings(source)? {
+                rows.push(build_pg_settings_row(&setting));
+            }
+        }
         CatalogTable::PgDatabase => {
             for db in fetch_databases(source)? {
                 rows.push(build_pg_database_row(&db));
@@ -807,6 +905,8 @@ impl LazyCatalogOptions {
                 CatalogTable::PgClass,
                 CatalogTable::PgType,
                 CatalogTable::PgAttribute,
+                CatalogTable::PgConfig,
+                CatalogTable::PgSettings,
                 CatalogTable::InformationSchemaTables,
                 CatalogTable::InformationSchemaColumns,
                 CatalogTable::InformationSchemaSchemata,

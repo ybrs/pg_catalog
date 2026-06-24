@@ -1,12 +1,7 @@
 public:
   pg_catalog:
     pg_hba_file_rules:
-      type: view
-      view_sql: " SELECT rule_number,\n    file_name,\n    line_number,\n    type,\n\
-        \    database,\n    user_name,\n    address,\n    netmask,\n    auth_method,\n\
-        \    options,\n    error\n   FROM pg_hba_file_rules() a(rule_number, file_name,\
-        \ line_number, type, database, user_name, address, netmask, auth_method, options,\
-        \ error);"
+      type: system_catalog
       schema:
         rule_number: int
         file_name: varchar(256)

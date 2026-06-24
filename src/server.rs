@@ -870,11 +870,16 @@ impl SimpleQueryHandler for DatafusionBackend {
 
             responses.push(Response::Query(QueryResponse::new(field_infos, rows)));
         } else {
-            for batch in &results {
-                let schema = Arc::new(batch_to_field_info(batch, &Format::UnifiedText)?);
-                let rows = batch_to_row_stream(batch, schema.clone());
-                responses.push(Response::Query(QueryResponse::new(schema, rows)));
-            }
+            // A query can produce several RecordBatches — one per UNION branch,
+            // and one per ~8192 rows. They share a schema, so concatenate into a
+            // SINGLE result set. Emitting one Response::Query per batch sends the
+            // client multiple result sets for one query, and it sees only the last
+            // (which silently dropped every UNION view's other branches).
+            let combined = arrow::compute::concat_batches(&results[0].schema(), &results)
+                .map_err(|e| PgWireError::ApiError(Box::new(e)))?;
+            let field_infos = Arc::new(batch_to_field_info(&combined, &Format::UnifiedText)?);
+            let rows = batch_to_row_stream(&combined, field_infos.clone());
+            responses.push(Response::Query(QueryResponse::new(field_infos, rows)));
         }
 
         if lowercase.starts_with("set") {
@@ -1012,10 +1017,14 @@ impl ExtendedQueryHandler for DatafusionBackend {
             }
         };
 
+        // Concatenate all batches into one: a query can return several (one per
+        // UNION branch, one per ~8192 rows), and taking only `results[0]` dropped
+        // every batch after the first.
         let batch = if results.is_empty() {
             RecordBatch::new_empty(schema.clone())
         } else {
-            results[0].clone()
+            arrow::compute::concat_batches(&results[0].schema(), &results)
+                .map_err(|e| PgWireError::ApiError(Box::new(e)))?
         };
 
         let field_infos = Arc::new(batch_to_field_info(&batch, &portal.result_column_format)?);

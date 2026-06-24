@@ -363,6 +363,45 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     return Ok((sql, aliases));
 }
 
+/// Plan `sql` on `ctx`, run it, and rename the result columns per `aliases`.
+///
+/// `scalars`, when present, are bound as the query's positional parameters.
+/// Returns the collected batches and the renamed Arrow schema. Shared by the
+/// native attempt and the correlated-subquery UDF fallback in
+/// [`rewrite_and_execute_sql`].
+async fn plan_collect_and_rename(
+    ctx: &SessionContext,
+    sql: &str,
+    scalars: Option<Vec<ScalarValue>>,
+    aliases: &HashMap<String, String>,
+) -> datafusion::error::Result<(Vec<RecordBatch>, Arc<Schema>)> {
+    let df = match scalars {
+        Some(scalars) => ctx.sql(sql).await?.with_param_values(scalars)?,
+        None => ctx.sql(sql).await?,
+    };
+
+    let renamed_fields = df
+        .schema()
+        .fields()
+        .iter()
+        .map(|f| {
+            let new_name = aliases
+                .get(f.name())
+                .map(|s| s.as_str())
+                .unwrap_or_else(|| f.name().as_str());
+            Field::new(new_name, f.data_type().clone(), f.is_nullable())
+        })
+        .collect::<Vec<_>>();
+    let schema = Arc::new(Schema::new(renamed_fields));
+
+    let results = df.collect().await?;
+    let results = results
+        .iter()
+        .map(|batch| rename_columns(batch, aliases))
+        .collect::<Vec<_>>();
+    Ok((results, schema))
+}
+
 pub async fn rewrite_and_execute_sql(
     ctx: &SessionContext,
     sql: &str,
@@ -384,86 +423,62 @@ pub async fn rewrite_and_execute_sql(
     // `(SELECT count(*) ...) > 0` scalar subquery it can plan.
     let sql = rewrite_exists_to_count(&sql)?;
 
-    let df = if let (Some(params), Some(types)) = (param_values, param_types) {
-        log::debug!("params {:?}", params);
-        print_params(&params);
+    let scalars: Option<Vec<ScalarValue>> =
+        if let (Some(params), Some(types)) = (param_values, param_types) {
+            log::debug!("params {:?}", params);
+            print_params(&params);
 
-        let mut scalars = Vec::new();
+            let mut scalars = Vec::new();
+            for (param, typ) in params.into_iter().zip(types.into_iter()) {
+                let value = match (param, typ) {
+                    (Some(bytes), Type::INT2) => {
+                        let v = i16::from_be_bytes(bytes[..].try_into().unwrap());
+                        ScalarValue::Int16(Some(v))
+                    }
+                    (Some(bytes), Type::INT8) => {
+                        let v = i64::from_be_bytes(bytes[..].try_into().unwrap());
+                        ScalarValue::Int64(Some(v))
+                    }
+                    (Some(bytes), Type::INT4) => {
+                        let v = i32::from_be_bytes(bytes[..].try_into().unwrap());
+                        ScalarValue::Int32(Some(v))
+                    }
+                    (Some(bytes), Type::OID) => {
+                        // OID values are 32-bit unsigned integers. We map them to
+                        // BIGINT to align with `rewrite_oid_cast`, which rewrites
+                        // `::oid` casts on parameters to BIGINT.
+                        let v = u32::from_be_bytes(bytes[..].try_into().unwrap());
+                        ScalarValue::Int64(Some(v as i64))
+                    }
+                    (Some(bytes), Type::VARCHAR)
+                    | (Some(bytes), Type::TEXT)
+                    | (Some(bytes), Type::BPCHAR)
+                    | (Some(bytes), Type::NAME)
+                    | (Some(bytes), Type::UNKNOWN) => {
+                        let s = String::from_utf8(bytes.to_vec()).unwrap();
+                        ScalarValue::Utf8(Some(s))
+                    }
+                    (None, Type::INT2) => ScalarValue::Int16(None),
+                    (None, Type::INT8) => ScalarValue::Int64(None),
+                    (None, Type::INT4) => ScalarValue::Int32(None),
+                    (None, Type::OID) => ScalarValue::Int64(None),
+                    (None, Type::VARCHAR)
+                    | (None, Type::TEXT)
+                    | (None, Type::BPCHAR)
+                    | (None, Type::NAME)
+                    | (None, Type::UNKNOWN) => ScalarValue::Utf8(None),
+                    (some, other_type) => {
+                        panic!("unsupported param {:?} type {:?}", some, other_type);
+                    }
+                };
+                scalars.push(value);
+            }
+            Some(scalars)
+        } else {
+            None
+        };
 
-        for (param, typ) in params.into_iter().zip(types.into_iter()) {
-            let value = match (param, typ) {
-                (Some(bytes), Type::INT2) => {
-                    let v = i16::from_be_bytes(bytes[..].try_into().unwrap());
-                    ScalarValue::Int16(Some(v))
-                }
-                (Some(bytes), Type::INT8) => {
-                    let v = i64::from_be_bytes(bytes[..].try_into().unwrap());
-                    ScalarValue::Int64(Some(v))
-                }
-                (Some(bytes), Type::INT4) => {
-                    let v = i32::from_be_bytes(bytes[..].try_into().unwrap());
-                    ScalarValue::Int32(Some(v))
-                }
-                (Some(bytes), Type::OID) => {
-                    // OID values are 32-bit unsigned integers. We map them to
-                    // BIGINT to align with `rewrite_oid_cast`, which rewrites
-                    // `::oid` casts on parameters to BIGINT.
-                    let v = u32::from_be_bytes(bytes[..].try_into().unwrap());
-                    ScalarValue::Int64(Some(v as i64))
-                }
-                (Some(bytes), Type::VARCHAR)
-                | (Some(bytes), Type::TEXT)
-                | (Some(bytes), Type::BPCHAR)
-                | (Some(bytes), Type::NAME)
-                | (Some(bytes), Type::UNKNOWN) => {
-                    let s = String::from_utf8(bytes.to_vec()).unwrap();
-                    ScalarValue::Utf8(Some(s))
-                }
-                (None, Type::INT2) => ScalarValue::Int16(None),
-                (None, Type::INT8) => ScalarValue::Int64(None),
-                (None, Type::INT4) => ScalarValue::Int32(None),
-                (None, Type::OID) => ScalarValue::Int64(None),
-                (None, Type::VARCHAR)
-                | (None, Type::TEXT)
-                | (None, Type::BPCHAR)
-                | (None, Type::NAME)
-                | (None, Type::UNKNOWN) => ScalarValue::Utf8(None),
-                (some, other_type) => {
-                    panic!("unsupported param {:?} type {:?}", some, other_type);
-                }
-            };
-            scalars.push(value);
-        }
-
-        let df = ctx.sql(&sql).await?.with_param_values(scalars)?;
-        df
-    } else {
-        log::debug!("final sql {:?}", sql);
-        let df = ctx.sql(&sql).await?;
-        // log::debug!("executed sql");
-        df
-    };
-
-    // TODO: fix scope
-    let original_schema = df.schema();
-    let renamed_fields = original_schema
-        .fields()
-        .iter()
-        .map(|f| {
-            let new_name = aliases
-                .get(f.name())
-                .map(|s| s.as_str())
-                .unwrap_or_else(|| f.name().as_str());
-            Field::new(new_name, f.data_type().clone(), f.is_nullable())
-        })
-        .collect::<Vec<_>>();
-    let schema = Arc::new(Schema::new(renamed_fields));
-
-    let results = df.collect().await?;
-    let results = results
-        .iter()
-        .map(|batch| rename_columns(batch, &aliases))
-        .collect::<Vec<_>>();
+    let (results, schema) = plan_collect_and_rename(ctx, &sql, scalars, &aliases).await?;
 
     let (results, schema) = remove_virtual_system_columns(&sql, results, schema);
 
