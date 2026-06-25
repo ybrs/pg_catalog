@@ -18,13 +18,16 @@ Do NOT bake per-database/dynamic answers (indexes, views, constraints, defaults)
 of it by oid lookup - a user's runtime object is not in the dump.
 
 Runtime registration today populates `pg_class`, `pg_attribute`, `pg_namespace`,
-`pg_type`, `pg_database`, and `pg_index`, via two interchangeable paths that share
-the same row-builders:
+`pg_type`, `pg_database`, `pg_index`, `pg_constraint`, and `pg_attrdef` (the
+structural handle; default text is Phase 3), via two interchangeable paths that
+share the same row-builders:
 - eager / pre-register: `register_user_database`, `register_schema`,
-  `register_user_tables`, `register_user_index`.
-- lazy / callback: a `LazyCatalogSource` implementation + `register_lazy_catalog`.
+  `register_user_tables` (emits `pg_attrdef` for defaulted columns),
+  `register_user_index`, `register_user_constraint`.
+- lazy / callback: a `LazyCatalogSource` implementation + `register_lazy_catalog`
+  (a column's `ColumnSpec::with_default` drives its `pg_attrdef` row).
 
-Still seed-only for user objects: `pg_constraint`, `pg_rewrite`, `pg_attrdef`.
+Still seed-only for user objects: `pg_rewrite`.
 
 ## The strategic pivot: the integration supplies definitions, we never deparse
 
@@ -43,7 +46,8 @@ let the integration **supply** the human-facing strings and flags. When a defini
 is not supplied, the column stays NULL (today's behavior) - it is purely opt-in.
 
 This reframes the single biggest item on the old backlog ("reimplement the deparser")
-into "add optional definition fields to the registration API" - which is Phase 2.
+into "add optional definition fields to the registration API" - which is Phase 3
+(gated by the Phase 2 pool redesign, since those UDFs do nested catalog lookups).
 
 What stays structural (no deparse, fully ours to compute): a *plain* index's
 `CREATE INDEX` text is determined by data we already hold
@@ -55,36 +59,46 @@ functional/partial index *expressions* need supplied text.
 ## Phase 1 - Finish structured user-object registration (no deparse)
 
 Goal: a registered user table is fully introspectable from structured data alone.
+The structured registration surface is complete: `pg_class`, `pg_type`,
+`pg_attribute`, `pg_index`, `pg_constraint` (PK/UNIQUE/FK), and `pg_attrdef` (the
+`atthasdef` flag + the `pg_attrdef` handle) are all populated by both the eager and
+lazy paths through the shared row-builders.
 
-- `pg_get_indexdef` for plain indexes via templating, from live catalog rows at call
-  time (read whatever `pg_index` holds, seeded + user). Build
-  `CREATE [UNIQUE] INDEX name ON schema.tbl USING am (col, ...)` from
-  `pg_class`/`pg_index`/`pg_am`/`pg_attribute`. Leave functional/partial expression
-  text to Phase 2. When done: drop `pg_catalog.pg_indexes` from
-  `KNOWN_CONTENT_MISMATCHES` and confirm the snapshot test goes green.
-- `pg_constraint` registration (structured): PK / FK / UNIQUE described by their key
-  columns and referenced relation. Feeds `table_constraints`, `key_column_usage`,
-  `constraint_column_usage`, `referential_constraints` for user tables. Mirror the
-  `IndexDef` shape (one `ConstraintDef` -> the `pg_constraint` row(s); FK target
-  resolved by oid).
-- `pg_attrdef` registration (structured handle + supplied text): the column-default
-  text is integration-supplied (Phase 2 territory), but the `pg_attrdef` row and
-  `pg_attribute.atthasdef` flag are structural and belong here.
-- Column-fidelity audit: the lazy/eager row-builders set only a subset of each
-  catalog table's columns; the rest are NULL though real PostgreSQL has many NOT
-  NULL. Fill the columns clients actually read. Known-NULL today: `pg_class` (relam,
-  relfilenode, reltablespace, relpages, relnatts, relchecks, relhassubclass, ...),
-  `pg_type` (typbyval, typelem, typarray, typinput/output/..., typalign, ...),
-  `pg_attribute` (attlen, attbyval, attalign, attstorage, attidentity, attinhcount,
-  attcollation, ...). `pg_database`/`pg_namespace` are already complete.
-- Retrofit `register_user_tables` onto the shared `build_*_row` helpers +
-  `append_catalog_row` (the lazy path and `register_user_index` already do this;
-  `register_user_tables` still emits raw SQL `INSERT`s - the last drift source).
+- Column-fidelity long tail: the row-builders now fill the columns clients commonly
+  read - `pg_class` (relam, relnatts, relfilenode, relpages, relchecks,
+  relhassubclass, reltablespace, relfrozenxid, relminmxid, ...), `pg_type`
+  (typbyval, typalign, typstorage, typinput/output/receive/send, typelem, typarray,
+  ...), `pg_attribute` (attlen, attbyval, attalign, attstorage, attcollation,
+  attidentity, attgenerated, attinhcount, ...). Remaining NULL columns are
+  filled on demand as specific clients turn out to read them; `pg_database`/
+  `pg_namespace` were already complete.
 
-## Phase 2 - Integration-supplied definition text (the deparse pivot)
+## Phase 2 - Engine robustness and scale
+
+Reordered ahead of the deparse pivot (now Phase 3): the pool redesign gates it,
+because each definition-text UDF does a nested catalog sub-query the current bounded
+pool cannot survive (see Hazard below).
+
+- Catalog-UDF sync-over-async pool redesign (see Hazard below). Replace the bounded
+  `CATALOG_QUERY_RT` + blocking `rx.recv()` with a scheme that cannot deadlock under
+  UDF composition (a pool that grows/borrows a worker when one blocks, or restructure
+  the UDFs to avoid a nested blocking catalog query).
+- Lazy-source filter pushdown: implement `supports_filters_pushdown` on
+  `LazyCatalogTableProvider` and push equality filters (`relname=`, `nspname=`,
+  `datname=`) into the source, so a large catalog is not fully re-enumerated per scan.
+- Promote the static relation-listing views (`pg_indexes`, `pg_matviews`,
+  `pg_sequences`) to live views over the registration where it makes sense -
+  `VIEW_ONLY_TABLES` now covers `pg_tables`/`pg_views` plus the four constraint
+  views (`table_constraints`, `key_column_usage`, `constraint_column_usage`,
+  `referential_constraints`); the remaining relation-listing views are still
+  static snapshots that do not reflect registered user objects.
+
+## Phase 3 - Integration-supplied definition text (the deparse pivot)
 
 Goal: views/constraints/defaults become fully introspectable for integrations that
-provide the text, without us ever shipping a node-tree deparser.
+provide the text, without us ever shipping a node-tree deparser. Depends on the
+Phase 2 pool redesign - each UDF below reads supplied text via a nested catalog
+lookup.
 
 - Extend the registration contract with optional definition fields:
   - view definition SQL + updatability flags on a `ViewDef`/`RelationDef`
@@ -104,7 +118,7 @@ provide the text, without us ever shipping a node-tree deparser.
   live catalog at call time (the runtime-catalog-lookup pattern used by
   `pg_get_userbyid`), returning NULL / the safe default when nothing was supplied.
 
-## Phase 3 - Session/GUC and SQL-surface compatibility
+## Phase 4 - Session/GUC and SQL-surface compatibility
 
 Goal: behave like PostgreSQL for the session-control surface tools rely on, and clear
 the self-contained "broken view" gaps.
@@ -128,22 +142,8 @@ Self-contained broken views (see `CATALOG-REFERENCE.md` "fixable" list):
   (sqlparser `ARRAY` parse error), `pg_stats_ext` (`s.stxkeys` scoping).
 - `is_updatable` (4 cols) / `is_insertable_into` (2 views): the
   `pg_relation_is_updatable` stub returns 0. Real value is structural (view
-  auto-updatability), but per the Phase 2 pivot it should be integration-supplied;
+  auto-updatability), but per the Phase 3 pivot it should be integration-supplied;
   niche, leave stubbed with the precise snapshot baseline until then.
-
-## Phase 4 - Engine robustness and scale
-
-- Catalog-UDF sync-over-async pool redesign (see Hazard below). Replace the bounded
-  `CATALOG_QUERY_RT` + blocking `rx.recv()` with a scheme that cannot deadlock under
-  UDF composition (a pool that grows/borrows a worker when one blocks, or restructure
-  the UDFs to avoid a nested blocking catalog query).
-- Lazy-source filter pushdown: implement `supports_filters_pushdown` on
-  `LazyCatalogTableProvider` and push equality filters (`relname=`, `nspname=`,
-  `datname=`) into the source, so a large catalog is not fully re-enumerated per scan.
-- Promote the static relation-listing views (`pg_indexes`, `pg_matviews`,
-  `pg_sequences`) to live views over the registration where it makes sense - today
-  only `pg_tables`/`pg_views` are live (`VIEW_ONLY_TABLES`); the rest are static
-  snapshots that do not reflect registered user objects.
 
 ## Phase 5 - Runtime/monitoring views (optional, integration-driven)
 
@@ -193,11 +193,13 @@ Why we are safe today: the sub-queries are plain UDF-free scans
 relname = '...'`), so nesting depth is always exactly 1. The whole thing rests on this
 one assumption: catalog sub-queries stay UDF-free. The day a built-in view/UDF
 resolves one catalog UDF via another, the bounded pool is the failure point; bumping
-`worker_threads` only moves the cliff. The fix is Phase 4.
+`worker_threads` only moves the cliff. The fix is Phase 2.
 
-Note: the Phase 2 pivot (UDFs reading supplied definition text from the catalog at
-call time) ADDS catalog sub-queries inside UDFs - so land the Phase 4 pool redesign
-before, or alongside, any Phase 2 UDF that does a nested catalog lookup.
+Note: the Phase 3 pivot (UDFs reading supplied definition text from the catalog at
+call time) ADDS catalog sub-queries inside UDFs - so land the Phase 2 pool redesign
+before, or alongside, any Phase 3 UDF that does a nested catalog lookup. This
+ordering (engine robustness before the deparse pivot) is exactly why Phase 2 and
+Phase 3 are sequenced as they are.
 
 ## Operational gotchas
 
@@ -221,7 +223,7 @@ before, or alongside, any Phase 2 UDF that does a nested catalog lookup.
 
 ## Validate ("all green" - CLAUDE.md: can't call it done without all tests)
 
-- Rust: `cargo test` - expect 136 lib + integration bins, 0 failures.
+- Rust: `cargo test` - expect 139 lib + integration bins, 0 failures.
 - Python: `.venv/bin/python -m pytest tests/ -q` - expect 54 passed, 1 skipped.
   Do NOT set `RUST_LOG=off` for the full suite: the spawned server inherits it and
   `test_error_logging` greps the server log for `exec_error`. `RUST_LOG=off` is only

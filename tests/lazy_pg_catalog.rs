@@ -7,9 +7,9 @@ use arrow::array::Array;
 use datafusion::error::{DataFusionError, Result as DFResult};
 use datafusion_pg_catalog::{
     get_base_session_context, get_base_session_context_with_lazy_catalog, register_lazy_catalog,
-    register_user_database_with_callback, ColumnSpec, ConfigSettingDef, DatabaseDef, IndexDef,
-    LazyCatalogOptions, LazyCatalogSource, LazyDatabaseRow, RelationDef, RelationKind, SchemaDef,
-    SettingDef,
+    register_user_database_with_callback, ColumnSpec, ConfigSettingDef, ConstraintDef, DatabaseDef,
+    IndexDef, LazyCatalogOptions, LazyCatalogSource, LazyDatabaseRow, RelationDef, RelationKind,
+    SchemaDef, SettingDef,
 };
 
 /// Collect a single-column `StringArray` result into a `Vec<String>`.
@@ -25,6 +25,33 @@ async fn string_column(
             .as_any()
             .downcast_ref::<arrow::array::StringArray>()
             .expect("expected a Utf8 column");
+        for i in 0..arr.len() {
+            if arr.is_valid(i) {
+                out.push(arr.value(i).to_string());
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Collect a single-column text result into a `Vec<String>`, casting whatever
+/// string representation the engine returns (`Utf8`, `LargeUtf8`, `Utf8View`, a
+/// dictionary, ...) to `Utf8` first. Use this for catalog columns whose Arrow
+/// string flavor is not guaranteed (e.g. the `"char"` `contype`, or values that
+/// pass through `information_schema` domain casts).
+async fn text_column(
+    ctx: &datafusion::execution::context::SessionContext,
+    sql: &str,
+) -> DFResult<Vec<String>> {
+    let batches = ctx.sql(sql).await?.collect().await?;
+    let mut out = Vec::new();
+    for b in &batches {
+        let utf8 = arrow::compute::cast(b.column(0), &arrow::datatypes::DataType::Utf8)
+            .expect("a single-column text result must cast to Utf8");
+        let arr = utf8
+            .as_any()
+            .downcast_ref::<arrow::array::StringArray>()
+            .expect("cast result must be a Utf8 StringArray");
         for i in 0..arr.len() {
             if arr.is_valid(i) {
                 out.push(arr.value(i).to_string());
@@ -683,7 +710,11 @@ impl LazyCatalogSource for IndexedSource {
         _r: &str,
         callback: &mut dyn FnMut(Vec<ColumnSpec>),
     ) -> DFResult<()> {
-        callback(vec![ColumnSpec::new("id", 23, false)]);
+        // 'id' (no default) and 'note' (has a default expression).
+        callback(vec![
+            ColumnSpec::new("id", 23, false),
+            ColumnSpec::new("note", 25, true).with_default(),
+        ]);
         Ok(())
     }
 
@@ -699,6 +730,27 @@ impl LazyCatalogSource for IndexedSource {
             idx.is_unique = true;
             idx.is_primary = true;
             callback(vec![idx]);
+        }
+        Ok(())
+    }
+
+    fn constraints(
+        &self,
+        database: &str,
+        schema: &str,
+        callback: &mut dyn FnMut(Vec<ConstraintDef>),
+    ) -> DFResult<()> {
+        if database == "idxdb" && schema == "public" {
+            // A primary key on column 1 ('id') of 'indexed', backed by the
+            // indexed_pkey unique index (oid 80300). Schema oid is 80100.
+            callback(vec![ConstraintDef::primary_key(
+                80400,
+                "indexed_pkey",
+                80100,
+                80200,
+                vec![1],
+                80300,
+            )]);
         }
         Ok(())
     }
@@ -759,6 +811,113 @@ async fn test_lazy_pg_index_reflects_source() -> DFResult<()> {
     )
     .await?;
     assert_eq!(indkey, vec![1], "indkey must list the indexed attnum");
+
+    // pg_get_indexdef templates the CREATE INDEX text from those structural rows
+    // (unique flag, btree access method, schema-qualified table, key column name).
+    let indexdef = string_column(
+        &ctx,
+        "SELECT pg_catalog.pg_get_indexdef(80300)",
+    )
+    .await?;
+    assert_eq!(
+        indexdef,
+        vec!["CREATE UNIQUE INDEX indexed_pkey ON public.indexed USING btree (id)".to_string()],
+        "pg_get_indexdef must reconstruct the CREATE INDEX text for a registered index"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_lazy_pg_constraint_reflects_source() -> DFResult<()> {
+    // A constraint reported by the source becomes a pg_constraint row, and the
+    // (now live) information_schema constraint views derive from it.
+    let (ctx, _log) = get_base_session_context_with_lazy_catalog(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
+        None,
+        Arc::new(IndexedSource),
+        LazyCatalogOptions::all(),
+    )
+    .await?;
+
+    // The pg_constraint structure row is a primary key over the 'indexed' table.
+    let contype = text_column(
+        &ctx,
+        "SELECT contype FROM pg_catalog.pg_constraint \
+         WHERE conname = 'indexed_pkey' AND conrelid = 80200",
+    )
+    .await?;
+    assert_eq!(contype, vec!["p".to_string()], "pg_constraint must hold the PK");
+
+    // The live table_constraints view reflects the registered constraint.
+    let constraint_types = text_column(
+        &ctx,
+        "SELECT constraint_type FROM information_schema.table_constraints \
+         WHERE table_name = 'indexed' AND constraint_name = 'indexed_pkey'",
+    )
+    .await?;
+    assert_eq!(
+        constraint_types,
+        vec!["PRIMARY KEY".to_string()],
+        "table_constraints must show the registered primary key"
+    );
+
+    // key_column_usage maps the constraint to its column ('id').
+    let key_columns = text_column(
+        &ctx,
+        "SELECT column_name FROM information_schema.key_column_usage \
+         WHERE constraint_name = 'indexed_pkey' AND table_name = 'indexed'",
+    )
+    .await?;
+    assert_eq!(
+        key_columns,
+        vec!["id".to_string()],
+        "key_column_usage must map the PK to column 'id'"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_lazy_pg_attrdef_reflects_source() -> DFResult<()> {
+    // A column flagged with a default becomes atthasdef on pg_attribute plus a
+    // backing pg_attrdef row, while a column without one gets neither.
+    let (ctx, _log) = get_base_session_context_with_lazy_catalog(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
+        None,
+        Arc::new(IndexedSource),
+        LazyCatalogOptions::all(),
+    )
+    .await?;
+
+    // 'note' (attnum 2) has a default: atthasdef true and a pg_attrdef row.
+    let with_default = ctx
+        .sql(
+            "SELECT 1 FROM pg_catalog.pg_attribute \
+             WHERE attrelid = 80200 AND attname = 'note' AND atthasdef = true",
+        )
+        .await?
+        .count()
+        .await?;
+    assert_eq!(with_default, 1, "the defaulted column must set atthasdef");
+
+    let attrdef_for_note = ctx
+        .sql("SELECT 1 FROM pg_catalog.pg_attrdef WHERE adrelid = 80200 AND adnum = 2")
+        .await?
+        .count()
+        .await?;
+    assert_eq!(attrdef_for_note, 1, "the defaulted column must get a pg_attrdef row");
+
+    // 'id' (attnum 1) has no default, so no pg_attrdef row - the table has exactly
+    // the one pg_attrdef row, for 'note'.
+    let attrdef_total = ctx
+        .sql("SELECT 1 FROM pg_catalog.pg_attrdef WHERE adrelid = 80200")
+        .await?
+        .count()
+        .await?;
+    assert_eq!(attrdef_total, 1, "only the defaulted column gets a pg_attrdef row");
     Ok(())
 }
 

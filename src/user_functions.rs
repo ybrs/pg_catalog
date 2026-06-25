@@ -3104,33 +3104,353 @@ pub fn register_pg_get_function_arguments(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// pg_catalog.pg_get_indexdef(oid) -> text
-pub fn register_pg_get_indexdef(ctx: &SessionContext) -> Result<()> {
-    use arrow::array::{ArrayRef, StringBuilder};
-    use arrow::datatypes::DataType;
-    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
-    use std::sync::Arc;
-
-    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
-        let len = match args.first() {
-            Some(ColumnarValue::Array(a)) => a.len(),
-            _ => 1,
-        };
-        let mut b = StringBuilder::with_capacity(len, len);
-        for _ in 0..len {
-            b.append_null();
-        }
-        Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
-    };
-
-    let udf = create_udf(
-        "pg_catalog.pg_get_indexdef",
-        vec![DataType::Int64],
-        DataType::Utf8,
-        Volatility::Stable,
-        Arc::new(fun),
+/// Render the canonical `CREATE INDEX` statement for a plain (non-expression)
+/// index, matching PostgreSQL's `pg_get_indexdef` output.
+///
+/// `columns` are the indexed column names in index-key order. The table is
+/// always schema-qualified, e.g.
+/// `CREATE UNIQUE INDEX foo_pkey ON public.foo USING btree (a, b)`.
+fn render_create_index_statement(
+    is_unique: bool,
+    index_name: &str,
+    schema_name: &str,
+    table_name: &str,
+    access_method: &str,
+    columns: &[String],
+) -> String {
+    let unique = if is_unique { "UNIQUE " } else { "" };
+    format!(
+        "CREATE {unique}INDEX {index_name} ON {schema_name}.{table_name} USING {access_method} ({})",
+        columns.join(", ")
     )
-    .with_aliases(["pg_get_indexdef"]);
+}
+
+/// The structural parts of one index, read from the catalog, that a plain
+/// `CREATE INDEX` statement is templated from. `key_attnums` are the indexed
+/// columns' attribute numbers in key order; a `0` marks an expression column,
+/// which makes the index functional/partial (its text is integration-supplied
+/// in Phase 2, not rendered here).
+struct PlainIndexParts {
+    index_oid: i64,
+    table_oid: i64,
+    is_unique: bool,
+    key_attnums: Vec<i64>,
+    index_name: String,
+    table_name: String,
+    schema_name: String,
+    access_method: String,
+}
+
+/// Resolve a set of index OIDs to their `CREATE INDEX` text with a fixed, small
+/// number of UDF-free catalog queries (one for the index/table/access-method
+/// parts, one for the column names). Indexes whose key includes an expression
+/// (attnum `0`), and any whose parts cannot be fully resolved, are omitted from
+/// the map so the caller renders SQL NULL for them.
+fn fetch_index_definitions(ctx: Arc<SessionContext>, oids: &[i64]) -> Result<HashMap<i64, String>> {
+    let mut out: HashMap<i64, String> = HashMap::new();
+    if oids.is_empty() {
+        return Ok(out);
+    }
+
+    let in_list = oids
+        .iter()
+        .map(|o| o.to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    run_catalog_query(async move {
+        // One row per index: name, owning table + schema, access method,
+        // uniqueness and the key-column attnums (indkey is an int2vector list).
+        let parts_sql = format!(
+            "SELECT x.indexrelid, x.indrelid, x.indisunique, x.indkey, \
+                    i.relname AS indexname, c.relname AS tablename, \
+                    n.nspname AS schemaname, am.amname \
+             FROM pg_catalog.pg_index x \
+             JOIN pg_catalog.pg_class i ON i.oid = x.indexrelid \
+             JOIN pg_catalog.pg_class c ON c.oid = x.indrelid \
+             JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace \
+             JOIN pg_catalog.pg_am am ON am.oid = i.relam \
+             WHERE x.indexrelid IN ({in_list})"
+        );
+        let part_batches = ctx.sql(&parts_sql).await?.collect().await?;
+
+        let mut parsed: Vec<PlainIndexParts> = Vec::new();
+        for batch in &part_batches {
+            for row in 0..batch.num_rows() {
+                let index_oid = match column_oid_at(batch, "indexrelid", row)? {
+                    Some(v) => v,
+                    None => continue,
+                };
+                let table_oid = match column_oid_at(batch, "indrelid", row)? {
+                    Some(v) => v,
+                    None => continue,
+                };
+                let key_attnums = match index_key_attnums_at(batch, "indkey", row)? {
+                    Some(v) => v,
+                    None => continue,
+                };
+                let (index_name, table_name, schema_name, access_method) = (
+                    column_string_at(batch, "indexname", row)?,
+                    column_string_at(batch, "tablename", row)?,
+                    column_string_at(batch, "schemaname", row)?,
+                    column_string_at(batch, "amname", row)?,
+                );
+                let (Some(index_name), Some(table_name), Some(schema_name), Some(access_method)) =
+                    (index_name, table_name, schema_name, access_method)
+                else {
+                    continue;
+                };
+                parsed.push(PlainIndexParts {
+                    index_oid,
+                    table_oid,
+                    is_unique: column_bool_at(batch, "indisunique", row)?.unwrap_or(false),
+                    key_attnums,
+                    index_name,
+                    table_name,
+                    schema_name,
+                    access_method,
+                });
+            }
+        }
+
+        // Map each (table oid, attnum) to its column name in one query over the
+        // distinct owning tables.
+        let mut table_oids: Vec<i64> = parsed.iter().map(|p| p.table_oid).collect();
+        table_oids.sort_unstable();
+        table_oids.dedup();
+        let names = fetch_attribute_names(ctx.clone(), &table_oids).await?;
+
+        for index in parsed {
+            // An expression key column (attnum 0) means a functional/partial
+            // index; leave its text NULL for Phase 2.
+            if index.key_attnums.iter().any(|&attnum| attnum == 0) {
+                continue;
+            }
+            let mut columns: Vec<String> = Vec::with_capacity(index.key_attnums.len());
+            let mut resolvable = true;
+            for attnum in &index.key_attnums {
+                match names.get(&(index.table_oid, *attnum)) {
+                    Some(name) => columns.push(name.clone()),
+                    None => {
+                        resolvable = false;
+                        break;
+                    }
+                }
+            }
+            if !resolvable {
+                continue;
+            }
+            out.insert(
+                index.index_oid,
+                render_create_index_statement(
+                    index.is_unique,
+                    &index.index_name,
+                    &index.schema_name,
+                    &index.table_name,
+                    &index.access_method,
+                    &columns,
+                ),
+            );
+        }
+
+        Ok::<_, DataFusionError>(out)
+    })
+}
+
+/// Resolve `(attrelid, attnum) -> attname` for the given relations with a single
+/// catalog query. Dropped and system (attnum <= 0) columns are excluded, since
+/// an index key only references real, ordinary columns.
+async fn fetch_attribute_names(
+    ctx: Arc<SessionContext>,
+    table_oids: &[i64],
+) -> Result<HashMap<(i64, i64), String>> {
+    let mut out: HashMap<(i64, i64), String> = HashMap::new();
+    if table_oids.is_empty() {
+        return Ok(out);
+    }
+    let in_list = table_oids
+        .iter()
+        .map(|o| o.to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sql = format!(
+        "SELECT attrelid, attnum, attname FROM pg_catalog.pg_attribute \
+         WHERE attrelid IN ({in_list}) AND attnum > 0 AND attisdropped = false"
+    );
+    let batches = ctx.sql(&sql).await?.collect().await?;
+    for batch in &batches {
+        for row in 0..batch.num_rows() {
+            let (Some(attrelid), Some(attnum), Some(attname)) = (
+                column_oid_at(batch, "attrelid", row)?,
+                column_oid_at(batch, "attnum", row)?,
+                column_string_at(batch, "attname", row)?,
+            ) else {
+                continue;
+            };
+            out.insert((attrelid, attnum), attname);
+        }
+    }
+    Ok(out)
+}
+
+/// Read an integer/OID cell from `batch[column][row]`, widening any signed or
+/// unsigned 32/64-bit integer to `i64`. Returns `None` for NULL.
+fn column_oid_at(batch: &RecordBatch, column: &str, row: usize) -> Result<Option<i64>> {
+    let array = batch.column_by_name(column).ok_or_else(|| {
+        DataFusionError::Execution(format!("catalog query result missing column {column}"))
+    })?;
+    oid_at(array, row)
+}
+
+/// Read a UTF-8 cell from `batch[column][row]`. Returns `None` for NULL or a
+/// non-string column.
+fn column_string_at(batch: &RecordBatch, column: &str, row: usize) -> Result<Option<String>> {
+    let array = batch.column_by_name(column).ok_or_else(|| {
+        DataFusionError::Execution(format!("catalog query result missing column {column}"))
+    })?;
+    let scalar = ScalarValue::try_from_array(array, row)?;
+    Ok(match scalar {
+        ScalarValue::Utf8(v) | ScalarValue::LargeUtf8(v) | ScalarValue::Utf8View(v) => v,
+        _ => None,
+    })
+}
+
+/// Read a boolean cell from `batch[column][row]`. Returns `None` for NULL or a
+/// non-boolean column.
+fn column_bool_at(batch: &RecordBatch, column: &str, row: usize) -> Result<Option<bool>> {
+    let array = batch.column_by_name(column).ok_or_else(|| {
+        DataFusionError::Execution(format!("catalog query result missing column {column}"))
+    })?;
+    Ok(match ScalarValue::try_from_array(array, row)? {
+        ScalarValue::Boolean(v) => v,
+        _ => None,
+    })
+}
+
+/// Read an `int2vector`-shaped list cell (e.g. `pg_index.indkey`) from
+/// `batch[column][row]` as the contained attribute numbers. Returns `None` for a
+/// NULL cell or a non-list column.
+fn index_key_attnums_at(batch: &RecordBatch, column: &str, row: usize) -> Result<Option<Vec<i64>>> {
+    let array = batch.column_by_name(column).ok_or_else(|| {
+        DataFusionError::Execution(format!("catalog query result missing column {column}"))
+    })?;
+    let list = match array.as_any().downcast_ref::<arrow::array::ListArray>() {
+        Some(list) => list,
+        None => return Ok(None),
+    };
+    if list.is_null(row) {
+        return Ok(None);
+    }
+    let element = list.value(row);
+    let mut attnums = Vec::with_capacity(element.len());
+    for i in 0..element.len() {
+        attnums.push(oid_at(&element, i)?.unwrap_or(0));
+    }
+    Ok(Some(attnums))
+}
+
+/// `pg_catalog.pg_get_indexdef(oid)` reconstructs the `CREATE INDEX` text for a
+/// plain index from the live catalog at call time, mirroring
+/// [`PgGetUserById`]'s batched catalog-lookup pattern. Functional/partial index
+/// expressions are left NULL pending Phase 2's integration-supplied text.
+struct PgGetIndexDef {
+    sig: Signature,
+    ctx: Arc<SessionContext>,
+}
+
+impl PgGetIndexDef {
+    /// Build the UDF over a clone of the session context it queries the catalog
+    /// through, accepting any signed/unsigned 32/64-bit OID argument.
+    fn new(ctx: Arc<SessionContext>) -> Self {
+        Self {
+            sig: Signature::one_of(
+                vec![
+                    TypeSignature::Exact(vec![ArrowDataType::Int32]),
+                    TypeSignature::Exact(vec![ArrowDataType::Int64]),
+                    TypeSignature::Exact(vec![ArrowDataType::UInt32]),
+                    TypeSignature::Exact(vec![ArrowDataType::UInt64]),
+                ],
+                Volatility::Stable,
+            ),
+            ctx,
+        }
+    }
+}
+
+impl std::fmt::Debug for PgGetIndexDef {
+    /// Format without the (non-Debug) session context.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PgGetIndexDef").finish()
+    }
+}
+
+impl PartialEq for PgGetIndexDef {
+    /// Two instances are equal when they share the same session context.
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.ctx, &other.ctx)
+    }
+}
+
+impl Eq for PgGetIndexDef {}
+
+impl std::hash::Hash for PgGetIndexDef {
+    /// Hash by the identity of the shared session context.
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (Arc::as_ptr(&self.ctx) as usize).hash(state);
+    }
+}
+
+impl ScalarUDFImpl for PgGetIndexDef {
+    /// The schema-qualified function name.
+    fn name(&self) -> &str {
+        "pg_catalog.pg_get_indexdef"
+    }
+
+    /// The accepted argument signature (a single OID).
+    fn signature(&self) -> &Signature {
+        &self.sig
+    }
+
+    /// `pg_get_indexdef` returns the `CREATE INDEX` text as `text`.
+    fn return_type(&self, _arg_types: &[ArrowDataType]) -> Result<ArrowDataType> {
+        Ok(ArrowDataType::Utf8)
+    }
+
+    /// Decode every row's index OID, resolve the DISTINCT ones with a small,
+    /// fixed number of catalog queries, then emit the `CREATE INDEX` text per row
+    /// (NULL where the OID is NULL, unknown, or a functional/partial index).
+    fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+        let arrays = ColumnarValue::values_to_arrays(&args.args)?;
+        let arr = &arrays[0];
+        let len = arr.len();
+
+        let mut oids: Vec<Option<i64>> = Vec::with_capacity(len);
+        for i in 0..len {
+            oids.push(oid_at(arr, i)?);
+        }
+
+        let mut distinct: Vec<i64> = oids.iter().flatten().copied().collect();
+        distinct.sort_unstable();
+        distinct.dedup();
+        let defs = fetch_index_definitions(self.ctx.clone(), &distinct)?;
+
+        let mut builder = StringBuilder::with_capacity(len, 64 * len.max(1));
+        for oid in oids {
+            match oid.and_then(|oid| defs.get(&oid)) {
+                Some(def) => builder.append_value(def),
+                None => builder.append_null(),
+            }
+        }
+        Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
+    }
+}
+
+/// Register `pg_get_indexdef(oid)`, which reconstructs the `CREATE INDEX` text
+/// for a plain index from live catalog rows. Functional/partial indexes return
+/// NULL until their expression text is integration-supplied (Phase 2).
+pub fn register_pg_get_indexdef(ctx: &SessionContext) -> Result<()> {
+    let udf = ScalarUDF::new_from_impl(PgGetIndexDef::new(Arc::new(ctx.clone())))
+        .with_aliases(["pg_get_indexdef"]);
     ctx.register_udf(udf);
     Ok(())
 }
@@ -3561,6 +3881,40 @@ mod tests {
     use datafusion::datasource::MemTable;
     use datafusion::error::Result;
     use std::sync::Arc;
+
+    #[test]
+    fn test_render_create_index_statement() {
+        // Unique multi-column index, schema-qualified table, matching the
+        // real-PostgreSQL pg_get_indexdef text reproduced in pg_indexes.
+        assert_eq!(
+            render_create_index_statement(
+                true,
+                "pg_proc_proname_args_nsp_index",
+                "pg_catalog",
+                "pg_proc",
+                "btree",
+                &[
+                    "proname".to_string(),
+                    "proargtypes".to_string(),
+                    "pronamespace".to_string(),
+                ],
+            ),
+            "CREATE UNIQUE INDEX pg_proc_proname_args_nsp_index ON pg_catalog.pg_proc \
+             USING btree (proname, proargtypes, pronamespace)"
+        );
+        // Non-unique single-column index omits the UNIQUE keyword.
+        assert_eq!(
+            render_create_index_statement(
+                false,
+                "pg_index_indrelid_index",
+                "pg_catalog",
+                "pg_index",
+                "btree",
+                &["indrelid".to_string()],
+            ),
+            "CREATE INDEX pg_index_indrelid_index ON pg_catalog.pg_index USING btree (indrelid)"
+        );
+    }
 
     #[test]
     fn test_pg_numeric_precision_formula() {

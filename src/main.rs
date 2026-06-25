@@ -74,6 +74,7 @@ async fn run() -> anyhow::Result<()> {
         ColumnDef {
             col_type: "int".to_string(),
             nullable: true,
+            has_default: false,
         },
     );
     let mut c2 = BTreeMap::new();
@@ -82,6 +83,7 @@ async fn run() -> anyhow::Result<()> {
         ColumnDef {
             col_type: "text".to_string(),
             nullable: true,
+            has_default: false,
         },
     );
     pg_catalog_helpers::register_user_tables(&ctx, "pgtry", "public", "users", vec![c1, c2])

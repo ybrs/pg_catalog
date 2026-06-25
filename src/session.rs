@@ -179,8 +179,16 @@ struct ViewToRegister {
     sql: String,
 }
 
-const VIEW_ONLY_TABLES: &[(&str, &str)] =
-    &[("pg_catalog", "pg_views"), ("pg_catalog", "pg_tables")];
+const VIEW_ONLY_TABLES: &[(&str, &str)] = &[
+    ("pg_catalog", "pg_views"),
+    ("pg_catalog", "pg_tables"),
+    // Constraint views served live so they reflect runtime-registered user
+    // constraints (pg_constraint) rather than the frozen seed snapshot.
+    ("information_schema", "table_constraints"),
+    ("information_schema", "key_column_usage"),
+    ("information_schema", "constraint_column_usage"),
+    ("information_schema", "referential_constraints"),
+];
 
 fn should_register_as_view(schema_name: &str, table_name: &str) -> bool {
     VIEW_ONLY_TABLES
@@ -211,6 +219,20 @@ fn normalize_view_sql(sql: &str) -> String {
     let trimmed = sql.trim();
     let without_semicolon = trimmed.trim_end_matches(';').trim();
     without_semicolon.to_string()
+}
+
+/// Replace `current_database()` calls in a catalog view body with `catalog` as a
+/// string literal.
+///
+/// A live view is planned eagerly at session setup (`CREATE VIEW`), but
+/// `current_database()` is a per-connection UDF registered only once a client
+/// connects, so it is unresolved at setup time. In this single-catalog layer the
+/// current database is always the default catalog, so substituting its name as a
+/// literal is both sufficient and correct - and confines the dependency to view
+/// creation rather than requiring the connection-scoped UDF up front.
+fn inline_current_database(sql: &str, catalog: &str) -> String {
+    let literal = format!("'{}'", catalog.replace('\'', "''"));
+    sql.replace("current_database()", &literal)
 }
 
 async fn set_default_schema(ctx: &SessionContext, schema: &str) -> datafusion::error::Result<()> {
@@ -1085,13 +1107,22 @@ async fn create_registered_views(
 
     let state = ctx.state();
     let original_default_schema = state.config_options().catalog.default_schema.clone();
+    let default_catalog = state.config_options().catalog.default_catalog.clone();
     drop(state);
+
+    // Catalog view bodies reference their base tables (pg_class, pg_attribute,
+    // pg_constraint, ...) unqualified, and those all live in pg_catalog - so
+    // resolve every view body under pg_catalog regardless of which schema the
+    // view itself belongs to. The CREATE statement below is fully schema-
+    // qualified, so each view still lands in its own schema (e.g.
+    // information_schema.table_constraints).
+    const VIEW_BODY_RESOLUTION_SCHEMA: &str = "pg_catalog";
     let mut active_default_schema = original_default_schema.clone();
 
     for view in views {
-        if active_default_schema != view.schema {
-            set_default_schema(ctx, &view.schema).await?;
-            active_default_schema = view.schema.clone();
+        if active_default_schema != VIEW_BODY_RESOLUTION_SCHEMA {
+            set_default_schema(ctx, VIEW_BODY_RESOLUTION_SCHEMA).await?;
+            active_default_schema = VIEW_BODY_RESOLUTION_SCHEMA.to_string();
         }
 
         let qualified = format_fully_qualified_name(&view.catalog, &view.schema, &view.name);
@@ -1104,7 +1135,8 @@ async fn create_registered_views(
         }
 
         let rewritten_select = {
-            let rewritten = rewrite_srf_to_unnest(&definition)?;
+            let inlined = inline_current_database(&definition, &default_catalog);
+            let rewritten = rewrite_srf_to_unnest(&inlined)?;
             let (rewritten, _) = rewrite_filters(&rewritten)?;
             let rewritten = rewrite_exists_to_count(&rewritten)?;
             rewrite_tuple_in_subquery_to_exists(&rewritten)?

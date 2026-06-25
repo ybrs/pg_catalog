@@ -99,7 +99,6 @@ KNOWN_CONTENT_MISMATCHES = {
     "information_schema.views": "view_definition/is_updatable: pg_get_viewdef not reproduced",
     "information_schema.check_constraints": "check_clause: raw node-tree, pg_get_constraintdef not reproduced",
     "pg_catalog.pg_views": "definition: pg_get_viewdef not reproduced",
-    "pg_catalog.pg_indexes": "indexdef: pg_get_indexdef not reproduced",
     "pg_catalog.pg_rules": "definition: pg_get_ruledef not reproduced",
     # After stripping the demo `users` rows the COUNT matches exactly; the only
     # remaining content gap is is_updatable on 4 columns - the
