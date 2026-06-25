@@ -3254,10 +3254,12 @@ fn column_string_at(batch: &RecordBatch, column: &str, row: usize) -> Result<Opt
 /// Read a boolean cell from `batch[column][row]`. Returns `None` for NULL or a
 /// non-boolean column.
 fn column_bool_at(batch: &RecordBatch, column: &str, row: usize) -> Result<Option<bool>> {
-    Ok(match ScalarValue::try_from_array(column_array(batch, column)?, row)? {
-        ScalarValue::Boolean(v) => v,
-        _ => None,
-    })
+    Ok(
+        match ScalarValue::try_from_array(column_array(batch, column)?, row)? {
+            ScalarValue::Boolean(v) => v,
+            _ => None,
+        },
+    )
 }
 
 /// Read an `int2vector`-shaped list cell (e.g. `pg_index.indkey`) from

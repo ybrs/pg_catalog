@@ -5,10 +5,9 @@ use datafusion::execution::context::SessionContext;
 use serde::Deserialize;
 
 use crate::lazy_catalog::{
-    build_index_pg_class_row, build_info_columns_rows, build_info_tables_row,
-    build_pg_attrdef_row, build_pg_attribute_rows, build_pg_class_row, build_pg_constraint_row,
-    build_pg_index_row, build_pg_type_rowtype_row, ColumnSpec, ConstraintDef, ConstraintKind,
-    IndexDef, RelationDef,
+    build_index_pg_class_row, build_info_columns_rows, build_info_tables_row, build_pg_attrdef_row,
+    build_pg_attribute_rows, build_pg_class_row, build_pg_constraint_row, build_pg_index_row,
+    build_pg_type_rowtype_row, ColumnSpec, ConstraintDef, ConstraintKind, IndexDef, RelationDef,
 };
 use crate::session::rows_to_record_batch;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -200,7 +199,8 @@ fn column_specs_from_defs(columns: &[BTreeMap<String, ColumnDef>]) -> Vec<Column
         .iter()
         .filter_map(|column| {
             column.iter().next().map(|(name, def)| {
-                let spec = ColumnSpec::new(name.clone(), map_type_to_oid(&def.col_type), def.nullable);
+                let spec =
+                    ColumnSpec::new(name.clone(), map_type_to_oid(&def.col_type), def.nullable);
                 if def.has_default {
                     spec.with_default()
                 } else {
@@ -317,9 +317,9 @@ async fn append_catalog_row(
     let catalog = ctx.catalog(&default_catalog).ok_or_else(|| {
         DataFusionError::Execution(format!("default catalog '{default_catalog}' not found"))
     })?;
-    let schema_provider = catalog.schema(schema_name).ok_or_else(|| {
-        DataFusionError::Execution(format!("schema '{schema_name}' not found"))
-    })?;
+    let schema_provider = catalog
+        .schema(schema_name)
+        .ok_or_else(|| DataFusionError::Execution(format!("schema '{schema_name}' not found")))?;
     let provider = schema_provider.table(table_name).await?.ok_or_else(|| {
         DataFusionError::Execution(format!("table '{schema_name}.{table_name}' not found"))
     })?;
@@ -399,7 +399,13 @@ pub async fn register_user_index(
         build_index_pg_class_row(&index_def, schema_oid),
     )
     .await?;
-    append_catalog_row(ctx, "pg_catalog", "pg_index", build_pg_index_row(&index_def)).await?;
+    append_catalog_row(
+        ctx,
+        "pg_catalog",
+        "pg_index",
+        build_pg_index_row(&index_def),
+    )
+    .await?;
 
     Ok(())
 }
@@ -963,7 +969,11 @@ mod tests {
                  WHERE conname = 'users_email_key' AND contype = 'u' AND conkey = [2]",
             )
             .await?;
-        assert_eq!(df.count().await?, 1, "unique constraint row must be present");
+        assert_eq!(
+            df.count().await?,
+            1,
+            "unique constraint row must be present"
+        );
 
         // The foreign key points at the parent table and column, with NO ACTION
         // ('a') update/delete rules.
@@ -993,7 +1003,11 @@ mod tests {
         let df = ctx
             .sql("SELECT 1 FROM pg_catalog.pg_constraint WHERE conname = 'users_pkey'")
             .await?;
-        assert_eq!(df.count().await?, 1, "constraint registration is idempotent");
+        assert_eq!(
+            df.count().await?,
+            1,
+            "constraint registration is idempotent"
+        );
         Ok(())
     }
 
@@ -1038,7 +1052,14 @@ mod tests {
                 has_default: true,
             },
         );
-        register_user_tables(&ctx, "pgtry", "myschema", "widgets", vec![id, label, created]).await?;
+        register_user_tables(
+            &ctx,
+            "pgtry",
+            "myschema",
+            "widgets",
+            vec![id, label, created],
+        )
+        .await?;
 
         // pg_class records the column count and the heap access method.
         let df = ctx
@@ -1047,7 +1068,11 @@ mod tests {
                  WHERE relname = 'widgets' AND relnatts = 3 AND relam = 2",
             )
             .await?;
-        assert_eq!(df.count().await?, 1, "pg_class relnatts/relam must be filled");
+        assert_eq!(
+            df.count().await?,
+            1,
+            "pg_class relnatts/relam must be filled"
+        );
 
         // The int column has fixed 4-byte, by-value, int-aligned storage.
         let df = ctx
@@ -1057,7 +1082,11 @@ mod tests {
                  AND attname = 'id' AND attlen = 4 AND attbyval = true AND attalign = 'i'",
             )
             .await?;
-        assert_eq!(df.count().await?, 1, "int4 storage attributes must be derived");
+        assert_eq!(
+            df.count().await?,
+            1,
+            "int4 storage attributes must be derived"
+        );
 
         // The text column is variable-length, extended storage, default collation.
         let df = ctx
@@ -1068,7 +1097,11 @@ mod tests {
                  AND attstorage = 'x' AND attcollation = 100",
             )
             .await?;
-        assert_eq!(df.count().await?, 1, "text storage attributes must be derived");
+        assert_eq!(
+            df.count().await?,
+            1,
+            "text storage attributes must be derived"
+        );
 
         // The defaulted column carries atthasdef and a backing pg_attrdef row.
         let df = ctx
@@ -1086,7 +1119,11 @@ mod tests {
                  AND adnum = 3",
             )
             .await?;
-        assert_eq!(df.count().await?, 1, "defaulted column must get a pg_attrdef row");
+        assert_eq!(
+            df.count().await?,
+            1,
+            "defaulted column must get a pg_attrdef row"
+        );
 
         // A column without a default has neither atthasdef nor a pg_attrdef row.
         let df = ctx
@@ -1096,7 +1133,11 @@ mod tests {
                  AND adnum = 1",
             )
             .await?;
-        assert_eq!(df.count().await?, 0, "a column with no default has no pg_attrdef row");
+        assert_eq!(
+            df.count().await?,
+            0,
+            "a column with no default has no pg_attrdef row"
+        );
         Ok(())
     }
 

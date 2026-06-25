@@ -814,11 +814,7 @@ async fn test_lazy_pg_index_reflects_source() -> DFResult<()> {
 
     // pg_get_indexdef templates the CREATE INDEX text from those structural rows
     // (unique flag, btree access method, schema-qualified table, key column name).
-    let indexdef = string_column(
-        &ctx,
-        "SELECT pg_catalog.pg_get_indexdef(80300)",
-    )
-    .await?;
+    let indexdef = string_column(&ctx, "SELECT pg_catalog.pg_get_indexdef(80300)").await?;
     assert_eq!(
         indexdef,
         vec!["CREATE UNIQUE INDEX indexed_pkey ON public.indexed USING btree (id)".to_string()],
@@ -848,7 +844,11 @@ async fn test_lazy_pg_constraint_reflects_source() -> DFResult<()> {
          WHERE conname = 'indexed_pkey' AND conrelid = 80200",
     )
     .await?;
-    assert_eq!(contype, vec!["p".to_string()], "pg_constraint must hold the PK");
+    assert_eq!(
+        contype,
+        vec!["p".to_string()],
+        "pg_constraint must hold the PK"
+    );
 
     // The live table_constraints view reflects the registered constraint.
     let constraint_types = text_column(
@@ -908,7 +908,10 @@ async fn test_lazy_pg_attrdef_reflects_source() -> DFResult<()> {
         .await?
         .count()
         .await?;
-    assert_eq!(attrdef_for_note, 1, "the defaulted column must get a pg_attrdef row");
+    assert_eq!(
+        attrdef_for_note, 1,
+        "the defaulted column must get a pg_attrdef row"
+    );
 
     // 'id' (attnum 1) has no default, so no pg_attrdef row - the table has exactly
     // the one pg_attrdef row, for 'note'.
@@ -917,7 +920,10 @@ async fn test_lazy_pg_attrdef_reflects_source() -> DFResult<()> {
         .await?
         .count()
         .await?;
-    assert_eq!(attrdef_total, 1, "only the defaulted column gets a pg_attrdef row");
+    assert_eq!(
+        attrdef_total, 1,
+        "only the defaulted column gets a pg_attrdef row"
+    );
     Ok(())
 }
 

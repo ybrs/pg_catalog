@@ -1110,7 +1110,10 @@ pub fn build_pg_attribute_rows(attrelid: i32, columns: &[ColumnSpec]) -> Vec<Row
             row.insert("attbyval".to_string(), json!(attbyval));
             row.insert("attalign".to_string(), json!(attalign));
             row.insert("attstorage".to_string(), json!(attstorage));
-            row.insert("attcollation".to_string(), json!(column_collation(col.type_oid)));
+            row.insert(
+                "attcollation".to_string(),
+                json!(column_collation(col.type_oid)),
+            );
             // Fixed structural defaults for a plain, locally-defined column.
             row.insert("attndims".to_string(), json!(0));
             row.insert("attcacheoff".to_string(), json!(-1));
@@ -1238,8 +1241,8 @@ pub fn build_rows_for(table: CatalogTable, source: &dyn LazyCatalogSource) -> DF
             for db in fetch_databases(source)? {
                 for schema in fetch_schemas(source, &db.datname)? {
                     for rel in fetch_relations(source, &db.datname, &schema.name)? {
-                        let natts =
-                            fetch_columns(source, &db.datname, &schema.name, &rel.name)?.len() as i32;
+                        let natts = fetch_columns(source, &db.datname, &schema.name, &rel.name)?
+                            .len() as i32;
                         rows.push(build_pg_class_row(&rel, schema.oid, natts));
                     }
                     // An index is itself a relation, so it gets its own pg_class

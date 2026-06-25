@@ -245,9 +245,17 @@ impl DatafusionBackend {
 
         if let Some(value) = client.metadata().get(metadata_key).cloned() {
             let fun = Arc::new(move |_args: &[ColumnarValue]| {
-                Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(value.clone()))))
+                Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(
+                    value.clone(),
+                ))))
             });
-            let udf = create_udf(name, vec![], DataType::Utf8, Volatility::Stable, fun.clone());
+            let udf = create_udf(
+                name,
+                vec![],
+                DataType::Utf8,
+                Volatility::Stable,
+                fun.clone(),
+            );
             self.ctx.register_udf(udf);
             if also_qualified {
                 let qualified_name = format!("pg_catalog.{}", name);
