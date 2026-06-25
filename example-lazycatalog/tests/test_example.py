@@ -32,7 +32,7 @@ def test_lazy_tables_in_pg_class():
 
 
 def test_lazy_catalog_join():
-    """pg_class ⋈ pg_namespace ⋈ pg_attribute resolves to the table's columns."""
+    """pg_class JOIN pg_namespace JOIN pg_attribute resolves to the table's columns."""
     out = run_example(
         "SELECT a.attname FROM pg_catalog.pg_class c "
         "JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace "

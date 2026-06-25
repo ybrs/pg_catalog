@@ -22,12 +22,12 @@ public:
         pronargs: int
         pronargdefaults: int
         prorettype: int
-        proargtypes: varchar(256)
-        proallargtypes: _text
+        proargtypes: oidvector
+        proallargtypes: _oid
         proargmodes: _text
         proargnames: _text
         proargdefaults: varchar(256)
-        protrftypes: _text
+        protrftypes: _oid
         prosrc: varchar(256)
         probin: varchar(256)
         prosqlbody: varchar(256)

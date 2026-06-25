@@ -9,7 +9,7 @@ public:
         extnamespace: int
         extrelocatable: boolean
         extversion: varchar(256)
-        extconfig: _text
+        extconfig: _oid
         extcondition: _text
       pg_types:
         oid: oid

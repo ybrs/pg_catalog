@@ -17,7 +17,7 @@ public:
         tgdeferrable: boolean
         tginitdeferred: boolean
         tgnargs: int
-        tgattr: varchar(256)
+        tgattr: int2vector
         tgargs: varchar(256)
         tgqual: varchar(256)
         tgoldtable: varchar(64)

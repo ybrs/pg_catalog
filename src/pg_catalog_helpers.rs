@@ -3,6 +3,9 @@ use datafusion::common::ScalarValue;
 use datafusion::error::{DataFusionError, Result as DFResult};
 use datafusion::execution::context::SessionContext;
 use serde::Deserialize;
+
+use crate::lazy_catalog::{build_index_pg_class_row, build_pg_index_row, IndexDef};
+use crate::session::rows_to_record_batch;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::Mutex;
@@ -357,6 +360,108 @@ pub async fn register_user_tables(
     Ok(())
 }
 
+/// Append one row, built as a `column -> JSON value` map, to a `pg_catalog` table
+/// by materializing it against that table's Arrow schema and inserting it into
+/// the in-memory provider. Columns absent from `row` take their schema default
+/// (NULL). Used by the eager registration helpers to write rows whose columns
+/// include non-scalar types (e.g. the `pg_index.indkey` list) that a literal
+/// `INSERT ... VALUES` clause cannot express.
+async fn append_catalog_row(
+    ctx: &SessionContext,
+    table_name: &str,
+    row: BTreeMap<String, serde_json::Value>,
+) -> DFResult<()> {
+    let default_catalog = {
+        let state = ctx.state();
+        state.config_options().catalog.default_catalog.clone()
+    };
+    let catalog = ctx.catalog(&default_catalog).ok_or_else(|| {
+        DataFusionError::Execution(format!("default catalog '{default_catalog}' not found"))
+    })?;
+    let schema_provider = catalog
+        .schema("pg_catalog")
+        .ok_or_else(|| DataFusionError::Execution("schema 'pg_catalog' not found".to_string()))?;
+    let provider = schema_provider
+        .table(table_name)
+        .await?
+        .ok_or_else(|| {
+            DataFusionError::Execution(format!("table 'pg_catalog.{table_name}' not found"))
+        })?;
+    let schema = provider.schema();
+    let batch = rows_to_record_batch(&schema, &[row])?;
+
+    // Stage the row as a one-off source table, then INSERT ... SELECT it into the
+    // catalog table so its columns are matched by the schema rather than by a
+    // literal VALUES tuple. The staging table is dropped whether the insert
+    // succeeds or fails.
+    let staging_table = format!("__pg_catalog_append_{table_name}");
+    ctx.register_batch(&staging_table, batch)?;
+    let inserted = ctx
+        .sql(&format!(
+            "INSERT INTO pg_catalog.{table_name} SELECT * FROM {staging_table}"
+        ))
+        .await;
+    let inserted = match inserted {
+        Ok(df) => df.collect().await,
+        Err(e) => Err(e),
+    };
+    ctx.deregister_table(&staging_table)?;
+    inserted?;
+    Ok(())
+}
+
+/// Pre-register one index for an existing user table, the index analogue of
+/// [`register_user_tables`]. It writes the two catalog rows that describe an
+/// index: the index's own `pg_class` row (`relkind = 'i'`, which carries the
+/// index name) and its `pg_catalog.pg_index` structure row, so `pg_indexes` and
+/// `pg_get_indexdef` can describe the index.
+///
+/// `index_name` is the new index relation's name; `table_name` is the existing
+/// table it indexes within `schema_name`; `key_attnums` lists the indexed columns
+/// by their 1-based `pg_attribute.attnum`, in index order. The index's
+/// `pg_class.oid` is allocated here. Errors if the schema or table is not
+/// registered; re-registering an existing index name is a no-op.
+pub async fn register_user_index(
+    ctx: &SessionContext,
+    schema_name: &str,
+    index_name: &str,
+    table_name: &str,
+    key_attnums: Vec<i32>,
+    is_unique: bool,
+    is_primary: bool,
+) -> DFResult<()> {
+    let Some(schema_oid) = get_schema_oid(ctx, schema_name).await? else {
+        return Err(DataFusionError::Execution(format!(
+            "schema '{schema_name}' not found while registering index '{index_name}'"
+        )));
+    };
+    let Some(table_oid) = get_table_oid(ctx, schema_oid, table_name).await? else {
+        return Err(DataFusionError::Execution(format!(
+            "table '{schema_name}.{table_name}' not found while registering index '{index_name}'"
+        )));
+    };
+
+    if get_table_oid(ctx, schema_oid, index_name).await?.is_some() {
+        log::info!("index already exists {index_name}?");
+        return Ok(());
+    }
+
+    let index_oid = NEXT_OID.fetch_add(1, Ordering::SeqCst);
+    let index_def = IndexDef {
+        index_oid,
+        index_name: index_name.to_string(),
+        table_oid,
+        key_attnums,
+        is_unique,
+        is_primary,
+    };
+
+    append_catalog_row(ctx, "pg_class", build_index_pg_class_row(&index_def, schema_oid)).await?;
+    append_catalog_row(ctx, "pg_index", build_pg_index_row(&index_def)).await?;
+
+    Ok(())
+}
+
 async fn get_schema_oid(ctx: &SessionContext, schema_name: &str) -> DFResult<Option<i32>> {
     let df = ctx
         .sql("SELECT oid FROM pg_catalog.pg_namespace WHERE nspname=$schema")
@@ -600,6 +705,83 @@ mod tests {
             .await?;
         let batches = df.collect().await?;
         assert_eq!(batches[0].num_rows(), 2);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_register_user_index_dynamic() -> DFResult<()> {
+        let (ctx, _) = get_base_session_context(
+            Some("pg_catalog_data/pg_schema"),
+            "pgtry".to_string(),
+            "public".to_string(),
+            None,
+        )
+        .await?;
+
+        register_schema(&ctx, "pgtry", "myschema").await?;
+
+        let mut c1 = BTreeMap::new();
+        c1.insert(
+            "id".to_string(),
+            ColumnDef {
+                col_type: "int".to_string(),
+                nullable: false,
+            },
+        );
+        register_user_tables(&ctx, "pgtry", "myschema", "contacts", vec![c1]).await?;
+
+        register_user_index(&ctx, "myschema", "contacts_pkey", "contacts", vec![1], true, true)
+            .await?;
+
+        // The index gets its own pg_class row, relkind 'i'.
+        let df = ctx
+            .sql("SELECT relkind FROM pg_catalog.pg_class WHERE relname='contacts_pkey'")
+            .await?;
+        let batches = df.collect().await?;
+        assert_eq!(batches[0].num_rows(), 1, "index needs a pg_class row");
+        let relkind = batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap()
+            .value(0);
+        assert_eq!(relkind, "i");
+
+        // The pg_index structure row points at the table and is unique + primary,
+        // joining through pg_class on the index name.
+        let df = ctx
+            .sql(
+                "SELECT t.relname FROM pg_catalog.pg_index x \
+                 JOIN pg_catalog.pg_class i ON i.oid = x.indexrelid \
+                 JOIN pg_catalog.pg_class t ON t.oid = x.indrelid \
+                 WHERE i.relname = 'contacts_pkey' AND x.indisunique AND x.indisprimary",
+            )
+            .await?;
+        let batches = df.collect().await?;
+        assert_eq!(batches[0].num_rows(), 1);
+        let table_name = batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap()
+            .value(0);
+        assert_eq!(table_name, "contacts");
+
+        // indkey carries the indexed column's attnum.
+        let df = ctx
+            .sql(
+                "SELECT unnest(indkey) AS k FROM pg_catalog.pg_index \
+                 WHERE indexrelid = (SELECT oid FROM pg_catalog.pg_class WHERE relname='contacts_pkey')",
+            )
+            .await?;
+        let batches = df.collect().await?;
+        let attnum = batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<Int32Array>()
+            .unwrap()
+            .value(0);
+        assert_eq!(attnum, 1);
         Ok(())
     }
 

@@ -23,6 +23,7 @@ use datafusion::logical_expr::{Expr, TableType};
 use datafusion::prelude::SessionContext;
 use datafusion::prelude::*;
 use once_cell::sync::Lazy;
+use std::collections::HashMap;
 use std::future::Future;
 use std::sync::Arc;
 
@@ -33,8 +34,8 @@ use std::sync::Arc;
 /// invoked from within ANY caller runtime: a current-thread runtime (as
 /// `#[tokio::test]` uses) where `tokio::task::block_in_place` would panic, or a
 /// worker of a multi-threaded runtime where re-entering `block_on` would
-/// deadlock. Driving the query on this separate runtime — and blocking the
-/// caller on a plain std channel — is safe regardless of the caller's flavor.
+/// deadlock. Driving the query on this separate runtime - and blocking the
+/// caller on a plain std channel - is safe regardless of the caller's flavor.
 static CATALOG_QUERY_RT: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
     tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)
@@ -255,34 +256,119 @@ pub fn register_scalar_pg_tablespace_location(ctx: &SessionContext) -> Result<()
     Ok(())
 }
 
-fn format_type_string(oid: i64, typmod: Option<i64>) -> String {
-    match oid {
-        16 => "boolean".to_string(),
-        20 => "bigint".to_string(),
-        21 => "smallint".to_string(),
-        23 => "integer".to_string(),
-        25 => "text".to_string(),
-        1043 => {
-            if let Some(tm) = typmod {
-                if tm >= 0 {
-                    format!("character varying({})", tm - 4)
-                } else {
-                    "character varying".to_string()
-                }
-            } else {
-                "character varying".to_string()
-            }
-        }
-        _ => oid.to_string(),
-    }
-}
 use datafusion::common::cast::as_int64_array;
 
-/// Register a simplified `format_type(oid, typmod)` UDF that produces a
-/// human readable type name for common built-in types.
-pub fn register_scalar_format_type(ctx: &SessionContext) -> Result<()> {
-    let ctx_arc = Arc::new(ctx.clone());
-    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
+/// Render the SQL name of the type whose `pg_type.typname` is `typname`, applying
+/// `typmod` where the type carries a modifier (length, precision, scale).
+///
+/// Mirrors the canonical-name table inside PostgreSQL's `format_type`: a fixed set
+/// of built-in types print their SQL-standard spelling (`int4` -> `integer`,
+/// `timestamptz` -> `timestamp with time zone`), and everything else prints its
+/// bare `typname` (`name` -> `name`, a user type -> its own name). `typmod` is the
+/// stored modifier; for `varchar`/`bpchar` it is `length + VARHDRSZ(4)`, for
+/// `numeric` it packs precision and scale, and for the date/time types it is the
+/// fractional-seconds precision.
+fn sql_name_for_typname(typname: &str, typmod: Option<i64>) -> String {
+    /// Fractional-seconds precision suffix, e.g. `(2)`, or empty when unmodified.
+    fn precision_suffix(typmod: Option<i64>) -> String {
+        match typmod {
+            Some(p) if p >= 0 => format!("({})", p),
+            _ => String::new(),
+        }
+    }
+    match typname {
+        "bool" => "boolean".to_string(),
+        "int2" => "smallint".to_string(),
+        "int4" => "integer".to_string(),
+        "int8" => "bigint".to_string(),
+        "float4" => "real".to_string(),
+        "float8" => "double precision".to_string(),
+        "char" => "\"char\"".to_string(),
+        "varchar" => match typmod {
+            Some(tm) if tm >= 0 => format!("character varying({})", tm - 4),
+            _ => "character varying".to_string(),
+        },
+        "bpchar" => match typmod {
+            Some(tm) if tm >= 0 => format!("character({})", tm - 4),
+            _ => "character".to_string(),
+        },
+        "numeric" => match typmod {
+            Some(tm) if tm >= 4 => {
+                let bits = tm - 4;
+                format!("numeric({},{})", (bits >> 16) & 0xFFFF, bits & 0xFFFF)
+            }
+            _ => "numeric".to_string(),
+        },
+        "timestamp" => format!("timestamp{} without time zone", precision_suffix(typmod)),
+        "timestamptz" => format!("timestamp{} with time zone", precision_suffix(typmod)),
+        "time" => format!("time{} without time zone", precision_suffix(typmod)),
+        "timetz" => format!("time{} with time zone", precision_suffix(typmod)),
+        "interval" => "interval".to_string(),
+        "bit" => "bit".to_string(),
+        "varbit" => "bit varying".to_string(),
+        other if is_reserved_type_keyword(other) => format!("\"{}\"", other),
+        other => other.to_string(),
+    }
+}
+
+/// Whether `format_type` would double-quote this `typname` because it is a SQL
+/// reserved word (e.g. the `any` pseudo-type prints as `"any"`). `char` is quoted
+/// by its own arm above. New names that show up quoted in the snapshots get added
+/// here - the content snapshot test flags any that are missing.
+fn is_reserved_type_keyword(typname: &str) -> bool {
+    matches!(typname, "any")
+}
+
+/// Render `format_type(oid, typmod)` using a `pg_type.oid -> typname` lookup.
+///
+/// Array types (whose `typname` starts with `_`) print their element type's SQL
+/// name followed by `[]`. An OID absent from `by_oid` (no such `pg_type` row)
+/// falls back to the bare OID text, matching the previous behavior for unknowns.
+fn format_type_name(oid: i64, typmod: Option<i64>, by_oid: &HashMap<i64, String>) -> String {
+    match by_oid.get(&oid) {
+        Some(typname) if typname.starts_with('_') => {
+            format!("{}[]", sql_name_for_typname(&typname[1..], None))
+        }
+        Some(typname) => sql_name_for_typname(typname, typmod),
+        None => oid.to_string(),
+    }
+}
+
+/// Read `pg_catalog.pg_type` into an `oid -> typname` map. The catalog is static
+/// once loaded, so this snapshot stays valid for the session's lifetime.
+async fn load_typname_by_oid(ctx: &SessionContext) -> Result<HashMap<i64, String>> {
+    use arrow::array::{Int64Array, StringArray};
+    let mut by_oid = HashMap::new();
+    let df = ctx
+        .sql("SELECT CAST(oid AS BIGINT) AS oid, typname FROM pg_catalog.pg_type")
+        .await?;
+    for batch in df.collect().await? {
+        let oids = batch
+            .column(0)
+            .as_any()
+            .downcast_ref::<Int64Array>()
+            .ok_or_else(|| DataFusionError::Internal("pg_type.oid not Int64".into()))?;
+        let names = batch
+            .column(1)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .ok_or_else(|| DataFusionError::Internal("pg_type.typname not Utf8".into()))?;
+        for i in 0..batch.num_rows() {
+            if !oids.is_null(i) && !names.is_null(i) {
+                by_oid.insert(oids.value(i), names.value(i).to_string());
+            }
+        }
+    }
+    Ok(by_oid)
+}
+
+/// Register `format_type(oid, typmod)` (and its `pg_catalog.` alias) backed by a
+/// real `pg_type.typname` lookup, so it resolves every type the catalog knows -
+/// not just a hand-picked handful - to its SQL name. Falls back to the OID text
+/// for an unknown OID.
+pub async fn register_scalar_format_type(ctx: &SessionContext) -> Result<()> {
+    let by_oid = Arc::new(load_typname_by_oid(ctx).await?);
+    let fun = move |args: &[ColumnarValue]| -> Result<ColumnarValue> {
         let arrays = ColumnarValue::values_to_arrays(args)?;
         let oids = as_int64_array(&arrays[0])?;
         let mods = as_int64_array(&arrays[1])?;
@@ -291,15 +377,8 @@ pub fn register_scalar_format_type(ctx: &SessionContext) -> Result<()> {
             if oids.is_null(i) {
                 builder.append_null();
             } else {
-                let s = format_type_string(
-                    oids.value(i),
-                    if mods.is_null(i) {
-                        None
-                    } else {
-                        Some(mods.value(i))
-                    },
-                );
-                builder.append_value(&s);
+                let typmod = (!mods.is_null(i)).then(|| mods.value(i));
+                builder.append_value(format_type_name(oids.value(i), typmod, &by_oid));
             }
         }
         Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
@@ -308,73 +387,13 @@ pub fn register_scalar_format_type(ctx: &SessionContext) -> Result<()> {
         "format_type",
         vec![ArrowDataType::Int64, ArrowDataType::Int64],
         ArrowDataType::Utf8,
-        Volatility::Immutable,
+        Volatility::Stable,
         Arc::new(fun),
-    );
-    ctx_arc.register_udf(udf);
-
-    let udf = create_udf(
-        "pg_catalog.format_type",
-        vec![ArrowDataType::Int64, ArrowDataType::Int64],
-        ArrowDataType::Utf8,
-        Volatility::Immutable,
-        Arc::new(fun),
-    );
-    ctx_arc.register_udf(udf);
-
+    )
+    .with_aliases(["pg_catalog.format_type"]);
+    ctx.register_udf(udf);
     Ok(())
 }
-
-// pub async fn register_scalar_format_type_with_lookup(ctx: &SessionContext) -> Result<()> {
-//     use arrow::array::{ArrayRef, Int32Array, StringArray, StringBuilder};
-//     use arrow::datatypes::DataType;
-//     use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
-//     use std::sync::Arc;
-
-//     // Build a HashMap<oid,i32 -> typname> once
-//     let mut map = std::collections::HashMap::<i32, String>::new();
-//     if let Some(tbl) = ctx.table("pg_catalog.pg_type") {
-//         let batches = tbl.collect().await?;
-//         for b in &batches {
-//             let oid = b
-//                 .column_by_name("oid")
-//                 .and_then(|c| c.as_any().downcast_ref::<Int32Array>())
-//                 .unwrap();
-//             let name = b
-//                 .column_by_name("typname")
-//                 .and_then(|c| c.as_any().downcast_ref::<StringArray>())
-//                 .unwrap();
-//             for i in 0..b.num_rows() {
-//                 if !oid.is_null(i) && !name.is_null(i) {
-//                     map.insert(oid.value(i), name.value(i).to_string());
-//                 }
-//             }
-//         }
-//     }
-
-//     // closure used by the UDF
-//     let fun = Arc::new(move |args: &[ColumnarValue]| -> Result<ColumnarValue> {
-//         let oid = match &args[0] {
-//             ColumnarValue::Scalar(ScalarValue::Int32(Some(v))) => *v,
-//             ColumnarValue::Array(arr) => {
-//                 let a = arr.as_any().downcast_ref::<Int32Array>().unwrap();
-//                 if a.is_null(0) { 0 } else { a.value(0) }
-//             }
-//             _ => 0,
-//         };
-//         let typname = map.get(&oid).cloned().unwrap_or_else(|| "text".into());
-//         Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(typname))))
-//     });
-
-//     ctx.register_udf(create_udf(
-//         "pg_catalog.format_type",
-//         vec![DataType::Int32, DataType::Int32],
-//         DataType::Utf8,
-//         Volatility::Stable,
-//         fun,
-//     ));
-//     Ok(())
-// }
 
 /// Implement a basic `pg_get_expr` that simply returns the input
 /// expression text without evaluation.
@@ -745,13 +764,13 @@ pub fn register_getdatabaseencoding(ctx: &SessionContext) -> Result<()> {
 /// PostgreSQL's `format()` string-formatting function. Implements the conversion
 /// specifiers used by the catalog views and the common cases:
 ///
-/// * `%s` — the argument as a string (NULL renders as empty, per PostgreSQL),
-/// * `%I` — the argument as a quoted SQL identifier,
-/// * `%L` — the argument as a quoted SQL literal (NULL renders as `NULL`),
-/// * `%%` — a literal percent sign.
+/// * `%s` - the argument as a string (NULL renders as empty, per PostgreSQL),
+/// * `%I` - the argument as a quoted SQL identifier,
+/// * `%L` - the argument as a quoted SQL literal (NULL renders as `NULL`),
+/// * `%%` - a literal percent sign.
 ///
 /// Arguments are consumed left to right (positional `%n$` specifiers are not
-/// supported — no catalog view uses them). Used by the `check_constraints` view
+/// supported - no catalog view uses them). Used by the `check_constraints` view
 /// (`format('%s IS NOT NULL', ...)`).
 pub fn register_format(ctx: &SessionContext) -> Result<()> {
     use arrow::array::{ArrayRef, StringArray, StringBuilder};
@@ -891,21 +910,30 @@ pub fn register_pg_relation_is_updatable(ctx: &SessionContext) -> Result<()> {
     register_int_stub(ctx, "pg_catalog.pg_relation_is_updatable", 2, Some(0))
 }
 
-/// pg_catalog.information_schema._pg_char_max_length(typid, typmod) -> int4
+/// information_schema._pg_char_max_length(typid, typmod) -> int4
 ///
-/// Compatibility stub returning NULL: we don't derive a character maximum
-/// length, and NULL is the correct value for non-character types anyway, so the
-/// `character_maximum_length` column simply reads as NULL.
+/// Computes the declared character maximum length from the type OID and typmod
+/// (see [`pg_char_max_length`]), populating `character_maximum_length` in the
+/// `columns` / `domains` views.
 pub fn register_pg_char_max_length(ctx: &SessionContext) -> Result<()> {
-    register_int_stub(ctx, "information_schema._pg_char_max_length", 2, None)
+    register_type_fact_int_fn(
+        ctx,
+        "information_schema._pg_char_max_length",
+        pg_char_max_length,
+    )
 }
 
 /// information_schema._pg_char_octet_length(typid, typmod) -> int4
 ///
-/// Compatibility stub returning NULL (we don't derive octet lengths), so the
-/// `character_octet_length` column reads as NULL. Used by the `domains` view.
+/// Computes the maximum length in bytes from the type OID and typmod (see
+/// [`pg_char_octet_length`]), populating `character_octet_length` in the
+/// `columns` / `domains` views.
 pub fn register_pg_char_octet_length(ctx: &SessionContext) -> Result<()> {
-    register_int_stub(ctx, "information_schema._pg_char_octet_length", 2, None)
+    register_type_fact_int_fn(
+        ctx,
+        "information_schema._pg_char_octet_length",
+        pg_char_octet_length,
+    )
 }
 
 /// information_schema._pg_index_position(indexoid, column) -> smallint
@@ -917,31 +945,48 @@ pub fn register_pg_index_position(ctx: &SessionContext) -> Result<()> {
     register_int_stub(ctx, "information_schema._pg_index_position", 2, None)
 }
 
-/// The remaining `information_schema._pg_*` numeric/datetime type-introspection
-/// helpers, all returning NULL int4 stubs. They derive precision/scale facts we
-/// don't model, and NULL is the correct value for types they don't apply to, so
-/// the corresponding columns (numeric_precision, numeric_scale, ...) read NULL.
-/// Used by `domains` (with scalar args). `_pg_interval_type` returns NULL text.
+/// The `information_schema._pg_*` numeric/datetime type-introspection helpers,
+/// each computing its fact from the type OID and typmod (see the `pg_numeric_*` /
+/// `pg_datetime_precision` formulas). They populate `numeric_precision`,
+/// `numeric_precision_radix`, `numeric_scale`, and `datetime_precision` in the
+/// `columns` / `domains` views. `_pg_interval_type` (the interval field
+/// qualifier, e.g. `YEAR TO MONTH`) is still a NULL text stub.
 pub fn register_pg_numeric_helpers(ctx: &SessionContext) -> Result<()> {
-    register_int_stub(ctx, "information_schema._pg_numeric_precision", 2, None)?;
-    register_int_stub(ctx, "information_schema._pg_numeric_precision_radix", 2, None)?;
-    register_int_stub(ctx, "information_schema._pg_numeric_scale", 2, None)?;
-    register_int_stub(ctx, "information_schema._pg_datetime_precision", 2, None)?;
+    register_type_fact_int_fn(
+        ctx,
+        "information_schema._pg_numeric_precision",
+        pg_numeric_precision,
+    )?;
+    register_type_fact_int_fn(
+        ctx,
+        "information_schema._pg_numeric_precision_radix",
+        pg_numeric_precision_radix,
+    )?;
+    register_type_fact_int_fn(
+        ctx,
+        "information_schema._pg_numeric_scale",
+        pg_numeric_scale,
+    )?;
+    register_type_fact_int_fn(
+        ctx,
+        "information_schema._pg_datetime_precision",
+        pg_datetime_precision,
+    )?;
     register_null_text_stub(ctx, "information_schema._pg_interval_type", 2)?;
     Ok(())
 }
 
 /// Register `information_schema._pg_truetypid` and `_pg_truetypmod`.
 ///
-/// In PostgreSQL these take two *whole-row* composite arguments — a
-/// `pg_attribute` row and a `pg_type` row — and resolve a column's "true" type:
+/// In PostgreSQL these take two *whole-row* composite arguments - a
+/// `pg_attribute` row and a `pg_type` row - and resolve a column's "true" type:
 /// when the column's type is a domain (`typtype = 'd'`) they return the domain's
 /// base type id / typmod, otherwise the attribute's own `atttypid` / `atttypmod`.
 ///
 /// DataFusion has no composite/record scalar type, so it cannot bind `a.*` /
 /// `t.*` as single arguments. The `rewrite_pg_truetypid_composite_args` pass
 /// therefore expands each call into the three scalar columns the body actually
-/// reads — `(atttypid|atttypmod, typtype, base)` — and these UDFs implement the
+/// reads - `(atttypid|atttypmod, typtype, base)` - and these UDFs implement the
 /// `CASE WHEN typtype = 'd' THEN base ELSE own END` selection over them. Used by
 /// the `columns` and `attributes` information_schema views.
 pub fn register_pg_truetypid_helpers(ctx: &SessionContext) -> Result<()> {
@@ -1158,6 +1203,197 @@ fn register_null_text_stub(
 /// (plus its bare last-segment alias) that takes exactly `arity` arguments of
 /// any type and returns the constant int4 `value` (or NULL when `value` is
 /// `None`), broadcast over the input length.
+// Type OIDs the information_schema precision/length helpers branch on. These are
+// the fixed built-in OIDs assigned by PostgreSQL (identical in every server).
+const OID_INT2: i64 = 21;
+const OID_INT4: i64 = 23;
+const OID_INT8: i64 = 20;
+const OID_NUMERIC: i64 = 1700;
+const OID_FLOAT4: i64 = 700;
+const OID_FLOAT8: i64 = 701;
+const OID_TEXT: i64 = 25;
+const OID_BPCHAR: i64 = 1042;
+const OID_VARCHAR: i64 = 1043;
+const OID_BIT: i64 = 1560;
+const OID_VARBIT: i64 = 1562;
+const OID_DATE: i64 = 1082;
+const OID_TIME: i64 = 1083;
+const OID_TIMESTAMP: i64 = 1114;
+const OID_TIMESTAMPTZ: i64 = 1184;
+const OID_TIMETZ: i64 = 1266;
+const OID_INTERVAL: i64 = 1186;
+
+/// `information_schema._pg_numeric_precision(typid, typmod)`: the number of
+/// significant digits a numeric column of this type can hold, or NULL for
+/// non-numeric types. Mirrors PostgreSQL's helper: fixed widths for the integer
+/// and float types, and the precision packed into `typmod` for `numeric`.
+fn pg_numeric_precision(typid: Option<i64>, typmod: Option<i64>) -> Option<i32> {
+    match typid? {
+        OID_INT2 => Some(16),
+        OID_INT4 => Some(32),
+        OID_INT8 => Some(64),
+        OID_FLOAT4 => Some(24),
+        OID_FLOAT8 => Some(53),
+        OID_NUMERIC => match typmod? {
+            -1 => None,
+            m => Some((((m - 4) >> 16) & 65535) as i32),
+        },
+        _ => None,
+    }
+}
+
+/// `information_schema._pg_numeric_precision_radix(typid, typmod)`: the base in
+/// which the precision is expressed - 2 for binary integer/float types, 10 for
+/// `numeric`, NULL otherwise.
+fn pg_numeric_precision_radix(typid: Option<i64>, _typmod: Option<i64>) -> Option<i32> {
+    match typid? {
+        OID_INT2 | OID_INT4 | OID_INT8 | OID_FLOAT4 | OID_FLOAT8 => Some(2),
+        OID_NUMERIC => Some(10),
+        _ => None,
+    }
+}
+
+/// `information_schema._pg_numeric_scale(typid, typmod)`: digits after the decimal
+/// point - 0 for the integer types, the scale packed into `typmod` for `numeric`,
+/// NULL otherwise (the float types have no defined scale).
+fn pg_numeric_scale(typid: Option<i64>, typmod: Option<i64>) -> Option<i32> {
+    match typid? {
+        OID_INT2 | OID_INT4 | OID_INT8 => Some(0),
+        OID_NUMERIC => match typmod? {
+            -1 => None,
+            m => Some(((m - 4) & 65535) as i32),
+        },
+        _ => None,
+    }
+}
+
+/// `information_schema._pg_datetime_precision(typid, typmod)`: fractional-seconds
+/// precision - 0 for `date`, the `typmod` (defaulting to 6) for the time/timestamp
+/// types, and the low 16 bits of `typmod` for `interval`, NULL otherwise.
+fn pg_datetime_precision(typid: Option<i64>, typmod: Option<i64>) -> Option<i32> {
+    match typid? {
+        OID_DATE => Some(0),
+        OID_TIME | OID_TIMESTAMP | OID_TIMESTAMPTZ | OID_TIMETZ => {
+            let m = typmod.unwrap_or(-1);
+            Some(if m < 0 { 6 } else { m as i32 })
+        }
+        OID_INTERVAL => {
+            let m = typmod.unwrap_or(-1);
+            Some(if m < 0 || (m & 65535) == 65535 {
+                6
+            } else {
+                (m & 65535) as i32
+            })
+        }
+        _ => None,
+    }
+}
+
+/// `information_schema._pg_char_max_length(typid, typmod)`: declared maximum
+/// character length - `typmod - 4` for `char`/`varchar` (NULL when unbounded),
+/// `typmod` for the bit-string types, NULL otherwise.
+fn pg_char_max_length(typid: Option<i64>, typmod: Option<i64>) -> Option<i32> {
+    match typid? {
+        OID_BPCHAR | OID_VARCHAR => match typmod? {
+            -1 => None,
+            m => Some((m - 4) as i32),
+        },
+        OID_BIT | OID_VARBIT => typmod.map(|m| m as i32),
+        _ => None,
+    }
+}
+
+/// Maximum bytes per character for the catalog's server encoding. This catalog is
+/// UTF-8 (`pg_encoding_max_length('UTF8') = 4`), which is what the octet-length
+/// helper multiplies the character length by.
+const ENCODING_MAX_LENGTH: i32 = 4;
+
+/// `information_schema._pg_char_octet_length(typid, typmod)`: maximum length in
+/// bytes - `1 GiB` for an unbounded `text`/`char`/`varchar`, otherwise the
+/// character length times the server encoding's max bytes-per-character, NULL for
+/// non-character types.
+fn pg_char_octet_length(typid: Option<i64>, typmod: Option<i64>) -> Option<i32> {
+    match typid? {
+        OID_TEXT | OID_BPCHAR | OID_VARCHAR => match typmod.unwrap_or(-1) {
+            -1 => Some(1 << 30),
+            _ => pg_char_max_length(typid, typmod).map(|l| l * ENCODING_MAX_LENGTH),
+        },
+        _ => None,
+    }
+}
+
+/// Read an Arrow array as one nullable i64 per row, casting from whatever integer
+/// (or numeric-text) type the planner supplied. Rows that cannot be read as an
+/// integer become `None`.
+fn array_as_opt_i64(array: &ArrayRef) -> Vec<Option<i64>> {
+    use arrow::datatypes::DataType;
+    match arrow::compute::cast(array, &DataType::Int64) {
+        Ok(casted) => {
+            let a = casted.as_any().downcast_ref::<Int64Array>().unwrap();
+            (0..a.len())
+                .map(|i| if a.is_null(i) { None } else { Some(a.value(i)) })
+                .collect()
+        }
+        Err(_) => vec![None; array.len()],
+    }
+}
+
+/// Register a 2-argument `(typid, typmod) -> int4` information_schema helper whose
+/// result is a pure function of the two integer arguments. Both arguments arrive
+/// as catalog integers (a type OID and a typmod) and are read NULL-safely, so the
+/// formula can branch on the type OID and decode the typmod.
+fn register_type_fact_int_fn(
+    ctx: &SessionContext,
+    qualified: &'static str,
+    func: fn(Option<i64>, Option<i64>) -> Option<i32>,
+) -> Result<()> {
+    use arrow::array::{ArrayRef, Int32Builder};
+    use arrow::datatypes::DataType;
+
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    struct TypeFactFn {
+        qualified: String,
+        func: fn(Option<i64>, Option<i64>) -> Option<i32>,
+        sig: Signature,
+    }
+
+    impl ScalarUDFImpl for TypeFactFn {
+        fn name(&self) -> &str {
+            &self.qualified
+        }
+        fn signature(&self) -> &Signature {
+            &self.sig
+        }
+        fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
+            Ok(DataType::Int32)
+        }
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            let arrays = ColumnarValue::values_to_arrays(&args.args)?;
+            let len = arrays.first().map(|a| a.len()).unwrap_or(1);
+            let typid = arrays.first().map(array_as_opt_i64).unwrap_or(vec![None; len]);
+            let typmod = arrays.get(1).map(array_as_opt_i64).unwrap_or(vec![None; len]);
+            let mut out = Int32Builder::with_capacity(len);
+            for i in 0..len {
+                match (self.func)(typid[i], typmod[i]) {
+                    Some(v) => out.append_value(v),
+                    None => out.append_null(),
+                }
+            }
+            Ok(ColumnarValue::Array(Arc::new(out.finish()) as ArrayRef))
+        }
+    }
+
+    let udf_impl = TypeFactFn {
+        qualified: qualified.to_string(),
+        func,
+        sig: Signature::one_of(vec![TypeSignature::Any(2)], Volatility::Stable),
+    };
+    let bare = qualified.rsplit('.').next().unwrap_or(qualified);
+    let udf = ScalarUDF::new_from_impl(udf_impl).with_aliases([bare]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
 fn register_int_stub(
     ctx: &SessionContext,
     qualified: &'static str,
@@ -1309,10 +1545,14 @@ pub fn register_pg_options_to_table(ctx: &SessionContext) -> Result<()> {
 /// PostgreSQL set-returning helper that expands an array into rows of
 /// `(x = element, n = 1-based ordinal)`. Modeled as a scalar function returning
 /// `List<Struct{x, n}>` so `(_pg_expandarray(a)).x` works via the
-/// `rewrite_srf_to_unnest` pass. The catalog's arrays arrive as `List<Utf8>`, so
-/// `x` is text and `n` is int4.
+/// `rewrite_srf_to_unnest` pass. `x` is Int64 (the element value - a column
+/// number or type oid) and `n` is int4 (its 1-based position); the helper
+/// `element_as_i64` accepts the int arrays (`conkey`, `proargtypes`) the views
+/// pass as well as legacy text arrays.
 pub fn register_pg_expandarray(ctx: &SessionContext) -> Result<()> {
-    use arrow::array::{ArrayRef, Int32Builder, ListArray, ListBuilder, StringBuilder, StructBuilder};
+    use arrow::array::{
+        Array, ArrayRef, Int32Builder, Int64Builder, ListArray, ListBuilder, StructBuilder,
+    };
     use arrow::datatypes::{DataType, Field, Fields};
     use datafusion::logical_expr::{
         ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature,
@@ -1321,11 +1561,34 @@ pub fn register_pg_expandarray(ctx: &SessionContext) -> Result<()> {
     use std::sync::Arc;
 
     fn item_fields() -> Fields {
+        // `x` is the array element (a column number or type oid) and `n` its
+        // 1-based position. `x` is Int64 so it compares directly against the int
+        // columns the views join it to (e.g. `pg_attribute.attnum = (ss.x).x`).
         vec![
-            Field::new("x", DataType::Utf8, true),
+            Field::new("x", DataType::Int64, true),
             Field::new("n", DataType::Int32, true),
         ]
         .into()
+    }
+
+    /// The element at index `j` of `elems` as an i64, handling the int arrays
+    /// (`conkey` Int16/Int32, `proargtypes` Int64) and legacy text arrays.
+    fn element_as_i64(elems: &dyn Array, j: usize) -> Option<i64> {
+        use arrow::array::{Int16Array, Int32Array, Int64Array, StringArray};
+        if elems.is_null(j) {
+            return None;
+        }
+        if let Some(a) = elems.as_any().downcast_ref::<Int64Array>() {
+            Some(a.value(j))
+        } else if let Some(a) = elems.as_any().downcast_ref::<Int32Array>() {
+            Some(a.value(j) as i64)
+        } else if let Some(a) = elems.as_any().downcast_ref::<Int16Array>() {
+            Some(a.value(j) as i64)
+        } else if let Some(a) = elems.as_any().downcast_ref::<StringArray>() {
+            a.value(j).parse::<i64>().ok()
+        } else {
+            None
+        }
     }
 
     #[derive(Debug, PartialEq, Eq, Hash)]
@@ -1352,7 +1615,7 @@ pub fn register_pg_expandarray(ctx: &SessionContext) -> Result<()> {
             let input = arrays[0].as_any().downcast_ref::<ListArray>();
             let mut builder = ListBuilder::new(StructBuilder::new(
                 item_fields(),
-                vec![Box::new(StringBuilder::new()), Box::new(Int32Builder::new())],
+                vec![Box::new(Int64Builder::new()), Box::new(Int32Builder::new())],
             ));
             let len = arrays.first().map(|a| a.len()).unwrap_or(0);
             for i in 0..len {
@@ -1360,22 +1623,18 @@ pub fn register_pg_expandarray(ctx: &SessionContext) -> Result<()> {
                 match elems {
                     None => builder.append_null(),
                     Some(elems) => {
-                        if let Some(strs) =
-                            elems.as_any().downcast_ref::<arrow::array::StringArray>()
-                        {
-                            let struct_builder = builder.values();
-                            for j in 0..strs.len() {
-                                let x = struct_builder.field_builder::<StringBuilder>(0).unwrap();
-                                if strs.is_null(j) {
-                                    x.append_null();
-                                } else {
-                                    x.append_value(strs.value(j));
-                                }
-                                struct_builder.field_builder::<Int32Builder>(1)
-                                    .unwrap()
-                                    .append_value((j + 1) as i32);
-                                struct_builder.append(true);
+                        let struct_builder = builder.values();
+                        for j in 0..elems.len() {
+                            let x = struct_builder.field_builder::<Int64Builder>(0).unwrap();
+                            match element_as_i64(elems.as_ref(), j) {
+                                Some(v) => x.append_value(v),
+                                None => x.append_null(),
                             }
+                            struct_builder
+                                .field_builder::<Int32Builder>(1)
+                                .unwrap()
+                                .append_value((j + 1) as i32);
+                            struct_builder.append(true);
                         }
                         builder.append(true);
                     }
@@ -1398,7 +1657,7 @@ pub fn register_pg_expandarray(ctx: &SessionContext) -> Result<()> {
 /// Compatibility stub returning an **empty** set: this catalog does not model
 /// per-object access privileges, so there are no grants to explode. The
 /// information_schema privilege views (table_privileges, etc.) then plan and run,
-/// returning no rows — which is accurate for an emulated catalog with no ACLs.
+/// returning no rows - which is accurate for an emulated catalog with no ACLs.
 /// Modeled as a scalar function returning an empty `List<Struct{...}>` so the
 /// inline `(aclexplode(x)).grantee` form unnests to zero rows.
 pub fn register_aclexplode(ctx: &SessionContext) -> Result<()> {
@@ -1815,15 +2074,14 @@ fn oid_at(column: &ArrayRef, index: usize) -> Result<Option<i64>> {
 ///
 /// This is the batched replacement for calling [`fetch_user_by_oid`] once per
 /// row: `pg_get_userbyid` over a column (e.g. `pg_tables.tableowner`) would
-/// otherwise run one `pg_authid` query per row — O(rows) catalog queries. Here
+/// otherwise run one `pg_authid` query per row - O(rows) catalog queries. Here
 /// the distinct OIDs are looked up together. OIDs absent from `pg_authid` are
 /// simply missing from the returned map (callers substitute a placeholder); an
 /// empty input short-circuits without querying.
 fn fetch_users_by_oids(
     ctx: Arc<SessionContext>,
     oids: &[i64],
-) -> Result<std::collections::HashMap<i64, String>> {
-    use std::collections::HashMap;
+) -> Result<HashMap<i64, String>> {
 
     let mut out: HashMap<i64, String> = HashMap::new();
     if oids.is_empty() {
@@ -1979,7 +2237,7 @@ impl ScalarUDFImpl for PgGetUserById {
 }
 
 /// Register `pg_get_userbyid(oid)` which returns the role name for the
-/// provided OID or "unknown (OID=…)" when no match is found.
+/// provided OID or "unknown (OID=...)" when no match is found.
 pub fn register_scalar_pg_get_userbyid(ctx: &SessionContext) -> Result<()> {
     let udf = ScalarUDF::new_from_impl(PgGetUserById::new(Arc::new(ctx.clone())))
         .with_aliases(["pg_get_userbyid"]);
@@ -2347,7 +2605,7 @@ impl Accumulator for ArrayCollector {
 
     // ---------- memory footprint ----------
     fn size(&self) -> usize {
-        // very rough – 24 bytes per value
+        // very rough - 24 bytes per value
         24 * self.collected_values.len()
     }
 }
@@ -2394,50 +2652,6 @@ pub fn register_pg_get_array(ctx: &SessionContext) -> Result<()> {
 
     ctx.register_udaf(udaf.clone());
     ctx.register_udaf(udaf.with_aliases(["pg_catalog.pg_get_array"]));
-    Ok(())
-}
-
-/// Convert an oidvector stored as text into an array of BIGINT oids.
-pub fn register_oidvector_to_array(ctx: &SessionContext) -> Result<()> {
-    use arrow::array::{as_string_array, ArrayRef, Int64Builder, ListBuilder};
-    use arrow::datatypes::{DataType, Field};
-    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
-    use std::sync::Arc;
-
-    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
-        let arrays = ColumnarValue::values_to_arrays(args)?;
-        let arr = as_string_array(&arrays[0]);
-
-        let mut builder = ListBuilder::new(Int64Builder::new());
-        for i in 0..arr.len() {
-            if arr.is_null(i) {
-                builder.append(false);
-                continue;
-            }
-            let txt = arr.value(i);
-            if !txt.trim().is_empty() {
-                for tok in txt.split_whitespace() {
-                    let oid: i64 = tok.parse().map_err(|_| {
-                        DataFusionError::Execution(format!("invalid oid value '{}'", tok))
-                    })?;
-                    builder.values().append_value(oid);
-                }
-            }
-            builder.append(true);
-        }
-        Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
-    };
-
-    let list_dt = DataType::List(Arc::new(Field::new("item", DataType::Int64, true)));
-    let udf = create_udf(
-        "oidvector_to_array",
-        vec![DataType::Utf8],
-        list_dt.clone(),
-        Volatility::Immutable,
-        Arc::new(fun),
-    )
-    .with_aliases(["pg_catalog.oidvector_to_array"]);
-    ctx.register_udf(udf);
     Ok(())
 }
 
@@ -2551,7 +2765,7 @@ pub fn register_scalar_pg_age(ctx: &SessionContext) -> Result<()> {
     use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
     use std::sync::Arc;
 
-    // one closure – we don’t care about the argument, just return 1
+    // one closure - we don't care about the argument, just return 1
     let fun = |_args: &[ColumnarValue]| -> Result<ColumnarValue> {
         Ok(ColumnarValue::Scalar(ScalarValue::Int64(Some(1))))
     };
@@ -2559,7 +2773,7 @@ pub fn register_scalar_pg_age(ctx: &SessionContext) -> Result<()> {
     // accept BIGINT *or* TEXT
     for dt in [DataType::Int64, DataType::Utf8] {
         let udf = create_udf(
-            "pg_catalog.age", // ← exact name Postgres uses
+            "pg_catalog.age", // <- exact name Postgres uses
             vec![dt],
             DataType::Int64, // always returns BIGINT
             Volatility::Stable,
@@ -2570,9 +2784,9 @@ pub fn register_scalar_pg_age(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// pg_catalog.pg_is_in_recovery() → BOOL
+/// pg_catalog.pg_is_in_recovery() -> BOOL
 ///
-/// We don’t do physical recovery, so just return `false`.
+/// We don't do physical recovery, so just return `false`.
 pub fn register_scalar_pg_is_in_recovery(ctx: &SessionContext) -> Result<()> {
     use arrow::datatypes::DataType;
     use datafusion::common::ScalarValue;
@@ -2595,9 +2809,9 @@ pub fn register_scalar_pg_is_in_recovery(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// pg_catalog.txid_current()  →  BIGINT
+/// pg_catalog.txid_current()  ->  BIGINT
 ///
-/// We don’t run a real MVCC engine, so we fake a transaction counter that
+/// We don't run a real MVCC engine, so we fake a transaction counter that
 /// ticks up every time the function is invoked.
 pub fn register_scalar_txid_current(ctx: &SessionContext) -> Result<()> {
     use arrow::datatypes::DataType;
@@ -2636,7 +2850,7 @@ pub fn register_scalar_txid_current(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// pg_catalog.quote_ident(text) → text
+/// pg_catalog.quote_ident(text) -> text
 ///
 /// Minimal implementation that simply returns the input verbatim.
 pub fn register_quote_ident(ctx: &SessionContext) -> Result<()> {
@@ -2671,7 +2885,7 @@ pub fn register_quote_ident(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// pg_catalog.translate(text, text, text) → text
+/// pg_catalog.translate(text, text, text) -> text
 ///
 /// Implements a basic character translation similar to PostgreSQL's translate.
 pub fn register_translate(ctx: &SessionContext) -> Result<()> {
@@ -2784,7 +2998,7 @@ pub fn register_version_fn(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// pg_catalog.pg_get_viewdef(oid [, bool]) → text
+/// pg_catalog.pg_get_viewdef(oid [, bool]) -> text
 ///
 /// Returns NULL placeholder for now.
 pub fn register_pg_get_viewdef(ctx: &SessionContext) -> Result<()> {
@@ -2840,7 +3054,7 @@ pub fn register_pg_get_viewdef(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// pg_catalog.pg_get_function_arguments(oid) → text
+/// pg_catalog.pg_get_function_arguments(oid) -> text
 pub fn register_pg_get_function_arguments(ctx: &SessionContext) -> Result<()> {
     use arrow::array::{ArrayRef, StringBuilder};
     use arrow::datatypes::DataType;
@@ -2871,7 +3085,7 @@ pub fn register_pg_get_function_arguments(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// pg_catalog.pg_get_indexdef(oid) → text
+/// pg_catalog.pg_get_indexdef(oid) -> text
 pub fn register_pg_get_indexdef(ctx: &SessionContext) -> Result<()> {
     use arrow::array::{ArrayRef, StringBuilder};
     use arrow::datatypes::DataType;
@@ -2902,7 +3116,7 @@ pub fn register_pg_get_indexdef(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// pg_catalog.pg_get_function_result(oid) → text
+/// pg_catalog.pg_get_function_result(oid) -> text
 pub fn register_pg_get_function_result(ctx: &SessionContext) -> Result<()> {
     use arrow::array::{ArrayRef, StringBuilder};
     use arrow::datatypes::DataType;
@@ -2933,7 +3147,7 @@ pub fn register_pg_get_function_result(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// pg_catalog.pg_get_function_sqlbody(oid) → text
+/// pg_catalog.pg_get_function_sqlbody(oid) -> text
 pub fn register_pg_get_function_sqlbody(ctx: &SessionContext) -> Result<()> {
     use arrow::array::{ArrayRef, StringBuilder};
     use arrow::datatypes::DataType;
@@ -3327,6 +3541,157 @@ mod tests {
     use std::sync::Arc;
 
     #[test]
+    fn test_pg_numeric_precision_formula() {
+        // Fixed widths for the integer/float types.
+        assert_eq!(pg_numeric_precision(Some(OID_INT2), Some(-1)), Some(16));
+        assert_eq!(pg_numeric_precision(Some(OID_INT4), Some(-1)), Some(32));
+        assert_eq!(pg_numeric_precision(Some(OID_INT8), Some(-1)), Some(64));
+        assert_eq!(pg_numeric_precision(Some(OID_FLOAT4), Some(-1)), Some(24));
+        assert_eq!(pg_numeric_precision(Some(OID_FLOAT8), Some(-1)), Some(53));
+        // numeric(10,2) has typmod ((10 << 16) | 2) + 4 -> precision 10, scale 2.
+        let numeric_10_2 = ((10i64 << 16) | 2) + 4;
+        assert_eq!(
+            pg_numeric_precision(Some(OID_NUMERIC), Some(numeric_10_2)),
+            Some(10)
+        );
+        assert_eq!(
+            pg_numeric_scale(Some(OID_NUMERIC), Some(numeric_10_2)),
+            Some(2)
+        );
+        // Unbounded numeric and non-numeric types are NULL.
+        assert_eq!(pg_numeric_precision(Some(OID_NUMERIC), Some(-1)), None);
+        assert_eq!(pg_numeric_precision(Some(OID_TEXT), Some(-1)), None);
+        assert_eq!(pg_numeric_precision(None, Some(-1)), None);
+    }
+
+    #[test]
+    fn test_pg_numeric_radix_and_scale_formula() {
+        assert_eq!(pg_numeric_precision_radix(Some(OID_INT4), Some(-1)), Some(2));
+        assert_eq!(
+            pg_numeric_precision_radix(Some(OID_NUMERIC), Some(-1)),
+            Some(10)
+        );
+        assert_eq!(pg_numeric_precision_radix(Some(OID_TEXT), Some(-1)), None);
+        assert_eq!(pg_numeric_scale(Some(OID_INT2), Some(-1)), Some(0));
+        assert_eq!(pg_numeric_scale(Some(OID_FLOAT4), Some(-1)), None);
+    }
+
+    #[test]
+    fn test_pg_datetime_precision_formula() {
+        assert_eq!(pg_datetime_precision(Some(OID_DATE), Some(-1)), Some(0));
+        // time/timestamp default to 6, or the explicit typmod.
+        assert_eq!(pg_datetime_precision(Some(OID_TIMESTAMPTZ), Some(-1)), Some(6));
+        assert_eq!(pg_datetime_precision(Some(OID_TIMESTAMP), Some(3)), Some(3));
+        assert_eq!(pg_datetime_precision(Some(OID_INTERVAL), Some(-1)), Some(6));
+        assert_eq!(pg_datetime_precision(Some(OID_INT4), Some(-1)), None);
+    }
+
+    #[test]
+    fn test_pg_char_length_formula() {
+        // varchar(3): typmod = 3 + 4 -> max length 3, octet length 3 * 4 (UTF-8).
+        assert_eq!(pg_char_max_length(Some(OID_VARCHAR), Some(7)), Some(3));
+        assert_eq!(pg_char_octet_length(Some(OID_VARCHAR), Some(7)), Some(12));
+        // Unbounded text/varchar octet length is 1 GiB.
+        assert_eq!(pg_char_octet_length(Some(OID_TEXT), Some(-1)), Some(1 << 30));
+        assert_eq!(pg_char_octet_length(Some(OID_VARCHAR), Some(-1)), Some(1 << 30));
+        // Unbounded varchar has no declared max length; non-char types are NULL.
+        assert_eq!(pg_char_max_length(Some(OID_VARCHAR), Some(-1)), None);
+        assert_eq!(pg_char_max_length(Some(OID_INT4), Some(-1)), None);
+        assert_eq!(pg_char_octet_length(Some(OID_INT4), Some(-1)), None);
+    }
+
+    #[tokio::test]
+    async fn test_pg_precision_helpers_via_sql() {
+        // The registered UDFs compute precision/length from a column of (typid,
+        // typmod) pairs, matching the per-row formulas above.
+        let ctx = SessionContext::new();
+        register_pg_numeric_helpers(&ctx).unwrap();
+        register_pg_char_max_length(&ctx).unwrap();
+        register_pg_char_octet_length(&ctx).unwrap();
+
+        let batch = RecordBatch::try_new(
+            Arc::new(Schema::new(vec![
+                Field::new("typid", DataType::Int32, false),
+                Field::new("typmod", DataType::Int32, false),
+            ])),
+            vec![
+                Arc::new(Int32Array::from(vec![23, 700, 25, 1043])),
+                Arc::new(Int32Array::from(vec![-1, -1, -1, 7])),
+            ],
+        )
+        .unwrap();
+        ctx.register_batch("t", batch).unwrap();
+
+        let rows = ctx
+            .sql(
+                "SELECT information_schema._pg_numeric_precision(typid, typmod) AS prec, \
+                        information_schema._pg_char_octet_length(typid, typmod) AS oct \
+                 FROM t ORDER BY typid",
+            )
+            .await
+            .unwrap()
+            .collect()
+            .await
+            .unwrap();
+        let b = &rows[0];
+        let prec = b.column(0).as_any().downcast_ref::<Int32Array>().unwrap();
+        let oct = b.column(1).as_any().downcast_ref::<Int32Array>().unwrap();
+        // typid order after sort: 23 int4, 25 text, 700 float4, 1043 varchar(3).
+        assert_eq!(prec.value(0), 32); // int4 precision
+        assert!(oct.is_null(0)); // int4 has no octet length
+        assert!(prec.is_null(1)); // text has no numeric precision
+        assert_eq!(oct.value(1), 1 << 30); // text octet length 1 GiB
+        assert_eq!(prec.value(2), 24); // float4 precision
+        assert_eq!(oct.value(3), 12); // varchar(3) octet length 3 * 4
+    }
+
+    #[test]
+    fn test_format_type_name_resolves_via_typname_lookup() {
+        // A representative pg_type oid -> typname slice (oid 19 = name,
+        // 1184 = timestamptz, 23 = int4, _int4 = the int4 array).
+        let by_oid: HashMap<i64, String> = [
+            (19, "name"),
+            (23, "int4"),
+            (1184, "timestamptz"),
+            (1043, "varchar"),
+            (1007, "_int4"),
+        ]
+        .into_iter()
+        .map(|(o, n)| (o, n.to_string()))
+        .collect();
+
+        // The cases that used to print the bare OID now resolve to a SQL name.
+        assert_eq!(format_type_name(19, None, &by_oid), "name");
+        assert_eq!(
+            format_type_name(1184, None, &by_oid),
+            "timestamp with time zone"
+        );
+        assert_eq!(format_type_name(23, None, &by_oid), "integer");
+        // typmod-carrying types apply the modifier; arrays append `[]`.
+        assert_eq!(
+            format_type_name(1043, Some(14), &by_oid),
+            "character varying(10)"
+        );
+        assert_eq!(format_type_name(1007, None, &by_oid), "integer[]");
+        // An OID with no pg_type row falls back to its numeric text.
+        assert_eq!(format_type_name(999999, None, &by_oid), "999999");
+    }
+
+    #[test]
+    fn test_sql_name_for_typname_canonical_and_passthrough() {
+        // Built-ins map to their SQL-standard spelling.
+        assert_eq!(sql_name_for_typname("int4", None), "integer");
+        assert_eq!(sql_name_for_typname("bool", None), "boolean");
+        assert_eq!(
+            sql_name_for_typname("numeric", Some(4 + ((10 << 16) | 2))),
+            "numeric(10,2)"
+        );
+        // A non-standard type prints its own typname unchanged.
+        assert_eq!(sql_name_for_typname("name", None), "name");
+        assert_eq!(sql_name_for_typname("citext", None), "citext");
+    }
+
+    #[test]
     fn test_oid_at_handles_unsigned_columns() {
         use arrow::array::{ArrayRef, UInt32Array, UInt64Array};
 
@@ -3587,20 +3952,20 @@ mod tests {
     async fn test_pg_age_always_one() -> datafusion::error::Result<()> {
         use arrow::array::Int64Array;
 
-        // 1️⃣  fresh context
+        // 1  fresh context
         let ctx = SessionContext::new();
 
-        // 2️⃣  register the helper we just added
+        // 2  register the helper we just added
         register_scalar_pg_age(&ctx)?;
 
-        // 3️⃣  run any query that invokes the function
+        // 3  run any query that invokes the function
         let batches = ctx
             .sql("SELECT pg_catalog.age(123::BIGINT) AS v;")
             .await?
             .collect()
             .await?;
 
-        // 4️⃣  assert we got the constant 1 back
+        // 4  assert we got the constant 1 back
         let arr = batches[0]
             .column(0)
             .as_any()
@@ -3797,27 +4162,6 @@ mod tests {
             .downcast_ref::<StringArray>()
             .unwrap()
             .is_null(0));
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn oidvector_to_array_parses() -> Result<()> {
-        use arrow::array::{Int64Array, ListArray};
-        let ctx = SessionContext::new();
-        register_oidvector_to_array(&ctx)?;
-        let batches = ctx
-            .sql("SELECT oidvector_to_array('1 2 3') AS v")
-            .await?
-            .collect()
-            .await?;
-        let list = batches[0]
-            .column(0)
-            .as_any()
-            .downcast_ref::<ListArray>()
-            .unwrap();
-        let inner = list.value(0);
-        let inner = inner.as_any().downcast_ref::<Int64Array>().unwrap();
-        assert_eq!(inner.values(), &[1, 2, 3]);
         Ok(())
     }
 

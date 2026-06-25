@@ -18,10 +18,10 @@ public:
         indisready: boolean
         indislive: boolean
         indisreplident: boolean
-        indkey: varchar(256)
-        indcollation: varchar(256)
-        indclass: varchar(256)
-        indoption: varchar(256)
+        indkey: int2vector
+        indcollation: oidvector
+        indclass: oidvector
+        indoption: int2vector
         indexprs: varchar(256)
         indpred: varchar(256)
       pg_types:

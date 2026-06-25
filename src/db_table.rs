@@ -28,6 +28,14 @@ pub fn map_pg_type(pg_type: &str) -> DataType {
     match lower.as_str() {
         "oidvector" => DataType::List(Arc::new(Field::new("item", DataType::Int64, true))),
         "int2vector" => DataType::List(Arc::new(Field::new("item", DataType::Int32, true))),
+        // Integer arrays. Match our scalar widths (int2/int4/oid scalars are Int32,
+        // int8 is Int64) so `intcol = ANY(array)` compares like-with-like - e.g.
+        // `pg_attribute.attnum = ANY(pg_constraint.conkey)`. `_oid` follows
+        // oidvector (Int64) since oid values can exceed Int32. Without these arms
+        // these arrays fell to the `_`-prefix text-array rule below and the
+        // integer values silently became unmatchable text.
+        "_int2" | "_int4" => DataType::List(Arc::new(Field::new("item", DataType::Int32, true))),
+        "_int8" | "_oid" => DataType::List(Arc::new(Field::new("item", DataType::Int64, true))),
         _ if lower.ends_with("[]") || lower.starts_with('_') => {
             DataType::List(Arc::new(Field::new("item", DataType::Utf8, true)))
         }
@@ -257,6 +265,23 @@ mod tests {
         match map_pg_type("int2vector") {
             DataType::List(field) => assert_eq!(field.data_type(), &DataType::Int32),
             other => panic!("unexpected datatype: {other:?}"),
+        }
+
+        // Small-int arrays (`conkey` `_int2`, index keys `_int4`) -> Int32 lists.
+        for small in ["_int2", "_int4"] {
+            match map_pg_type(small) {
+                DataType::List(field) => assert_eq!(field.data_type(), &DataType::Int32),
+                other => panic!("unexpected datatype for {small}: {other:?}"),
+            }
+        }
+
+        // Big-int and oid arrays (`_int8`, `proallargtypes` `_oid`) -> Int64 lists,
+        // since oids can exceed Int32.
+        for big in ["_int8", "_oid"] {
+            match map_pg_type(big) {
+                DataType::List(field) => assert_eq!(field.data_type(), &DataType::Int64),
+                other => panic!("unexpected datatype for {big}: {other:?}"),
+            }
         }
     }
 }

@@ -23,7 +23,7 @@ use crate::lazy_catalog::{
 /// | ------------------ | ----------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 /// | oid                | oid         | Unique object identifier for the database (used internally and by catalog joins).                                                   |
 /// | datname            | name        | Name of the database.                                                                                                               |
-/// | datdba             | oid         | OID of the owner (role) — references `pg_authid.oid`.                                                                               |
+/// | datdba             | oid         | OID of the owner (role) - references `pg_authid.oid`.                                                                               |
 /// | encoding           | int4        | Database character encoding (integer code). Use `pg_encoding_to_char(encoding)` to see the name.                                    |
 /// | datlocprovider     | char        | Locale provider: 'c' (C library), 'i' (ICU).                                                                                        |
 /// | datistemplate      | bool        | If true, database can be used as a template.                                                                                        |

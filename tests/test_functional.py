@@ -645,3 +645,32 @@ def test_table_constraints_view(server):
             "WHERE constraint_type = 'CHECK'"
         )
         assert cur.fetchone()[0] > 0
+
+
+def test_element_types_view(server):
+    # Exercises the multi-column IN -> EXISTS rewrite end to end (the visibility
+    # filter is a 4-column IN-subquery DataFusion can't plan natively).
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT count(*) FROM information_schema.element_types")
+        assert cur.fetchone()[0] > 0
+
+
+def test_constraint_column_usage_executes(server):
+    # The two `nspname`s in its derived table used to trip a DataFusion assertion;
+    # the duplicate-column disambiguation rewrite must let it plan and run.
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM information_schema.constraint_column_usage")
+        cols = [d.name for d in cur.description]
+        assert "constraint_name" in cols and "column_name" in cols, cols
+
+
+def test_user_mapping_options_executes(server):
+    # Its LATERAL pg_options_to_table SRF was rewritten to the projection form;
+    # it must plan and return the right columns (empty until FDW mappings exist).
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM information_schema.user_mapping_options")
+        cols = [d.name for d in cur.description]
+        assert "option_name" in cols and "option_value" in cols, cols

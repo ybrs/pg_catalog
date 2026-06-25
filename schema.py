@@ -32,9 +32,27 @@ PG_TYPE_MAPPING = {
     "float8": "float8",
 }
 
+# Array (`_X`) element types we keep as integer arrays instead of collapsing to
+# a text array. Without this, e.g. `pg_constraint.conkey` (`_int2`, the key column
+# numbers) loaded as text and `attnum = ANY(conkey)` matched nothing, silently
+# emptying constraint_column_usage / key_column_usage / parameters. The Rust
+# `map_pg_type` (db_table.rs) maps these to `List<Int*>`.
+INT_ARRAY_TYPES = {"_int2", "_int4", "_int8", "_oid"}
+
+
+# PostgreSQL's `oidvector` / `int2vector` (e.g. pg_proc.proargtypes,
+# pg_index.indkey) are integer arrays. Keep them as such so the Rust loader maps
+# them to List<Int*> instead of the varchar fallback (a scalar text "16 16").
+VECTOR_TYPES = {"oidvector", "int2vector"}
+
+
 def map_pg_type(pg_type):
     if pg_type.startswith("_"):
-        return "_text"
+        if pg_type in INT_ARRAY_TYPES:
+            return pg_type  # keep _int2/_int4/_int8/_oid -> integer arrays
+        return "_text"  # other arrays stay text arrays
+    if pg_type in VECTOR_TYPES:
+        return pg_type  # keep oidvector/int2vector -> integer arrays
     return PG_TYPE_MAPPING.get(pg_type, "varchar(256)")
 
 # Tables/views whose contents are runtime/session state (statistics, locks,

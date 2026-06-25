@@ -8,7 +8,7 @@ public:
         polrelid: int
         polcmd: varchar(256)
         polpermissive: boolean
-        polroles: _text
+        polroles: _oid
         polqual: varchar(256)
         polwithcheck: varchar(256)
       pg_types:

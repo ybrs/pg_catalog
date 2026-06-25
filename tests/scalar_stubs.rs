@@ -1,6 +1,7 @@
-//! Tests for the small scalar compatibility stubs used by information_schema
-//! views: `pg_my_temp_schema`, `getdatabaseencoding`, `pg_relation_is_updatable`,
-//! and `information_schema._pg_char_max_length`.
+//! Tests for the small scalar compatibility functions used by information_schema
+//! views: the `pg_my_temp_schema`, `getdatabaseencoding`,
+//! `pg_relation_is_updatable`, and `_pg_index_position` stubs, plus the computed
+//! `information_schema._pg_*` type-precision/length helpers.
 
 use arrow::array::{Array, Int32Array, StringArray};
 use datafusion::error::Result as DFResult;
@@ -210,16 +211,13 @@ async fn test_pg_truetypmod_selects_base_for_domains() -> DFResult<()> {
 }
 
 #[tokio::test]
-async fn test_information_schema_type_helpers_resolve_to_null() -> DFResult<()> {
+async fn test_information_schema_type_helpers_compute_values() -> DFResult<()> {
     let ctx = base_ctx().await?;
-    // The int4-returning helpers all resolve and return NULL.
-    for f in [
-        "information_schema._pg_char_octet_length(23, -1)",
-        "information_schema._pg_index_position(2619, 1)",
-        "information_schema._pg_numeric_precision(23, -1)",
-        "information_schema._pg_numeric_precision_radix(23, -1)",
-        "information_schema._pg_numeric_scale(23, -1)",
-        "information_schema._pg_datetime_precision(23, -1)",
+    // For int4 (OID 23) the numeric helpers compute its fixed type facts.
+    for (f, expected) in [
+        ("information_schema._pg_numeric_precision(23, -1)", 32),
+        ("information_schema._pg_numeric_precision_radix(23, -1)", 2),
+        ("information_schema._pg_numeric_scale(23, -1)", 0),
     ] {
         let b = ctx.sql(&format!("SELECT {f}")).await?.collect().await?;
         let a = b[0]
@@ -227,9 +225,25 @@ async fn test_information_schema_type_helpers_resolve_to_null() -> DFResult<()> 
             .as_any()
             .downcast_ref::<Int32Array>()
             .unwrap_or_else(|| panic!("{f} should be Int32"));
-        assert!(a.is_null(0), "{f} should be NULL");
+        assert_eq!(a.value(0), expected, "{f}");
     }
-    // The text-returning helper resolves and returns NULL.
+    // Helpers that don't apply to int4 resolve and return NULL: int4 is neither a
+    // character type (octet length) nor a datetime type, and index-position is
+    // still a stub.
+    for f in [
+        "information_schema._pg_char_octet_length(23, -1)",
+        "information_schema._pg_datetime_precision(23, -1)",
+        "information_schema._pg_index_position(2619, 1)",
+    ] {
+        let b = ctx.sql(&format!("SELECT {f}")).await?.collect().await?;
+        let a = b[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<Int32Array>()
+            .unwrap_or_else(|| panic!("{f} should be Int32"));
+        assert!(a.is_null(0), "{f} should be NULL for int4");
+    }
+    // The interval-type helper is still a NULL text stub.
     let b = ctx
         .sql("SELECT information_schema._pg_interval_type(23, -1)")
         .await?

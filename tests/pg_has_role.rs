@@ -68,7 +68,7 @@ async fn test_pg_has_role_two_arg() -> DFResult<()> {
 #[tokio::test]
 async fn test_pg_has_role_three_arg() -> DFResult<()> {
     let ctx = base_ctx().await?;
-    // (user, role, privilege) — names and OIDs
+    // (user, role, privilege) - names and OIDs
     assert_eq!(
         bool_column(&ctx, "SELECT pg_has_role('sysuser', 'sysuser', 'USAGE')").await?,
         vec![Some(true)]

@@ -31,7 +31,7 @@ def blocking_symbol(error: str) -> str:
         match = re.search(pattern, error)
         if match:
             return match.group(1)
-    # Not a missing symbol — categorize the planner/parser failure.
+    # Not a missing symbol - categorize the planner/parser failure.
     categories = [
         ("Correlated scalar subquery must be aggregated", "correlated scalar subquery (needs aggregation)"),
         ("The subquery should only return one column", "multi-column IN subquery"),
@@ -81,13 +81,13 @@ def main() -> None:
     monitoring = [(k, v) for k, v in groups if all(is_monitoring(view) for view, _ in v)]
 
     lines = [
-        "# Failing catalog views — grouped by blocker",
+        "# Failing catalog views - grouped by blocker",
         "",
         f"From `catalog_views_report.md`: **{len(succeeded)} succeed, {len(failed)} fail** "
         f"({len(succeeded) + len(failed)} views total).",
         "A view fails at its FIRST missing symbol; fixing one may reveal another blocker.",
         "",
-        "## Likely useful (non-monitoring) — prioritize",
+        "## Likely useful (non-monitoring) - prioritize",
         "",
         "| Blocker | #views | Views |",
         "|---|---|---|",
@@ -96,7 +96,7 @@ def main() -> None:
         lines.append(f"| `{symbol}` | {len(views)} | " + ", ".join(short(v) for v, _ in views) + " |")
     lines += [
         "",
-        "## Runtime / monitoring views — low value (would be empty/zero stubs)",
+        "## Runtime / monitoring views - low value (would be empty/zero stubs)",
         "",
         "| Blocker | #views | Views |",
         "|---|---|---|",

@@ -398,7 +398,7 @@ fn arrow_to_pg_type(dt: &DataType) -> Type {
         Float32 => Type::FLOAT4, // real
         Float64 => Type::FLOAT8, // double precision
 
-        // ── arrays ───────────────────────────────────────────────
+        // -- arrays -----------------------------------------------
         List(inner) => match inner.data_type() {
             Utf8 | Utf8View | LargeUtf8 => Type::TEXT_ARRAY, // text[]
             Int16 => Type::INT2_ARRAY,                       // int2[]
@@ -415,7 +415,7 @@ fn arrow_to_pg_type(dt: &DataType) -> Type {
             }
         },
 
-        // anything else – send as plain text so the client can at
+        // anything else - send as plain text so the client can at
         // least see something instead of us mangling it away
         other => {
             log::warn!("arrow_to_pg_type: mapping {other:?} to TEXT");
@@ -546,7 +546,7 @@ fn batches_to_json_rows(batches: &[RecordBatch]) -> Vec<BTreeMap<String, serde_j
 /// pgwire 0.40 represents an unspecified prepared-statement parameter type
 /// (protocol OID 0) as `None`. Our query path and pgwire's
 /// `DescribeStatementResponse` both work with concrete `Type`s, so resolve any
-/// unspecified entry to `Type::UNKNOWN` — matching the pre-0.40 behaviour where
+/// unspecified entry to `Type::UNKNOWN` - matching the pre-0.40 behaviour where
 /// pgwire handed us concrete types directly.
 fn concrete_param_types(types: &[Option<Type>]) -> Vec<Type> {
     types
@@ -663,7 +663,7 @@ fn batch_to_row_stream(
                     encoder.encode_field(&value).unwrap();
                 }
 
-                // ---------- TIMESTAMP μs / ms / ns ----------
+                // ---------- TIMESTAMP us / ms / ns ----------
                 DataType::Timestamp(unit, _) => {
                     match unit {
                         TimeUnit::Microsecond => {
@@ -722,7 +722,7 @@ fn batch_to_row_stream(
                             };
                             encoder.encode_field(&value).unwrap();
                         }
-                        _ => unreachable!(), // TimeUnit::Second isn’t used by Arrow today
+                        _ => unreachable!(), // TimeUnit::Second isn't used by Arrow today
                     }
                 }
                 DataType::Boolean => {
@@ -870,7 +870,7 @@ impl SimpleQueryHandler for DatafusionBackend {
 
             responses.push(Response::Query(QueryResponse::new(field_infos, rows)));
         } else {
-            // A query can produce several RecordBatches — one per UNION branch,
+            // A query can produce several RecordBatches - one per UNION branch,
             // and one per ~8192 rows. They share a schema, so concatenate into a
             // SINGLE result set. Emitting one Response::Query per batch sends the
             // client multiple result sets for one query, and it sees only the last

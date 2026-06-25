@@ -5,7 +5,7 @@
 //! wires up the **lazy catalog** mechanism. A [`LazyCatalogSource`] reads the
 //! SQLite schema on demand, so every scan of `pg_catalog.pg_class` /
 //! `pg_namespace` / `pg_attribute` / `pg_type` / `information_schema.*` reflects
-//! the *current* set of SQLite tables — nothing is pre-registered.
+//! the *current* set of SQLite tables - nothing is pre-registered.
 //!
 //! Run a query by passing it as an argument:
 //! ```bash
@@ -28,15 +28,15 @@ use rusqlite::Connection;
 
 /// The single logical database this example exposes to `pg_catalog`.
 const DB_NAME: &str = "appdb";
-/// `pg_database.oid` for [`DB_NAME`] — chosen above the built-in OID range.
+/// `pg_database.oid` for [`DB_NAME`] - chosen above the built-in OID range.
 const DB_OID: i32 = 16384;
 /// The single schema this example exposes.
 const SCHEMA_NAME: &str = "public";
-/// `pg_namespace.oid` for [`SCHEMA_NAME`] — chosen above the built-in OID range.
+/// `pg_namespace.oid` for [`SCHEMA_NAME`] - chosen above the built-in OID range.
 const SCHEMA_OID: i32 = 16385;
 
 /// A tiny deterministic string hash (djb2). Used to derive stable OIDs from
-/// table names so the SAME oid comes back on every callback — which is what lets
+/// table names so the SAME oid comes back on every callback - which is what lets
 /// `pg_class.oid` and `pg_attribute.attrelid` agree and the joins resolve.
 fn djb2(s: &str) -> u32 {
     let mut hash: u32 = 5381;
@@ -72,7 +72,7 @@ fn sqlite_type_to_oid(decl_type: &str) -> i32 {
 /// It holds a handle to the same connection used for data queries, so adding a
 /// table in SQLite is immediately visible to the next catalog scan. Every method
 /// locks the connection, reads what it needs, releases the lock, and hands the
-/// rows back through the callback — all synchronous, exactly as the trait wants.
+/// rows back through the callback - all synchronous, exactly as the trait wants.
 struct SqliteCatalogSource {
     /// Shared handle to the in-memory SQLite database.
     conn: Arc<Mutex<Connection>>,
@@ -325,7 +325,7 @@ async fn run_repl(
     use rustyline::error::ReadlineError;
     use rustyline::DefaultEditor;
 
-    println!("pg_catalog lazy example — interactive SQL.");
+    println!("pg_catalog lazy example - interactive SQL.");
     println!("Line editing: up/down = history, left/right = move cursor, Ctrl-R = search.");
     println!("Ctrl-D or \\q to quit. Try, in order:");
     println!("  SELECT relname FROM pg_catalog.pg_class WHERE relname = 'invoices';");
@@ -378,7 +378,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Build the session with the lazy catalog wired in BEFORE the catalog views
     // are created, so views such as pg_tables/pg_views resolve against the lazy
-    // providers and reflect the live SQLite schema too — not just the base tables.
+    // providers and reflect the live SQLite schema too - not just the base tables.
     let source: Arc<dyn LazyCatalogSource> = Arc::new(SqliteCatalogSource { conn: conn.clone() });
     let load_started = Instant::now();
     let (ctx, _log) = get_base_session_context_with_lazy_catalog(

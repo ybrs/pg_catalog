@@ -7,9 +7,9 @@ public:
         partstrat: varchar(256)
         partnatts: int
         partdefid: int
-        partattrs: varchar(256)
-        partclass: varchar(256)
-        partcollation: varchar(256)
+        partattrs: int2vector
+        partclass: oidvector
+        partcollation: oidvector
         partexprs: varchar(256)
       pg_types:
         partrelid: oid

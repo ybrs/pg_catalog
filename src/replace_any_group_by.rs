@@ -26,7 +26,7 @@ pub fn rewrite_group_by_for_any(sql: &str) -> String {
             if let Some(end) = up[start..].find(')') {
                 let arg = &s[start..start + end];
                 // Only a *column* reference is meaningful to add to GROUP BY. An
-                // array literal — `= ANY(ARRAY['a','d'])` or `= ANY('{a,d}')` —
+                // array literal - `= ANY(ARRAY['a','d'])` or `= ANY('{a,d}')` -
                 // has no column to group on; adding it produces a bogus
                 // `GROUP BY ARRAY[...]` (this is how the `columns` view tripped).
                 let argup = arg.to_uppercase();
@@ -52,7 +52,7 @@ pub fn rewrite_group_by_for_any(sql: &str) -> String {
 
                 // sqlparser models "no GROUP BY" as an *empty* expression list,
                 // so an empty `exprs` means the query never grouped at all. Don't
-                // fabricate a GROUP BY from `= ANY(...)` predicates in that case —
+                // fabricate a GROUP BY from `= ANY(...)` predicates in that case -
                 // only augment a GROUP BY the query already has.
                 if exprs.is_empty() {
                     return ControlFlow::<()>::Continue(());

@@ -7,7 +7,7 @@ public:
         prpubid: int
         prrelid: int
         prqual: varchar(256)
-        prattrs: varchar(256)
+        prattrs: int2vector
       pg_types:
         oid: oid
         prpubid: oid

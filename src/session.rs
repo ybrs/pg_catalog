@@ -10,15 +10,16 @@ use datafusion::execution::context::SessionContext;
 use serde::Deserialize;
 use serde_yaml;
 
-use crate::clean_duplicate_columns::alias_unnamed_columns;
+use crate::clean_duplicate_columns::{alias_unnamed_columns, disambiguate_duplicate_columns};
 use crate::replace::{
     alias_subquery_tables, regclass_udfs, replace_regclass, replace_set_command_with_namespace,
     rewrite_array_agg_varchar_cast, rewrite_array_subquery, rewrite_available_updates,
     rewrite_brace_array_literal, rewrite_char_cast, rewrite_name_cast, rewrite_oid_cast,
-    drop_redundant_oid_and_regclass_casts, rewrite_oid_array_cast_to_text_array,
-    rewrite_oidvector_any, rewrite_oidvector_unnest, rewrite_pg_custom_operator,
+    drop_redundant_oid_and_regclass_casts, drop_oid_array_cast,
+    rewrite_pg_custom_operator,
     rewrite_regoper_cast, rewrite_regoperator_cast, rewrite_regproc_cast,
     rewrite_exists_to_count, rewrite_information_schema_casts, rewrite_regprocedure_cast,
+    rewrite_tuple_in_subquery_to_exists,
     rewrite_pg_truetypid_composite_args, rewrite_srf_to_unnest,
     rewrite_regtype_cast,
     rewrite_schema_qualified_custom_types,
@@ -37,7 +38,7 @@ use crate::user_functions::{
     register_array_agg, register_current_schema, register_current_schemas, register_encode,
     register_format,
     register_getdatabaseencoding, register_has_database_privilege, register_has_privilege_family,
-    register_has_schema_privilege, register_nameconcatoid, register_oidvector_to_array,
+    register_has_schema_privilege, register_nameconcatoid,
     register_acldefault, register_aclexplode, register_pg_char_max_length,
     register_pg_char_octet_length, register_pg_expandarray, register_pg_has_role,
     register_pg_column_is_updatable, register_pg_get_function_arg_default,
@@ -346,14 +347,16 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     // Drop value-preserving `::regclass` / `::oid` casts on column expressions
     // (e.g. `c.oid::regclass`, `proargtypes::oid`).
     let sql = drop_redundant_oid_and_regclass_casts(&sql)?;
-    // Convert `::oid[]` array casts to `::text[]` (planner can't take a bare `oid`
-    // element type; oids are text in this catalog).
-    let sql = rewrite_oid_array_cast_to_text_array(&sql)?;
-    let sql = rewrite_oidvector_unnest(&sql)?;
-    let sql = rewrite_oidvector_any(&sql)?;
+    // Drop `::oid[]` array casts (planner can't take a bare `oid` element type;
+    // the underlying columns are already integer arrays in this catalog).
+    let sql = drop_oid_array_cast(&sql)?;
     let sql = rewrite_array_agg_varchar_cast(&sql)?;
     let sql = rewrite_tuple_equality(&sql)?;
     let sql = alias_subquery_tables(&sql)?;
+    // Give duplicate column names in nested projections distinct aliases so
+    // DataFusion's optimizer doesn't hit its name-mismatch assertion (e.g. the
+    // two `nspname`s in constraint_column_usage's derived table).
+    let sql = disambiguate_duplicate_columns(&sql)?;
     let (sql, aliases) = alias_unnamed_columns(&sql)?;
     let sql = rewrite_subquery_as_cte(&sql);
 
@@ -422,6 +425,11 @@ pub async fn rewrite_and_execute_sql(
     // `EXISTS` used as a scalar value (e.g. inside CASE), which we convert to a
     // `(SELECT count(*) ...) > 0` scalar subquery it can plan.
     let sql = rewrite_exists_to_count(&sql)?;
+
+    // Multi-column `(...) IN (SELECT ... )` -> correlated `EXISTS` (DataFusion
+    // can't plan multi-column IN). Runs AFTER rewrite_exists_to_count so the
+    // EXISTS it emits stays a native WHERE predicate.
+    let sql = rewrite_tuple_in_subquery_to_exists(&sql)?;
 
     let scalars: Option<Vec<ScalarValue>> =
         if let (Some(params), Some(types)) = (param_values, param_types) {
@@ -582,7 +590,7 @@ fn parse_schema_zip_bytes(
 /// Each table becomes one IPC stream whose Arrow schema carries the table's
 /// identity and view info under `pgcat.*` metadata keys. This is the
 /// fast-loading counterpart to the YAML zip: reading it back skips YAML parsing
-/// and the JSON->Arrow conversion entirely (those two dominate cold start —
+/// and the JSON->Arrow conversion entirely (those two dominate cold start -
 /// ~1.85s vs ~9ms for everything else).
 fn schemas_to_ipc_zip(
     schemas: &HashMap<String, HashMap<String, HashMap<String, ParsedTable>>>,
@@ -1099,7 +1107,8 @@ async fn create_registered_views(
         let rewritten_select = {
             let rewritten = rewrite_srf_to_unnest(&definition)?;
             let (rewritten, _) = rewrite_filters(&rewritten)?;
-            rewrite_exists_to_count(&rewritten)?
+            let rewritten = rewrite_exists_to_count(&rewritten)?;
+            rewrite_tuple_in_subquery_to_exists(&rewritten)?
         };
         let create_sql = format!("CREATE OR REPLACE VIEW {qualified} AS {rewritten_select}");
         ctx.sql(&create_sql).await?.collect().await?;
@@ -1146,7 +1155,7 @@ pub async fn get_base_session_context(
 /// This matters because catalog views (those in `VIEW_ONLY_TABLES`, currently
 /// `pg_views` and `pg_tables`) are planned during session construction and bind
 /// to the table providers that exist at that moment. Registering the lazy source
-/// here — before view creation — makes those views resolve against the lazy
+/// here - before view creation - makes those views resolve against the lazy
 /// providers, so they reflect the source's rows.
 /// Calling [`register_lazy_catalog`] *after* `get_base_session_context` only
 /// rebinds the base tables; the already-created views keep pointing at the
@@ -1208,7 +1217,7 @@ async fn build_base_session_context(
 
     register_scalar_regclass_oid(&ctx)?;
     register_scalar_pg_tablespace_location(&ctx)?;
-    register_scalar_format_type(&ctx)?;
+    register_scalar_format_type(&ctx).await?;
     ctx.register_udtf(
         "regclass_oid",
         Arc::new(crate::user_functions::RegClassOidFunc),
@@ -1217,7 +1226,6 @@ async fn build_base_session_context(
     register_current_schema(&ctx, current_schemas_fn.clone())?;
     register_current_schemas(&ctx, current_schemas_fn.clone())?;
 
-    register_scalar_format_type(&ctx)?;
     register_scalar_pg_get_expr(&ctx)?;
     register_scalar_pg_get_partkeydef(&ctx)?;
     register_scalar_pg_table_is_visible(&ctx)?;
@@ -1226,7 +1234,6 @@ async fn build_base_session_context(
     register_scalar_array_to_string(&ctx)?;
     register_pg_get_one(&ctx)?;
     register_pg_get_array(&ctx)?;
-    register_oidvector_to_array(&ctx)?;
     register_array_agg(&ctx)?;
     register_pg_get_statisticsobjdef_columns(&ctx)?;
     register_pg_relation_is_publishable(&ctx)?;

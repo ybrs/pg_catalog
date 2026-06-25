@@ -52,6 +52,9 @@ done
 echo "==> [4/6] extract the catalog into $SCHEMA_DIR"
 "$PYTHON" schema.py generate "$SCHEMA_DIR"
 
+echo "==> [4b/6] reapply view fixes the raw extraction can't express"
+"$PYTHON" patch_views.py "$SCHEMA_DIR"
+
 echo "==> [5/6] rebuild the YAML zip ($YAML_ZIP)"
 # Use Python's zipfile so this works without the `zip` binary (portable).
 "$PYTHON" - "$SCHEMA_DIR" "$YAML_ZIP" <<'PY'

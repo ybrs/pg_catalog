@@ -156,6 +156,111 @@ fn alias_columns_in_query(
     }
 }
 
+/// The client-visible name a projection item produces, for plain column refs.
+/// Returns `None` for wildcards or complex expressions we don't disambiguate.
+fn projection_output_name(item: &SelectItem) -> Option<String> {
+    match item {
+        SelectItem::ExprWithAlias { alias, .. } => Some(alias.value.clone()),
+        SelectItem::UnnamedExpr(Expr::Identifier(id)) => Some(id.value.clone()),
+        SelectItem::UnnamedExpr(Expr::CompoundIdentifier(segs)) => {
+            segs.last().map(|id| id.value.clone())
+        }
+        _ => None,
+    }
+}
+
+/// Disambiguate duplicate column names within a single SELECT's projection by
+/// aliasing the second and later occurrences (`nspname`, `nspname`, ... ->
+/// `nspname`, `nspname_2`, ...).
+fn dedup_projection(select: &mut Select) {
+    let mut seen: HashMap<String, usize> = HashMap::new();
+    for item in &mut select.projection {
+        let Some(name) = projection_output_name(item) else {
+            continue;
+        };
+        let count = seen.entry(name.clone()).or_insert(0);
+        *count += 1;
+        if *count > 1 {
+            let expr = match item {
+                SelectItem::UnnamedExpr(e) => e.clone(),
+                SelectItem::ExprWithAlias { expr, .. } => expr.clone(),
+                _ => continue,
+            };
+            *item = SelectItem::ExprWithAlias {
+                expr,
+                alias: Ident::new(format!("{name}_{count}")),
+            };
+        }
+    }
+}
+
+/// Walk into nested `SELECT`s (derived tables, set-operation branches, CTEs) and
+/// disambiguate duplicate projection names in each. The top level (`depth == 0`)
+/// is skipped - [`alias_unnamed_columns`] already aliases it, and renaming
+/// top-level columns would change the client-facing result names.
+fn dedup_in_set_expr(expr: &mut SetExpr, depth: usize) {
+    match expr {
+        SetExpr::Select(select) => {
+            if depth > 0 {
+                dedup_projection(select);
+            }
+            for table_with_joins in &mut select.from {
+                if let TableFactor::Derived { subquery, .. } = &mut table_with_joins.relation {
+                    dedup_in_query(subquery, depth + 1);
+                }
+                for join in &mut table_with_joins.joins {
+                    if let TableFactor::Derived { subquery, .. } = &mut join.relation {
+                        dedup_in_query(subquery, depth + 1);
+                    }
+                }
+            }
+        }
+        SetExpr::SetOperation { left, right, .. } => {
+            dedup_in_set_expr(left, depth);
+            dedup_in_set_expr(right, depth);
+        }
+        SetExpr::Query(subquery) => dedup_in_query(subquery, depth + 1),
+        _ => {}
+    }
+}
+
+/// Recurse [`dedup_in_set_expr`] through a query body and its CTEs.
+fn dedup_in_query(query: &mut Query, depth: usize) {
+    dedup_in_set_expr(&mut query.body, depth);
+    if let Some(with) = &mut query.with {
+        for cte in &mut with.cte_tables {
+            dedup_in_query(&mut cte.query, depth + 1);
+        }
+    }
+}
+
+/// Disambiguate duplicate column names inside *nested* SELECT projections.
+///
+/// DataFusion's optimizer asserts a column's name matches its projection
+/// expression and panics ("Internal error: Assertion failed: col.name() ==
+/// matching_name") when a derived table projects two columns with the same name
+/// - e.g. `SELECT nr.nspname, ..., nc.nspname` in `constraint_column_usage`. The
+/// top-level projection is already disambiguated by [`alias_unnamed_columns`];
+/// this covers the nested case it skips. Inner names aren't client-visible
+/// (they're under a column-alias list, or a duplicate name was unreferenceable
+/// anyway), so no rename-back is needed.
+pub fn disambiguate_duplicate_columns(sql: &str) -> Result<String> {
+    let dialect = PostgreSqlDialect {};
+    let mut statements =
+        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
+    let _ = visit_statements_mut(&mut statements, |stmt| {
+        if let Statement::Query(query) = stmt {
+            dedup_in_query(query, 0);
+        }
+        ControlFlow::<()>::Continue(())
+    });
+    Ok(statements
+        .into_iter()
+        .map(|stmt| stmt.to_string())
+        .collect::<Vec<_>>()
+        .join(" "))
+}
+
 /// Assign unique aliases to every projected column and return a map
 /// of alias to original name so duplicate column names do not confuse
 /// clients.
@@ -189,6 +294,26 @@ pub fn alias_unnamed_columns(sql: &str) -> Result<(String, HashMap<String, Strin
 mod tests {
     use super::*;
     use std::error::Error;
+
+    #[test]
+    fn test_disambiguate_duplicate_columns_in_derived_table() -> Result<(), Box<dyn Error>> {
+        // Two `nspname`s in a derived table -> the second becomes `nspname_2`,
+        // so DataFusion doesn't hit its name-mismatch assertion. The outer
+        // (depth 0) projection is left alone.
+        let sql = "SELECT a, b FROM (SELECT nr.nspname, nc.nspname FROM x nr, y nc) t(a, b)";
+        let out = disambiguate_duplicate_columns(sql)?;
+        assert!(out.contains("nc.nspname AS nspname_2"), "second nspname aliased: {out}");
+        assert_eq!(out.matches("nspname").count(), 3, "only the dup is renamed: {out}");
+        Ok(())
+    }
+
+    #[test]
+    fn test_disambiguate_leaves_unique_columns_untouched() -> Result<(), Box<dyn Error>> {
+        let sql = "SELECT x FROM (SELECT a.p, b.q FROM a, b) t";
+        let out = disambiguate_duplicate_columns(sql)?;
+        assert!(!out.contains("_2"), "no aliasing when names are unique: {out}");
+        Ok(())
+    }
 
     fn alias_maps(nums: &[&str]) -> HashMap<String, String> {
         let mut map = HashMap::new();

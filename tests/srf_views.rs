@@ -68,7 +68,7 @@ async fn test_pg_options_to_table_unnest_executes() -> DFResult<()> {
 async fn test_foreign_data_wrapper_options_view_runs() -> DFResult<()> {
     // The real information_schema view SQL, end-to-end through the full pipeline
     // (this is the case that previously failed: SRF in projection + the
-    // group-by-injection heuristic). It must plan and execute (0 rows is fine —
+    // group-by-injection heuristic). It must plan and execute (0 rows is fine -
     // no foreign-data wrappers exist in the base catalog).
     let ctx = base_ctx().await?;
     let raw = "SELECT foreign_data_wrapper_catalog, foreign_data_wrapper_name, \
@@ -105,6 +105,28 @@ async fn test_triggered_update_columns_view_runs() -> DFResult<()> {
     let (batches, _schema) = execute_sql(&ctx, raw, None, None).await?;
     // unnest fans the 2-element array to 2 rows.
     assert_eq!(batches.iter().map(|b| b.num_rows()).sum::<usize>(), 2);
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_pg_expandarray_integer_array_yields_integer_x() -> DFResult<()> {
+    // `_pg_expandarray` over an integer array (the form `conkey`/`proargtypes`
+    // now arrive as) must expose the element value as an integer `x`, so views
+    // can compare it to int columns (e.g. `pg_attribute.attnum = (ss.x).x`).
+    use arrow::array::Int64Array;
+    let ctx = base_ctx().await?;
+    let raw = "SELECT (ss.x).x AS attnum, (ss.x).n AS ordinal_position \
+        FROM ( SELECT information_schema._pg_expandarray(ARRAY[7, 9]) AS x ) ss \
+        ORDER BY ordinal_position";
+    let (batches, _schema) = execute_sql(&ctx, raw, None, None).await?;
+    assert_eq!(batches.iter().map(|b| b.num_rows()).sum::<usize>(), 2);
+    let attnum = batches[0]
+        .column(0)
+        .as_any()
+        .downcast_ref::<Int64Array>()
+        .expect("x is Int64");
+    assert_eq!(attnum.value(0), 7);
+    assert_eq!(attnum.value(1), 9);
     Ok(())
 }
 

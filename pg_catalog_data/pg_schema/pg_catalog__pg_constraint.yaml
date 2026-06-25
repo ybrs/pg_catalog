@@ -21,13 +21,13 @@ public:
         conislocal: boolean
         coninhcount: int
         connoinherit: boolean
-        conkey: _text
-        confkey: _text
-        conpfeqop: _text
-        conppeqop: _text
-        conffeqop: _text
-        confdelsetcols: _text
-        conexclop: _text
+        conkey: _int2
+        confkey: _int2
+        conpfeqop: _oid
+        conppeqop: _oid
+        conffeqop: _oid
+        confdelsetcols: _int2
+        conexclop: _oid
         conbin: varchar(256)
       pg_types:
         oid: oid

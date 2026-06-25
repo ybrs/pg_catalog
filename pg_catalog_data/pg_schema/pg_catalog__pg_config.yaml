@@ -36,22 +36,13 @@ public:
       - name: PGXS
         setting: /workspace/pg_catalog/postgres-17/lib/pgxs/src/makefiles/pgxs.mk
       - name: CONFIGURE
-        setting: ' ''--prefix'' ''/opt/postgresql'' ''--enable-integer-datetimes''
-          ''--enable-option-checking=fatal'' ''--with-gssapi'' ''--without-icu'' ''--without-ldap''
-          ''--with-libxml'' ''--with-libxslt'' ''--with-lz4'' ''--with-openssl'' ''--with-pgport=5432''
-          ''--with-python'' ''--with-readline'' ''--with-system-tzdata=/usr/share/zoneinfo''
-          ''--with-uuid=ossp'' ''--with-zstd'' ''LLVM_CONFIG=/usr/lib/llvm-16/bin/llvm-config''
-          ''CLANG=clang-16'''
+        setting: ' ''--prefix'' ''/opt/postgresql'' ''--enable-integer-datetimes'' ''--enable-option-checking=fatal'' ''--with-gssapi'' ''--without-icu'' ''--without-ldap'' ''--with-libxml'' ''--with-libxslt'' ''--with-lz4'' ''--with-openssl'' ''--with-pgport=5432'' ''--with-python'' ''--with-readline'' ''--with-system-tzdata=/usr/share/zoneinfo'' ''--with-uuid=ossp'' ''--with-zstd'' ''LLVM_CONFIG=/usr/lib/llvm-16/bin/llvm-config'' ''CLANG=clang-16'''
       - name: CC
         setting: gcc
       - name: CPPFLAGS
         setting: -D_GNU_SOURCE -I/usr/include/libxml2
       - name: CFLAGS
-        setting: -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement
-          -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3
-          -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing
-          -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation
-          -O2
+        setting: -Wall -Wmissing-prototypes -Wpointer-arith -Wdeclaration-after-statement -Werror=vla -Wendif-labels -Wmissing-format-attribute -Wimplicit-fallthrough=3 -Wcast-function-type -Wshadow=compatible-local -Wformat-security -fno-strict-aliasing -fwrapv -fexcess-precision=standard -Wno-format-truncation -Wno-stringop-truncation -O2
       - name: CFLAGS_SL
         setting: -fPIC
       - name: LDFLAGS
@@ -61,7 +52,6 @@ public:
       - name: LDFLAGS_SL
         setting: ''
       - name: LIBS
-        setting: '-lpgcommon -lpgport -lzstd -llz4 -lxslt -lxml2 -lssl -lcrypto -lgssapi_krb5
-          -lz -lreadline -lm '
+        setting: '-lpgcommon -lpgport -lzstd -llz4 -lxslt -lxml2 -lssl -lcrypto -lgssapi_krb5 -lz -lreadline -lm '
       - name: VERSION
         setting: PostgreSQL 17.4

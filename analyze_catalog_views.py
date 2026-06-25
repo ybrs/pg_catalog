@@ -90,7 +90,7 @@ def main() -> None:
         try:
             with psycopg.connect(CONN_STR, autocommit=True) as conn:
                 res = run_view_query(conn, view)
-        except Exception as exc:  # noqa: BLE001 — connection-level failure (e.g. backend crash)
+        except Exception as exc:  # noqa: BLE001 - connection-level failure (e.g. backend crash)
             res = ViewResult(view=view, status="error", error=f"connection error: {exc}".strip())
         results.append((view, res, classify(res), missing_symbol(res)))
 

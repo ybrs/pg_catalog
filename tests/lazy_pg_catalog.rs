@@ -7,7 +7,7 @@ use arrow::array::Array;
 use datafusion::error::{DataFusionError, Result as DFResult};
 use datafusion_pg_catalog::{
     get_base_session_context, get_base_session_context_with_lazy_catalog, register_lazy_catalog,
-    register_user_database_with_callback, ColumnSpec, ConfigSettingDef, DatabaseDef,
+    register_user_database_with_callback, ColumnSpec, ConfigSettingDef, DatabaseDef, IndexDef,
     LazyCatalogOptions, LazyCatalogSource, LazyDatabaseRow, RelationDef, RelationKind, SchemaDef,
     SettingDef,
 };
@@ -61,7 +61,7 @@ fn db(name: &str, oid: i32) -> DatabaseDef {
     LazyDatabaseRow::new(oid, name, 10)
 }
 
-/// A fully in-memory [`LazyCatalogSource`] — no database, engine, or connection
+/// A fully in-memory [`LazyCatalogSource`] - no database, engine, or connection
 /// is involved, which proves the contract is backend-neutral.
 ///
 /// It models two databases, each with one `public` schema holding one relation
@@ -276,7 +276,7 @@ async fn test_lazy_merges_pg_database_rows() -> DFResult<()> {
 async fn test_lazy_catalog_joins_resolve() -> DFResult<()> {
     let ctx = ctx_with_fake_source().await?;
 
-    // pg_class ⋈ pg_namespace ⋈ pg_attribute for the user relation 'users'.
+    // pg_class JOIN pg_namespace JOIN pg_attribute for the user relation 'users'.
     let cols = string_column(
         &ctx,
         "SELECT a.attname FROM pg_catalog.pg_class c \
@@ -686,6 +686,76 @@ impl LazyCatalogSource for IndexedSource {
         callback(vec![ColumnSpec::new("id", 23, false)]);
         Ok(())
     }
+
+    fn indexes(
+        &self,
+        database: &str,
+        schema: &str,
+        callback: &mut dyn FnMut(Vec<IndexDef>),
+    ) -> DFResult<()> {
+        if database == "idxdb" && schema == "public" {
+            // A unique primary-key index on column 1 ('id') of the 'indexed' table.
+            let mut idx = IndexDef::new(80300, "indexed_pkey", 80200, vec![1]);
+            idx.is_unique = true;
+            idx.is_primary = true;
+            callback(vec![idx]);
+        }
+        Ok(())
+    }
+}
+
+#[tokio::test]
+async fn test_lazy_pg_index_reflects_source() -> DFResult<()> {
+    // An index reported by the source becomes both a pg_index structure row and an
+    // index relation in pg_class (relkind 'i'), the two rows pg_indexes /
+    // pg_get_indexdef join to describe it.
+    let (ctx, _log) = get_base_session_context_with_lazy_catalog(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
+        None,
+        Arc::new(IndexedSource),
+        LazyCatalogOptions::all(),
+    )
+    .await?;
+
+    // The index has its own pg_class row, relkind 'i', carrying its name.
+    let index_rel = string_column(
+        &ctx,
+        "SELECT relname FROM pg_catalog.pg_class \
+         WHERE relname = 'indexed_pkey' AND relkind = 'i'",
+    )
+    .await?;
+    assert_eq!(index_rel, vec!["indexed_pkey".to_string()]);
+
+    // The pg_index structure row points at the table and is unique + primary.
+    let indrelid = int_column(
+        &ctx,
+        "SELECT indrelid FROM pg_catalog.pg_index \
+         WHERE indexrelid = 80300 AND indisunique AND indisprimary",
+    )
+    .await?;
+    assert_eq!(indrelid, vec![80200], "pg_index must point at the table oid");
+
+    // Joining pg_index -> the index's pg_class name resolves the index by table.
+    let by_table = string_column(
+        &ctx,
+        "SELECT i.relname FROM pg_catalog.pg_index x \
+         JOIN pg_catalog.pg_class i ON i.oid = x.indexrelid \
+         JOIN pg_catalog.pg_class t ON t.oid = x.indrelid \
+         WHERE t.relname = 'indexed'",
+    )
+    .await?;
+    assert_eq!(by_table, vec!["indexed_pkey".to_string()]);
+
+    // indkey lists the single indexed column's attnum (1 = 'id').
+    let indkey = int_column(
+        &ctx,
+        "SELECT unnest(indkey) AS k FROM pg_catalog.pg_index WHERE indexrelid = 80300",
+    )
+    .await?;
+    assert_eq!(indkey, vec![1], "indkey must list the indexed attnum");
+    Ok(())
 }
 
 #[tokio::test]
