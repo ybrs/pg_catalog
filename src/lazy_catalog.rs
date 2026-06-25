@@ -237,7 +237,7 @@ impl IndexDef {
 
 /// The kind of table constraint a [`ConstraintDef`] describes. Check constraints
 /// are excluded: their defining SQL is a node tree we do not deparse, so their
-/// text is integration-supplied (Phase 2) rather than structural.
+/// text is integration-supplied (Phase 3) rather than structural.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ConstraintKind {
     /// A primary key (`pg_constraint.contype = 'p'`).
@@ -425,6 +425,11 @@ impl ConstraintDef {
     /// `referenced_key_attnums` of `referenced_table_oid`, positionally matched.
     /// The ON UPDATE / ON DELETE actions default to NO ACTION and the match type
     /// to SIMPLE; set those fields afterward to change them.
+    ///
+    /// Because the two attnum lists are matched position-by-position (and become
+    /// `pg_constraint.conkey` / `confkey`), they must have the same length; an
+    /// unequal pairing is rejected here so an invalid foreign key can never be
+    /// constructed and later serialized.
     #[allow(clippy::too_many_arguments)]
     pub fn foreign_key(
         oid: i32,
@@ -435,10 +440,19 @@ impl ConstraintDef {
         referenced_table_oid: i32,
         referenced_key_attnums: Vec<i32>,
         index_oid: i32,
-    ) -> Self {
-        Self {
+    ) -> DFResult<Self> {
+        let name = name.into();
+        if key_attnums.len() != referenced_key_attnums.len() {
+            return Err(DataFusionError::Execution(format!(
+                "foreign key '{name}' has {} key column(s) but {} referenced column(s); \
+                 they are positionally matched and must be equal in number",
+                key_attnums.len(),
+                referenced_key_attnums.len(),
+            )));
+        }
+        Ok(Self {
             oid,
-            name: name.into(),
+            name,
             kind: ConstraintKind::ForeignKey,
             namespace_oid,
             table_oid,
@@ -449,7 +463,7 @@ impl ConstraintDef {
             on_update: ForeignKeyAction::NoAction,
             on_delete: ForeignKeyAction::NoAction,
             match_type: ForeignKeyMatch::Simple,
-        }
+        })
     }
 }
 
@@ -469,7 +483,7 @@ pub struct ColumnSpec {
     pub nullable: bool,
     /// Whether the column has a default expression (`pg_attribute.atthasdef`, and
     /// a backing `pg_attrdef` row). The default *text* is integration-supplied
-    /// (Phase 2); this flag and the `pg_attrdef` handle are the structural part.
+    /// (Phase 3); this flag and the `pg_attrdef` handle are the structural part.
     pub has_default: bool,
 }
 
@@ -487,7 +501,7 @@ impl ColumnSpec {
 
     /// Mark this column as having a default expression, so it gets a `pg_attrdef`
     /// row and `pg_attribute.atthasdef = true`. The default text itself is
-    /// supplied later (Phase 2).
+    /// supplied later (Phase 3).
     pub fn with_default(mut self) -> Self {
         self.has_default = true;
         self
@@ -981,7 +995,7 @@ pub fn build_pg_index_row(def: &IndexDef) -> Row {
 /// unique constraints they take PostgreSQL's non-FK sentinels (`confrelid` 0,
 /// `confkey` NULL, and the three type codes a single space). The check-expression
 /// column (`conbin`) is left NULL - these kinds have no expression, and check
-/// text is integration-supplied (Phase 2) anyway.
+/// text is integration-supplied (Phase 3) anyway.
 pub fn build_pg_constraint_row(def: &ConstraintDef) -> Row {
     let is_foreign_key = def.kind == ConstraintKind::ForeignKey;
     let mut row = Row::new();
@@ -1134,7 +1148,7 @@ pub fn build_pg_attribute_rows(attrelid: i32, columns: &[ColumnSpec]) -> Vec<Row
 ///
 /// The compiled default expression (`adbin`, a node tree) is left NULL: we do not
 /// store node trees, and the human-facing default text is integration-supplied
-/// (Phase 2). This row, joined with `pg_attribute.atthasdef`, is the structural
+/// (Phase 3). This row, joined with `pg_attribute.atthasdef`, is the structural
 /// handle that `information_schema.columns` and clients read.
 /// Base OID for synthesized `pg_attrdef.oid` values on the lazy path. The column
 /// is NOT NULL in PostgreSQL but no consumer reads it (the constraint/column

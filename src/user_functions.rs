@@ -3043,7 +3043,9 @@ pub fn register_pg_get_function_arguments(ctx: &SessionContext) -> Result<()> {
 ///
 /// `columns` are the indexed column names in index-key order. The table is
 /// always schema-qualified, e.g.
-/// `CREATE UNIQUE INDEX foo_pkey ON public.foo USING btree (a, b)`.
+/// `CREATE UNIQUE INDEX foo_pkey ON public.foo USING btree (a, b)`. Every
+/// identifier (index, schema, table, columns) is quoted when it is not a plain
+/// lowercase identifier, so mixed-case or special names keep their meaning.
 fn render_create_index_statement(
     is_unique: bool,
     index_name: &str,
@@ -3053,17 +3055,45 @@ fn render_create_index_statement(
     columns: &[String],
 ) -> String {
     let unique = if is_unique { "UNIQUE " } else { "" };
+    let columns = columns
+        .iter()
+        .map(|c| quote_identifier_if_needed(c))
+        .collect::<Vec<_>>()
+        .join(", ");
     format!(
-        "CREATE {unique}INDEX {index_name} ON {schema_name}.{table_name} USING {access_method} ({})",
-        columns.join(", ")
+        "CREATE {unique}INDEX {} ON {}.{} USING {access_method} ({columns})",
+        quote_identifier_if_needed(index_name),
+        quote_identifier_if_needed(schema_name),
+        quote_identifier_if_needed(table_name),
     )
+}
+
+/// Quote a SQL identifier the way PostgreSQL's `quote_ident` does: leave a plain
+/// identifier (a lowercase letter or `_`, followed by lowercase letters, digits, or
+/// `_`) unquoted, and double-quote anything else, doubling any embedded `"`. This
+/// keeps already-safe catalog names (e.g. `pg_proc`) verbatim while protecting
+/// mixed-case or special user names.
+fn quote_identifier_if_needed(ident: &str) -> String {
+    let is_plain = !ident.is_empty()
+        && ident
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_lowercase() || c == '_')
+        && ident
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_');
+    if is_plain {
+        ident.to_string()
+    } else {
+        format!("\"{}\"", ident.replace('"', "\"\""))
+    }
 }
 
 /// The structural parts of one index, read from the catalog, that a plain
 /// `CREATE INDEX` statement is templated from. `key_attnums` are the indexed
 /// columns' attribute numbers in key order; a `0` marks an expression column,
 /// which makes the index functional/partial (its text is integration-supplied
-/// in Phase 2, not rendered here).
+/// in Phase 3, not rendered here).
 struct PlainIndexParts {
     index_oid: i64,
     table_oid: i64,
@@ -3156,7 +3186,7 @@ fn fetch_index_definitions(ctx: Arc<SessionContext>, oids: &[i64]) -> Result<Has
 
         for index in parsed {
             // An expression key column (attnum 0) means a functional/partial
-            // index; leave its text NULL for Phase 2.
+            // index; leave its text NULL for Phase 3.
             if index.key_attnums.iter().any(|&attnum| attnum == 0) {
                 continue;
             }
@@ -3285,7 +3315,7 @@ fn index_key_attnums_at(batch: &RecordBatch, column: &str, row: usize) -> Result
 /// `pg_catalog.pg_get_indexdef(oid)` reconstructs the `CREATE INDEX` text for a
 /// plain index from the live catalog at call time, mirroring
 /// [`PgGetUserById`]'s batched catalog-lookup pattern. Functional/partial index
-/// expressions are left NULL pending Phase 2's integration-supplied text.
+/// expressions are left NULL pending Phase 3's integration-supplied text.
 struct PgGetIndexDef {
     sig: Signature,
     ctx: Arc<SessionContext>,
@@ -3380,7 +3410,7 @@ impl ScalarUDFImpl for PgGetIndexDef {
 
 /// Register `pg_get_indexdef(oid)`, which reconstructs the `CREATE INDEX` text
 /// for a plain index from live catalog rows. Functional/partial indexes return
-/// NULL until their expression text is integration-supplied (Phase 2).
+/// NULL until their expression text is integration-supplied (Phase 3).
 pub fn register_pg_get_indexdef(ctx: &SessionContext) -> Result<()> {
     let udf = ScalarUDF::new_from_impl(PgGetIndexDef::new(Arc::new(ctx.clone())))
         .with_aliases(["pg_get_indexdef"]);
@@ -3684,6 +3714,29 @@ mod tests {
             ),
             "CREATE INDEX pg_index_indrelid_index ON pg_catalog.pg_index USING btree (indrelid)"
         );
+        // Mixed-case / special identifiers are double-quoted (and embedded quotes
+        // doubled); plain lowercase ones are left bare.
+        assert_eq!(
+            render_create_index_statement(
+                false,
+                "MyIdx",
+                "public",
+                "My Table",
+                "btree",
+                &["Col\"1".to_string(), "id".to_string()],
+            ),
+            "CREATE INDEX \"MyIdx\" ON public.\"My Table\" USING btree (\"Col\"\"1\", id)"
+        );
+    }
+
+    #[test]
+    fn test_quote_identifier_if_needed() {
+        assert_eq!(quote_identifier_if_needed("pg_proc"), "pg_proc");
+        assert_eq!(quote_identifier_if_needed("_x9"), "_x9");
+        assert_eq!(quote_identifier_if_needed("Mixed"), "\"Mixed\"");
+        assert_eq!(quote_identifier_if_needed("has space"), "\"has space\"");
+        assert_eq!(quote_identifier_if_needed("1leading"), "\"1leading\"");
+        assert_eq!(quote_identifier_if_needed("a\"b"), "\"a\"\"b\"");
     }
 
     #[test]

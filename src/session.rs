@@ -1115,38 +1115,45 @@ async fn create_registered_views(
     // qualified, so each view still lands in its own schema (e.g.
     // information_schema.table_constraints).
     const VIEW_BODY_RESOLUTION_SCHEMA: &str = "pg_catalog";
-    let mut active_default_schema = original_default_schema.clone();
+    // Create the views under the pg_catalog resolution schema, but capture the
+    // result so the session's default schema is ALWAYS restored afterward - even if a
+    // view fails - rather than left pinned to pg_catalog on an early error.
+    let result: Result<(), DataFusionError> = async {
+        let mut active_default_schema = original_default_schema.clone();
+        for view in views {
+            if active_default_schema != VIEW_BODY_RESOLUTION_SCHEMA {
+                set_default_schema(ctx, VIEW_BODY_RESOLUTION_SCHEMA).await?;
+                active_default_schema = VIEW_BODY_RESOLUTION_SCHEMA.to_string();
+            }
 
-    for view in views {
-        if active_default_schema != VIEW_BODY_RESOLUTION_SCHEMA {
-            set_default_schema(ctx, VIEW_BODY_RESOLUTION_SCHEMA).await?;
-            active_default_schema = VIEW_BODY_RESOLUTION_SCHEMA.to_string();
+            let qualified = format_fully_qualified_name(&view.catalog, &view.schema, &view.name);
+            let definition = normalize_view_sql(&view.sql);
+            if definition.is_empty() {
+                return Err(DataFusionError::Execution(format!(
+                    "view_sql for {} is empty",
+                    qualified
+                )));
+            }
+
+            let rewritten_select = {
+                let inlined = inline_current_database(&definition, &default_catalog);
+                let rewritten = rewrite_srf_to_unnest(&inlined)?;
+                let (rewritten, _) = rewrite_filters(&rewritten)?;
+                let rewritten = rewrite_exists_to_count(&rewritten)?;
+                rewrite_tuple_in_subquery_to_exists(&rewritten)?
+            };
+            let create_sql = format!("CREATE OR REPLACE VIEW {qualified} AS {rewritten_select}");
+            ctx.sql(&create_sql).await?.collect().await?;
         }
-
-        let qualified = format_fully_qualified_name(&view.catalog, &view.schema, &view.name);
-        let definition = normalize_view_sql(&view.sql);
-        if definition.is_empty() {
-            return Err(DataFusionError::Execution(format!(
-                "view_sql for {} is empty",
-                qualified
-            )));
-        }
-
-        let rewritten_select = {
-            let inlined = inline_current_database(&definition, &default_catalog);
-            let rewritten = rewrite_srf_to_unnest(&inlined)?;
-            let (rewritten, _) = rewrite_filters(&rewritten)?;
-            let rewritten = rewrite_exists_to_count(&rewritten)?;
-            rewrite_tuple_in_subquery_to_exists(&rewritten)?
-        };
-        let create_sql = format!("CREATE OR REPLACE VIEW {qualified} AS {rewritten_select}");
-        ctx.sql(&create_sql).await?.collect().await?;
+        Ok(())
     }
+    .await;
 
-    if active_default_schema != original_default_schema {
-        set_default_schema(ctx, &original_default_schema).await?;
-    }
-
+    // Restore the original default schema on every exit path; a view error takes
+    // precedence over a restore error.
+    let restored = set_default_schema(ctx, &original_default_schema).await;
+    result?;
+    restored?;
     Ok(())
 }
 

@@ -193,10 +193,11 @@ both paths above). All base tables are queryable (working).
 `Reflects` = does it show runtime-registered user objects (`live`/`merge`/`static`,
 see above). `Reads from` = the main catalog tables the view's SQL joins.
 
-### Working (18)
+### Working (19)
 | View | Purpose | Reads from | Reflects |
 |---|---|---|---|
 | `pg_tables` | All tables, one row per `relkind` r/p. | pg_class, pg_namespace, pg_tablespace | **live** |
+| `pg_indexes` | All indexes + their `CREATE INDEX` text (`pg_get_indexdef`; functional/partial expression text is Phase 3). | pg_index, pg_class, pg_namespace, pg_tablespace | static |
 | `pg_matviews` | Materialized views and their owners. | pg_class, pg_namespace | static |
 | `pg_roles` | Roles (password redacted). | pg_authid, pg_db_role_setting | static |
 | `pg_shadow` | Roles with password hashes (superuser view). | pg_authid | static |
@@ -219,11 +220,10 @@ see above). `Reads from` = the main catalog tables the view's SQL joins.
 > **materialized** `pg_stat[io]_all_*` snapshot tables; the `*_all_*` parents'
 > *live* SQL is what's broken (needs runtime stat functions - below).
 
-### Partial - executes but a column diverges (3)
+### Partial - executes but a column diverges (2)
 | View | Purpose | Reads from | Reflects | Diverging | Reason |
 |---|---|---|---|---|---|
 | `pg_views` | All views + their defining SQL. | pg_class, pg_namespace | **live** | `definition` | `pg_get_viewdef` not implemented (node-tree deparse). |
-| `pg_indexes` | All indexes + their `CREATE INDEX` text. | pg_index, pg_class, pg_namespace, pg_tablespace | static | working | `pg_get_indexdef` templates the `CREATE INDEX` text for plain indexes from live catalog rows; functional/partial expression text is Phase 2. |
 | `pg_rules` | Rewrite rules + their defining SQL. | pg_rewrite, pg_class, pg_namespace | static | `definition` | `pg_get_ruledef` not implemented. |
 
 ### Broken - fixable engine/UDF gaps (9)
@@ -295,7 +295,9 @@ All `static`.
 The SQL-standard introspection layer; each is a thin, portable projection over
 `pg_catalog`. **All 65 execute** (54 working, 11 partial). `tables`/`columns`/
 `schemata` are lazy/eager registration targets (`merge` - reflect user objects);
-the rest are `static` snapshots.
+the four constraint views (`table_constraints`, `key_column_usage`,
+`constraint_column_usage`, `referential_constraints`) are `live` over
+`pg_constraint`; the rest are `static` snapshots.
 
 | View | Purpose | Reads from | Reflects | Status / reason |
 |---|---|---|---|---|

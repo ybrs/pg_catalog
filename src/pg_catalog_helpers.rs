@@ -11,7 +11,7 @@ use crate::lazy_catalog::{
 };
 use crate::session::rows_to_record_batch;
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::sync::atomic::{AtomicI32, Ordering};
+use std::sync::atomic::{AtomicI32, AtomicU64, Ordering};
 use std::sync::Mutex;
 
 use once_cell::sync::Lazy;
@@ -22,13 +22,17 @@ pub struct ColumnDef {
     pub col_type: String,
     pub nullable: bool,
     /// Whether the column has a default expression. Drives `pg_attribute.atthasdef`
-    /// and a `pg_attrdef` row; the default *text* is supplied later (Phase 2).
+    /// and a `pg_attrdef` row; the default *text* is supplied later (Phase 3).
     /// Defaults to false, so existing callers and wire payloads need not set it.
     #[serde(default)]
     pub has_default: bool,
 }
 
 static NEXT_OID: AtomicI32 = AtomicI32::new(50010);
+
+/// Per-call sequence making each `append_catalog_row` staging table name unique, so
+/// concurrent appends can't collide on a shared register/deregister name.
+static APPEND_STAGING_SEQ: AtomicU64 = AtomicU64::new(0);
 
 static DATABASE_SCHEMAS: Lazy<Mutex<HashMap<String, HashSet<String>>>> =
     Lazy::new(|| Mutex::new(HashMap::new()));
@@ -223,9 +227,13 @@ pub async fn register_user_tables(
     table_name: &str,
     columns: Vec<BTreeMap<String, ColumnDef>>,
 ) -> DFResult<()> {
-    // Idempotent: a relation already registered under this name is left as is.
+    // Idempotent: a relation of this name already registered IN THIS SCHEMA is left
+    // as is. Scoped by relnamespace (pg_class identity is namespace + name), so the
+    // same table name under a different schema is not mistaken for a duplicate.
     let already_registered = ctx
-        .sql("SELECT 1 FROM pg_catalog.pg_class WHERE relname=$relname")
+        .sql(&format!(
+            "SELECT 1 FROM pg_catalog.pg_class WHERE relname=$relname AND relnamespace={schema_oid}"
+        ))
         .await?
         .with_param_values(vec![("relname", ScalarValue::from(table_name))])?
         .count()
@@ -273,7 +281,7 @@ pub async fn register_user_tables(
 
     // One pg_attrdef row per column that has a default (its atthasdef flag is
     // already set on the pg_attribute row above). The default text is supplied
-    // later (Phase 2); this is the structural handle clients join on.
+    // later (Phase 3); this is the structural handle clients join on.
     for (idx, col) in column_specs.iter().enumerate() {
         if col.has_default {
             let adnum = (idx + 1) as i32;
@@ -337,8 +345,10 @@ async fn append_catalog_row(
     // Stage the row as a one-off source table, then INSERT ... SELECT it into the
     // catalog table so its columns are matched by the schema rather than by a
     // literal VALUES tuple. The staging table is dropped whether the insert
-    // succeeds or fails.
-    let staging_table = format!("__catalog_append_{schema_name}_{table_name}");
+    // succeeds or fails. The name carries a per-call sequence so concurrent appends
+    // to the same catalog table do not register/deregister a shared staging name.
+    let seq = APPEND_STAGING_SEQ.fetch_add(1, Ordering::Relaxed);
+    let staging_table = format!("__catalog_append_{schema_name}_{table_name}_{seq}");
     ctx.register_batch(&staging_table, batch)?;
     let inserted = ctx
         .sql(&format!(
@@ -488,7 +498,7 @@ pub async fn register_user_constraint(
                 referenced_oid,
                 referenced_key_attnums,
                 0,
-            )
+            )?
         }
         ConstraintKind::PrimaryKey => ConstraintDef::primary_key(
             constraint_oid,
@@ -931,6 +941,25 @@ mod tests {
             .value(0);
         assert_eq!(attnum, 1);
         Ok(())
+    }
+
+    #[test]
+    fn test_foreign_key_rejects_mismatched_attnum_counts() {
+        // conkey and confkey are matched position-by-position, so the two attnum
+        // lists must be the same length; an unequal pairing is rejected at
+        // construction (it could otherwise be serialized into pg_constraint).
+        assert!(
+            ConstraintDef::foreign_key(1, "fk", 10, 20, vec![1, 2], 30, vec![1], 0).is_err(),
+            "2 key columns vs 1 referenced column must be rejected"
+        );
+        assert!(
+            ConstraintDef::foreign_key(1, "fk", 10, 20, vec![1], 30, vec![1, 2], 0).is_err(),
+            "1 key column vs 2 referenced columns must be rejected"
+        );
+        assert!(
+            ConstraintDef::foreign_key(1, "fk", 10, 20, vec![1, 2], 30, vec![3, 4], 0).is_ok(),
+            "equal-length pairings are accepted"
+        );
     }
 
     #[tokio::test(flavor = "multi_thread")]
