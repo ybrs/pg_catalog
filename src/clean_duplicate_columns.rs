@@ -302,8 +302,15 @@ mod tests {
         // (depth 0) projection is left alone.
         let sql = "SELECT a, b FROM (SELECT nr.nspname, nc.nspname FROM x nr, y nc) t(a, b)";
         let out = disambiguate_duplicate_columns(sql)?;
-        assert!(out.contains("nc.nspname AS nspname_2"), "second nspname aliased: {out}");
-        assert_eq!(out.matches("nspname").count(), 3, "only the dup is renamed: {out}");
+        assert!(
+            out.contains("nc.nspname AS nspname_2"),
+            "second nspname aliased: {out}"
+        );
+        assert_eq!(
+            out.matches("nspname").count(),
+            3,
+            "only the dup is renamed: {out}"
+        );
         Ok(())
     }
 
@@ -311,7 +318,10 @@ mod tests {
     fn test_disambiguate_leaves_unique_columns_untouched() -> Result<(), Box<dyn Error>> {
         let sql = "SELECT x FROM (SELECT a.p, b.q FROM a, b) t";
         let out = disambiguate_duplicate_columns(sql)?;
-        assert!(!out.contains("_2"), "no aliasing when names are unique: {out}");
+        assert!(
+            !out.contains("_2"),
+            "no aliasing when names are unique: {out}"
+        );
         Ok(())
     }
 

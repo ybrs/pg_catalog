@@ -735,7 +735,11 @@ async fn test_lazy_pg_index_reflects_source() -> DFResult<()> {
          WHERE indexrelid = 80300 AND indisunique AND indisprimary",
     )
     .await?;
-    assert_eq!(indrelid, vec![80200], "pg_index must point at the table oid");
+    assert_eq!(
+        indrelid,
+        vec![80200],
+        "pg_index must point at the table oid"
+    );
 
     // Joining pg_index -> the index's pg_class name resolves the index by table.
     let by_table = string_column(
@@ -930,16 +934,25 @@ impl LazyCatalogSource for ConfigSource {
     fn config(&self, callback: &mut dyn FnMut(Vec<ConfigSettingDef>)) -> DFResult<()> {
         callback(vec![
             // Replaces the built-in VERSION (same name = override).
-            ConfigSettingDef { name: "VERSION".into(), setting: "riffq 1.0".into() },
+            ConfigSettingDef {
+                name: "VERSION".into(),
+                setting: "riffq 1.0".into(),
+            },
             // A brand-new setting not present in the built-ins.
-            ConfigSettingDef { name: "EMBEDDER".into(), setting: "riffq".into() },
+            ConfigSettingDef {
+                name: "EMBEDDER".into(),
+                setting: "riffq".into(),
+            },
         ]);
         Ok(())
     }
     fn settings(&self, callback: &mut dyn FnMut(Vec<SettingDef>)) -> DFResult<()> {
         callback(vec![
             // Override a session-mutable parameter's live value.
-            SettingDef { name: "search_path".into(), setting: "tenant42, public".into() },
+            SettingDef {
+                name: "search_path".into(),
+                setting: "tenant42, public".into(),
+            },
         ]);
         Ok(())
     }
@@ -962,7 +975,11 @@ async fn test_pg_config_callback_overrides_and_extends() -> DFResult<()> {
         "SELECT setting FROM pg_catalog.pg_config WHERE name = 'VERSION'",
     )
     .await?;
-    assert_eq!(version, vec!["riffq 1.0".to_string()], "VERSION overridden once");
+    assert_eq!(
+        version,
+        vec!["riffq 1.0".to_string()],
+        "VERSION overridden once"
+    );
 
     // The new setting is added.
     let embedder = string_column(
@@ -1007,7 +1024,11 @@ async fn test_pg_settings_callback_overrides_value() -> DFResult<()> {
         "SELECT setting FROM pg_catalog.pg_settings WHERE name = 'max_connections'",
     )
     .await?;
-    assert_eq!(max_conn.len(), 1, "untouched built-in max_connections preserved");
+    assert_eq!(
+        max_conn.len(),
+        1,
+        "untouched built-in max_connections preserved"
+    );
     Ok(())
 }
 

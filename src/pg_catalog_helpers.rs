@@ -381,12 +381,9 @@ async fn append_catalog_row(
     let schema_provider = catalog
         .schema("pg_catalog")
         .ok_or_else(|| DataFusionError::Execution("schema 'pg_catalog' not found".to_string()))?;
-    let provider = schema_provider
-        .table(table_name)
-        .await?
-        .ok_or_else(|| {
-            DataFusionError::Execution(format!("table 'pg_catalog.{table_name}' not found"))
-        })?;
+    let provider = schema_provider.table(table_name).await?.ok_or_else(|| {
+        DataFusionError::Execution(format!("table 'pg_catalog.{table_name}' not found"))
+    })?;
     let schema = provider.schema();
     let batch = rows_to_record_batch(&schema, &[row])?;
 
@@ -456,7 +453,12 @@ pub async fn register_user_index(
         is_primary,
     };
 
-    append_catalog_row(ctx, "pg_class", build_index_pg_class_row(&index_def, schema_oid)).await?;
+    append_catalog_row(
+        ctx,
+        "pg_class",
+        build_index_pg_class_row(&index_def, schema_oid),
+    )
+    .await?;
     append_catalog_row(ctx, "pg_index", build_pg_index_row(&index_def)).await?;
 
     Ok(())
@@ -730,8 +732,16 @@ mod tests {
         );
         register_user_tables(&ctx, "pgtry", "myschema", "contacts", vec![c1]).await?;
 
-        register_user_index(&ctx, "myschema", "contacts_pkey", "contacts", vec![1], true, true)
-            .await?;
+        register_user_index(
+            &ctx,
+            "myschema",
+            "contacts_pkey",
+            "contacts",
+            vec![1],
+            true,
+            true,
+        )
+        .await?;
 
         // The index gets its own pg_class row, relkind 'i'.
         let df = ctx

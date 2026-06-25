@@ -12,19 +12,17 @@ use serde_yaml;
 
 use crate::clean_duplicate_columns::{alias_unnamed_columns, disambiguate_duplicate_columns};
 use crate::replace::{
-    alias_subquery_tables, regclass_udfs, replace_regclass, replace_set_command_with_namespace,
+    alias_subquery_tables, drop_oid_array_cast, drop_redundant_oid_and_regclass_casts,
+    regclass_udfs, replace_regclass, replace_set_command_with_namespace,
     rewrite_array_agg_varchar_cast, rewrite_array_subquery, rewrite_available_updates,
-    rewrite_brace_array_literal, rewrite_char_cast, rewrite_name_cast, rewrite_oid_cast,
-    drop_redundant_oid_and_regclass_casts, drop_oid_array_cast,
-    rewrite_pg_custom_operator,
-    rewrite_regoper_cast, rewrite_regoperator_cast, rewrite_regproc_cast,
-    rewrite_exists_to_count, rewrite_information_schema_casts, rewrite_regprocedure_cast,
-    rewrite_tuple_in_subquery_to_exists,
-    rewrite_pg_truetypid_composite_args, rewrite_srf_to_unnest,
-    rewrite_regtype_cast,
-    rewrite_schema_qualified_custom_types,
-    rewrite_schema_qualified_text, rewrite_schema_qualified_udtfs, rewrite_time_zone_utc,
-    rewrite_tuple_equality, rewrite_xid_cast, strip_default_collate,
+    rewrite_brace_array_literal, rewrite_char_cast, rewrite_exists_to_count,
+    rewrite_information_schema_casts, rewrite_name_cast, rewrite_oid_cast,
+    rewrite_pg_custom_operator, rewrite_pg_truetypid_composite_args, rewrite_regoper_cast,
+    rewrite_regoperator_cast, rewrite_regproc_cast, rewrite_regprocedure_cast,
+    rewrite_regtype_cast, rewrite_schema_qualified_custom_types, rewrite_schema_qualified_text,
+    rewrite_schema_qualified_udtfs, rewrite_srf_to_unnest, rewrite_time_zone_utc,
+    rewrite_tuple_equality, rewrite_tuple_in_subquery_to_exists, rewrite_xid_cast,
+    strip_default_collate,
 };
 use pgwire::api::Type;
 use std::collections::{BTreeMap, HashMap};
@@ -35,30 +33,26 @@ use std::sync::{Arc, Mutex};
 use zip::ZipArchive;
 
 use crate::user_functions::{
-    register_array_agg, register_current_schema, register_current_schemas, register_encode,
-    register_format,
-    register_getdatabaseencoding, register_has_database_privilege, register_has_privilege_family,
-    register_has_schema_privilege, register_nameconcatoid,
-    register_acldefault, register_aclexplode, register_pg_char_max_length,
-    register_pg_char_octet_length, register_pg_expandarray, register_pg_has_role,
-    register_pg_column_is_updatable, register_pg_get_function_arg_default,
-    register_pg_index_position, register_pg_numeric_helpers,
-    register_pg_truetypid_helpers,
-    register_pg_is_other_temp_schema, register_pg_my_temp_schema, register_pg_options_to_table,
-    register_pg_relation_is_updatable,
-    register_pg_available_extension_versions, register_pg_get_array,
+    register_acldefault, register_aclexplode, register_array_agg, register_current_schema,
+    register_current_schemas, register_encode, register_format, register_getdatabaseencoding,
+    register_has_database_privilege, register_has_privilege_family, register_has_schema_privilege,
+    register_nameconcatoid, register_pg_available_extension_versions, register_pg_char_max_length,
+    register_pg_char_octet_length, register_pg_column_is_updatable, register_pg_expandarray,
+    register_pg_get_array, register_pg_get_function_arg_default,
     register_pg_get_function_arguments, register_pg_get_function_result,
     register_pg_get_function_sqlbody, register_pg_get_indexdef, register_pg_get_keywords,
     register_pg_get_one, register_pg_get_ruledef, register_pg_get_statisticsobjdef_columns,
-    register_pg_get_triggerdef, register_pg_get_viewdef, register_pg_postmaster_start_time,
-    register_pg_relation_is_publishable, register_pg_relation_size,
-    register_pg_total_relation_size, register_quote_ident, register_scalar_array_to_string,
-    register_scalar_format_type, register_scalar_pg_age, register_scalar_pg_encoding_to_char,
-    register_scalar_pg_get_expr, register_scalar_pg_get_partkeydef,
-    register_scalar_pg_get_userbyid, register_scalar_pg_is_in_recovery,
-    register_scalar_pg_table_is_visible, register_scalar_pg_tablespace_location,
-    register_scalar_regclass_oid, register_scalar_txid_current, register_translate, register_upper,
-    register_version_fn,
+    register_pg_get_triggerdef, register_pg_get_viewdef, register_pg_has_role,
+    register_pg_index_position, register_pg_is_other_temp_schema, register_pg_my_temp_schema,
+    register_pg_numeric_helpers, register_pg_options_to_table, register_pg_postmaster_start_time,
+    register_pg_relation_is_publishable, register_pg_relation_is_updatable,
+    register_pg_relation_size, register_pg_total_relation_size, register_pg_truetypid_helpers,
+    register_quote_ident, register_scalar_array_to_string, register_scalar_format_type,
+    register_scalar_pg_age, register_scalar_pg_encoding_to_char, register_scalar_pg_get_expr,
+    register_scalar_pg_get_partkeydef, register_scalar_pg_get_userbyid,
+    register_scalar_pg_is_in_recovery, register_scalar_pg_table_is_visible,
+    register_scalar_pg_tablespace_location, register_scalar_regclass_oid,
+    register_scalar_txid_current, register_translate, register_upper, register_version_fn,
 };
 
 use crate::scalar_to_cte::rewrite_subquery_as_cte;
@@ -618,8 +612,10 @@ fn schemas_to_ipc_zip(
                     if let Some(sql) = &parsed.view_sql {
                         md.insert("pgcat.view_sql".to_string(), sql.clone());
                     }
-                    let meta_schema =
-                        Arc::new(Schema::new_with_metadata(parsed.schema.fields().clone(), md));
+                    let meta_schema = Arc::new(Schema::new_with_metadata(
+                        parsed.schema.fields().clone(),
+                        md,
+                    ));
 
                     let mut buf: Vec<u8> = Vec::new();
                     {
@@ -668,7 +664,10 @@ fn parse_schema_ipc_bytes(
         let mut stream = StreamReader::try_new(Cursor::new(buf), None).expect("ipc reader");
         let md_schema = stream.schema();
         let md = md_schema.metadata();
-        let catalog = md.get("pgcat.catalog").cloned().expect("missing catalog md");
+        let catalog = md
+            .get("pgcat.catalog")
+            .cloned()
+            .expect("missing catalog md");
         let schema_name = md.get("pgcat.schema").cloned().expect("missing schema md");
         let table = md.get("pgcat.table").cloned().expect("missing table md");
         let is_view = md.get("pgcat.is_view").map(|v| v == "1").unwrap_or(false);

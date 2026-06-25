@@ -230,7 +230,7 @@ mod rewriter {
         cte_ident: Ident,
         subquery: Box<Query>,
         on_pairs: Vec<CorrelatedPredicate>, // t1.id = t2.id ...
-        outer_only_predicates: Vec<Expr>, // t1.flag, t1.x > 10, ...
+        outer_only_predicates: Vec<Expr>,   // t1.flag, t1.x > 10, ...
         orig_alias: Option<Ident>,
         outer_aliases: Vec<Ident>,
     }
@@ -435,8 +435,10 @@ mod rewriter {
     fn is_same_pred(e: &Expr, p: &CorrelatedPredicate) -> bool {
         if let Expr::BinaryOp { op, left, right } = e {
             if op == &p.op {
-                return (expr_to_column_path(left) == p.outer && expr_to_column_path(right) == p.inner)
-                    || (expr_to_column_path(right) == p.outer && expr_to_column_path(left) == p.inner);
+                return (expr_to_column_path(left) == p.outer
+                    && expr_to_column_path(right) == p.inner)
+                    || (expr_to_column_path(right) == p.outer
+                        && expr_to_column_path(left) == p.inner);
             }
         }
 
@@ -448,8 +450,10 @@ mod rewriter {
         } = e
         {
             return p.is_any
-                && ((expr_to_column_path(left) == p.inner && expr_to_column_path(right) == p.outer)
-                    || (expr_to_column_path(right) == p.inner && expr_to_column_path(left) == p.outer));
+                && ((expr_to_column_path(left) == p.inner
+                    && expr_to_column_path(right) == p.outer)
+                    || (expr_to_column_path(right) == p.inner
+                        && expr_to_column_path(left) == p.outer));
         }
 
         false
@@ -501,7 +505,12 @@ mod rewriter {
             found
         }
 
-        fn collect_group_by_columns(e: &Expr, inside_aggr: bool, has_aggr: &mut bool, cols: &mut Vec<Expr>) {
+        fn collect_group_by_columns(
+            e: &Expr,
+            inside_aggr: bool,
+            has_aggr: &mut bool,
+            cols: &mut Vec<Expr>,
+        ) {
             match e {
                 Expr::Function(f) => {
                     // -- take the unqualified function name (last identifier) ---------
@@ -629,7 +638,8 @@ mod rewriter {
             }
 
             // do we mix "plain columns" with "anything else"?
-            let mixes_plain_columns_with_aggregates = !cols.is_empty() && cols.len() < projection_expr_count;
+            let mixes_plain_columns_with_aggregates =
+                !cols.is_empty() && cols.len() < projection_expr_count;
 
             if has_aggr || mixes_plain_columns_with_aggregates {
                 // deduplicate column list
@@ -722,8 +732,9 @@ mod rewriter {
         }
 
         fn make_left_join(alias: &Ident) -> Join {
-            let template_stmt = super::parse_sql(&format!("SELECT * FROM x LEFT JOIN {alias} ON true"))
-                .expect("parser");
+            let template_stmt =
+                super::parse_sql(&format!("SELECT * FROM x LEFT JOIN {alias} ON true"))
+                    .expect("parser");
 
             if let Statement::Query(q) = template_stmt {
                 if let SetExpr::Select(sel) = q.body.as_ref() {
@@ -944,7 +955,11 @@ mod rewriter {
             }
         }
 
-        fn strip_corr_filters(sel: &mut Select, pairs: &[CorrelatedPredicate], outer_aliases: &[Ident]) {
+        fn strip_corr_filters(
+            sel: &mut Select,
+            pairs: &[CorrelatedPredicate],
+            outer_aliases: &[Ident],
+        ) {
             if let Some(pred) = &sel.selection {
                 let mut keep: Vec<Expr> = vec![];
                 for conjunct in split_and(pred) {
@@ -1034,7 +1049,12 @@ mod rewriter {
             Expr::CompoundIdentifier(vec![info.cte_ident.clone(), Ident::new("col")])
         }
 
-        fn build_left_join(&self, alias: &Ident, pairs: &[CorrelatedPredicate], outer_only: &[Expr]) -> Join {
+        fn build_left_join(
+            &self,
+            alias: &Ident,
+            pairs: &[CorrelatedPredicate],
+            outer_only: &[Expr],
+        ) -> Join {
             let mut join = Self::make_left_join(alias);
 
             // helper:   t2.id  ->  __cteN.id

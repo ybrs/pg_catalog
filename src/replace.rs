@@ -590,7 +590,12 @@ pub fn rewrite_tuple_in_subquery_to_exists(sql: &str) -> Result<String> {
         .map_err(|e| DataFusionError::External(Box::new(e)))?;
     let _ = visit_statements_mut(&mut stmts, |stmt| {
         let _ = visit_expressions_mut(stmt, |e| {
-            if let Expr::InSubquery { expr, subquery, negated } = e {
+            if let Expr::InSubquery {
+                expr,
+                subquery,
+                negated,
+            } = e
+            {
                 // Only the multi-column row-constructor form.
                 let elems = match expr.as_ref() {
                     Expr::Tuple(elems) if elems.len() > 1 => elems.clone(),
@@ -601,7 +606,10 @@ pub fn rewrite_tuple_in_subquery_to_exists(sql: &str) -> Result<String> {
                 if let SetExpr::Select(select) = new_subquery.body.as_mut() {
                     // Arities must match and every projection must be a plain expression.
                     if select.projection.len() != elems.len()
-                        || select.projection.iter().any(|p| projected_expr(p).is_none())
+                        || select
+                            .projection
+                            .iter()
+                            .any(|p| projected_expr(p).is_none())
                     {
                         return ControlFlow::Continue(());
                     }
@@ -626,7 +634,10 @@ pub fn rewrite_tuple_in_subquery_to_exists(sql: &str) -> Result<String> {
                     select.projection = vec![SelectItem::UnnamedExpr(Expr::Value(
                         Value::Number("1".to_string(), false).into(),
                     ))];
-                    *e = Expr::Exists { subquery: new_subquery, negated };
+                    *e = Expr::Exists {
+                        subquery: new_subquery,
+                        negated,
+                    };
                 }
             }
             ControlFlow::<()>::Continue(())
@@ -733,9 +744,7 @@ pub fn rewrite_srf_to_unnest(sql: &str) -> Result<String> {
 /// already been replaced with `__srf_unnest['field']` by the time this runs, so
 /// the remaining `.field` Dot accesses are column/struct references.
 fn convert_dot_field_to_subscript(sql: &str) -> Result<String> {
-    use sqlparser::ast::{
-        visit_expressions_mut, visit_statements_mut, AccessExpr, Expr, Value,
-    };
+    use sqlparser::ast::{visit_expressions_mut, visit_statements_mut, AccessExpr, Expr, Value};
     use sqlparser::dialect::PostgreSqlDialect;
     use sqlparser::parser::Parser;
     use std::ops::ControlFlow;
@@ -1170,11 +1179,20 @@ pub fn drop_redundant_oid_and_regclass_casts(sql: &str) -> Result<String> {
     fn is_string_literal(e: &Expr) -> bool {
         matches!(
             e,
-            Expr::Value(ValueWithSpan { value: Value::SingleQuotedString(_), .. })
+            Expr::Value(ValueWithSpan {
+                value: Value::SingleQuotedString(_),
+                ..
+            })
         )
     }
     fn is_number(e: &Expr) -> bool {
-        matches!(e, Expr::Value(ValueWithSpan { value: Value::Number(_, _), .. }))
+        matches!(
+            e,
+            Expr::Value(ValueWithSpan {
+                value: Value::Number(_, _),
+                ..
+            })
+        )
     }
     fn is_oid_custom(dt: &DataType) -> bool {
         matches!(dt, DataType::Custom(obj, _)
@@ -1186,7 +1204,10 @@ pub fn drop_redundant_oid_and_regclass_casts(sql: &str) -> Result<String> {
         .map_err(|e| DataFusionError::External(Box::new(e)))?;
     let _ = visit_statements_mut(&mut stmts, |stmt| {
         let _ = visit_expressions_mut(stmt, |e| {
-            if let Expr::Cast { expr, data_type, .. } = e {
+            if let Expr::Cast {
+                expr, data_type, ..
+            } = e
+            {
                 let drop = match data_type {
                     DataType::Regclass => !is_string_literal(expr),
                     dt if is_oid_custom(dt) => !is_string_literal(expr) && !is_number(expr),
@@ -1247,7 +1268,10 @@ pub fn drop_oid_array_cast(sql: &str) -> Result<String> {
         .map_err(|e| DataFusionError::External(Box::new(e)))?;
     let _ = visit_statements_mut(&mut stmts, |stmt| {
         let _ = visit_expressions_mut(stmt, |e| {
-            if let Expr::Cast { data_type, expr, .. } = e {
+            if let Expr::Cast {
+                data_type, expr, ..
+            } = e
+            {
                 if is_oid_array(data_type) {
                     *e = (**expr).clone();
                 }
@@ -2623,18 +2647,30 @@ mod tests {
     fn test_drop_redundant_oid_and_regclass_casts() -> Result<(), Box<dyn std::error::Error>> {
         // Non-literal `::regclass` / `::oid` casts are dropped (value preserved).
         let r = drop_redundant_oid_and_regclass_casts("SELECT c.oid::regclass")?;
-        assert!(!r.to_lowercase().contains("regclass"), "regclass dropped: {r}");
+        assert!(
+            !r.to_lowercase().contains("regclass"),
+            "regclass dropped: {r}"
+        );
         assert!(r.contains("c.oid"), "{r}");
 
         let o = drop_redundant_oid_and_regclass_casts("SELECT proargtypes::oid")?;
-        assert!(o.contains("proargtypes") && !o.to_lowercase().contains("::oid"), "{o}");
+        assert!(
+            o.contains("proargtypes") && !o.to_lowercase().contains("::oid"),
+            "{o}"
+        );
 
         // String-literal regclass and numeric ::oid are left for the dedicated
         // passes (OID lookup / BIGINT mapping).
         let lit = drop_redundant_oid_and_regclass_casts("SELECT 'pg_class'::regclass")?;
-        assert!(lit.to_lowercase().contains("regclass"), "literal kept: {lit}");
+        assert!(
+            lit.to_lowercase().contains("regclass"),
+            "literal kept: {lit}"
+        );
         let num = drop_redundant_oid_and_regclass_casts("SELECT 0::oid")?;
-        assert!(num.to_lowercase().contains("::oid") || num.contains("oid"), "num kept: {num}");
+        assert!(
+            num.to_lowercase().contains("::oid") || num.contains("oid"),
+            "num kept: {num}"
+        );
         Ok(())
     }
 
@@ -2649,7 +2685,10 @@ mod tests {
 
         // Scalar `::oid` and unrelated array casts are untouched.
         let scalar = drop_oid_array_cast("SELECT x::oid")?;
-        assert!(scalar.to_lowercase().contains("oid"), "scalar oid kept: {scalar}");
+        assert!(
+            scalar.to_lowercase().contains("oid"),
+            "scalar oid kept: {scalar}"
+        );
         Ok(())
     }
 
@@ -2730,17 +2769,27 @@ mod tests {
         let lo = out.to_lowercase();
         assert!(lo.contains("exists"), "expected EXISTS: {out}");
         assert!(!lo.contains(" in ("), "the IN should be gone: {out}");
-        assert!(lo.contains("s.x = a") && lo.contains("s.y = b"), "per-column equalities: {out}");
-        assert!(lo.contains("s.k = 1"), "subquery's own WHERE preserved: {out}");
+        assert!(
+            lo.contains("s.x = a") && lo.contains("s.y = b"),
+            "per-column equalities: {out}"
+        );
+        assert!(
+            lo.contains("s.k = 1"),
+            "subquery's own WHERE preserved: {out}"
+        );
 
         // NOT IN -> NOT EXISTS.
         let neg = rewrite_tuple_in_subquery_to_exists(
             "SELECT a FROM t1 WHERE (a, b) NOT IN (SELECT s.x, s.y FROM s)",
         )?;
-        assert!(neg.to_lowercase().contains("not exists"), "expected NOT EXISTS: {neg}");
+        assert!(
+            neg.to_lowercase().contains("not exists"),
+            "expected NOT EXISTS: {neg}"
+        );
 
         // Single-column IN is left for DataFusion (it handles that natively).
-        let single = rewrite_tuple_in_subquery_to_exists("SELECT a FROM t1 WHERE a IN (SELECT x FROM s)")?;
+        let single =
+            rewrite_tuple_in_subquery_to_exists("SELECT a FROM t1 WHERE a IN (SELECT x FROM s)")?;
         assert!(
             single.to_lowercase().contains(" in (") && !single.to_lowercase().contains("exists"),
             "single-column IN untouched: {single}"
@@ -2768,9 +2817,8 @@ mod tests {
         assert!(nlo.contains("= 0"), "expected = 0 comparison: {neg}");
 
         // A subquery with GROUP BY is left untouched (count(*) not equivalent).
-        let grouped = rewrite_exists_to_count(
-            "SELECT 1 WHERE EXISTS (SELECT 1 FROM t GROUP BY x)",
-        )?;
+        let grouped =
+            rewrite_exists_to_count("SELECT 1 WHERE EXISTS (SELECT 1 FROM t GROUP BY x)")?;
         assert!(
             grouped.to_lowercase().contains("exists"),
             "grouped EXISTS must be left as-is: {grouped}"
@@ -3072,12 +3120,16 @@ mod tests {
         let out = alias_subquery_tables(sql)?;
         assert!(out.contains("FROM pg_catalog.pg_trigger AS subq0_t"));
         // The outer correlated reference `rel.oid` must NOT be re-aliased.
-        assert!(out.contains("rel.oid"), "outer ref must be preserved: {out}");
+        assert!(
+            out.contains("rel.oid"),
+            "outer ref must be preserved: {out}"
+        );
         Ok(())
     }
 
     #[test]
-    fn test_alias_subquery_tables_requalifies_self_refs() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_alias_subquery_tables_requalifies_self_refs() -> Result<(), Box<dyn std::error::Error>>
+    {
         // When the subquery refers to its OWN table by name (`pg_database.datname`),
         // aliasing the table to `subq0_t` must re-qualify those refs too - otherwise
         // they no longer resolve. (Regression: the information_schema `collations`,
@@ -3085,7 +3137,10 @@ mod tests {
         let sql = "SELECT 1 WHERE x = (SELECT pg_database.encoding FROM pg_database \
                    WHERE pg_database.datname = 'd')";
         let out = alias_subquery_tables(sql)?;
-        assert!(out.contains("FROM pg_catalog.pg_database AS subq0_t"), "{out}");
+        assert!(
+            out.contains("FROM pg_catalog.pg_database AS subq0_t"),
+            "{out}"
+        );
         // Both the projected and the WHERE self-references are re-qualified.
         assert!(out.contains("subq0_t.encoding"), "projection ref: {out}");
         assert!(out.contains("subq0_t.datname"), "where ref: {out}");
@@ -3101,11 +3156,21 @@ mod tests {
         // Tables inside EXISTS (and IN) subqueries must also be qualified to
         // pg_catalog and aliased - the `views` information_schema view relies on
         // this for its `EXISTS (SELECT 1 FROM pg_trigger ...)`.
-        let sql = "SELECT 1 WHERE EXISTS (SELECT 1 FROM pg_trigger WHERE pg_trigger.tgrelid = c.oid)";
+        let sql =
+            "SELECT 1 WHERE EXISTS (SELECT 1 FROM pg_trigger WHERE pg_trigger.tgrelid = c.oid)";
         let out = alias_subquery_tables(sql)?;
-        assert!(out.contains("FROM pg_catalog.pg_trigger AS subq0_t"), "{out}");
-        assert!(out.contains("subq0_t.tgrelid"), "self-ref requalified: {out}");
-        assert!(out.contains("c.oid"), "outer correlated ref preserved: {out}");
+        assert!(
+            out.contains("FROM pg_catalog.pg_trigger AS subq0_t"),
+            "{out}"
+        );
+        assert!(
+            out.contains("subq0_t.tgrelid"),
+            "self-ref requalified: {out}"
+        );
+        assert!(
+            out.contains("c.oid"),
+            "outer correlated ref preserved: {out}"
+        );
         Ok(())
     }
 }

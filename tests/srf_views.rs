@@ -29,10 +29,16 @@ fn test_rewrite_srf_shape() {
     )
     .unwrap();
     let lo = out.to_lowercase();
-    assert!(lo.contains("unnest(pg_options_to_table(opts))"), "got {out}");
+    assert!(
+        lo.contains("unnest(pg_options_to_table(opts))"),
+        "got {out}"
+    );
     assert!(lo.contains("__srf_unnest['option_name']"), "got {out}");
     assert!(lo.contains("__srf_unnest['option_value']"), "got {out}");
-    assert!(lo.contains("where id > 0"), "WHERE should move inside: {out}");
+    assert!(
+        lo.contains("where id > 0"),
+        "WHERE should move inside: {out}"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -91,7 +97,10 @@ fn test_rewrite_srf_aliased_form() {
     )
     .unwrap();
     let lo = out.to_lowercase();
-    assert!(lo.contains("unnest(_pg_expandarray(c.conkey)) as a"), "got {out}");
+    assert!(
+        lo.contains("unnest(_pg_expandarray(c.conkey)) as a"),
+        "got {out}"
+    );
     assert!(lo.contains("(ss.a)['n']"), "got {out}");
     assert!(lo.contains("(ss.a)['x']"), "got {out}");
 }

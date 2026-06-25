@@ -367,19 +367,35 @@ fn stringify_string_array(arr: &arrow::array::ArrayRef) -> Vec<String> {
     let n = arr.len();
     let mut out = Vec::with_capacity(n);
     let push = |out: &mut Vec<String>, is_null: bool, val: &str| {
-        out.push(if is_null { "NULL".to_string() } else { val.to_string() });
+        out.push(if is_null {
+            "NULL".to_string()
+        } else {
+            val.to_string()
+        });
     };
     if let Some(a) = arr.as_any().downcast_ref::<StringArray>() {
         for i in 0..n {
-            push(&mut out, a.is_null(i), if a.is_null(i) { "" } else { a.value(i) });
+            push(
+                &mut out,
+                a.is_null(i),
+                if a.is_null(i) { "" } else { a.value(i) },
+            );
         }
     } else if let Some(a) = arr.as_any().downcast_ref::<StringViewArray>() {
         for i in 0..n {
-            push(&mut out, a.is_null(i), if a.is_null(i) { "" } else { a.value(i) });
+            push(
+                &mut out,
+                a.is_null(i),
+                if a.is_null(i) { "" } else { a.value(i) },
+            );
         }
     } else if let Some(a) = arr.as_any().downcast_ref::<LargeStringArray>() {
         for i in 0..n {
-            push(&mut out, a.is_null(i), if a.is_null(i) { "" } else { a.value(i) });
+            push(
+                &mut out,
+                a.is_null(i),
+                if a.is_null(i) { "" } else { a.value(i) },
+            );
         }
     }
     out
@@ -821,27 +837,29 @@ impl SimpleQueryHandler for DatafusionBackend {
         let _ = self.register_session_user(client);
         let _ = self.register_current_user(client);
 
-        let dispatch_result = dispatch_query(&self.ctx, query, None, None, |ctx, sql, p, t| async move {
-            let lsql = sql.to_lowercase();
-            if lsql.contains("from users") {
-                let schema = Arc::new(Schema::new(vec![
-                    Field::new("id", DataType::Int32, false),
-                    Field::new("name", DataType::Utf8, true),
-                ]));
-                let batch = RecordBatch::try_new(
-                    schema.clone(),
-                    vec![
-                        Arc::new(Int32Array::from(vec![1, 2])) as ArrayRef,
-                        Arc::new(StringArray::from(vec![Some("Alice"), Some("Bob")])) as ArrayRef,
-                    ],
-                )
-                .unwrap();
-                Ok((vec![batch], schema))
-            } else {
-                execute_sql(ctx, sql, p, t).await
-            }
-        })
-        .await;
+        let dispatch_result =
+            dispatch_query(&self.ctx, query, None, None, |ctx, sql, p, t| async move {
+                let lsql = sql.to_lowercase();
+                if lsql.contains("from users") {
+                    let schema = Arc::new(Schema::new(vec![
+                        Field::new("id", DataType::Int32, false),
+                        Field::new("name", DataType::Utf8, true),
+                    ]));
+                    let batch = RecordBatch::try_new(
+                        schema.clone(),
+                        vec![
+                            Arc::new(Int32Array::from(vec![1, 2])) as ArrayRef,
+                            Arc::new(StringArray::from(vec![Some("Alice"), Some("Bob")]))
+                                as ArrayRef,
+                        ],
+                    )
+                    .unwrap();
+                    Ok((vec![batch], schema))
+                } else {
+                    execute_sql(ctx, sql, p, t).await
+                }
+            })
+            .await;
         let (results, schema) = match dispatch_result {
             Ok(v) => v,
             Err(e) => {
@@ -1362,11 +1380,20 @@ mod tests {
         let list = |dt: DataType| DataType::List(Arc::new(Field::new("item", dt, true)));
         // Previously `list<Utf8View>` panicked; it (and any list) must map to an
         // array type, never crash.
-        assert_eq!(arrow_to_pg_type(&list(DataType::Utf8View)), Type::TEXT_ARRAY);
-        assert_eq!(arrow_to_pg_type(&list(DataType::LargeUtf8)), Type::TEXT_ARRAY);
+        assert_eq!(
+            arrow_to_pg_type(&list(DataType::Utf8View)),
+            Type::TEXT_ARRAY
+        );
+        assert_eq!(
+            arrow_to_pg_type(&list(DataType::LargeUtf8)),
+            Type::TEXT_ARRAY
+        );
         assert_eq!(arrow_to_pg_type(&list(DataType::Utf8)), Type::TEXT_ARRAY);
         assert_eq!(arrow_to_pg_type(&list(DataType::Int16)), Type::INT2_ARRAY);
-        assert_eq!(arrow_to_pg_type(&list(DataType::Float64)), Type::FLOAT8_ARRAY);
+        assert_eq!(
+            arrow_to_pg_type(&list(DataType::Float64)),
+            Type::FLOAT8_ARRAY
+        );
         // An unmapped element type falls back to text[] instead of panicking.
         assert_eq!(arrow_to_pg_type(&list(DataType::Date32)), Type::TEXT_ARRAY);
     }

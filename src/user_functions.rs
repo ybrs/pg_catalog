@@ -800,7 +800,10 @@ pub fn register_format(ctx: &SessionContext) -> Result<()> {
                     out.push_str(v.as_deref().unwrap_or(""));
                 }
                 Some('I') => {
-                    let v = args.get(next_arg).and_then(|o| o.clone()).unwrap_or_default();
+                    let v = args
+                        .get(next_arg)
+                        .and_then(|o| o.clone())
+                        .unwrap_or_default();
                     next_arg += 1;
                     // Double-quote and escape embedded quotes (a safe superset of
                     // PostgreSQL's "quote only if needed").
@@ -866,7 +869,11 @@ pub fn register_format(ctx: &SessionContext) -> Result<()> {
                 .collect::<std::result::Result<_, _>>()?;
             let as_str: Vec<&StringArray> = cols
                 .iter()
-                .map(|c| c.as_any().downcast_ref::<StringArray>().expect("cast to Utf8"))
+                .map(|c| {
+                    c.as_any()
+                        .downcast_ref::<StringArray>()
+                        .expect("cast to Utf8")
+                })
                 .collect();
 
             let val_at = |col: &StringArray, row: usize| -> Option<String> {
@@ -1370,8 +1377,14 @@ fn register_type_fact_int_fn(
         fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
             let arrays = ColumnarValue::values_to_arrays(&args.args)?;
             let len = arrays.first().map(|a| a.len()).unwrap_or(1);
-            let typid = arrays.first().map(array_as_opt_i64).unwrap_or(vec![None; len]);
-            let typmod = arrays.get(1).map(array_as_opt_i64).unwrap_or(vec![None; len]);
+            let typid = arrays
+                .first()
+                .map(array_as_opt_i64)
+                .unwrap_or(vec![None; len]);
+            let typmod = arrays
+                .get(1)
+                .map(array_as_opt_i64)
+                .unwrap_or(vec![None; len]);
             let mut out = Int32Builder::with_capacity(len);
             for i in 0..len {
                 match (self.func)(typid[i], typmod[i]) {
@@ -1506,7 +1519,8 @@ pub fn register_pg_options_to_table(ctx: &SessionContext) -> Result<()> {
                 match opts {
                     None => builder.append_null(),
                     Some(opts) => {
-                        if let Some(strs) = opts.as_any().downcast_ref::<arrow::array::StringArray>()
+                        if let Some(strs) =
+                            opts.as_any().downcast_ref::<arrow::array::StringArray>()
                         {
                             let struct_builder = builder.values();
                             for j in 0..strs.len() {
@@ -1515,10 +1529,12 @@ pub fn register_pg_options_to_table(ctx: &SessionContext) -> Result<()> {
                                 }
                                 let s = strs.value(j);
                                 let (name, value) = s.split_once('=').unwrap_or((s, ""));
-                                struct_builder.field_builder::<StringBuilder>(0)
+                                struct_builder
+                                    .field_builder::<StringBuilder>(0)
                                     .unwrap()
                                     .append_value(name);
-                                struct_builder.field_builder::<StringBuilder>(1)
+                                struct_builder
+                                    .field_builder::<StringBuilder>(1)
                                     .unwrap()
                                     .append_value(value);
                                 struct_builder.append(true);
@@ -1661,7 +1677,9 @@ pub fn register_pg_expandarray(ctx: &SessionContext) -> Result<()> {
 /// Modeled as a scalar function returning an empty `List<Struct{...}>` so the
 /// inline `(aclexplode(x)).grantee` form unnests to zero rows.
 pub fn register_aclexplode(ctx: &SessionContext) -> Result<()> {
-    use arrow::array::{ArrayRef, BooleanBuilder, Int32Builder, ListBuilder, StringBuilder, StructBuilder};
+    use arrow::array::{
+        ArrayRef, BooleanBuilder, Int32Builder, ListBuilder, StringBuilder, StructBuilder,
+    };
     use arrow::datatypes::{DataType, Field, Fields};
     use datafusion::logical_expr::{
         ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature,
@@ -1891,7 +1909,9 @@ pub fn register_nameconcatoid(ctx: &SessionContext) -> Result<()> {
         fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
             use arrow::array::Array;
             let arrays = ColumnarValue::values_to_arrays(&args.args)?;
-            let names = arrays[0].as_any().downcast_ref::<arrow::array::StringArray>();
+            let names = arrays[0]
+                .as_any()
+                .downcast_ref::<arrow::array::StringArray>();
             let len = arrays.first().map(|a| a.len()).unwrap_or(1);
             // The oid column may arrive as int or text; stringify generically.
             let oid_str = |i: usize| -> Option<String> {
@@ -2078,11 +2098,7 @@ fn oid_at(column: &ArrayRef, index: usize) -> Result<Option<i64>> {
 /// the distinct OIDs are looked up together. OIDs absent from `pg_authid` are
 /// simply missing from the returned map (callers substitute a placeholder); an
 /// empty input short-circuits without querying.
-fn fetch_users_by_oids(
-    ctx: Arc<SessionContext>,
-    oids: &[i64],
-) -> Result<HashMap<i64, String>> {
-
+fn fetch_users_by_oids(ctx: Arc<SessionContext>, oids: &[i64]) -> Result<HashMap<i64, String>> {
     let mut out: HashMap<i64, String> = HashMap::new();
     if oids.is_empty() {
         return Ok(out);
@@ -2374,7 +2390,8 @@ pub fn register_scalar_array_to_string(ctx: &SessionContext) -> Result<()> {
                 }
                 ColumnarValue::Array(a) if a.as_any().is::<StringArray>() => {
                     let string_array = a.as_any().downcast_ref::<StringArray>().unwrap();
-                    let mut b = StringBuilder::with_capacity(string_array.len(), 32 * string_array.len());
+                    let mut b =
+                        StringBuilder::with_capacity(string_array.len(), 32 * string_array.len());
                     for i in 0..string_array.len() {
                         if string_array.is_null(i) {
                             b.append_null();
@@ -2571,7 +2588,8 @@ impl Accumulator for ArrayCollector {
     // ---------- input tuples ----------
     fn update_batch(&mut self, values: &[ArrayRef]) -> Result<()> {
         for i in 0..values[0].len() {
-            self.collected_values.push(ScalarValue::try_from_array(&values[0], i)?);
+            self.collected_values
+                .push(ScalarValue::try_from_array(&values[0], i)?);
         }
         Ok(())
     }
@@ -2585,7 +2603,8 @@ impl Accumulator for ArrayCollector {
                 for idx in 0..list.len() {
                     let inner = list.value(idx);
                     for j in 0..inner.len() {
-                        self.collected_values.push(ScalarValue::try_from_array(&inner, j)?);
+                        self.collected_values
+                            .push(ScalarValue::try_from_array(&inner, j)?);
                     }
                 }
             }
@@ -2642,12 +2661,12 @@ pub fn register_pg_get_array(ctx: &SessionContext) -> Result<()> {
     let list_dt = DataType::List(Arc::new(Field::new("item", element_dt.clone(), true)));
 
     let udaf = create_udaf(
-        "pg_get_array",            // name
-        vec![element_dt],          // input types
-        Arc::new(list_dt.clone()), // return type
-        Volatility::Immutable,     // volatility
+        "pg_get_array",                 // name
+        vec![element_dt],               // input types
+        Arc::new(list_dt.clone()),      // return type
+        Volatility::Immutable,          // volatility
         Arc::new(make_array_collector), // accumulator factory
-        Arc::new(vec![list_dt]),   // state type
+        Arc::new(vec![list_dt]),        // state type
     );
 
     ctx.register_udaf(udaf.clone());
@@ -3476,7 +3495,10 @@ pub fn register_pg_get_keywords(ctx: &SessionContext) -> Result<()> {
             schema: schema.clone(),
         }),
     );
-    ctx.register_udtf("pg_catalog.pg_get_keywords", Arc::new(KeywordsTableFunc { schema }));
+    ctx.register_udtf(
+        "pg_catalog.pg_get_keywords",
+        Arc::new(KeywordsTableFunc { schema }),
+    );
     Ok(())
 }
 
@@ -3566,7 +3588,10 @@ mod tests {
 
     #[test]
     fn test_pg_numeric_radix_and_scale_formula() {
-        assert_eq!(pg_numeric_precision_radix(Some(OID_INT4), Some(-1)), Some(2));
+        assert_eq!(
+            pg_numeric_precision_radix(Some(OID_INT4), Some(-1)),
+            Some(2)
+        );
         assert_eq!(
             pg_numeric_precision_radix(Some(OID_NUMERIC), Some(-1)),
             Some(10)
@@ -3580,7 +3605,10 @@ mod tests {
     fn test_pg_datetime_precision_formula() {
         assert_eq!(pg_datetime_precision(Some(OID_DATE), Some(-1)), Some(0));
         // time/timestamp default to 6, or the explicit typmod.
-        assert_eq!(pg_datetime_precision(Some(OID_TIMESTAMPTZ), Some(-1)), Some(6));
+        assert_eq!(
+            pg_datetime_precision(Some(OID_TIMESTAMPTZ), Some(-1)),
+            Some(6)
+        );
         assert_eq!(pg_datetime_precision(Some(OID_TIMESTAMP), Some(3)), Some(3));
         assert_eq!(pg_datetime_precision(Some(OID_INTERVAL), Some(-1)), Some(6));
         assert_eq!(pg_datetime_precision(Some(OID_INT4), Some(-1)), None);
@@ -3592,8 +3620,14 @@ mod tests {
         assert_eq!(pg_char_max_length(Some(OID_VARCHAR), Some(7)), Some(3));
         assert_eq!(pg_char_octet_length(Some(OID_VARCHAR), Some(7)), Some(12));
         // Unbounded text/varchar octet length is 1 GiB.
-        assert_eq!(pg_char_octet_length(Some(OID_TEXT), Some(-1)), Some(1 << 30));
-        assert_eq!(pg_char_octet_length(Some(OID_VARCHAR), Some(-1)), Some(1 << 30));
+        assert_eq!(
+            pg_char_octet_length(Some(OID_TEXT), Some(-1)),
+            Some(1 << 30)
+        );
+        assert_eq!(
+            pg_char_octet_length(Some(OID_VARCHAR), Some(-1)),
+            Some(1 << 30)
+        );
         // Unbounded varchar has no declared max length; non-char types are NULL.
         assert_eq!(pg_char_max_length(Some(OID_VARCHAR), Some(-1)), None);
         assert_eq!(pg_char_max_length(Some(OID_INT4), Some(-1)), None);

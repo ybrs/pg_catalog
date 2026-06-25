@@ -21,7 +21,11 @@ async fn base_ctx() -> DFResult<datafusion::execution::context::SessionContext> 
 #[tokio::test]
 async fn test_pg_my_temp_schema() -> DFResult<()> {
     let ctx = base_ctx().await?;
-    let b = ctx.sql("SELECT pg_my_temp_schema()").await?.collect().await?;
+    let b = ctx
+        .sql("SELECT pg_my_temp_schema()")
+        .await?
+        .collect()
+        .await?;
     let a = b[0]
         .column(0)
         .as_any()
@@ -100,8 +104,7 @@ async fn test_format_function() -> DFResult<()> {
         .collect()
         .await?;
     let col = |i: usize| {
-        b[0]
-            .column(i)
+        b[0].column(i)
             .as_any()
             .downcast_ref::<StringArray>()
             .unwrap()

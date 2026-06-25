@@ -55,7 +55,11 @@ async fn test_has_privilege_family_all_names() -> DFResult<()> {
         "has_parameter_privilege",
     ] {
         let sql = format!("SELECT {fname}(1, 'USAGE')");
-        assert_eq!(one_bool(&ctx, &sql).await?, Some(true), "{fname}(oid, priv)");
+        assert_eq!(
+            one_bool(&ctx, &sql).await?,
+            Some(true),
+            "{fname}(oid, priv)"
+        );
     }
     Ok(())
 }
@@ -69,7 +73,11 @@ async fn test_has_privilege_arg_shapes() -> DFResult<()> {
         Some(true)
     );
     assert_eq!(
-        one_bool(&ctx, "SELECT has_table_privilege('sysuser', 'pg_class', 'SELECT')").await?,
+        one_bool(
+            &ctx,
+            "SELECT has_table_privilege('sysuser', 'pg_class', 'SELECT')"
+        )
+        .await?,
         Some(true)
     );
     assert_eq!(

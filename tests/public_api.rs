@@ -1,8 +1,6 @@
 use arrow::datatypes::Schema;
 use datafusion::execution::context::SessionContext;
-use datafusion_pg_catalog::{
-    dispatch_query, get_base_session_context, start_server,
-};
+use datafusion_pg_catalog::{dispatch_query, get_base_session_context, start_server};
 use std::fs::File;
 use std::io::Read;
 use std::io::Write as IoWrite;
