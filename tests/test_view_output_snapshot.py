@@ -21,12 +21,18 @@
 # that one expected difference doesn't drown out real ones. Nothing is hardcoded to
 # a particular environment.
 
+import functools
 import glob
+import json
+import os
 from collections import Counter
 
+import duckdb
 import psycopg
 
+from build_snapshot_db import DB_PATH, SCHEMA_DIR, build
 from conftest import SHARED_PORT, conn_str, load_yaml, server  # noqa: F401
+from yaml_loader import find_in_doc
 
 CONN_STR = conn_str(SHARED_PORT)
 
@@ -41,7 +47,7 @@ def _snapshot_db():
     doc = load_yaml(
         "pg_catalog_data/pg_schema/information_schema__information_schema_catalog_name.yaml"
     )
-    return _find(doc, "rows")[0]["catalog_name"]
+    return find_in_doc(doc, "rows")[0]["catalog_name"]
 
 
 def _live_db(conn):
@@ -118,32 +124,38 @@ KNOWN_EXEC_FAILURES = {
 }
 
 
-def _find(node, key):
-    """Return the first non-dict value stored under `key` anywhere in `node`."""
-    if isinstance(node, dict):
-        if key in node and not isinstance(node[key], dict):
-            return node[key]
-        for value in node.values():
-            found = _find(value, key)
-            if found is not None:
-                return found
-    return None
+@functools.lru_cache(maxsize=1)
+def _snapshot_duckdb():
+    """Path to the precomputed view-snapshot DuckDB, rebuilt once if missing or
+    older than the newest catalog YAML.
+
+    The triples (name, view_sql, rows) are precomputed by `build_snapshot_db.py`
+    so the test does not re-parse ~200 YAML files (~11s) on every run. The
+    freshness check rebuilds automatically if a YAML was edited without rerunning
+    that script, so an edited snapshot can never be compared against stale data.
+    """
+    newest_yaml = max(os.path.getmtime(p) for p in glob.glob(f"{SCHEMA_DIR}/*.yaml"))
+    if not os.path.exists(DB_PATH) or os.path.getmtime(DB_PATH) < newest_yaml:
+        build()
+    return DB_PATH
 
 
 def _views_with_snapshots():
     """Yield (view_name, view_sql, snapshot_rows) for every view that has both.
 
     `snapshot_rows` is the list of `column -> value` dicts captured from real
-    PostgreSQL; its length is the expected row count.
+    PostgreSQL; its length is the expected row count. Read from the precomputed
+    DuckDB snapshot rather than the YAML (see `_snapshot_duckdb`).
     """
-    for path in sorted(glob.glob("pg_catalog_data/pg_schema/*.yaml")):
-        doc = load_yaml(path)
-        view_sql = _find(doc, "view_sql")
-        rows = _find(doc, "rows")
-        if not view_sql or rows is None:
-            continue
-        name = path.split("/")[-1].replace(".yaml", "").replace("__", ".")
-        yield name, view_sql, rows
+    con = duckdb.connect(_snapshot_duckdb(), read_only=True)
+    try:
+        snapshots = con.execute(
+            "SELECT name, view_sql, rows_json FROM view_snapshots"
+        ).fetchall()
+    finally:
+        con.close()
+    for name, view_sql, rows_json in snapshots:
+        yield name, view_sql, json.loads(rows_json)
 
 
 def _canon(value, db_remap):

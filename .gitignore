@@ -1,6 +1,10 @@
 target/
 .idea/
 postgres-17/
+# Precomputed test snapshot DB (derived from pg_catalog_data/pg_schema/*.yaml by
+# build_snapshot_db.py; rebuilt on demand when the YAML is newer).
+pg_catalog_data/view_snapshots.duckdb
+pg_catalog_data/view_snapshots.duckdb.tmp
 .DS_Store
 postgres-data
 venv/

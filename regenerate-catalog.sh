@@ -67,12 +67,16 @@ with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
 print(f"    wrote {out} ({len(files)} files)")
 PY
 
-echo "==> [6/6] rebuild the embedded Arrow IPC artifact"
+echo "==> [6/7] rebuild the embedded Arrow IPC artifact"
 cargo run --release --bin gen_schema_ipc
+
+echo "==> [7/7] rebuild the precomputed test snapshot DuckDB"
+"$PYTHON" build_snapshot_db.py
 
 echo
 echo "==> done. Regenerated:"
 echo "      $SCHEMA_DIR/*.yaml"
 echo "      $YAML_ZIP                          (human-editable source)"
 echo "      pg_catalog_data/postgres-schema-nightly-ipc.zip  (embedded fast-load)"
+echo "      pg_catalog_data/view_snapshots.duckdb            (test snapshot cache, gitignored)"
 echo "    Next: review the diff, run 'cargo test' + pytest, then commit."
