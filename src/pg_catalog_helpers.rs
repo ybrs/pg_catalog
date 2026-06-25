@@ -166,28 +166,33 @@ pub async fn register_user_database(ctx: &SessionContext, database_name: &str) -
     Ok(())
 }
 
+/// Register a schema and return its `pg_namespace.oid`. If a namespace of that name
+/// already exists its OID is returned (registration is idempotent); otherwise one is
+/// created. Callers pass this OID to `register_user_tables`/`register_user_index`/
+/// `register_user_constraint`, which identify the namespace by OID rather than name -
+/// the flattened catalog allows the same schema name under several databases, so a
+/// name alone is ambiguous.
 pub async fn register_schema(
     ctx: &SessionContext,
     database_name: &str,
     schema_name: &str,
-) -> DFResult<()> {
-    let df = ctx
-        .sql("SELECT 1 FROM pg_catalog.pg_namespace WHERE nspname=$schema")
-        .await?
-        .with_param_values(vec![("schema", ScalarValue::from(schema_name))])?;
-
-    if df.count().await? == 0 {
-        let oid = NEXT_OID.fetch_add(1, Ordering::SeqCst);
-        let sql = format!(
-            "INSERT INTO pg_catalog.pg_namespace (oid, nspname, nspowner, nspacl) VALUES ({oid}, '{}', 27735, NULL)",
-            schema_name.replace('\'', "''")
-        );
-        ctx.sql(&sql).await?.collect().await?;
-    }
+) -> DFResult<i32> {
+    let oid = match get_schema_oid(ctx, schema_name).await? {
+        Some(oid) => oid,
+        None => {
+            let oid = NEXT_OID.fetch_add(1, Ordering::SeqCst);
+            let sql = format!(
+                "INSERT INTO pg_catalog.pg_namespace (oid, nspname, nspowner, nspacl) VALUES ({oid}, '{}', 27735, NULL)",
+                schema_name.replace('\'', "''")
+            );
+            ctx.sql(&sql).await?.collect().await?;
+            oid
+        }
+    };
 
     add_schema_to_registry(database_name, schema_name);
 
-    Ok(())
+    Ok(oid)
 }
 
 /// Convert the wire-format column descriptions (each a single-entry
@@ -214,7 +219,7 @@ fn column_specs_from_defs(columns: &[BTreeMap<String, ColumnDef>]) -> Vec<Column
 pub async fn register_user_tables(
     ctx: &SessionContext,
     database_name: &str,
-    schema_name: &str,
+    schema_oid: i32,
     table_name: &str,
     columns: Vec<BTreeMap<String, ColumnDef>>,
 ) -> DFResult<()> {
@@ -231,11 +236,14 @@ pub async fn register_user_tables(
         return Ok(());
     }
 
-    let Some(schema_oid) = get_schema_oid(ctx, schema_name).await? else {
+    // The schema is identified by OID (see `register_schema`); its name is read back
+    // for the information_schema labels.
+    let Some(schema_name) = get_schema_name(ctx, schema_oid).await? else {
         return Err(DataFusionError::Execution(format!(
-            "schema '{schema_name}' not found while registering table '{table_name}'"
+            "schema oid {schema_oid} not found while registering table '{table_name}'"
         )));
     };
+    let schema_name = schema_name.as_str();
 
     let table_oid = NEXT_OID.fetch_add(1, Ordering::SeqCst);
     let type_oid = NEXT_OID.fetch_add(1, Ordering::SeqCst);
@@ -353,27 +361,24 @@ async fn append_catalog_row(
 /// `pg_get_indexdef` can describe the index.
 ///
 /// `index_name` is the new index relation's name; `table_name` is the existing
-/// table it indexes within `schema_name`; `key_attnums` lists the indexed columns
-/// by their 1-based `pg_attribute.attnum`, in index order. The index's
-/// `pg_class.oid` is allocated here. Errors if the schema or table is not
-/// registered; re-registering an existing index name is a no-op.
+/// table it indexes within the schema identified by `schema_oid` (passed in rather
+/// than resolved by name, since the flattened catalog allows duplicate schema names
+/// across databases); `key_attnums` lists the indexed columns by their 1-based
+/// `pg_attribute.attnum`, in index order. The index's `pg_class.oid` is allocated
+/// here. Errors if the table is not registered; re-registering an existing index
+/// name is a no-op.
 pub async fn register_user_index(
     ctx: &SessionContext,
-    schema_name: &str,
+    schema_oid: i32,
     index_name: &str,
     table_name: &str,
     key_attnums: Vec<i32>,
     is_unique: bool,
     is_primary: bool,
 ) -> DFResult<()> {
-    let Some(schema_oid) = get_schema_oid(ctx, schema_name).await? else {
-        return Err(DataFusionError::Execution(format!(
-            "schema '{schema_name}' not found while registering index '{index_name}'"
-        )));
-    };
     let Some(table_oid) = get_table_oid(ctx, schema_oid, table_name).await? else {
         return Err(DataFusionError::Execution(format!(
-            "table '{schema_name}.{table_name}' not found while registering index '{index_name}'"
+            "table '{table_name}' not found in schema oid {schema_oid} while registering index '{index_name}'"
         )));
     };
 
@@ -416,16 +421,20 @@ pub async fn register_user_index(
 /// constraint views (`table_constraints`, `key_column_usage`,
 /// `constraint_column_usage`, `referential_constraints`) derive from.
 ///
-/// `key_attnums` are the constrained columns' 1-based attnums. For a foreign key,
-/// `referenced_table_name` names the target table within `schema_name` and
-/// `referenced_key_attnums` its referenced columns (positionally matched to
-/// `key_attnums`); both are ignored for primary-key and unique constraints. The
+/// `schema_oid` is the pre-resolved OID of the namespace the table lives in. It is
+/// passed in rather than looked up from a schema name because the flattened catalog
+/// allows the same schema name (e.g. `public`) under several databases, so a name
+/// alone cannot identify the right namespace; the caller, which knows the database
+/// context, resolves it. `key_attnums` are the constrained columns' 1-based attnums.
+/// For a foreign key, `referenced_table_name` names the target table in the SAME
+/// schema and `referenced_key_attnums` its referenced columns (positionally matched
+/// to `key_attnums`); both are ignored for primary-key and unique constraints. The
 /// call is idempotent: a constraint of the same name already on the table is left
 /// untouched.
 #[allow(clippy::too_many_arguments)]
 pub async fn register_user_constraint(
     ctx: &SessionContext,
-    schema_name: &str,
+    schema_oid: i32,
     constraint_name: &str,
     table_name: &str,
     kind: ConstraintKind,
@@ -433,14 +442,10 @@ pub async fn register_user_constraint(
     referenced_table_name: Option<&str>,
     referenced_key_attnums: Vec<i32>,
 ) -> DFResult<()> {
-    let Some(schema_oid) = get_schema_oid(ctx, schema_name).await? else {
-        return Err(DataFusionError::Execution(format!(
-            "schema '{schema_name}' not found while registering constraint '{constraint_name}'"
-        )));
-    };
     let Some(table_oid) = get_table_oid(ctx, schema_oid, table_name).await? else {
         return Err(DataFusionError::Execution(format!(
-            "table '{schema_name}.{table_name}' not found while registering constraint '{constraint_name}'"
+            "table '{table_name}' not found in schema oid {schema_oid} \
+             while registering constraint '{constraint_name}'"
         )));
     };
 
@@ -470,7 +475,7 @@ pub async fn register_user_constraint(
             let Some(referenced_oid) = get_table_oid(ctx, schema_oid, referenced_table).await?
             else {
                 return Err(DataFusionError::Execution(format!(
-                    "referenced table '{schema_name}.{referenced_table}' not found \
+                    "referenced table '{referenced_table}' not found in schema oid {schema_oid} \
                      while registering foreign key '{constraint_name}'"
                 )));
             };
@@ -512,6 +517,24 @@ pub async fn register_user_constraint(
     .await?;
 
     Ok(())
+}
+
+/// Read a namespace's name from its OID. The inverse of [`get_schema_oid`], used by
+/// `register_user_tables` to label `information_schema` rows once the namespace is
+/// identified unambiguously by OID.
+async fn get_schema_name(ctx: &SessionContext, schema_oid: i32) -> DFResult<Option<String>> {
+    let df = ctx
+        .sql(&format!(
+            "SELECT nspname FROM pg_catalog.pg_namespace WHERE oid = {schema_oid}"
+        ))
+        .await?;
+    let batches = df.collect().await?;
+    if batches.is_empty() || batches[0].num_rows() == 0 {
+        return Ok(None);
+    }
+    Ok(collect_string_column(batches[0].column(0))
+        .into_iter()
+        .next())
 }
 
 async fn get_schema_oid(ctx: &SessionContext, schema_name: &str) -> DFResult<Option<i32>> {
@@ -710,7 +733,7 @@ mod tests {
         )
         .await?;
 
-        register_schema(&ctx, "pgtry", "myschema").await?;
+        let schema_oid = register_schema(&ctx, "pgtry", "myschema").await?;
 
         let mut c1 = BTreeMap::new();
         c1.insert(
@@ -731,7 +754,7 @@ mod tests {
             },
         );
 
-        register_user_tables(&ctx, "pgtry", "myschema", "contacts", vec![c1, c2]).await?;
+        register_user_tables(&ctx, "pgtry", schema_oid, "contacts", vec![c1, c2]).await?;
 
         let df = ctx
             .sql("SELECT relname FROM pg_catalog.pg_class WHERE relname='contacts'")
@@ -763,6 +786,68 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
+    async fn test_register_user_tables_resolves_schema_by_oid_not_name() -> DFResult<()> {
+        // Regression: the eager registration API must identify the schema by OID,
+        // not by name. The flattened catalog allows the same schema name under
+        // several databases (a lazy source can produce two `public` namespaces);
+        // a name-only lookup would pick an arbitrary one and bind the table to the
+        // wrong namespace.
+        let (ctx, _) = get_base_session_context(
+            Some("pg_catalog_data/pg_schema"),
+            "pgtry".to_string(),
+            "public".to_string(),
+            None,
+        )
+        .await?;
+
+        // Two namespaces with the SAME name but different OIDs, inserted directly
+        // (register_schema dedupes by name, so it can't create the collision).
+        for oid in [71001, 71002] {
+            ctx.sql(&format!(
+                "INSERT INTO pg_catalog.pg_namespace (oid, nspname, nspowner, nspacl) \
+                 VALUES ({oid}, 'dupschema', 27735, NULL)"
+            ))
+            .await?
+            .collect()
+            .await?;
+        }
+
+        // Register a table against the SECOND namespace, by OID.
+        let mut id = BTreeMap::new();
+        id.insert(
+            "id".to_string(),
+            ColumnDef {
+                col_type: "int".to_string(),
+                nullable: false,
+                has_default: false,
+            },
+        );
+        register_user_tables(&ctx, "pgtry", 71002, "widget", vec![id]).await?;
+
+        // The table lands in the OID we passed (71002), not the arbitrary first
+        // same-named namespace (71001) a name lookup would have resolved to.
+        let in_passed = ctx
+            .sql("SELECT 1 FROM pg_catalog.pg_class WHERE relname='widget' AND relnamespace=71002")
+            .await?
+            .count()
+            .await?;
+        assert_eq!(
+            in_passed, 1,
+            "table must be registered under the OID passed (71002)"
+        );
+        let in_other = ctx
+            .sql("SELECT 1 FROM pg_catalog.pg_class WHERE relname='widget' AND relnamespace=71001")
+            .await?
+            .count()
+            .await?;
+        assert_eq!(
+            in_other, 0,
+            "table must NOT land in the other same-named namespace (71001)"
+        );
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_register_user_index_dynamic() -> DFResult<()> {
         let (ctx, _) = get_base_session_context(
             Some("pg_catalog_data/pg_schema"),
@@ -772,7 +857,7 @@ mod tests {
         )
         .await?;
 
-        register_schema(&ctx, "pgtry", "myschema").await?;
+        let schema_oid = register_schema(&ctx, "pgtry", "myschema").await?;
 
         let mut c1 = BTreeMap::new();
         c1.insert(
@@ -783,11 +868,11 @@ mod tests {
                 has_default: false,
             },
         );
-        register_user_tables(&ctx, "pgtry", "myschema", "contacts", vec![c1]).await?;
+        register_user_tables(&ctx, "pgtry", schema_oid, "contacts", vec![c1]).await?;
 
         register_user_index(
             &ctx,
-            "myschema",
+            schema_oid,
             "contacts_pkey",
             "contacts",
             vec![1],
@@ -858,7 +943,7 @@ mod tests {
         )
         .await?;
 
-        register_schema(&ctx, "pgtry", "myschema").await?;
+        let schema_oid = register_schema(&ctx, "pgtry", "myschema").await?;
 
         // Parent table 'users' (id, email) and child 'orders' (id, user_id).
         let mut users_id = BTreeMap::new();
@@ -882,7 +967,7 @@ mod tests {
         register_user_tables(
             &ctx,
             "pgtry",
-            "myschema",
+            schema_oid,
             "users",
             vec![users_id, users_email],
         )
@@ -909,7 +994,7 @@ mod tests {
         register_user_tables(
             &ctx,
             "pgtry",
-            "myschema",
+            schema_oid,
             "orders",
             vec![orders_id, orders_user_id],
         )
@@ -919,7 +1004,7 @@ mod tests {
         // from orders.user_id -> users.id.
         register_user_constraint(
             &ctx,
-            "myschema",
+            schema_oid,
             "users_pkey",
             "users",
             ConstraintKind::PrimaryKey,
@@ -930,7 +1015,7 @@ mod tests {
         .await?;
         register_user_constraint(
             &ctx,
-            "myschema",
+            schema_oid,
             "users_email_key",
             "users",
             ConstraintKind::Unique,
@@ -941,7 +1026,7 @@ mod tests {
         .await?;
         register_user_constraint(
             &ctx,
-            "myschema",
+            schema_oid,
             "orders_user_id_fkey",
             "orders",
             ConstraintKind::ForeignKey,
@@ -991,7 +1076,7 @@ mod tests {
         // Re-registering the same constraint is a no-op (still one row).
         register_user_constraint(
             &ctx,
-            "myschema",
+            schema_oid,
             "users_pkey",
             "users",
             ConstraintKind::PrimaryKey,
@@ -1021,7 +1106,7 @@ mod tests {
         )
         .await?;
 
-        register_schema(&ctx, "pgtry", "myschema").await?;
+        let schema_oid = register_schema(&ctx, "pgtry", "myschema").await?;
 
         // 'id' int (no default), 'label' text (no default), 'created' bigint with
         // a default expression.
@@ -1055,7 +1140,7 @@ mod tests {
         register_user_tables(
             &ctx,
             "pgtry",
-            "myschema",
+            schema_oid,
             "widgets",
             vec![id, label, created],
         )
@@ -1151,7 +1236,7 @@ mod tests {
         )
         .await?;
 
-        register_schema(&ctx, "pgtry", "myschema").await?;
+        let schema_oid = register_schema(&ctx, "pgtry", "myschema").await?;
 
         let mut c1 = BTreeMap::new();
         c1.insert(
@@ -1172,7 +1257,7 @@ mod tests {
             },
         );
 
-        register_user_tables(&ctx, "pgtry", "myschema", "contacts", vec![c1, c2]).await?;
+        register_user_tables(&ctx, "pgtry", schema_oid, "contacts", vec![c1, c2]).await?;
 
         let df = ctx
             .sql("SELECT table_catalog, table_schema, table_name, table_type, is_insertable_into, is_typed \
@@ -1238,7 +1323,7 @@ mod tests {
         )
         .await?;
 
-        register_schema(&ctx, "pgtry", "myschema").await?;
+        let schema_oid = register_schema(&ctx, "pgtry", "myschema").await?;
 
         let mut c1 = BTreeMap::new();
         c1.insert(
@@ -1259,7 +1344,7 @@ mod tests {
             },
         );
 
-        register_user_tables(&ctx, "pgtry", "myschema", "contacts", vec![c1, c2]).await?;
+        register_user_tables(&ctx, "pgtry", schema_oid, "contacts", vec![c1, c2]).await?;
 
         let df = ctx
             .sql(
@@ -1345,7 +1430,7 @@ mod tests {
         )
         .await?;
 
-        register_schema(&ctx, "pgtry", "myschema").await?;
+        let schema_oid = register_schema(&ctx, "pgtry", "myschema").await?;
 
         let mut c1 = BTreeMap::new();
         c1.insert(
@@ -1369,13 +1454,13 @@ mod tests {
         register_user_tables(
             &ctx,
             "pgtry",
-            "myschema",
+            schema_oid,
             "contacts",
             vec![c1.clone(), c2.clone()],
         )
         .await?;
         // call again to ensure idempotency
-        register_user_tables(&ctx, "pgtry", "myschema", "contacts", vec![c1, c2]).await?;
+        register_user_tables(&ctx, "pgtry", schema_oid, "contacts", vec![c1, c2]).await?;
 
         let df = ctx
             .sql("SELECT relname FROM pg_catalog.pg_class WHERE relname='contacts'")
@@ -1442,7 +1527,7 @@ mod tests {
         )
         .await?;
 
-        register_schema(&ctx, "pgtry", "myschema").await?;
+        let schema_oid = register_schema(&ctx, "pgtry", "myschema").await?;
 
         let mut c1 = BTreeMap::new();
         c1.insert(
@@ -1453,7 +1538,7 @@ mod tests {
                 has_default: false,
             },
         );
-        register_user_tables(&ctx, "pgtry", "myschema", "contacts", vec![c1]).await?;
+        register_user_tables(&ctx, "pgtry", schema_oid, "contacts", vec![c1]).await?;
 
         unregister_tables(&ctx, "pgtry", "myschema", "contacts").await?;
 
@@ -1488,7 +1573,7 @@ mod tests {
         )
         .await?;
 
-        register_schema(&ctx, "pgtry", "myschema").await?;
+        let schema_oid = register_schema(&ctx, "pgtry", "myschema").await?;
 
         let mut c1 = BTreeMap::new();
         c1.insert(
@@ -1499,7 +1584,7 @@ mod tests {
                 has_default: false,
             },
         );
-        register_user_tables(&ctx, "pgtry", "myschema", "contacts", vec![c1]).await?;
+        register_user_tables(&ctx, "pgtry", schema_oid, "contacts", vec![c1]).await?;
 
         unregister_schema(&ctx, "pgtry", "myschema").await?;
 
@@ -1527,7 +1612,7 @@ mod tests {
         .await?;
 
         register_user_database(&ctx, "crm").await?;
-        register_schema(&ctx, "crm", "crm_schema").await?;
+        let schema_oid = register_schema(&ctx, "crm", "crm_schema").await?;
 
         let mut c1 = BTreeMap::new();
         c1.insert(
@@ -1538,7 +1623,7 @@ mod tests {
                 has_default: false,
             },
         );
-        register_user_tables(&ctx, "crm", "crm_schema", "contacts", vec![c1]).await?;
+        register_user_tables(&ctx, "crm", schema_oid, "contacts", vec![c1]).await?;
 
         unregister_database(&ctx, "crm").await?;
 
