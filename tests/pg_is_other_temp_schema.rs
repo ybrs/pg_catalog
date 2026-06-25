@@ -43,7 +43,7 @@ async fn bool_column(
     Ok(out)
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_is_other_temp_schema_scalar() -> DFResult<()> {
     let ctx = base_ctx().await?;
     // OID as int, bare and qualified.
@@ -63,7 +63,7 @@ async fn test_pg_is_other_temp_schema_scalar() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_is_other_temp_schema_over_a_column() -> DFResult<()> {
     let ctx = base_ctx().await?;
     let rows = bool_column(

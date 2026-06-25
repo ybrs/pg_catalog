@@ -124,12 +124,11 @@ KNOWN_EXEC_FAILURES = {
 @pytest.fixture(scope="module")
 def server(tmp_path_factory):
     """Start the pg_catalog server on its own port for the snapshot comparison."""
-    zip_dir = tmp_path_factory.mktemp("schema")
-    zip_path = zip_dir / "schema.zip"
-    shutil.make_archive(str(zip_path.with_suffix("")), "zip", "pg_catalog_data/pg_schema")
     proc = subprocess.Popen([
         "cargo", "run", "--quiet", "--",
-        str(zip_path),
+        # Empty schema path -> the embedded Arrow IPC artifact: the exact fast-load
+        # path we ship. Tests must exercise that, not a one-off YAML zip.
+        "",
         "--default-catalog", "pgtry",
         "--default-schema", "public",
         "--host", "127.0.0.1",

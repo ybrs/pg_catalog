@@ -75,14 +75,19 @@ lazy paths through the shared row-builders.
 
 ## Phase 2 - Engine robustness and scale
 
-Reordered ahead of the deparse pivot (now Phase 3): the pool redesign gates it,
-because each definition-text UDF does a nested catalog sub-query the current bounded
-pool cannot survive (see Hazard below).
+Reordered ahead of the deparse pivot (now Phase 3): the pool redesign gated it,
+because each definition-text UDF does a nested catalog sub-query the old bounded
+pool could not survive (see the catalog-UDF bridge section below).
 
-- Catalog-UDF sync-over-async pool redesign (see Hazard below). Replace the bounded
-  `CATALOG_QUERY_RT` + blocking `rx.recv()` with a scheme that cannot deadlock under
-  UDF composition (a pool that grows/borrows a worker when one blocks, or restructure
-  the UDFs to avoid a nested blocking catalog query).
+- DONE - Catalog-UDF sync-over-async deadlock. The bounded 2-worker
+  `CATALOG_QUERY_RT` is gone. `run_catalog_query` now spawns the sub-query as a
+  task on the current multi-threaded runtime and blocks the caller inside
+  `tokio::task::block_in_place`, so a blocked worker is handed back and the runtime
+  grows its worker set with the nesting depth instead of parking a fixed pool -
+  composed catalog UDFs cannot deadlock at any depth. (`#[tokio::test]` were moved
+  to `flavor = "multi_thread"`, since `block_in_place` requires a multi-threaded
+  runtime; production was already `#[tokio::main]`.) A depth-3 nesting test on a
+  2-worker runtime guards the regression.
 - Lazy-source filter pushdown: implement `supports_filters_pushdown` on
   `LazyCatalogTableProvider` and push equality filters (`relname=`, `nspname=`,
   `datname=`) into the source, so a large catalog is not fully re-enumerated per scan.
@@ -166,40 +171,38 @@ Lowest priority.
 
 ---
 
-## Hazard: catalog-UDF sync-over-async bounded-pool deadlock risk
+## Catalog-UDF sync-over-async bridge (deadlock RESOLVED, Phase 2)
 
 Some scalar UDFs are synchronous but must run a catalog sub-query (`pg_get_userbyid`
--> `pg_authid`, `oid(text)` -> `pg_class`). They bridge sync->async via
-`run_catalog_query` in `src/user_functions.rs`, which spawns the sub-query on a
-dedicated bounded runtime (`CATALOG_QUERY_RT`, `worker_threads(2)`) and blocks the
-caller on a std channel:
+-> `pg_authid`, `oid(text)` -> `pg_class`, `pg_get_indexdef` -> `pg_index`/...).
+They bridge sync->async via `run_catalog_query` in `src/user_functions.rs`.
+
+The old design spawned the sub-query on a dedicated bounded runtime
+(`CATALOG_QUERY_RT`, `worker_threads(2)`) and blocked the caller on a std channel.
+Because the caller blocked a worker instead of yielding it, the pool absorbed
+nesting only `worker_threads` deep: if catalog UDFs composed (a sub-query that
+itself evaluates a catalog UDF), every worker could park waiting on a task with no
+free worker to run it -> pool-exhaustion deadlock at depth 3 (or two depth-2s).
+Phase 3's "read supplied text at call time" plus the now-live constraint views
+(which call UDFs) made that composition reachable.
+
+Current design (no fixed pool):
 
 ```rust
-static CATALOG_QUERY_RT = multi_thread runtime with worker_threads(2);
 fn run_catalog_query(future) -> T {
-    CATALOG_QUERY_RT.spawn(future);   // runs on a CATALOG_QUERY_RT worker
-    rx.recv()                         // CALLER thread blocks until it finishes
+    Handle::current().spawn(async move { tx.send(future.await) });  // sub-query as a task
+    tokio::task::block_in_place(move || rx.recv())                  // caller yields its worker
 }
 ```
 
-Because the caller blocks a worker (`rx.recv()`) instead of yielding it, the pool
-absorbs nesting only `worker_threads` deep. If catalog UDFs ever compose (a sub-query
-itself evaluates another catalog UDF), every worker can park in `rx.recv()` waiting on
-a task with no free worker to run it -> pool-exhaustion deadlock (hangs, no timeout).
-At depth 3, or two sibling nested calls at once with 2 workers, it deadlocks.
-
-Why we are safe today: the sub-queries are plain UDF-free scans
-(`SELECT ... FROM pg_authid WHERE oid IN (...)`, `SELECT oid FROM pg_class WHERE
-relname = '...'`), so nesting depth is always exactly 1. The whole thing rests on this
-one assumption: catalog sub-queries stay UDF-free. The day a built-in view/UDF
-resolves one catalog UDF via another, the bounded pool is the failure point; bumping
-`worker_threads` only moves the cliff. The fix is Phase 2.
-
-Note: the Phase 3 pivot (UDFs reading supplied definition text from the catalog at
-call time) ADDS catalog sub-queries inside UDFs - so land the Phase 2 pool redesign
-before, or alongside, any Phase 3 UDF that does a nested catalog lookup. This
-ordering (engine robustness before the deparse pivot) is exactly why Phase 2 and
-Phase 3 are sequenced as they are.
+`block_in_place` transitions the blocked worker into a blocking thread and the
+multi-threaded runtime spawns/borrows a replacement, so the scheduler keeps making
+progress. Every nested level does the same, so the runtime grows its worker set
+with the nesting depth instead of parking a fixed pool - composed catalog UDFs
+cannot deadlock at any depth (bounded only by `max_blocking_threads`). Requires a
+multi-threaded runtime; production is `#[tokio::main]` and tests use
+`#[tokio::test(flavor = "multi_thread")]`. A depth-3 nesting test on a 2-worker
+runtime (`test_run_catalog_query_nested_does_not_deadlock`) guards the regression.
 
 ## Operational gotchas
 

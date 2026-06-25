@@ -3,8 +3,8 @@
 //! `oid(text)` (and `pg_get_userbyid`) resolve values by running a catalog SQL
 //! query from a synchronous UDF body. They must work regardless of the caller's
 //! tokio runtime flavor - in particular on the current-thread runtime that
-//! `#[tokio::test]` uses by default (where `tokio::task::block_in_place` would
-//! panic). These tests deliberately use the default `#[tokio::test]` runtime.
+//! `#[tokio::test(flavor = "multi_thread")]` uses by default (where `tokio::task::block_in_place` would
+//! panic). These tests deliberately use the default `#[tokio::test(flavor = "multi_thread")]` runtime.
 
 use arrow::array::{Array, Int64Array};
 use datafusion::error::Result as DFResult;
@@ -45,7 +45,7 @@ async fn int64_column(
     Ok(out)
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_oid_udf_scalar_resolves_on_current_thread_runtime() -> DFResult<()> {
     let ctx = base_ctx().await?;
 
@@ -69,7 +69,7 @@ async fn test_oid_udf_scalar_resolves_on_current_thread_runtime() -> DFResult<()
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_oid_udf_unknown_relation_is_null() -> DFResult<()> {
     let ctx = base_ctx().await?;
     let resolved = int64_column(&ctx, "SELECT oid('no_such_relation_xyz')").await?;
@@ -77,7 +77,7 @@ async fn test_oid_udf_unknown_relation_is_null() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_oid_udf_array_branch_on_current_thread_runtime() -> DFResult<()> {
     let ctx = base_ctx().await?;
 

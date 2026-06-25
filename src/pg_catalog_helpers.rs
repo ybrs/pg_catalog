@@ -694,7 +694,7 @@ mod tests {
     use super::*;
     use crate::session::get_base_session_context;
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_register_user_tables_dynamic() -> DFResult<()> {
         let (ctx, _) = get_base_session_context(
             Some("pg_catalog_data/pg_schema"),
@@ -756,7 +756,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_register_user_index_dynamic() -> DFResult<()> {
         let (ctx, _) = get_base_session_context(
             Some("pg_catalog_data/pg_schema"),
@@ -842,7 +842,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_register_user_constraint_dynamic() -> DFResult<()> {
         let (ctx, _) = get_base_session_context(
             Some("pg_catalog_data/pg_schema"),
@@ -997,7 +997,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_register_user_columns_fidelity_and_attrdef() -> DFResult<()> {
         let (ctx, _) = get_base_session_context(
             Some("pg_catalog_data/pg_schema"),
@@ -1100,7 +1100,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_register_user_tables_information_schema() -> DFResult<()> {
         let (ctx, _) = get_base_session_context(
             Some("pg_catalog_data/pg_schema"),
@@ -1187,7 +1187,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_register_user_columns_information_schema() -> DFResult<()> {
         let (ctx, _) = get_base_session_context(
             Some("pg_catalog_data/pg_schema"),
@@ -1294,7 +1294,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_register_user_tables_idempotent() -> DFResult<()> {
         let (ctx, _) = get_base_session_context(
             Some("pg_catalog_data/pg_schema"),
@@ -1353,7 +1353,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_register_schema() -> DFResult<()> {
         let (ctx, _) = get_base_session_context(
             Some("pg_catalog_data/pg_schema"),
@@ -1372,7 +1372,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_register_user_database() -> DFResult<()> {
         let (ctx, _) = get_base_session_context(
             Some("pg_catalog_data/pg_schema"),
@@ -1391,7 +1391,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_unregister_tables_removes_metadata() -> DFResult<()> {
         let (ctx, _) = get_base_session_context(
             Some("pg_catalog_data/pg_schema"),
@@ -1437,7 +1437,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_unregister_schema_removes_tables() -> DFResult<()> {
         let (ctx, _) = get_base_session_context(
             Some("pg_catalog_data/pg_schema"),
@@ -1475,7 +1475,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_unregister_database_removes_children() -> DFResult<()> {
         let (ctx, _) = get_base_session_context(
             Some("pg_catalog_data/pg_schema"),

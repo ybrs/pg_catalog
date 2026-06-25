@@ -118,7 +118,7 @@ mod tests {
     use datafusion_pg_catalog::router::dispatch_query;
     use std::sync::Arc;
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_dispatch_in_main() -> anyhow::Result<()> {
         let ctx = SessionContext::new();
         dispatch_query(&ctx, "SELECT 1", None, None, |_c, _q, _p, _t| async {

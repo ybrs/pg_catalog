@@ -45,7 +45,7 @@ async fn bool_column(
     Ok(out)
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_has_role_two_arg() -> DFResult<()> {
     let ctx = base_ctx().await?;
     // role by name and by OID
@@ -65,7 +65,7 @@ async fn test_pg_has_role_two_arg() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_has_role_three_arg() -> DFResult<()> {
     let ctx = base_ctx().await?;
     // (user, role, privilege) - names and OIDs
@@ -80,7 +80,7 @@ async fn test_pg_has_role_three_arg() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_has_role_over_a_column() -> DFResult<()> {
     let ctx = base_ctx().await?;
     // Per-row evaluation (as the views use it): every row must be true.

@@ -197,7 +197,7 @@ async fn ctx_with_fake_source() -> DFResult<datafusion::execution::context::Sess
     Ok(ctx)
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_register_pg_database_on_scan() -> DFResult<()> {
     let (ctx, _log) = get_base_session_context(
         Some("pg_catalog_data/pg_schema"),
@@ -241,7 +241,7 @@ async fn test_lazy_register_pg_database_on_scan() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_merges_pg_database_rows() -> DFResult<()> {
     let (ctx, _log) = get_base_session_context(
         Some("pg_catalog_data/pg_schema"),
@@ -299,7 +299,7 @@ async fn test_lazy_merges_pg_database_rows() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_catalog_joins_resolve() -> DFResult<()> {
     let ctx = ctx_with_fake_source().await?;
 
@@ -317,7 +317,7 @@ async fn test_lazy_catalog_joins_resolve() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_catalog_builtins_survive() -> DFResult<()> {
     let ctx = ctx_with_fake_source().await?;
 
@@ -347,7 +347,7 @@ async fn test_lazy_catalog_builtins_survive() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_catalog_oid_passthrough() -> DFResult<()> {
     let ctx = ctx_with_fake_source().await?;
 
@@ -370,7 +370,7 @@ async fn test_lazy_catalog_oid_passthrough() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_catalog_information_schema_columns() -> DFResult<()> {
     let ctx = ctx_with_fake_source().await?;
 
@@ -420,7 +420,7 @@ async fn test_lazy_catalog_information_schema_columns() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_catalog_projection_and_filter() -> DFResult<()> {
     let ctx = ctx_with_fake_source().await?;
 
@@ -435,7 +435,7 @@ async fn test_lazy_catalog_projection_and_filter() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_catalog_error_propagates() -> DFResult<()> {
     let (ctx, _log) = get_base_session_context(
         Some("pg_catalog_data/pg_schema"),
@@ -478,7 +478,7 @@ async fn count_rows(
     Ok(arr.value(0))
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_tables_view_reflects_lazy_tables() -> DFResult<()> {
     // The `pg_tables` VIEW is `SELECT ... FROM pg_class ... WHERE relkind IN ('r','p')`.
     // Registering the lazy source BEFORE the views are created binds the view's
@@ -510,7 +510,7 @@ async fn test_pg_tables_view_reflects_lazy_tables() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_tables_view_keeps_builtin_tables() -> DFResult<()> {
     // Merging with built-ins must hold through the view too: a built-in ordinary
     // table (pg_class itself, relkind 'r') is still listed alongside user tables.
@@ -543,7 +543,7 @@ async fn test_pg_tables_view_keeps_builtin_tables() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_registered_after_session_is_blind_to_views() -> DFResult<()> {
     // Control test documenting WHY get_base_session_context_with_lazy_catalog
     // exists: a view (pg_tables) is planned during session construction and binds
@@ -620,7 +620,7 @@ impl LazyCatalogSource for DuplicateRelationSource {
     }
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_catalog_double_registration_is_idempotent() -> DFResult<()> {
     // Registering the same source twice must NOT duplicate rows: the second
     // registration captures the first provider's merged output as its "builtin",
@@ -756,7 +756,7 @@ impl LazyCatalogSource for IndexedSource {
     }
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_pg_index_reflects_source() -> DFResult<()> {
     // An index reported by the source becomes both a pg_index structure row and an
     // index relation in pg_class (relkind 'i'), the two rows pg_indexes /
@@ -827,7 +827,7 @@ async fn test_lazy_pg_index_reflects_source() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_pg_constraint_reflects_source() -> DFResult<()> {
     // A constraint reported by the source becomes a pg_constraint row, and the
     // (now live) information_schema constraint views derive from it.
@@ -878,7 +878,7 @@ async fn test_lazy_pg_constraint_reflects_source() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_pg_attrdef_reflects_source() -> DFResult<()> {
     // A column flagged with a default becomes atthasdef on pg_attribute plus a
     // backing pg_attrdef row, while a column without one gets neither.
@@ -921,7 +921,7 @@ async fn test_lazy_pg_attrdef_reflects_source() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_pg_tables_flags_reflect_source() -> DFResult<()> {
     // has_index from the source surfaces as pg_tables.hasindexes; the other flags
     // are non-NULL false (not blank, as they were before).
@@ -953,7 +953,7 @@ async fn test_lazy_pg_tables_flags_reflect_source() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_catalog_owner_omitted_is_null() -> DFResult<()> {
     // FakeSource builds relations via RelationDef::table (no owner), so a backend
     // without ownership leaves pg_class.relowner NULL (int_column skips NULLs).
@@ -970,7 +970,7 @@ async fn test_lazy_catalog_owner_omitted_is_null() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_catalog_user_database_wins_over_builtin() -> DFResult<()> {
     // A user database whose name collides with a built-in ('postgres') must
     // REPLACE the built-in row, not duplicate it: exactly one row, the user's.
@@ -998,7 +998,7 @@ async fn test_lazy_catalog_user_database_wins_over_builtin() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_catalog_duplicate_database_errors() -> DFResult<()> {
     // Two user databases with the same name is a source mistake -> error.
     let (ctx, _log) = get_base_session_context(
@@ -1031,7 +1031,7 @@ async fn test_lazy_catalog_duplicate_database_errors() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_catalog_duplicate_relation_errors() -> DFResult<()> {
     // Two user relations of the same name in the same schema -> error.
     let (ctx, _log) = get_base_session_context(
@@ -1117,7 +1117,7 @@ impl LazyCatalogSource for ConfigSource {
     }
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_config_callback_overrides_and_extends() -> DFResult<()> {
     let (ctx, _log) = get_base_session_context(
         Some("pg_catalog_data/pg_schema"),
@@ -1158,7 +1158,7 @@ async fn test_pg_config_callback_overrides_and_extends() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_settings_callback_overrides_value() -> DFResult<()> {
     let (ctx, _log) = get_base_session_context(
         Some("pg_catalog_data/pg_schema"),
@@ -1191,7 +1191,7 @@ async fn test_pg_settings_callback_overrides_value() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_settings_defaults_without_callback() -> DFResult<()> {
     // With no lazy source, pg_settings serves its built-in snapshot as a table.
     let (ctx, _log) = get_base_session_context(
@@ -1216,7 +1216,7 @@ async fn test_pg_settings_defaults_without_callback() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_config_defaults_without_callback() -> DFResult<()> {
     // With no lazy source, pg_config serves its built-in defaults as a table.
     let (ctx, _log) = get_base_session_context(

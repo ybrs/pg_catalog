@@ -22,42 +22,41 @@ use datafusion::logical_expr::{
 use datafusion::logical_expr::{Expr, TableType};
 use datafusion::prelude::SessionContext;
 use datafusion::prelude::*;
-use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::future::Future;
 use std::sync::Arc;
 
-/// A dedicated multi-threaded runtime used to drive the small synchronous
-/// catalog lookups some scalar UDFs perform (e.g. `pg_get_userbyid`, `oid(text)`).
+/// Drive `future` to completion from a synchronous context (a DataFusion scalar
+/// UDF) on the current multi-threaded runtime, without starving it under nesting.
 ///
-/// These UDFs are synchronous but must run a catalog SQL query, and they may be
-/// invoked from within ANY caller runtime: a current-thread runtime (as
-/// `#[tokio::test]` uses) where `tokio::task::block_in_place` would panic, or a
-/// worker of a multi-threaded runtime where re-entering `block_on` would
-/// deadlock. Driving the query on this separate runtime - and blocking the
-/// caller on a plain std channel - is safe regardless of the caller's flavor.
-static CATALOG_QUERY_RT: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
-    tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(2)
-        .enable_all()
-        .build()
-        .expect("failed to build the pg_catalog query runtime")
-});
-
-/// Drive `future` to completion from a synchronous context, regardless of the
-/// caller's tokio runtime flavor. The future runs on [`CATALOG_QUERY_RT`] while
-/// the calling thread blocks on a std channel until it finishes.
+/// The future is spawned as an ordinary task on the current runtime; the caller
+/// then blocks for the result inside [`tokio::task::block_in_place`]. That call
+/// transitions the calling worker into a blocking thread and the runtime
+/// spawns/borrows a replacement worker, so the scheduler keeps making progress
+/// while this thread waits. Because every nested catalog query does the same, the
+/// runtime grows its worker set with the nesting depth instead of parking a
+/// fixed-size pool - so composed catalog UDFs (a sub-query that itself evaluates a
+/// catalog UDF) cannot deadlock, at any depth (bounded only by the runtime's
+/// `max_blocking_threads`). Running the future as a spawned task (rather than
+/// inline via `block_on`) keeps each nested call in a normal worker context where
+/// `block_in_place` is valid.
+///
+/// Requires a multi-threaded runtime: production is `#[tokio::main]`, and tests
+/// that reach a catalog UDF use `#[tokio::test(flavor = "multi_thread")]`.
+/// `block_in_place` panics on a current-thread runtime.
 fn run_catalog_query<F, T>(future: F) -> T
 where
     F: Future<Output = T> + Send + 'static,
     T: Send + 'static,
 {
     let (tx, rx) = std::sync::mpsc::sync_channel(1);
-    CATALOG_QUERY_RT.spawn(async move {
+    tokio::runtime::Handle::current().spawn(async move {
         let _ = tx.send(future.await);
     });
-    rx.recv()
-        .expect("pg_catalog query task ended without producing a result")
+    tokio::task::block_in_place(move || {
+        rx.recv()
+            .expect("pg_catalog query task ended without producing a result")
+    })
 }
 
 #[derive(Debug)]
@@ -3882,6 +3881,19 @@ mod tests {
     use datafusion::error::Result;
     use std::sync::Arc;
 
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn test_run_catalog_query_nested_does_not_deadlock() {
+        // Three levels of nested catalog queries on a 2-worker runtime - the size
+        // of the old bounded CATALOG_QUERY_RT, which deadlocked here because each
+        // blocked caller parked a worker with no free worker left to run the inner
+        // task. block_in_place hands the worker back, so the runtime grows and this
+        // completes. (A hang here is the regression this guards.)
+        let value = run_catalog_query(async {
+            run_catalog_query(async { run_catalog_query(async { 42 }) })
+        });
+        assert_eq!(value, 42);
+    }
+
     #[test]
     fn test_render_create_index_statement() {
         // Unique multi-column index, schema-qualified table, matching the
@@ -3988,7 +4000,7 @@ mod tests {
         assert_eq!(pg_char_octet_length(Some(OID_INT4), Some(-1)), None);
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_pg_precision_helpers_via_sql() {
         // The registered UDFs compute precision/length from a column of (typid,
         // typmod) pairs, matching the per-row formulas above.
@@ -4140,7 +4152,7 @@ mod tests {
         Ok(ctx)
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_regclass_with_oid() -> Result<()> {
         let ctx = make_ctx().await?;
         let batches = ctx
@@ -4157,7 +4169,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_query_without_function() -> Result<()> {
         let ctx = make_ctx().await?;
         let batches = ctx
@@ -4174,7 +4186,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_regclass_oid_arithmetic() -> Result<()> {
         let ctx = make_ctx().await?;
         let batches = ctx
@@ -4225,7 +4237,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_pggetone_constant() -> Result<()> {
         let ctx = make_ctx().await?;
         let batches = ctx
@@ -4242,7 +4254,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_pggetone_subquery() -> Result<()> {
         let ctx = make_ctx().await?;
         let batches = ctx
@@ -4259,7 +4271,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_pg_get_array_constant() -> Result<()> {
         let ctx = make_ctx().await?;
         let batches = ctx
@@ -4278,7 +4290,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_pg_get_array_subquery() -> Result<()> {
         let ctx = make_ctx().await?;
 
@@ -4299,7 +4311,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_pg_catalog_array_agg_alias() -> Result<()> {
         use arrow::array::ListArray;
 
@@ -4317,7 +4329,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_pg_postmaster_start_time_fn() -> Result<()> {
         use arrow::array::TimestampMicrosecondArray;
         let ctx = SessionContext::new();
@@ -4336,7 +4348,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_pg_age_always_one() -> datafusion::error::Result<()> {
         use arrow::array::Int64Array;
 
@@ -4364,7 +4376,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn pg_is_in_recovery_always_false() -> Result<()> {
         let ctx = SessionContext::new();
         register_scalar_pg_is_in_recovery(&ctx)?;
@@ -4383,7 +4395,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn txid_current_ticks_up() -> Result<()> {
         let ctx = SessionContext::new();
         register_scalar_txid_current(&ctx)?;
@@ -4413,7 +4425,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn available_extension_versions_empty() -> Result<()> {
         let ctx = SessionContext::new();
         register_pg_available_extension_versions(&ctx)?;
@@ -4426,7 +4438,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn pg_get_keywords_empty() -> Result<()> {
         let ctx = SessionContext::new();
         register_pg_get_keywords(&ctx)?;
@@ -4439,7 +4451,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn relation_size_returns_zero() -> Result<()> {
         use arrow::array::Int64Array;
         let ctx = SessionContext::new();
@@ -4458,7 +4470,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn total_relation_size_returns_zero() -> Result<()> {
         use arrow::array::Int64Array;
         let ctx = SessionContext::new();
@@ -4477,7 +4489,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn encode_returns_null() -> Result<()> {
         use arrow::array::StringArray;
         let ctx = SessionContext::new();
@@ -4496,7 +4508,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn pg_get_triggerdef_returns_null() -> Result<()> {
         use arrow::array::StringArray;
         let ctx = SessionContext::new();
@@ -4515,7 +4527,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn upper_converts_text() -> Result<()> {
         use arrow::array::StringArray;
         let ctx = SessionContext::new();
@@ -4534,7 +4546,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn pg_get_ruledef_returns_null() -> Result<()> {
         use arrow::array::StringArray;
         let ctx = SessionContext::new();
@@ -4553,7 +4565,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn current_schemas_returns_defaults() -> Result<()> {
         use arrow::array::{ListArray, StringArray};
         let ctx = SessionContext::new();
@@ -4580,7 +4592,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn current_schema_uses_callable() -> Result<()> {
         use arrow::array::StringArray;
         let ctx = SessionContext::new();
@@ -4604,7 +4616,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn has_database_privilege_always_true() -> Result<()> {
         use arrow::array::BooleanArray;
         let ctx = SessionContext::new();
@@ -4635,7 +4647,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn has_schema_privilege_always_true() -> Result<()> {
         use arrow::array::BooleanArray;
         let ctx = SessionContext::new();

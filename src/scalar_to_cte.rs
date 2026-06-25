@@ -1263,7 +1263,7 @@ mod tests {
     use super::*;
     use visitor::ScalarFinder;
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn rewrite_noop_roundtrip() -> Result<()> {
         let original = "SELECT 1";
         let outcome = rewrite_scalar_subqueries_to_ctes(original)?;

@@ -33,7 +33,7 @@ async fn utf8_column(
     Ok(out)
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_get_userbyid_matches_rolname_for_every_role() -> DFResult<()> {
     let (ctx, _log) = get_base_session_context(
         Some("pg_catalog_data/pg_schema"),
@@ -83,7 +83,7 @@ async fn test_pg_get_userbyid_matches_rolname_for_every_role() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_get_userbyid_null_and_unknown() -> DFResult<()> {
     let (ctx, _log) = get_base_session_context(
         Some("pg_catalog_data/pg_schema"),
@@ -103,7 +103,7 @@ async fn test_pg_get_userbyid_null_and_unknown() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_get_userbyid_dedups_repeated_oids() -> DFResult<()> {
     let (ctx, _log) = get_base_session_context(
         Some("pg_catalog_data/pg_schema"),

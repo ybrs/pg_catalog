@@ -102,7 +102,7 @@ mod tests {
         Ok(ctx)
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_pggetone_correlated_subquery() -> Result<()> {
         use crate::logical_plan_rules::StripPgGetOne;
         let ctx = make_ctx().await?;
