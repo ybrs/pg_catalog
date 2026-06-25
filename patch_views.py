@@ -23,6 +23,8 @@ import sys
 
 import yaml
 
+from yaml_loader import load_yaml
+
 # Views served from their captured row snapshot as a base table rather than from
 # their (unsupported) set-returning-function definition.
 FLIP_TO_TABLE = {
@@ -49,7 +51,7 @@ def _view_node(doc):
 
 
 def _load(path):
-    return yaml.safe_load(open(path))
+    return load_yaml(path)
 
 
 def _dump(doc, path):

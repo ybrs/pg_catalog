@@ -4,7 +4,8 @@ from pathlib import Path
 from typing import Dict, Iterable, Iterator, List, Optional
 
 import psycopg
-import yaml
+
+from yaml_loader import load_yaml
 
 
 DEFAULT_CONN_STR = (
@@ -35,8 +36,7 @@ class ViewResult:
 def collect_view_definitions(schema_dir: Path) -> List[ViewDefinition]:
     views: List[ViewDefinition] = []
     for path in sorted(schema_dir.glob("pg_catalog__*.yaml")):
-        with path.open("r", encoding="utf-8") as fh:
-            data = yaml.safe_load(fh)
+        data = load_yaml(path)
         views.extend(_extract_views_from_yaml(data, path))
     return views
 

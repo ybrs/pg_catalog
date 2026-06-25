@@ -8,18 +8,9 @@
 
 use arrow::array::{Array, BooleanArray};
 use datafusion::error::Result as DFResult;
-use datafusion_pg_catalog::get_base_session_context;
 
-async fn base_ctx() -> DFResult<datafusion::execution::context::SessionContext> {
-    let (ctx, _log) = get_base_session_context(
-        Some("pg_catalog_data/pg_schema"),
-        "pgtry".to_string(),
-        "public".to_string(),
-        None,
-    )
-    .await?;
-    Ok(ctx)
-}
+mod common;
+use common::base_ctx;
 
 /// Run `sql` and collect a single Boolean column.
 async fn bool_column(
@@ -45,7 +36,7 @@ async fn bool_column(
     Ok(out)
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_has_role_two_arg() -> DFResult<()> {
     let ctx = base_ctx().await?;
     // role by name and by OID
@@ -65,7 +56,7 @@ async fn test_pg_has_role_two_arg() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_has_role_three_arg() -> DFResult<()> {
     let ctx = base_ctx().await?;
     // (user, role, privilege) - names and OIDs
@@ -80,7 +71,7 @@ async fn test_pg_has_role_three_arg() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_has_role_over_a_column() -> DFResult<()> {
     let ctx = base_ctx().await?;
     // Per-row evaluation (as the views use it): every row must be true.

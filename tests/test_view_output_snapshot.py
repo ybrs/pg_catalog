@@ -1,17 +1,19 @@
 # Snapshot/regression test: every information_schema / pg_catalog VIEW ships with
-# a `rows` snapshot captured from real PostgreSQL. We run each view's `view_sql`
-# through our engine over pgwire and compare it against that snapshot at three
-# levels of strictness, so a silently-broken view can't pass unnoticed:
+# a `rows` snapshot captured from real PostgreSQL. `test_views_match_snapshot` runs
+# each view's `view_sql` through our engine over pgwire ONCE and compares it against
+# that snapshot in three escalating ways, so a silently-broken view can't pass:
 #
-#   1. test_view_row_counts_match_snapshot   - row COUNT matches, AND a view that
-#      *errors* while its snapshot has rows is flagged (not silently skipped).
-#   2. test_view_content_matches_snapshot    - for views whose count matches, the
-#      actual row CONTENT matches (catches "right number of wrong rows").
+#   1. execution    - a view that *errors* while its snapshot has rows is flagged
+#      (not silently skipped).
+#   2. row COUNT    - the number of rows matches the snapshot.
+#   3. row CONTENT  - only for views whose count matches, the actual row content
+#      matches too (catches "right number of wrong rows").
 #
-# Each level has a baseline of views that legitimately diverge today, with the
-# reason. A NEW divergence fails the test (a real regression); a baselined view
-# that now matches ALSO fails (so the baseline never silently rots). When a gap is
-# closed, remove the view from its baseline.
+# Each check carries a baseline of views that legitimately diverge today, with the
+# reason (KNOWN_EXEC_FAILURES / KNOWN_COUNT_MISMATCHES / KNOWN_CONTENT_MISMATCHES).
+# A NEW divergence fails the test (a real regression); a baselined view that now
+# matches ALSO fails (so the baseline never silently rots). When a gap is closed,
+# remove the view from its baseline.
 #
 # DB-name note: the snapshot was captured on one PostgreSQL database while our
 # server advertises another, so `current_database()` differs on every row of every
@@ -21,17 +23,20 @@
 # that one expected difference doesn't drown out real ones. Nothing is hardcoded to
 # a particular environment.
 
+import functools
 import glob
-import time
-import subprocess
-import shutil
+import json
+import os
 from collections import Counter
 
+import duckdb
 import psycopg
-import pytest
-import yaml
 
-CONN_STR = "host=127.0.0.1 port=5451 dbname=pgtry user=dbuser password=pencil sslmode=disable"
+from build_snapshot_db import DB_PATH, SCHEMA_DIR, build
+from conftest import SHARED_PORT, conn_str, load_yaml, server  # noqa: F401
+from yaml_loader import find_in_doc
+
+CONN_STR = conn_str(SHARED_PORT)
 
 
 def _snapshot_db():
@@ -41,10 +46,10 @@ def _snapshot_db():
     Deriving it - rather than hardcoding "postgres" - keeps the test reproducible
     if the catalog is ever regenerated against a differently-named database.
     """
-    doc = yaml.safe_load(
-        open("pg_catalog_data/pg_schema/information_schema__information_schema_catalog_name.yaml")
+    doc = load_yaml(
+        "pg_catalog_data/pg_schema/information_schema__information_schema_catalog_name.yaml"
     )
-    return _find(doc, "rows")[0]["catalog_name"]
+    return find_in_doc(doc, "rows")[0]["catalog_name"]
 
 
 def _live_db(conn):
@@ -99,7 +104,6 @@ KNOWN_CONTENT_MISMATCHES = {
     "information_schema.views": "view_definition/is_updatable: pg_get_viewdef not reproduced",
     "information_schema.check_constraints": "check_clause: raw node-tree, pg_get_constraintdef not reproduced",
     "pg_catalog.pg_views": "definition: pg_get_viewdef not reproduced",
-    "pg_catalog.pg_indexes": "indexdef: pg_get_indexdef not reproduced",
     "pg_catalog.pg_rules": "definition: pg_get_ruledef not reproduced",
     # After stripping the demo `users` rows the COUNT matches exactly; the only
     # remaining content gap is is_updatable on 4 columns - the
@@ -122,63 +126,65 @@ KNOWN_EXEC_FAILURES = {
 }
 
 
-@pytest.fixture(scope="module")
-def server(tmp_path_factory):
-    """Start the pg_catalog server on its own port for the snapshot comparison."""
-    zip_dir = tmp_path_factory.mktemp("schema")
-    zip_path = zip_dir / "schema.zip"
-    shutil.make_archive(str(zip_path.with_suffix("")), "zip", "pg_catalog_data/pg_schema")
-    proc = subprocess.Popen([
-        "cargo", "run", "--quiet", "--",
-        str(zip_path),
-        "--default-catalog", "pgtry",
-        "--default-schema", "public",
-        "--host", "127.0.0.1",
-        "--port", "5451",
-    ], text=True)
-    for _ in range(12):
-        try:
-            with psycopg.connect(CONN_STR):
-                break
-        except Exception:
-            time.sleep(5)
-    else:
-        proc.terminate()
-        raise RuntimeError("server failed to start")
-    yield proc
-    proc.terminate()
-    try:
-        proc.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        proc.kill()
+# The Arrow IPC artifact the server loads (the embedded fast path). Its catalog is
+# baked from the same YAML the snapshots are derived from, so if a YAML is edited
+# without regenerating this artifact the server would serve stale rows and the
+# comparison below would fail for a reason that has nothing to do with the engine.
+IPC_ARTIFACT = "pg_catalog_data/postgres-schema-nightly-ipc.zip"
 
 
-def _find(node, key):
-    """Return the first non-dict value stored under `key` anywhere in `node`."""
-    if isinstance(node, dict):
-        if key in node and not isinstance(node[key], dict):
-            return node[key]
-        for value in node.values():
-            found = _find(value, key)
-            if found is not None:
-                return found
-    return None
+def _assert_ipc_artifact_not_stale():
+    """Fail loudly if the server's embedded IPC catalog predates the newest YAML.
+
+    The snapshot DuckDB is rebuilt from YAML automatically, but the server reads a
+    prebuilt IPC artifact that only changes when explicitly regenerated. When the
+    two drift, comparing live rows to snapshot rows produces confusing mismatches;
+    this turns that into one clear, actionable message instead.
+    """
+    if not os.path.exists(IPC_ARTIFACT):
+        return  # a source checkout that builds the artifact on demand; nothing to check
+    newest_yaml = max(os.path.getmtime(p) for p in glob.glob(f"{SCHEMA_DIR}/*.yaml"))
+    if os.path.getmtime(IPC_ARTIFACT) < newest_yaml:
+        raise AssertionError(
+            f"{IPC_ARTIFACT} is older than the catalog YAML in {SCHEMA_DIR}: the "
+            "server would serve a stale catalog. Regenerate it with "
+            "`cargo run --release --bin gen_schema_ipc` (or `./regenerate-catalog.sh`) "
+            "before running the snapshot test."
+        )
+
+
+@functools.lru_cache(maxsize=1)
+def _snapshot_duckdb():
+    """Path to the precomputed view-snapshot DuckDB, rebuilt once if missing or
+    older than the newest catalog YAML.
+
+    The triples (name, view_sql, rows) are precomputed by `build_snapshot_db.py`
+    so the test does not re-parse ~200 YAML files (~11s) on every run. The
+    freshness check rebuilds automatically if a YAML was edited without rerunning
+    that script, so an edited snapshot can never be compared against stale data.
+    """
+    newest_yaml = max(os.path.getmtime(p) for p in glob.glob(f"{SCHEMA_DIR}/*.yaml"))
+    if not os.path.exists(DB_PATH) or os.path.getmtime(DB_PATH) < newest_yaml:
+        build()
+    return DB_PATH
 
 
 def _views_with_snapshots():
     """Yield (view_name, view_sql, snapshot_rows) for every view that has both.
 
     `snapshot_rows` is the list of `column -> value` dicts captured from real
-    PostgreSQL; its length is the expected row count.
+    PostgreSQL; its length is the expected row count. Read from the precomputed
+    DuckDB snapshot rather than the YAML (see `_snapshot_duckdb`).
     """
-    for path in sorted(glob.glob("pg_catalog_data/pg_schema/*.yaml")):
-        doc = yaml.safe_load(open(path))
-        view_sql = _find(doc, "view_sql")
-        rows = _find(doc, "rows")
-        if not view_sql or rows is None:
-            continue
-        name = path.split("/")[-1].replace(".yaml", "").replace("__", ".")
-        yield name, view_sql, rows
+    con = duckdb.connect(_snapshot_duckdb(), read_only=True)
+    try:
+        snapshots = con.execute(
+            "SELECT name, view_sql, rows_json FROM view_snapshots"
+        ).fetchall()
+    finally:
+        con.close()
+    for name, view_sql, rows_json in snapshots:
+        yield name, view_sql, json.loads(rows_json)
 
 
 def _canon(value, db_remap):
@@ -230,20 +236,31 @@ def _engine_rows_without_demo(name, cols, raw_rows):
     return dicts
 
 
-def test_view_row_counts_match_snapshot(server):
-    """Row count matches the snapshot, and an erroring view that *should* have rows
-    is flagged rather than silently skipped.
+def test_views_match_snapshot(server):
+    """Every view's output matches the real-PostgreSQL snapshot, in count then content.
 
-    Fails on: a new count mismatch, a new execution failure on a view with a
-    non-empty snapshot, or a baselined count/exec gap that now matches (stale
-    baseline). Snapshot-empty views that error are left alone - they are runtime
-    views (pg_stat_*, locks, ...) whose data we don't model.
+    Each view's `view_sql` is executed ONCE. We first compare the row COUNT; only
+    when the count matches do we compare the row CONTENT (a count mismatch already
+    explains the difference, so a row-by-row diff would be noise). Both checks share
+    the single execution.
+
+    Fails on any of: a new count mismatch, a new execution failure on a view whose
+    snapshot has rows, a new content mismatch, or a baselined gap (exec/count/content)
+    that now matches - the last so a stale baseline can't silently rot. Snapshot-empty
+    views that error are left alone (runtime views like pg_stat_*/locks we don't model).
     """
+    _assert_ipc_artifact_not_stale()
     conn = psycopg.connect(CONN_STR, autocommit=True)
-    new_count_mismatches = []   # (name, expected, got) not in the baseline
-    new_exec_failures = []      # (name, error) erroring with a non-empty snapshot
-    fixed_count = []            # baselined count mismatches that now match
-    fixed_exec = []             # baselined exec failures that now execute
+    # Map the live database name onto the snapshot's, so the one expected
+    # `current_database()` difference on every `*_catalog` column is not counted.
+    db_remap = {_live_db(conn): _snapshot_db()}
+
+    new_count_mismatches = []     # (name, expected, got) not in the baseline
+    new_exec_failures = []        # (name, error) erroring with a non-empty snapshot
+    new_content_mismatches = []   # (name, n_differing, columns)
+    fixed_exec = []               # baselined exec failures that now execute
+    fixed_count = []              # baselined count mismatches that now match
+    fixed_content = []            # baselined content mismatches that now match
 
     for name, view_sql, rows in _views_with_snapshots():
         expected = len(rows)
@@ -252,7 +269,6 @@ def test_view_row_counts_match_snapshot(server):
             cur.execute(view_sql)
             raw = cur.fetchall()
             cols = [d.name for d in cur.description]
-            got = len(_engine_rows_without_demo(name, cols, raw))
         except Exception as exc:
             if name in KNOWN_EXEC_FAILURES:
                 continue  # known gap; staying broken is fine
@@ -262,11 +278,34 @@ def test_view_row_counts_match_snapshot(server):
         if name in KNOWN_EXEC_FAILURES:
             fixed_exec.append(name)
             continue
-        known = name in KNOWN_COUNT_MISMATCHES
-        if got == expected and known:
-            fixed_count.append(name)
-        elif got != expected and not known:
-            new_count_mismatches.append((name, expected, got))
+
+        engine_dicts = _engine_rows_without_demo(name, cols, raw)
+        got = len(engine_dicts)
+        count_known = name in KNOWN_COUNT_MISMATCHES
+
+        # Count first. A mismatch (or a baselined count gap) is terminal for this
+        # view - we do not go on to compare content.
+        if got != expected:
+            if not count_known:
+                new_count_mismatches.append((name, expected, got))
+            continue
+        if count_known:
+            fixed_count.append(name)  # baseline says it should differ, but it matches now
+            continue
+
+        # Counts match: compare content row by row.
+        expected_ms = _row_multiset(rows, db_remap)
+        got_ms = _row_multiset(engine_dicts, db_remap)
+        content_known = name in KNOWN_CONTENT_MISMATCHES
+        if expected_ms == got_ms:
+            if content_known:
+                fixed_content.append(name)
+        elif not content_known:
+            only_expected = list((expected_ms - got_ms).elements())
+            only_got = list((got_ms - expected_ms).elements())
+            differing = _differing_columns(only_expected, only_got)
+            n = len(only_expected) + len(only_got)
+            new_content_mismatches.append((name, n, differing))
 
     msg = []
     if new_count_mismatches:
@@ -275,60 +314,15 @@ def test_view_row_counts_match_snapshot(server):
     if new_exec_failures:
         msg.append("NEW execution failures on views that have snapshot rows:")
         msg += [f"  {n}: {e}" for n, e in new_exec_failures]
+    if new_content_mismatches:
+        msg.append("NEW content mismatches (count matches, rows differ):")
+        msg += [f"  {n}: {d} rows differ in columns {c}" for n, d, c in new_content_mismatches]
     if fixed_exec:
         msg.append("KNOWN_EXEC_FAILURES now executing (remove from the list):")
         msg += [f"  {n}" for n in fixed_exec]
     if fixed_count:
         msg.append("KNOWN_COUNT_MISMATCHES now matching (remove from the list):")
         msg += [f"  {n}" for n in fixed_count]
-    assert not msg, "\n" + "\n".join(msg)
-
-
-def test_view_content_matches_snapshot(server):
-    """For every view whose row count matches, the row *content* matches too.
-
-    Catches a view returning the right number of wrong rows. Views with a known
-    count divergence are skipped (their content can't align); views that error are
-    covered by the count test. Fails on a new content mismatch, or a baselined one
-    that now matches (stale baseline). The failure message names the differing
-    columns so the gap is actionable.
-    """
-    conn = psycopg.connect(CONN_STR, autocommit=True)
-    # Map the live database name onto the snapshot's, so the one expected
-    # `current_database()` difference on every `*_catalog` column is not counted.
-    db_remap = {_live_db(conn): _snapshot_db()}
-    new_content_mismatches = []   # (name, n_differing, columns)
-    fixed_content = []            # baselined content mismatches that now match
-
-    for name, view_sql, rows in _views_with_snapshots():
-        if name in KNOWN_COUNT_MISMATCHES:
-            continue
-        cur = conn.cursor()
-        try:
-            cur.execute(view_sql)
-            got_rows = cur.fetchall()
-            cols = [d.name for d in cur.description]
-        except Exception:
-            continue  # execution failures are the count test's responsibility
-        engine_dicts = _engine_rows_without_demo(name, cols, got_rows)
-        if len(engine_dicts) != len(rows):
-            continue  # a count mismatch the count test will report
-        expected_ms = _row_multiset(rows, db_remap)
-        got_ms = _row_multiset(engine_dicts, db_remap)
-        known = name in KNOWN_CONTENT_MISMATCHES
-        if expected_ms == got_ms and known:
-            fixed_content.append(name)
-        elif expected_ms != got_ms and not known:
-            only_expected = list((expected_ms - got_ms).elements())
-            only_got = list((got_ms - expected_ms).elements())
-            differing = _differing_columns(only_expected, only_got)
-            n = len(only_expected) + len(only_got)
-            new_content_mismatches.append((name, n, differing))
-
-    msg = []
-    if new_content_mismatches:
-        msg.append("NEW content mismatches (count matches, rows differ):")
-        msg += [f"  {n}: {d} rows differ in columns {c}" for n, d, c in new_content_mismatches]
     if fixed_content:
         msg.append("KNOWN_CONTENT_MISMATCHES now matching (remove from the list):")
         msg += [f"  {n}" for n in fixed_content]

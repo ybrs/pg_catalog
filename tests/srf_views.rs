@@ -5,20 +5,11 @@
 
 use arrow::array::{Array, StringArray};
 use datafusion::error::Result as DFResult;
-use datafusion_pg_catalog::get_base_session_context;
 use datafusion_pg_catalog::replace::rewrite_srf_to_unnest;
 use datafusion_pg_catalog::session::execute_sql;
 
-async fn base_ctx() -> DFResult<datafusion::execution::context::SessionContext> {
-    let (ctx, _log) = get_base_session_context(
-        Some("pg_catalog_data/pg_schema"),
-        "pgtry".to_string(),
-        "public".to_string(),
-        None,
-    )
-    .await?;
-    Ok(ctx)
-}
+mod common;
+use common::base_ctx;
 
 #[test]
 fn test_rewrite_srf_shape() {

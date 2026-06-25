@@ -1,51 +1,17 @@
 import logging
 import os
-import subprocess
-import shutil
-import time
 import glob
-import yaml
 import psycopg
 import pytest
+
+from conftest import SHARED_PORT, conn_str, load_yaml, server  # noqa: F401
 
 logging.basicConfig(
     level=getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), logging.INFO)
 )
 logger = logging.getLogger(__name__)
 
-PORT = 5447
-CONN_STR = f"host=127.0.0.1 port={PORT} dbname=pgtry user=dbuser password=pencil sslmode=disable"
-
-@pytest.fixture(scope="module")
-def server(tmp_path_factory):
-    zip_dir = tmp_path_factory.mktemp("schema")
-    zip_path = zip_dir / "schema.zip"
-    shutil.make_archive(str(zip_path.with_suffix("")), "zip", "pg_catalog_data/pg_schema")
-    proc = subprocess.Popen([
-        "cargo", "run", "--quiet", "--",
-        str(zip_path),
-        "--default-catalog", "pgtry",
-        "--default-schema", "pg_catalog",
-        "--host", "127.0.0.1",
-        "--port", str(PORT),
-    ], text=True)
-
-    for _ in range(12):
-        try:
-            with psycopg.connect(CONN_STR):
-                break
-        except Exception:
-            time.sleep(5)
-    else:
-        proc.terminate()
-        raise RuntimeError("server failed to start")
-
-    yield proc
-    proc.terminate()
-    try:
-        proc.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        proc.kill()
+CONN_STR = conn_str(SHARED_PORT)
 
 
 def convert_placeholders(q: str) -> str:
@@ -134,7 +100,6 @@ def test_captured_queries(server):
     
     for file in capture_files:
         print("running capture", file)
-        with open(file) as f:
-            data = yaml.safe_load(f)
-            replay_captured_queries(data)
+        data = load_yaml(file)
+        replay_captured_queries(data)
 

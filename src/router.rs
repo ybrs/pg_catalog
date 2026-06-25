@@ -357,7 +357,7 @@ mod tests {
     use arrow::datatypes::DataType;
     use std::sync::{Arc, Mutex};
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_dispatch_user_table_calls_handler() -> datafusion::error::Result<()> {
         let ctx = SessionContext::new();
         register_table(
@@ -383,7 +383,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_dispatch_catalog_query_internal() -> datafusion::error::Result<()> {
         let ctx = SessionContext::new();
         register_table(
@@ -415,7 +415,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_dispatch_unqualified_catalog_query_internal() -> datafusion::error::Result<()> {
         let ctx = SessionContext::new();
         register_table(
@@ -441,7 +441,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_dispatch_user_table_precedence() -> datafusion::error::Result<()> {
         let mut config = datafusion::execution::context::SessionConfig::new()
             .with_default_catalog_and_schema("datafusion", "public")
@@ -482,7 +482,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_dispatch_with_params_passes_to_handler() -> datafusion::error::Result<()> {
         let ctx = SessionContext::new();
         register_table(
@@ -517,7 +517,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_dispatch_catalog_function_internal() -> datafusion::error::Result<()> {
         let ctx = SessionContext::new();
         register_version_fn(&ctx)?;
@@ -537,7 +537,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_dispatch_unqualified_catalog_function_internal() -> datafusion::error::Result<()>
     {
         let ctx = SessionContext::new();

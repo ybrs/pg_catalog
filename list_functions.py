@@ -4,10 +4,11 @@
 
 import logging
 import os
-import yaml
 import sqlglot
 from sqlglot import Expression
 from sqlglot.expressions import Anonymous, Substring, Func, Cast
+
+from yaml_loader import load_yaml
 
 logging.basicConfig(
     level=getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), logging.INFO)
@@ -40,8 +41,7 @@ def extract_function_from_sql(sql):
     return functions, casts
 
 def main(yaml_file):
-    with open(yaml_file, "r") as f:
-        data = yaml.safe_load(f)
+    data = load_yaml(yaml_file)
 
     tests = data.get("tests", [])
     for idx, test in enumerate(tests):

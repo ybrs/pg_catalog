@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 use zip::write::FileOptions;
 use zip::ZipWriter;
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_dispatch_query_public() -> datafusion::error::Result<()> {
     let ctx = SessionContext::new();
 
@@ -28,7 +28,7 @@ async fn test_dispatch_query_public() -> datafusion::error::Result<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_get_base_session_context_public() -> datafusion::error::Result<()> {
     let dir = tempfile::tempdir().unwrap();
     let zip_path = dir.path().join("schema.zip");
@@ -43,7 +43,7 @@ async fn test_get_base_session_context_public() -> datafusion::error::Result<()>
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_get_base_session_context_embedded() -> datafusion::error::Result<()> {
     // `None` loads the embedded postgres-schema-nightly.zip (the path riffq uses).
     let (ctx, _log) =
@@ -66,7 +66,7 @@ async fn test_get_base_session_context_embedded() -> datafusion::error::Result<(
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_views_registered_as_view() -> datafusion::error::Result<()> {
     let (ctx, _log) = get_base_session_context(
         Some("pg_catalog_data/pg_schema"),

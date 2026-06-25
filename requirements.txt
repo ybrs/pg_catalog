@@ -5,3 +5,5 @@ pytest>=8.0.0
 pytest-cov==4.1.0
 
 pyyaml
+# Precomputed snapshot store for the catalog view tests (build_snapshot_db.py).
+duckdb>=1.0

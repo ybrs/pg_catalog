@@ -46,9 +46,11 @@ Both paths share the same pure row-builders (`build_pg_class_row`,
 ### How that reaches the **views**
 Views are not registered directly - they derive from base tables. Three behaviours:
 
-- **live** - re-derived from `pg_class` on every query, so it **reflects
-  runtime-registered user objects immediately**. Only `pg_tables` and `pg_views`
-  (`VIEW_ONLY_TABLES` in `src/session.rs`).
+- **live** - re-derived from its base tables on every query, so it **reflects
+  runtime-registered user objects immediately**. `VIEW_ONLY_TABLES` in
+  `src/session.rs`: `pg_tables`, `pg_views`, and the four constraint views
+  (`table_constraints`, `key_column_usage`, `constraint_column_usage`,
+  `referential_constraints`, derived from the registrable `pg_constraint`).
 - **merge** - the lazy/eager registration target itself: `information_schema.tables`,
   `information_schema.columns`, `information_schema.schemata` are wrapped by the
   lazy provider (and written by `register_user_tables`), so they **reflect user
@@ -191,10 +193,11 @@ both paths above). All base tables are queryable (working).
 `Reflects` = does it show runtime-registered user objects (`live`/`merge`/`static`,
 see above). `Reads from` = the main catalog tables the view's SQL joins.
 
-### Working (18)
+### Working (19)
 | View | Purpose | Reads from | Reflects |
 |---|---|---|---|
 | `pg_tables` | All tables, one row per `relkind` r/p. | pg_class, pg_namespace, pg_tablespace | **live** |
+| `pg_indexes` | All indexes + their `CREATE INDEX` text (`pg_get_indexdef`; functional/partial expression text is Phase 3). | pg_index, pg_class, pg_namespace, pg_tablespace | static |
 | `pg_matviews` | Materialized views and their owners. | pg_class, pg_namespace | static |
 | `pg_roles` | Roles (password redacted). | pg_authid, pg_db_role_setting | static |
 | `pg_shadow` | Roles with password hashes (superuser view). | pg_authid | static |
@@ -217,11 +220,10 @@ see above). `Reads from` = the main catalog tables the view's SQL joins.
 > **materialized** `pg_stat[io]_all_*` snapshot tables; the `*_all_*` parents'
 > *live* SQL is what's broken (needs runtime stat functions - below).
 
-### Partial - executes but a column diverges (3)
+### Partial - executes but a column diverges (2)
 | View | Purpose | Reads from | Reflects | Diverging | Reason |
 |---|---|---|---|---|---|
 | `pg_views` | All views + their defining SQL. | pg_class, pg_namespace | **live** | `definition` | `pg_get_viewdef` not implemented (node-tree deparse). |
-| `pg_indexes` | All indexes + their `CREATE INDEX` text. | pg_index, pg_class, pg_namespace, pg_tablespace | static | `indexdef` | `pg_get_indexdef` is a stub; `pg_index` now registrable, templating is the next task. |
 | `pg_rules` | Rewrite rules + their defining SQL. | pg_rewrite, pg_class, pg_namespace | static | `definition` | `pg_get_ruledef` not implemented. |
 
 ### Broken - fixable engine/UDF gaps (9)
@@ -293,7 +295,9 @@ All `static`.
 The SQL-standard introspection layer; each is a thin, portable projection over
 `pg_catalog`. **All 65 execute** (54 working, 11 partial). `tables`/`columns`/
 `schemata` are lazy/eager registration targets (`merge` - reflect user objects);
-the rest are `static` snapshots.
+the four constraint views (`table_constraints`, `key_column_usage`,
+`constraint_column_usage`, `referential_constraints`) are `live` over
+`pg_constraint`; the rest are `static` snapshots.
 
 | View | Purpose | Reads from | Reflects | Status / reason |
 |---|---|---|---|---|
@@ -316,7 +320,7 @@ the rest are `static` snapshots.
 | `column_privileges` | Column-level privileges. | pg_class, pg_attribute, pg_authid | static | partial - empty: GRANTs not modeled. |
 | `column_udt_usage` | Columns and their underlying type. | pg_attribute, pg_namespace | static | working |
 | `columns` | All table/view columns. | pg_attribute, pg_namespace, pg_attrdef | **merge** | partial - is_updatable NULL on 4 columns (pg_relation_is_updatable stub). |
-| `constraint_column_usage` | Columns referenced by constraints. | pg_constraint, pg_attribute | static | working |
+| `constraint_column_usage` | Columns referenced by constraints. | pg_constraint, pg_attribute | live | working |
 | `constraint_table_usage` | Tables referenced by constraints. | pg_constraint, pg_class | static | working |
 | `data_type_privileges` | Type-usage privilege scopes. | attributes, columns, domains, parameters | static | working |
 | `domain_constraints` | Constraints attached to domains. | pg_constraint, pg_type | static | working |
@@ -331,9 +335,9 @@ the rest are `static` snapshots.
 | `foreign_table_options` | Foreign-table option pairs. | pg_foreign_table | static | working |
 | `foreign_tables` | Foreign tables. | pg_foreign_table | static | working |
 | `information_schema_catalog_name` | Name of the current database. | (constant) | static | working |
-| `key_column_usage` | Columns in PK/UNIQUE/FK constraints. | pg_constraint, pg_attribute | static | working |
+| `key_column_usage` | Columns in PK/UNIQUE/FK constraints. | pg_constraint, pg_attribute | live | working |
 | `parameters` | Function/procedure parameters. | pg_proc, pg_type, pg_namespace | static | partial - `parameter_default` NULL (`pg_get_function_arg_default` stub). |
-| `referential_constraints` | Foreign-key constraint metadata. | pg_constraint, pg_class, pg_depend | static | working |
+| `referential_constraints` | Foreign-key constraint metadata. | pg_constraint, pg_class, pg_depend | live | working |
 | `role_column_grants` | Column grants to enabled roles. | column_privileges, enabled_roles | static | working |
 | `role_routine_grants` | Routine (EXECUTE) grants to enabled roles. | routine_privileges, enabled_roles | static | working |
 | `role_table_grants` | Table grants to enabled roles. | table_privileges, enabled_roles | static | working |
@@ -347,7 +351,7 @@ the rest are `static` snapshots.
 | `routines` | Functions and procedures. | pg_proc, pg_namespace, pg_language | static | working |
 | `schemata` | Schemas in the database. | pg_namespace | **merge** | working |
 | `sequences` | Sequences + type/limits. | pg_sequence, pg_class, pg_namespace | static | working |
-| `table_constraints` | All table constraints. | pg_constraint, pg_class, pg_namespace | static | working |
+| `table_constraints` | All table constraints. | pg_constraint, pg_class, pg_namespace | live | working |
 | `table_privileges` | Table-level privileges. | pg_class, pg_authid | static | partial - empty: GRANTs not modeled. |
 | `tables` | All tables and views. | pg_class, pg_namespace | **merge** | partial - is_insertable_into not reproduced for a couple of views. |
 | `transforms` | Type/language transform functions. | pg_type, pg_transform, pg_language, pg_proc | static | working |

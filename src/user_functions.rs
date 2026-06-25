@@ -27,37 +27,69 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::sync::Arc;
 
-/// A dedicated multi-threaded runtime used to drive the small synchronous
-/// catalog lookups some scalar UDFs perform (e.g. `pg_get_userbyid`, `oid(text)`).
-///
-/// These UDFs are synchronous but must run a catalog SQL query, and they may be
-/// invoked from within ANY caller runtime: a current-thread runtime (as
-/// `#[tokio::test]` uses) where `tokio::task::block_in_place` would panic, or a
-/// worker of a multi-threaded runtime where re-entering `block_on` would
-/// deadlock. Driving the query on this separate runtime - and blocking the
-/// caller on a plain std channel - is safe regardless of the caller's flavor.
-static CATALOG_QUERY_RT: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
+/// A dedicated multi-threaded runtime used to drive catalog sub-queries only when
+/// the caller is NOT already on a multi-threaded runtime (a current-thread runtime,
+/// or no runtime), where [`tokio::task::block_in_place`] would panic. Its workers
+/// are themselves multi-threaded, so nested catalog UDFs spawned from here stay
+/// deadlock-free via the `block_in_place` branch. Production never reaches this (it
+/// is `#[tokio::main]`); it exists so any embedder flavor is safe.
+static CATALOG_FALLBACK_RT: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
     tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(2)
         .enable_all()
         .build()
-        .expect("failed to build the pg_catalog query runtime")
+        .expect("failed to build the pg_catalog fallback runtime")
 });
 
-/// Drive `future` to completion from a synchronous context, regardless of the
-/// caller's tokio runtime flavor. The future runs on [`CATALOG_QUERY_RT`] while
-/// the calling thread blocks on a std channel until it finishes.
+/// Drive `future` to completion from a synchronous context (a DataFusion scalar
+/// UDF) without starving the runtime under nesting, on any caller flavor.
+///
+/// The future is always spawned as an ordinary task; the caller blocks on a channel
+/// for its result. WHERE it is spawned and HOW the caller blocks depend on the
+/// caller's runtime:
+///
+/// - On a multi-threaded runtime (production `#[tokio::main]`, and tests using
+///   `#[tokio::test(flavor = "multi_thread")]`): spawn on the current runtime and
+///   block inside [`tokio::task::block_in_place`], which hands the worker back so the
+///   scheduler spawns/borrows a replacement. Every nested catalog query does the
+///   same, so the runtime grows its worker set with the nesting depth instead of
+///   parking a fixed-size pool - composed catalog UDFs cannot deadlock at any depth.
+/// - On a current-thread runtime, or no runtime at all (where `block_in_place` would
+///   panic): drive the future on a dedicated multi-threaded runtime
+///   [`CATALOG_FALLBACK_RT`] and block the caller on a plain channel recv. Nested
+///   catalog UDFs invoked while that future runs are then on a multi-threaded
+///   runtime and take the `block_in_place` branch above, so nesting stays
+///   deadlock-free there too.
+///
+/// This keeps the bridge safe for any consumer (e.g. a current-thread embedder)
+/// without ever blocking a fixed-size pool, and without using OS threads directly.
 fn run_catalog_query<F, T>(future: F) -> T
 where
     F: Future<Output = T> + Send + 'static,
     T: Send + 'static,
 {
+    use tokio::runtime::{Handle, RuntimeFlavor};
+
+    let on_multi_thread = matches!(
+        Handle::try_current().map(|h| h.runtime_flavor()),
+        Ok(RuntimeFlavor::MultiThread)
+    );
+
     let (tx, rx) = std::sync::mpsc::sync_channel(1);
-    CATALOG_QUERY_RT.spawn(async move {
-        let _ = tx.send(future.await);
-    });
-    rx.recv()
-        .expect("pg_catalog query task ended without producing a result")
+    if on_multi_thread {
+        Handle::current().spawn(async move {
+            let _ = tx.send(future.await);
+        });
+        tokio::task::block_in_place(move || {
+            rx.recv()
+                .expect("pg_catalog query task ended without producing a result")
+        })
+    } else {
+        CATALOG_FALLBACK_RT.spawn(async move {
+            let _ = tx.send(future.await);
+        });
+        rx.recv()
+            .expect("pg_catalog query task ended without producing a result")
+    }
 }
 
 #[derive(Debug)]
@@ -127,6 +159,27 @@ impl TableFunctionImpl for RegClassOidFunc {
     }
 }
 
+/// Look up the OID of the relation named `relname` in `pg_catalog.pg_class`,
+/// returning `None` when no such relation exists or its OID is NULL.
+///
+/// Runs `SELECT oid FROM pg_catalog.pg_class WHERE relname = '...'` through the
+/// catalog runtime (single quotes in the name are escaped) and reads column 0 of
+/// the first row via [`oid_at`], which widens whichever integer width the planner
+/// produced for the OID column.
+fn query_relname_oid(ctx: Arc<SessionContext>, relname: &str) -> Result<Option<i64>> {
+    let sql = format!(
+        "SELECT oid FROM pg_catalog.pg_class WHERE relname = '{}'",
+        relname.replace('\'', "''")
+    );
+    run_catalog_query(async move {
+        let batches = ctx.sql(&sql).await?.collect().await?;
+        if batches.is_empty() || batches[0].num_rows() == 0 {
+            return Ok::<Option<i64>, DataFusionError>(None);
+        }
+        oid_at(batches[0].column(0), 0)
+    })
+}
+
 /// Register `oid(text)` which looks up a table OID from `pg_class`.
 pub fn register_scalar_regclass_oid(ctx: &SessionContext) -> Result<()> {
     let ctx_arc = Arc::new(ctx.clone());
@@ -134,40 +187,7 @@ pub fn register_scalar_regclass_oid(ctx: &SessionContext) -> Result<()> {
     let lookup_oid_fn = Arc::new(move |args: &[ColumnarValue]| -> Result<ColumnarValue> {
         match &args[0] {
             ColumnarValue::Scalar(ScalarValue::Utf8(Some(name))) => {
-                let sql = format!(
-                    "SELECT oid FROM pg_catalog.pg_class WHERE relname = '{}'",
-                    name.replace('\'', "''")
-                );
-
-                let opt: Option<i64> = {
-                    let ctx = ctx_arc.clone();
-                    run_catalog_query(async move {
-                        let batches = ctx.sql(&sql).await?.collect().await?;
-                        if batches.is_empty() || batches[0].num_rows() == 0 {
-                            Ok::<Option<i64>, DataFusionError>(None)
-                        } else {
-                            let col = batches[0].column(0);
-                            if let Some(arr) = col.as_any().downcast_ref::<Int64Array>() {
-                                if arr.is_null(0) {
-                                    Ok(None)
-                                } else {
-                                    Ok(Some(arr.value(0)))
-                                }
-                            } else if let Some(arr) =
-                                col.as_any().downcast_ref::<arrow::array::Int32Array>()
-                            {
-                                if arr.is_null(0) {
-                                    Ok(None)
-                                } else {
-                                    Ok(Some(arr.value(0) as i64))
-                                }
-                            } else {
-                                Ok(None)
-                            }
-                        }
-                    })
-                }?;
-
+                let opt = query_relname_oid(ctx_arc.clone(), name)?;
                 Ok(ColumnarValue::Scalar(ScalarValue::Int64(opt)))
             }
             ColumnarValue::Scalar(ScalarValue::Utf8(None)) => {
@@ -181,43 +201,9 @@ pub fn register_scalar_regclass_oid(ctx: &SessionContext) -> Result<()> {
                         builder.append_null();
                         continue;
                     }
-                    let name = arr.value(i);
-                    let sql = format!(
-                        "SELECT oid FROM pg_catalog.pg_class WHERE relname = '{}'",
-                        name.replace('\'', "''")
-                    );
-                    let opt: Option<i64> = {
-                        let ctx = ctx_arc.clone();
-                        run_catalog_query(async move {
-                            let batches = ctx.sql(&sql).await?.collect().await?;
-                            if batches.is_empty() || batches[0].num_rows() == 0 {
-                                Ok::<Option<i64>, DataFusionError>(None)
-                            } else {
-                                let col = batches[0].column(0);
-                                if let Some(a) = col.as_any().downcast_ref::<Int64Array>() {
-                                    if a.is_null(0) {
-                                        Ok(None)
-                                    } else {
-                                        Ok(Some(a.value(0)))
-                                    }
-                                } else if let Some(a) =
-                                    col.as_any().downcast_ref::<arrow::array::Int32Array>()
-                                {
-                                    if a.is_null(0) {
-                                        Ok(None)
-                                    } else {
-                                        Ok(Some(a.value(0) as i64))
-                                    }
-                                } else {
-                                    Ok(None)
-                                }
-                            }
-                        })
-                    }?;
-                    if let Some(v) = opt {
-                        builder.append_value(v);
-                    } else {
-                        builder.append_null();
+                    match query_relname_oid(ctx_arc.clone(), arr.value(i))? {
+                        Some(v) => builder.append_value(v),
+                        None => builder.append_null(),
                     }
                 }
                 Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
@@ -462,49 +448,13 @@ pub fn register_scalar_pg_get_expr(ctx: &SessionContext) -> Result<()> {
 
 /// Stub implementation of `pg_get_partkeydef` that always returns NULL.
 pub fn register_scalar_pg_get_partkeydef(ctx: &SessionContext) -> Result<()> {
-    let ctx_arc = Arc::new(ctx.clone());
-    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
-        let arrays = ColumnarValue::values_to_arrays(args)?;
-        let oids = as_int64_array(&arrays[0])?;
-        let mut builder = StringBuilder::new();
-        for _ in 0..oids.len() {
-            builder.append_null();
-        }
-        Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
-    };
-    let udf = create_udf(
-        "pg_catalog.pg_get_partkeydef",
-        vec![ArrowDataType::Int64],
-        ArrowDataType::Utf8,
-        Volatility::Immutable,
-        Arc::new(fun),
-    );
-    ctx_arc.register_udf(udf);
-    Ok(())
+    register_null_text_stub(ctx, "pg_catalog.pg_get_partkeydef", 1)
 }
 
 /// Placeholder for `pg_get_statisticsobjdef_columns` which currently
 /// returns NULL for all rows.
 pub fn register_pg_get_statisticsobjdef_columns(ctx: &SessionContext) -> Result<()> {
-    let ctx_arc = Arc::new(ctx.clone());
-    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
-        let arrays = ColumnarValue::values_to_arrays(args)?;
-        let oids = as_int64_array(&arrays[0])?;
-        let mut builder = StringBuilder::new();
-        for _ in 0..oids.len() {
-            builder.append_null();
-        }
-        Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
-    };
-    let udf = create_udf(
-        "pg_catalog.pg_get_statisticsobjdef_columns",
-        vec![ArrowDataType::Int64],
-        ArrowDataType::Utf8,
-        Volatility::Immutable,
-        Arc::new(fun),
-    );
-    ctx_arc.register_udf(udf);
-    Ok(())
+    register_null_text_stub(ctx, "pg_catalog.pg_get_statisticsobjdef_columns", 1)
 }
 
 /// Compatibility stub for `pg_relation_is_publishable` which always
@@ -1161,6 +1111,19 @@ fn register_null_text_stub(
     qualified: &'static str,
     arity: usize,
 ) -> Result<()> {
+    register_null_text_stub_accepting_arities(ctx, qualified, &[arity])
+}
+
+/// Register a scalar stub under `qualified` (plus its bare alias) that returns
+/// NULL text and accepts a call at any of the given `arities` (each an argument
+/// count of any types). Used for PostgreSQL functions that are exposed with
+/// several arities, e.g. `pg_get_triggerdef(oid)` and `pg_get_triggerdef(oid,
+/// bool)`.
+fn register_null_text_stub_accepting_arities(
+    ctx: &SessionContext,
+    qualified: &'static str,
+    arities: &[usize],
+) -> Result<()> {
     use arrow::array::{ArrayRef, StringBuilder};
     use arrow::datatypes::DataType;
     use datafusion::logical_expr::{
@@ -1196,9 +1159,13 @@ fn register_null_text_stub(
         }
     }
 
+    let accepted_arities = arities
+        .iter()
+        .map(|&arity| TypeSignature::Any(arity))
+        .collect();
     let udf_impl = NullText {
         qualified: qualified.to_string(),
-        sig: Signature::one_of(vec![TypeSignature::Any(arity)], Volatility::Stable),
+        sig: Signature::one_of(accepted_arities, Volatility::Stable),
     };
     let bare = qualified.rsplit('.').next().unwrap_or(qualified);
     let udf = ScalarUDF::new_from_impl(udf_impl).with_aliases([bare]);
@@ -3104,242 +3071,438 @@ pub fn register_pg_get_function_arguments(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// pg_catalog.pg_get_indexdef(oid) -> text
-pub fn register_pg_get_indexdef(ctx: &SessionContext) -> Result<()> {
-    use arrow::array::{ArrayRef, StringBuilder};
-    use arrow::datatypes::DataType;
-    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
-    use std::sync::Arc;
-
-    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
-        let len = match args.first() {
-            Some(ColumnarValue::Array(a)) => a.len(),
-            _ => 1,
-        };
-        let mut b = StringBuilder::with_capacity(len, len);
-        for _ in 0..len {
-            b.append_null();
-        }
-        Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
-    };
-
-    let udf = create_udf(
-        "pg_catalog.pg_get_indexdef",
-        vec![DataType::Int64],
-        DataType::Utf8,
-        Volatility::Stable,
-        Arc::new(fun),
+/// Render the canonical `CREATE INDEX` statement for a plain (non-expression)
+/// index, matching PostgreSQL's `pg_get_indexdef` output.
+///
+/// `columns` are the indexed column names in index-key order. The table is
+/// always schema-qualified, e.g.
+/// `CREATE UNIQUE INDEX foo_pkey ON public.foo USING btree (a, b)`. Every
+/// identifier (index, schema, table, columns) is quoted when it is not a plain
+/// lowercase identifier, so mixed-case or special names keep their meaning.
+fn render_create_index_statement(
+    is_unique: bool,
+    index_name: &str,
+    schema_name: &str,
+    table_name: &str,
+    access_method: &str,
+    columns: &[String],
+) -> String {
+    let unique = if is_unique { "UNIQUE " } else { "" };
+    let columns = columns
+        .iter()
+        .map(|c| quote_identifier_if_needed(c))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        "CREATE {unique}INDEX {} ON {}.{} USING {access_method} ({columns})",
+        quote_identifier_if_needed(index_name),
+        quote_identifier_if_needed(schema_name),
+        quote_identifier_if_needed(table_name),
     )
-    .with_aliases(["pg_get_indexdef"]);
+}
+
+/// Quote a SQL identifier the way PostgreSQL's `quote_ident` does: leave a plain
+/// identifier (a lowercase letter or `_`, followed by lowercase letters, digits, or
+/// `_`) unquoted, and double-quote anything else, doubling any embedded `"`. This
+/// keeps already-safe catalog names (e.g. `pg_proc`) verbatim while protecting
+/// mixed-case or special user names.
+fn quote_identifier_if_needed(ident: &str) -> String {
+    let is_plain = !ident.is_empty()
+        && ident
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_lowercase() || c == '_')
+        && ident
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_');
+    if is_plain {
+        ident.to_string()
+    } else {
+        format!("\"{}\"", ident.replace('"', "\"\""))
+    }
+}
+
+/// The structural parts of one index, read from the catalog, that a plain
+/// `CREATE INDEX` statement is templated from. `key_attnums` are the indexed
+/// columns' attribute numbers in key order; a `0` marks an expression column,
+/// which makes the index functional/partial (its text is integration-supplied
+/// in Phase 3, not rendered here).
+struct PlainIndexParts {
+    index_oid: i64,
+    table_oid: i64,
+    is_unique: bool,
+    key_attnums: Vec<i64>,
+    index_name: String,
+    table_name: String,
+    schema_name: String,
+    access_method: String,
+}
+
+/// Resolve a set of index OIDs to their `CREATE INDEX` text with a fixed, small
+/// number of UDF-free catalog queries (one for the index/table/access-method
+/// parts, one for the column names). Indexes whose key includes an expression
+/// (attnum `0`), and any whose parts cannot be fully resolved, are omitted from
+/// the map so the caller renders SQL NULL for them.
+fn fetch_index_definitions(ctx: Arc<SessionContext>, oids: &[i64]) -> Result<HashMap<i64, String>> {
+    let mut out: HashMap<i64, String> = HashMap::new();
+    if oids.is_empty() {
+        return Ok(out);
+    }
+
+    let in_list = oids
+        .iter()
+        .map(|o| o.to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+
+    run_catalog_query(async move {
+        // One row per index: name, owning table + schema, access method,
+        // uniqueness and the key-column attnums (indkey is an int2vector list).
+        let parts_sql = format!(
+            "SELECT x.indexrelid, x.indrelid, x.indisunique, x.indkey, \
+                    i.relname AS indexname, c.relname AS tablename, \
+                    n.nspname AS schemaname, am.amname, x.indexprs, x.indpred \
+             FROM pg_catalog.pg_index x \
+             JOIN pg_catalog.pg_class i ON i.oid = x.indexrelid \
+             JOIN pg_catalog.pg_class c ON c.oid = x.indrelid \
+             JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace \
+             JOIN pg_catalog.pg_am am ON am.oid = i.relam \
+             WHERE x.indexrelid IN ({in_list})"
+        );
+        let part_batches = ctx.sql(&parts_sql).await?.collect().await?;
+
+        let mut parsed: Vec<PlainIndexParts> = Vec::new();
+        for batch in &part_batches {
+            for row in 0..batch.num_rows() {
+                let index_oid = match column_oid_at(batch, "indexrelid", row)? {
+                    Some(v) => v,
+                    None => continue,
+                };
+                // A functional index (indexprs) or partial index (indpred) carries a
+                // node-tree expression we do not deparse; its text is supplied in
+                // Phase 3, so leave it NULL here rather than render wrong DDL.
+                if column_is_non_null(batch, "indexprs", row)?
+                    || column_is_non_null(batch, "indpred", row)?
+                {
+                    continue;
+                }
+                let table_oid = match column_oid_at(batch, "indrelid", row)? {
+                    Some(v) => v,
+                    None => continue,
+                };
+                let key_attnums = match index_key_attnums_at(batch, "indkey", row)? {
+                    Some(v) => v,
+                    None => continue,
+                };
+                let (index_name, table_name, schema_name, access_method) = (
+                    column_string_at(batch, "indexname", row)?,
+                    column_string_at(batch, "tablename", row)?,
+                    column_string_at(batch, "schemaname", row)?,
+                    column_string_at(batch, "amname", row)?,
+                );
+                let (Some(index_name), Some(table_name), Some(schema_name), Some(access_method)) =
+                    (index_name, table_name, schema_name, access_method)
+                else {
+                    continue;
+                };
+                parsed.push(PlainIndexParts {
+                    index_oid,
+                    table_oid,
+                    is_unique: column_bool_at(batch, "indisunique", row)?.unwrap_or(false),
+                    key_attnums,
+                    index_name,
+                    table_name,
+                    schema_name,
+                    access_method,
+                });
+            }
+        }
+
+        // Map each (table oid, attnum) to its column name in one query over the
+        // distinct owning tables.
+        let mut table_oids: Vec<i64> = parsed.iter().map(|p| p.table_oid).collect();
+        table_oids.sort_unstable();
+        table_oids.dedup();
+        let names = fetch_attribute_names(ctx.clone(), &table_oids).await?;
+
+        for index in parsed {
+            // An expression key column (attnum 0) means a functional/partial
+            // index; leave its text NULL for Phase 3.
+            if index.key_attnums.iter().any(|&attnum| attnum == 0) {
+                continue;
+            }
+            let mut columns: Vec<String> = Vec::with_capacity(index.key_attnums.len());
+            let mut resolvable = true;
+            for attnum in &index.key_attnums {
+                match names.get(&(index.table_oid, *attnum)) {
+                    Some(name) => columns.push(name.clone()),
+                    None => {
+                        resolvable = false;
+                        break;
+                    }
+                }
+            }
+            if !resolvable {
+                continue;
+            }
+            out.insert(
+                index.index_oid,
+                render_create_index_statement(
+                    index.is_unique,
+                    &index.index_name,
+                    &index.schema_name,
+                    &index.table_name,
+                    &index.access_method,
+                    &columns,
+                ),
+            );
+        }
+
+        Ok::<_, DataFusionError>(out)
+    })
+}
+
+/// Resolve `(attrelid, attnum) -> attname` for the given relations with a single
+/// catalog query. Dropped and system (attnum <= 0) columns are excluded, since
+/// an index key only references real, ordinary columns.
+async fn fetch_attribute_names(
+    ctx: Arc<SessionContext>,
+    table_oids: &[i64],
+) -> Result<HashMap<(i64, i64), String>> {
+    let mut out: HashMap<(i64, i64), String> = HashMap::new();
+    if table_oids.is_empty() {
+        return Ok(out);
+    }
+    let in_list = table_oids
+        .iter()
+        .map(|o| o.to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sql = format!(
+        "SELECT attrelid, attnum, attname FROM pg_catalog.pg_attribute \
+         WHERE attrelid IN ({in_list}) AND attnum > 0 AND attisdropped = false"
+    );
+    let batches = ctx.sql(&sql).await?.collect().await?;
+    for batch in &batches {
+        for row in 0..batch.num_rows() {
+            let (Some(attrelid), Some(attnum), Some(attname)) = (
+                column_oid_at(batch, "attrelid", row)?,
+                column_oid_at(batch, "attnum", row)?,
+                column_string_at(batch, "attname", row)?,
+            ) else {
+                continue;
+            };
+            out.insert((attrelid, attnum), attname);
+        }
+    }
+    Ok(out)
+}
+
+/// Borrow the array for `column` out of `batch`, erroring when the catalog query
+/// result has no such column.
+fn column_array<'a>(batch: &'a RecordBatch, column: &str) -> Result<&'a ArrayRef> {
+    batch.column_by_name(column).ok_or_else(|| {
+        DataFusionError::Execution(format!("catalog query result missing column {column}"))
+    })
+}
+
+/// Read an integer/OID cell from `batch[column][row]`, widening any signed or
+/// unsigned 32/64-bit integer to `i64`. Returns `None` for NULL.
+fn column_oid_at(batch: &RecordBatch, column: &str, row: usize) -> Result<Option<i64>> {
+    oid_at(column_array(batch, column)?, row)
+}
+
+/// Read a UTF-8 cell from `batch[column][row]`. Returns `None` for NULL or a
+/// non-string column. Handles dictionary-encoded string columns (which DataFusion
+/// may produce for low-cardinality names like `relname`/`amname`) by unwrapping the
+/// dictionary value - otherwise a valid index would silently render as NULL.
+fn column_string_at(batch: &RecordBatch, column: &str, row: usize) -> Result<Option<String>> {
+    fn unwrap_string(scalar: ScalarValue) -> Option<String> {
+        match scalar {
+            ScalarValue::Utf8(v) | ScalarValue::LargeUtf8(v) | ScalarValue::Utf8View(v) => v,
+            ScalarValue::Dictionary(_, inner) => unwrap_string(*inner),
+            _ => None,
+        }
+    }
+    Ok(unwrap_string(ScalarValue::try_from_array(
+        column_array(batch, column)?,
+        row,
+    )?))
+}
+
+/// Whether `batch[column][row]` holds a non-NULL value, for columns whose type we
+/// do not otherwise decode (e.g. the `pg_node_tree` `indexprs`/`indpred`, which we
+/// only need to test for presence).
+fn column_is_non_null(batch: &RecordBatch, column: &str, row: usize) -> Result<bool> {
+    Ok(!ScalarValue::try_from_array(column_array(batch, column)?, row)?.is_null())
+}
+
+/// Read a boolean cell from `batch[column][row]`. Returns `None` for NULL or a
+/// non-boolean column.
+fn column_bool_at(batch: &RecordBatch, column: &str, row: usize) -> Result<Option<bool>> {
+    Ok(
+        match ScalarValue::try_from_array(column_array(batch, column)?, row)? {
+            ScalarValue::Boolean(v) => v,
+            _ => None,
+        },
+    )
+}
+
+/// Read an `int2vector`-shaped list cell (e.g. `pg_index.indkey`) from
+/// `batch[column][row]` as the contained attribute numbers. Returns `None` for a
+/// NULL cell or a non-list column.
+fn index_key_attnums_at(batch: &RecordBatch, column: &str, row: usize) -> Result<Option<Vec<i64>>> {
+    let array = column_array(batch, column)?;
+    let list = match array.as_any().downcast_ref::<arrow::array::ListArray>() {
+        Some(list) => list,
+        None => return Ok(None),
+    };
+    if list.is_null(row) {
+        return Ok(None);
+    }
+    let element = list.value(row);
+    let mut attnums = Vec::with_capacity(element.len());
+    for i in 0..element.len() {
+        attnums.push(oid_at(&element, i)?.unwrap_or(0));
+    }
+    Ok(Some(attnums))
+}
+
+/// `pg_catalog.pg_get_indexdef(oid)` reconstructs the `CREATE INDEX` text for a
+/// plain index from the live catalog at call time, mirroring
+/// [`PgGetUserById`]'s batched catalog-lookup pattern. Functional/partial index
+/// expressions are left NULL pending Phase 3's integration-supplied text.
+struct PgGetIndexDef {
+    sig: Signature,
+    ctx: Arc<SessionContext>,
+}
+
+impl PgGetIndexDef {
+    /// Build the UDF over a clone of the session context it queries the catalog
+    /// through, accepting any signed/unsigned 32/64-bit OID argument.
+    fn new(ctx: Arc<SessionContext>) -> Self {
+        Self {
+            sig: Signature::one_of(
+                vec![
+                    TypeSignature::Exact(vec![ArrowDataType::Int32]),
+                    TypeSignature::Exact(vec![ArrowDataType::Int64]),
+                    TypeSignature::Exact(vec![ArrowDataType::UInt32]),
+                    TypeSignature::Exact(vec![ArrowDataType::UInt64]),
+                ],
+                Volatility::Stable,
+            ),
+            ctx,
+        }
+    }
+}
+
+impl std::fmt::Debug for PgGetIndexDef {
+    /// Format without the (non-Debug) session context.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PgGetIndexDef").finish()
+    }
+}
+
+impl PartialEq for PgGetIndexDef {
+    /// Two instances are equal when they share the same session context.
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.ctx, &other.ctx)
+    }
+}
+
+impl Eq for PgGetIndexDef {}
+
+impl std::hash::Hash for PgGetIndexDef {
+    /// Hash by the identity of the shared session context.
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (Arc::as_ptr(&self.ctx) as usize).hash(state);
+    }
+}
+
+impl ScalarUDFImpl for PgGetIndexDef {
+    /// The schema-qualified function name.
+    fn name(&self) -> &str {
+        "pg_catalog.pg_get_indexdef"
+    }
+
+    /// The accepted argument signature (a single OID).
+    fn signature(&self) -> &Signature {
+        &self.sig
+    }
+
+    /// `pg_get_indexdef` returns the `CREATE INDEX` text as `text`.
+    fn return_type(&self, _arg_types: &[ArrowDataType]) -> Result<ArrowDataType> {
+        Ok(ArrowDataType::Utf8)
+    }
+
+    /// Decode every row's index OID, resolve the DISTINCT ones with a small,
+    /// fixed number of catalog queries, then emit the `CREATE INDEX` text per row
+    /// (NULL where the OID is NULL, unknown, or a functional/partial index).
+    fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+        let arrays = ColumnarValue::values_to_arrays(&args.args)?;
+        let arr = &arrays[0];
+        let len = arr.len();
+
+        let mut oids: Vec<Option<i64>> = Vec::with_capacity(len);
+        for i in 0..len {
+            oids.push(oid_at(arr, i)?);
+        }
+
+        let mut distinct: Vec<i64> = oids.iter().flatten().copied().collect();
+        distinct.sort_unstable();
+        distinct.dedup();
+        let defs = fetch_index_definitions(self.ctx.clone(), &distinct)?;
+
+        let mut builder = StringBuilder::with_capacity(len, 64 * len.max(1));
+        for oid in oids {
+            match oid.and_then(|oid| defs.get(&oid)) {
+                Some(def) => builder.append_value(def),
+                None => builder.append_null(),
+            }
+        }
+        Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
+    }
+}
+
+/// Register `pg_get_indexdef(oid)`, which reconstructs the `CREATE INDEX` text
+/// for a plain index from live catalog rows. Functional/partial indexes return
+/// NULL until their expression text is integration-supplied (Phase 3).
+pub fn register_pg_get_indexdef(ctx: &SessionContext) -> Result<()> {
+    let udf = ScalarUDF::new_from_impl(PgGetIndexDef::new(Arc::new(ctx.clone())))
+        .with_aliases(["pg_get_indexdef"]);
     ctx.register_udf(udf);
     Ok(())
 }
 
 /// pg_catalog.pg_get_function_result(oid) -> text
 pub fn register_pg_get_function_result(ctx: &SessionContext) -> Result<()> {
-    use arrow::array::{ArrayRef, StringBuilder};
-    use arrow::datatypes::DataType;
-    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
-    use std::sync::Arc;
-
-    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
-        let len = match args.first() {
-            Some(ColumnarValue::Array(a)) => a.len(),
-            _ => 1,
-        };
-        let mut b = StringBuilder::with_capacity(len, len);
-        for _ in 0..len {
-            b.append_null();
-        }
-        Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
-    };
-
-    let udf = create_udf(
-        "pg_catalog.pg_get_function_result",
-        vec![DataType::Int64],
-        DataType::Utf8,
-        Volatility::Stable,
-        Arc::new(fun),
-    )
-    .with_aliases(["pg_get_function_result"]);
-    ctx.register_udf(udf);
-    Ok(())
+    register_null_text_stub(ctx, "pg_catalog.pg_get_function_result", 1)
 }
 
 /// pg_catalog.pg_get_function_sqlbody(oid) -> text
 pub fn register_pg_get_function_sqlbody(ctx: &SessionContext) -> Result<()> {
-    use arrow::array::{ArrayRef, StringBuilder};
-    use arrow::datatypes::DataType;
-    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
-    use std::sync::Arc;
-
-    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
-        let len = match args.first() {
-            Some(ColumnarValue::Array(a)) => a.len(),
-            _ => 1,
-        };
-        let mut b = StringBuilder::with_capacity(len, len);
-        for _ in 0..len {
-            b.append_null();
-        }
-        Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
-    };
-
-    let udf = create_udf(
-        "pg_catalog.pg_get_function_sqlbody",
-        vec![DataType::Int64],
-        DataType::Utf8,
-        Volatility::Stable,
-        Arc::new(fun),
-    )
-    .with_aliases(["pg_get_function_sqlbody"]);
-    ctx.register_udf(udf);
-    Ok(())
+    register_null_text_stub(ctx, "pg_catalog.pg_get_function_sqlbody", 1)
 }
 
 /// pg_catalog.encode(bytea, text) -> text
 ///
 /// Placeholder implementation returning NULL.
 pub fn register_encode(ctx: &SessionContext) -> Result<()> {
-    use arrow::array::{ArrayRef, StringBuilder};
-    use arrow::datatypes::DataType;
-    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
-    use std::sync::Arc;
-
-    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
-        let len = match args.first() {
-            Some(ColumnarValue::Array(a)) => a.len(),
-            _ => 1,
-        };
-        let mut b = StringBuilder::with_capacity(len, len);
-        for _ in 0..len {
-            b.append_null();
-        }
-        Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
-    };
-
-    let udf = create_udf(
-        "pg_catalog.encode",
-        vec![DataType::Binary, DataType::Utf8],
-        DataType::Utf8,
-        Volatility::Stable,
-        Arc::new(fun),
-    )
-    .with_aliases(["encode"]);
-    ctx.register_udf(udf);
-    Ok(())
+    register_null_text_stub(ctx, "pg_catalog.encode", 2)
 }
 
 /// pg_catalog.pg_get_triggerdef(oid [, bool]) -> text
 ///
 /// Returns NULL placeholder.
 pub fn register_pg_get_triggerdef(ctx: &SessionContext) -> Result<()> {
-    use arrow::array::{ArrayRef, StringBuilder};
-    use arrow::datatypes::DataType;
-    use datafusion::logical_expr::{
-        ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature,
-        Volatility,
-    };
-    use std::sync::Arc;
-
-    #[derive(Debug, PartialEq, Eq, Hash)]
-    struct PgGetTriggerDef {
-        sig: Signature,
-    }
-
-    impl PgGetTriggerDef {
-        fn new() -> Self {
-            Self {
-                sig: Signature::one_of(
-                    vec![TypeSignature::Any(1), TypeSignature::Any(2)],
-                    Volatility::Stable,
-                ),
-            }
-        }
-    }
-
-    impl ScalarUDFImpl for PgGetTriggerDef {
-        fn name(&self) -> &str {
-            "pg_catalog.pg_get_triggerdef"
-        }
-        fn signature(&self) -> &Signature {
-            &self.sig
-        }
-        fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
-            Ok(DataType::Utf8)
-        }
-        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
-            let len = match args.args.first() {
-                Some(ColumnarValue::Array(a)) => a.len(),
-                _ => 1,
-            };
-            let mut b = StringBuilder::with_capacity(len, len);
-            for _ in 0..len {
-                b.append_null();
-            }
-            Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
-        }
-    }
-
-    let udf = ScalarUDF::new_from_impl(PgGetTriggerDef::new()).with_aliases(["pg_get_triggerdef"]);
-    ctx.register_udf(udf);
-    Ok(())
+    register_null_text_stub_accepting_arities(ctx, "pg_catalog.pg_get_triggerdef", &[1, 2])
 }
 
 /// pg_catalog.pg_get_ruledef(oid [, bool]) -> text
 ///
 /// Returns NULL placeholder.
 pub fn register_pg_get_ruledef(ctx: &SessionContext) -> Result<()> {
-    use arrow::array::{ArrayRef, StringBuilder};
-    use arrow::datatypes::DataType;
-    use datafusion::logical_expr::{
-        ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature,
-        Volatility,
-    };
-    use std::sync::Arc;
-
-    #[derive(Debug, PartialEq, Eq, Hash)]
-    struct PgGetRuleDef {
-        sig: Signature,
-    }
-
-    impl PgGetRuleDef {
-        fn new() -> Self {
-            Self {
-                sig: Signature::one_of(
-                    vec![TypeSignature::Any(1), TypeSignature::Any(2)],
-                    Volatility::Stable,
-                ),
-            }
-        }
-    }
-
-    impl ScalarUDFImpl for PgGetRuleDef {
-        fn name(&self) -> &str {
-            "pg_catalog.pg_get_ruledef"
-        }
-        fn signature(&self) -> &Signature {
-            &self.sig
-        }
-        fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
-            Ok(DataType::Utf8)
-        }
-        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
-            let len = match args.args.first() {
-                Some(ColumnarValue::Array(a)) => a.len(),
-                _ => 1,
-            };
-            let mut b = StringBuilder::with_capacity(len, len);
-            for _ in 0..len {
-                b.append_null();
-            }
-            Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
-        }
-    }
-
-    let udf = ScalarUDF::new_from_impl(PgGetRuleDef::new()).with_aliases(["pg_get_ruledef"]);
-    ctx.register_udf(udf);
-    Ok(())
+    register_null_text_stub_accepting_arities(ctx, "pg_catalog.pg_get_ruledef", &[1, 2])
 }
 
 /// pg_catalog.pg_available_extension_versions() -> TABLE
@@ -3562,6 +3725,76 @@ mod tests {
     use datafusion::error::Result;
     use std::sync::Arc;
 
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn test_run_catalog_query_nested_does_not_deadlock() {
+        // Three levels of nested catalog queries on a 2-worker runtime - the size
+        // of the old bounded CATALOG_QUERY_RT, which deadlocked here because each
+        // blocked caller parked a worker with no free worker left to run the inner
+        // task. block_in_place hands the worker back, so the runtime grows and this
+        // completes. (A hang here is the regression this guards.)
+        let value = run_catalog_query(async {
+            run_catalog_query(async { run_catalog_query(async { 42 }) })
+        });
+        assert_eq!(value, 42);
+    }
+
+    #[test]
+    fn test_render_create_index_statement() {
+        // Unique multi-column index, schema-qualified table, matching the
+        // real-PostgreSQL pg_get_indexdef text reproduced in pg_indexes.
+        assert_eq!(
+            render_create_index_statement(
+                true,
+                "pg_proc_proname_args_nsp_index",
+                "pg_catalog",
+                "pg_proc",
+                "btree",
+                &[
+                    "proname".to_string(),
+                    "proargtypes".to_string(),
+                    "pronamespace".to_string(),
+                ],
+            ),
+            "CREATE UNIQUE INDEX pg_proc_proname_args_nsp_index ON pg_catalog.pg_proc \
+             USING btree (proname, proargtypes, pronamespace)"
+        );
+        // Non-unique single-column index omits the UNIQUE keyword.
+        assert_eq!(
+            render_create_index_statement(
+                false,
+                "pg_index_indrelid_index",
+                "pg_catalog",
+                "pg_index",
+                "btree",
+                &["indrelid".to_string()],
+            ),
+            "CREATE INDEX pg_index_indrelid_index ON pg_catalog.pg_index USING btree (indrelid)"
+        );
+        // Mixed-case / special identifiers are double-quoted (and embedded quotes
+        // doubled); plain lowercase ones are left bare.
+        assert_eq!(
+            render_create_index_statement(
+                false,
+                "MyIdx",
+                "public",
+                "My Table",
+                "btree",
+                &["Col\"1".to_string(), "id".to_string()],
+            ),
+            "CREATE INDEX \"MyIdx\" ON public.\"My Table\" USING btree (\"Col\"\"1\", id)"
+        );
+    }
+
+    #[test]
+    fn test_quote_identifier_if_needed() {
+        assert_eq!(quote_identifier_if_needed("pg_proc"), "pg_proc");
+        assert_eq!(quote_identifier_if_needed("_x9"), "_x9");
+        assert_eq!(quote_identifier_if_needed("Mixed"), "\"Mixed\"");
+        assert_eq!(quote_identifier_if_needed("has space"), "\"has space\"");
+        assert_eq!(quote_identifier_if_needed("1leading"), "\"1leading\"");
+        assert_eq!(quote_identifier_if_needed("a\"b"), "\"a\"\"b\"");
+    }
+
     #[test]
     fn test_pg_numeric_precision_formula() {
         // Fixed widths for the integer/float types.
@@ -3634,7 +3867,7 @@ mod tests {
         assert_eq!(pg_char_octet_length(Some(OID_INT4), Some(-1)), None);
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_pg_precision_helpers_via_sql() {
         // The registered UDFs compute precision/length from a column of (typid,
         // typmod) pairs, matching the per-row formulas above.
@@ -3786,7 +4019,7 @@ mod tests {
         Ok(ctx)
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_regclass_with_oid() -> Result<()> {
         let ctx = make_ctx().await?;
         let batches = ctx
@@ -3803,7 +4036,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_query_without_function() -> Result<()> {
         let ctx = make_ctx().await?;
         let batches = ctx
@@ -3820,7 +4053,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_regclass_oid_arithmetic() -> Result<()> {
         let ctx = make_ctx().await?;
         let batches = ctx
@@ -3871,7 +4104,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_pggetone_constant() -> Result<()> {
         let ctx = make_ctx().await?;
         let batches = ctx
@@ -3888,7 +4121,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_pggetone_subquery() -> Result<()> {
         let ctx = make_ctx().await?;
         let batches = ctx
@@ -3905,7 +4138,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_pg_get_array_constant() -> Result<()> {
         let ctx = make_ctx().await?;
         let batches = ctx
@@ -3924,7 +4157,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_pg_get_array_subquery() -> Result<()> {
         let ctx = make_ctx().await?;
 
@@ -3945,7 +4178,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_pg_catalog_array_agg_alias() -> Result<()> {
         use arrow::array::ListArray;
 
@@ -3963,7 +4196,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_pg_postmaster_start_time_fn() -> Result<()> {
         use arrow::array::TimestampMicrosecondArray;
         let ctx = SessionContext::new();
@@ -3982,7 +4215,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_pg_age_always_one() -> datafusion::error::Result<()> {
         use arrow::array::Int64Array;
 
@@ -4010,7 +4243,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn pg_is_in_recovery_always_false() -> Result<()> {
         let ctx = SessionContext::new();
         register_scalar_pg_is_in_recovery(&ctx)?;
@@ -4029,7 +4262,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn txid_current_ticks_up() -> Result<()> {
         let ctx = SessionContext::new();
         register_scalar_txid_current(&ctx)?;
@@ -4059,7 +4292,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn available_extension_versions_empty() -> Result<()> {
         let ctx = SessionContext::new();
         register_pg_available_extension_versions(&ctx)?;
@@ -4072,7 +4305,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn pg_get_keywords_empty() -> Result<()> {
         let ctx = SessionContext::new();
         register_pg_get_keywords(&ctx)?;
@@ -4085,7 +4318,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn relation_size_returns_zero() -> Result<()> {
         use arrow::array::Int64Array;
         let ctx = SessionContext::new();
@@ -4104,7 +4337,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn total_relation_size_returns_zero() -> Result<()> {
         use arrow::array::Int64Array;
         let ctx = SessionContext::new();
@@ -4123,7 +4356,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn encode_returns_null() -> Result<()> {
         use arrow::array::StringArray;
         let ctx = SessionContext::new();
@@ -4142,7 +4375,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn pg_get_triggerdef_returns_null() -> Result<()> {
         use arrow::array::StringArray;
         let ctx = SessionContext::new();
@@ -4161,7 +4394,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn upper_converts_text() -> Result<()> {
         use arrow::array::StringArray;
         let ctx = SessionContext::new();
@@ -4180,7 +4413,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn pg_get_ruledef_returns_null() -> Result<()> {
         use arrow::array::StringArray;
         let ctx = SessionContext::new();
@@ -4199,7 +4432,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn current_schemas_returns_defaults() -> Result<()> {
         use arrow::array::{ListArray, StringArray};
         let ctx = SessionContext::new();
@@ -4226,7 +4459,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn current_schema_uses_callable() -> Result<()> {
         use arrow::array::StringArray;
         let ctx = SessionContext::new();
@@ -4250,7 +4483,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn has_database_privilege_always_true() -> Result<()> {
         use arrow::array::BooleanArray;
         let ctx = SessionContext::new();
@@ -4281,7 +4514,7 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn has_schema_privilege_always_true() -> Result<()> {
         use arrow::array::BooleanArray;
         let ctx = SessionContext::new();

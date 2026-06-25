@@ -235,6 +235,238 @@ impl IndexDef {
     }
 }
 
+/// The kind of table constraint a [`ConstraintDef`] describes. Check constraints
+/// are excluded: their defining SQL is a node tree we do not deparse, so their
+/// text is integration-supplied (Phase 3) rather than structural.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ConstraintKind {
+    /// A primary key (`pg_constraint.contype = 'p'`).
+    PrimaryKey,
+    /// A unique constraint (`pg_constraint.contype = 'u'`).
+    Unique,
+    /// A foreign key (`pg_constraint.contype = 'f'`).
+    ForeignKey,
+}
+
+impl ConstraintKind {
+    /// The single-character `pg_constraint.contype` code for this kind.
+    pub fn contype(&self) -> &'static str {
+        match self {
+            ConstraintKind::PrimaryKey => "p",
+            ConstraintKind::Unique => "u",
+            ConstraintKind::ForeignKey => "f",
+        }
+    }
+}
+
+/// The action a foreign key takes on UPDATE or DELETE of a referenced row
+/// (`pg_constraint.confupdtype` / `confdeltype`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ForeignKeyAction {
+    /// `NO ACTION` (`a`) - the default; reject the change if references remain.
+    NoAction,
+    /// `RESTRICT` (`r`).
+    Restrict,
+    /// `CASCADE` (`c`).
+    Cascade,
+    /// `SET NULL` (`n`).
+    SetNull,
+    /// `SET DEFAULT` (`d`).
+    SetDefault,
+}
+
+impl ForeignKeyAction {
+    /// The single-character action code stored in `pg_constraint`.
+    pub fn code(&self) -> &'static str {
+        match self {
+            ForeignKeyAction::NoAction => "a",
+            ForeignKeyAction::Restrict => "r",
+            ForeignKeyAction::Cascade => "c",
+            ForeignKeyAction::SetNull => "n",
+            ForeignKeyAction::SetDefault => "d",
+        }
+    }
+}
+
+/// How a foreign key matches a multi-column reference
+/// (`pg_constraint.confmatchtype`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ForeignKeyMatch {
+    /// `MATCH FULL` (`f`).
+    Full,
+    /// `MATCH PARTIAL` (`p`).
+    Partial,
+    /// `MATCH SIMPLE` (`s`) - the default.
+    Simple,
+}
+
+impl ForeignKeyMatch {
+    /// The single-character match-type code stored in `pg_constraint`.
+    pub fn code(&self) -> &'static str {
+        match self {
+            ForeignKeyMatch::Full => "f",
+            ForeignKeyMatch::Partial => "p",
+            ForeignKeyMatch::Simple => "s",
+        }
+    }
+}
+
+/// One constraint fed into `pg_catalog.pg_constraint`.
+///
+/// Describes a primary-key, unique, or foreign-key constraint structurally - by
+/// its key columns, and (for a foreign key) the referenced relation and columns.
+/// A single [`ConstraintDef`] becomes one `pg_constraint` row, which the
+/// `information_schema` constraint views (`table_constraints`,
+/// `key_column_usage`, `constraint_column_usage`, `referential_constraints`)
+/// derive from. FK targets are given as OIDs the source already knows.
+#[derive(Clone, Debug)]
+pub struct ConstraintDef {
+    /// The constraint's `pg_constraint.oid`.
+    pub oid: i32,
+    /// The constraint name (`conname`).
+    pub name: String,
+    /// Primary key, unique, or foreign key (`contype`).
+    pub kind: ConstraintKind,
+    /// The schema OID the constraint belongs to (`connamespace`), normally the
+    /// constrained table's schema.
+    pub namespace_oid: i32,
+    /// The constrained table's `pg_class.oid` (`conrelid`).
+    pub table_oid: i32,
+    /// The constrained columns as 1-based attnums in key order (`conkey`).
+    pub key_attnums: Vec<i32>,
+    /// The OID of the index backing this constraint (`conindid`), or 0 if none.
+    /// PK/UNIQUE constraints are normally backed by a unique index.
+    pub index_oid: i32,
+    /// For a foreign key, the referenced table's `pg_class.oid` (`confrelid`); 0
+    /// for primary-key and unique constraints.
+    pub referenced_table_oid: i32,
+    /// For a foreign key, the referenced columns as 1-based attnums (`confkey`),
+    /// positionally matched to `key_attnums`; empty for non-foreign-key kinds.
+    pub referenced_key_attnums: Vec<i32>,
+    /// A foreign key's `ON UPDATE` action (`confupdtype`).
+    pub on_update: ForeignKeyAction,
+    /// A foreign key's `ON DELETE` action (`confdeltype`).
+    pub on_delete: ForeignKeyAction,
+    /// A foreign key's match type (`confmatchtype`).
+    pub match_type: ForeignKeyMatch,
+}
+
+impl ConstraintDef {
+    /// Construct a primary-key constraint over `key_attnums` of `table_oid`,
+    /// backed by `index_oid` (the unique index implementing it; pass 0 if none).
+    pub fn primary_key(
+        oid: i32,
+        name: impl Into<String>,
+        namespace_oid: i32,
+        table_oid: i32,
+        key_attnums: Vec<i32>,
+        index_oid: i32,
+    ) -> Self {
+        Self::key_constraint(
+            ConstraintKind::PrimaryKey,
+            oid,
+            name,
+            namespace_oid,
+            table_oid,
+            key_attnums,
+            index_oid,
+        )
+    }
+
+    /// Construct a unique constraint over `key_attnums` of `table_oid`, backed by
+    /// `index_oid` (the unique index implementing it; pass 0 if none).
+    pub fn unique(
+        oid: i32,
+        name: impl Into<String>,
+        namespace_oid: i32,
+        table_oid: i32,
+        key_attnums: Vec<i32>,
+        index_oid: i32,
+    ) -> Self {
+        Self::key_constraint(
+            ConstraintKind::Unique,
+            oid,
+            name,
+            namespace_oid,
+            table_oid,
+            key_attnums,
+            index_oid,
+        )
+    }
+
+    /// Shared constructor for the key-only constraint kinds (primary key and
+    /// unique), which reference no other relation.
+    fn key_constraint(
+        kind: ConstraintKind,
+        oid: i32,
+        name: impl Into<String>,
+        namespace_oid: i32,
+        table_oid: i32,
+        key_attnums: Vec<i32>,
+        index_oid: i32,
+    ) -> Self {
+        Self {
+            oid,
+            name: name.into(),
+            kind,
+            namespace_oid,
+            table_oid,
+            key_attnums,
+            index_oid,
+            referenced_table_oid: 0,
+            referenced_key_attnums: Vec::new(),
+            on_update: ForeignKeyAction::NoAction,
+            on_delete: ForeignKeyAction::NoAction,
+            match_type: ForeignKeyMatch::Simple,
+        }
+    }
+
+    /// Construct a foreign-key constraint: `key_attnums` of `table_oid` reference
+    /// `referenced_key_attnums` of `referenced_table_oid`, positionally matched.
+    /// The ON UPDATE / ON DELETE actions default to NO ACTION and the match type
+    /// to SIMPLE; set those fields afterward to change them.
+    ///
+    /// Because the two attnum lists are matched position-by-position (and become
+    /// `pg_constraint.conkey` / `confkey`), they must have the same length; an
+    /// unequal pairing is rejected here so an invalid foreign key can never be
+    /// constructed and later serialized.
+    #[allow(clippy::too_many_arguments)]
+    pub fn foreign_key(
+        oid: i32,
+        name: impl Into<String>,
+        namespace_oid: i32,
+        table_oid: i32,
+        key_attnums: Vec<i32>,
+        referenced_table_oid: i32,
+        referenced_key_attnums: Vec<i32>,
+        index_oid: i32,
+    ) -> DFResult<Self> {
+        let name = name.into();
+        if key_attnums.len() != referenced_key_attnums.len() {
+            return Err(DataFusionError::Execution(format!(
+                "foreign key '{name}' has {} key column(s) but {} referenced column(s); \
+                 they are positionally matched and must be equal in number",
+                key_attnums.len(),
+                referenced_key_attnums.len(),
+            )));
+        }
+        Ok(Self {
+            oid,
+            name,
+            kind: ConstraintKind::ForeignKey,
+            namespace_oid,
+            table_oid,
+            key_attnums,
+            index_oid,
+            referenced_table_oid,
+            referenced_key_attnums,
+            on_update: ForeignKeyAction::NoAction,
+            on_delete: ForeignKeyAction::NoAction,
+            match_type: ForeignKeyMatch::Simple,
+        })
+    }
+}
+
 /// One column fed into `pg_attribute` (plus `information_schema.columns`).
 ///
 /// `attrelid` comes from the owning [`RelationDef::oid`]; `attnum` from the
@@ -249,17 +481,30 @@ pub struct ColumnSpec {
     pub type_oid: i32,
     /// Whether the column admits NULLs (`pg_attribute.attnotnull` is its negation).
     pub nullable: bool,
+    /// Whether the column has a default expression (`pg_attribute.atthasdef`, and
+    /// a backing `pg_attrdef` row). The default *text* is integration-supplied
+    /// (Phase 3); this flag and the `pg_attrdef` handle are the structural part.
+    pub has_default: bool,
 }
 
 impl ColumnSpec {
     /// Construct a column specification from a name, `pg_type` OID, and
-    /// nullability.
+    /// nullability, with no column default.
     pub fn new(name: impl Into<String>, type_oid: i32, nullable: bool) -> Self {
         Self {
             name: name.into(),
             type_oid,
             nullable,
+            has_default: false,
         }
+    }
+
+    /// Mark this column as having a default expression, so it gets a `pg_attrdef`
+    /// row and `pg_attribute.atthasdef = true`. The default text itself is
+    /// supplied later (Phase 3).
+    pub fn with_default(mut self) -> Self {
+        self.has_default = true;
+        self
     }
 }
 
@@ -315,6 +560,22 @@ pub trait LazyCatalogSource: Send + Sync {
         Ok(())
     }
 
+    /// Constraints in `database`.`schema` -> `pg_catalog.pg_constraint`.
+    ///
+    /// Has a default that contributes nothing, so existing implementors expose no
+    /// constraints and keep compiling. Override it to report a relation's
+    /// primary-key/unique/foreign-key constraints so the `information_schema`
+    /// constraint views describe them. Each returned [`ConstraintDef`]'s `oid`
+    /// must be distinct from every relation and index OID.
+    fn constraints(
+        &self,
+        _database: &str,
+        _schema: &str,
+        _callback: &mut dyn FnMut(Vec<ConstraintDef>),
+    ) -> DFResult<()> {
+        Ok(())
+    }
+
     /// `pg_config` build/install settings -> `pg_catalog.pg_config`.
     ///
     /// Has a default that contributes nothing, so existing implementors keep the
@@ -352,6 +613,10 @@ pub enum CatalogTable {
     PgAttribute,
     /// `pg_catalog.pg_index`.
     PgIndex,
+    /// `pg_catalog.pg_constraint`.
+    PgConstraint,
+    /// `pg_catalog.pg_attrdef`.
+    PgAttrdef,
     /// `pg_catalog.pg_config`.
     PgConfig,
     /// `pg_catalog.pg_settings`.
@@ -375,6 +640,8 @@ impl CatalogTable {
             CatalogTable::PgType => ("pg_catalog", "pg_type"),
             CatalogTable::PgAttribute => ("pg_catalog", "pg_attribute"),
             CatalogTable::PgIndex => ("pg_catalog", "pg_index"),
+            CatalogTable::PgConstraint => ("pg_catalog", "pg_constraint"),
+            CatalogTable::PgAttrdef => ("pg_catalog", "pg_attrdef"),
             CatalogTable::PgConfig => ("pg_catalog", "pg_config"),
             CatalogTable::PgSettings => ("pg_catalog", "pg_settings"),
             CatalogTable::InformationSchemaTables => ("information_schema", "tables"),
@@ -401,6 +668,8 @@ impl CatalogTable {
             CatalogTable::PgType => &["typnamespace", "typname"],
             CatalogTable::PgAttribute => &["attrelid", "attname"],
             CatalogTable::PgIndex => &["indexrelid"],
+            CatalogTable::PgConstraint => &["oid"],
+            CatalogTable::PgAttrdef => &["adrelid", "adnum"],
             CatalogTable::PgConfig => &["name"],
             CatalogTable::PgSettings => &["name"],
             CatalogTable::InformationSchemaTables => {
@@ -450,6 +719,17 @@ fn fetch_indexes(
 ) -> DFResult<Vec<IndexDef>> {
     let mut out = Vec::new();
     source.indexes(database, schema, &mut |rows| out.extend(rows))?;
+    Ok(out)
+}
+
+/// Pull the constraints of `database`.`schema` from `source`.
+fn fetch_constraints(
+    source: &dyn LazyCatalogSource,
+    database: &str,
+    schema: &str,
+) -> DFResult<Vec<ConstraintDef>> {
+    let mut out = Vec::new();
+    source.constraints(database, schema, &mut |rows| out.extend(rows))?;
     Ok(out)
 }
 
@@ -596,15 +876,23 @@ pub fn build_pg_namespace_row(def: &SchemaDef) -> Row {
     row
 }
 
-/// Build one `pg_catalog.pg_class` row from a [`RelationDef`] and the OID of its
-/// owning schema.
-pub fn build_pg_class_row(def: &RelationDef, namespace_oid: i32) -> Row {
+/// The `pg_am.oid` of the heap table access method (a fixed PostgreSQL system
+/// OID). An ordinary registered table is heap-stored, so its `pg_class.relam`
+/// points here. (A view/materialized view has no access method; PostgreSQL still
+/// records heap for a materialized view and 0 for a plain view, but heap is a
+/// safe non-NULL default for client introspection either way.)
+pub const HEAP_ACCESS_METHOD_OID: i32 = 2;
+
+/// Build one `pg_catalog.pg_class` row from a [`RelationDef`], the OID of its
+/// owning schema, and its column count (`natts`, written to `relnatts`).
+pub fn build_pg_class_row(def: &RelationDef, namespace_oid: i32, natts: i32) -> Row {
     let mut row = Row::new();
     row.insert("oid".to_string(), json!(def.oid));
     row.insert("relname".to_string(), json!(def.name));
     row.insert("relnamespace".to_string(), json!(namespace_oid));
     row.insert("reltype".to_string(), json!(def.reltype_oid));
     row.insert("relkind".to_string(), json!(def.kind.relkind()));
+    row.insert("relam".to_string(), json!(HEAP_ACCESS_METHOD_OID));
     row.insert("reltuples".to_string(), json!(0.0));
     row.insert("relispartition".to_string(), json!(false));
     // Flags read by pg_tables / pg_views and common client introspection. The
@@ -622,8 +910,28 @@ pub fn build_pg_class_row(def: &RelationDef, namespace_oid: i32) -> Row {
     row.insert("relispopulated".to_string(), json!(true));
     row.insert("relpersistence".to_string(), json!("p"));
     row.insert("relreplident".to_string(), json!("d"));
+    // Structural columns clients read off pg_class for a real relation. The
+    // relation has no separate on-disk file in this layer, so relfilenode mirrors
+    // the OID (PostgreSQL's own default at creation) and the size/freeze counters
+    // are zero.
+    row.insert("relnatts".to_string(), json!(natts));
+    row.insert("relchecks".to_string(), json!(0));
+    row.insert("relhassubclass".to_string(), json!(false));
+    row.insert("relfilenode".to_string(), json!(def.oid));
+    row.insert("reltablespace".to_string(), json!(0));
+    row.insert("relpages".to_string(), json!(0));
+    row.insert("relallvisible".to_string(), json!(0));
+    row.insert("reltoastrelid".to_string(), json!(0));
+    row.insert("relfrozenxid".to_string(), json!(0));
+    row.insert("relminmxid".to_string(), json!(0));
     row
 }
+
+/// The `pg_am.oid` of the B-tree access method (a fixed PostgreSQL system OID).
+/// A registered [`IndexDef`] describes a plain column index, which is always
+/// B-tree, so its `pg_class.relam` points here - letting `pg_get_indexdef`
+/// render `USING btree`.
+pub const BTREE_ACCESS_METHOD_OID: i32 = 403;
 
 /// Build the `pg_catalog.pg_class` row for an index relation (`relkind = 'i'`).
 ///
@@ -638,6 +946,7 @@ pub fn build_index_pg_class_row(def: &IndexDef, namespace_oid: i32) -> Row {
     row.insert("relnamespace".to_string(), json!(namespace_oid));
     row.insert("reltype".to_string(), json!(0));
     row.insert("relkind".to_string(), json!("i"));
+    row.insert("relam".to_string(), json!(BTREE_ACCESS_METHOD_OID));
     row.insert("reltuples".to_string(), json!(0.0));
     row.insert("relispartition".to_string(), json!(false));
     row.insert("relhasindex".to_string(), json!(false));
@@ -679,7 +988,54 @@ pub fn build_pg_index_row(def: &IndexDef) -> Row {
     row
 }
 
+/// Build one `pg_catalog.pg_constraint` row from a [`ConstraintDef`].
+///
+/// The foreign-key fields (`confrelid`/`confkey`/`confupdtype`/`confdeltype`/
+/// `confmatchtype`) carry real values only for a foreign key; for primary-key and
+/// unique constraints they take PostgreSQL's non-FK sentinels (`confrelid` 0,
+/// `confkey` NULL, and the three type codes a single space). The check-expression
+/// column (`conbin`) is left NULL - these kinds have no expression, and check
+/// text is integration-supplied (Phase 3) anyway.
+pub fn build_pg_constraint_row(def: &ConstraintDef) -> Row {
+    let is_foreign_key = def.kind == ConstraintKind::ForeignKey;
+    let mut row = Row::new();
+    row.insert("oid".to_string(), json!(def.oid));
+    row.insert("conname".to_string(), json!(def.name));
+    row.insert("connamespace".to_string(), json!(def.namespace_oid));
+    row.insert("contype".to_string(), json!(def.kind.contype()));
+    row.insert("condeferrable".to_string(), json!(false));
+    row.insert("condeferred".to_string(), json!(false));
+    row.insert("convalidated".to_string(), json!(true));
+    row.insert("conrelid".to_string(), json!(def.table_oid));
+    row.insert("contypid".to_string(), json!(0));
+    row.insert("conindid".to_string(), json!(def.index_oid));
+    row.insert("conparentid".to_string(), json!(0));
+    row.insert("conkey".to_string(), json!(def.key_attnums));
+    row.insert("conislocal".to_string(), json!(true));
+    row.insert("coninhcount".to_string(), json!(0));
+    row.insert("connoinherit".to_string(), json!(false));
+    if is_foreign_key {
+        row.insert("confrelid".to_string(), json!(def.referenced_table_oid));
+        row.insert("confkey".to_string(), json!(def.referenced_key_attnums));
+        row.insert("confupdtype".to_string(), json!(def.on_update.code()));
+        row.insert("confdeltype".to_string(), json!(def.on_delete.code()));
+        row.insert("confmatchtype".to_string(), json!(def.match_type.code()));
+    } else {
+        row.insert("confrelid".to_string(), json!(0));
+        row.insert("confkey".to_string(), Value::Null);
+        row.insert("confupdtype".to_string(), json!(" "));
+        row.insert("confdeltype".to_string(), json!(" "));
+        row.insert("confmatchtype".to_string(), json!(" "));
+    }
+    row
+}
+
 /// Build one `pg_catalog.pg_type` row describing a relation's composite rowtype.
+///
+/// A composite type is variable-length and passed by reference (`typlen` -1,
+/// `typbyval` false), with the `record` I/O routines and extended storage that
+/// PostgreSQL uses for every relation rowtype. `typelem`/`typarray` are 0 (the
+/// rowtype is not an array element type and we do not register its array type).
 pub fn build_pg_type_rowtype_row(def: &RelationDef, namespace_oid: i32) -> Row {
     let mut row = Row::new();
     row.insert("oid".to_string(), json!(def.reltype_oid));
@@ -689,16 +1045,71 @@ pub fn build_pg_type_rowtype_row(def: &RelationDef, namespace_oid: i32) -> Row {
     row.insert("typlen".to_string(), json!(-1));
     row.insert("typtype".to_string(), json!("c"));
     row.insert("typcategory".to_string(), json!("C"));
+    // Physical/behavioral columns clients read for a composite type.
+    row.insert("typbyval".to_string(), json!(false));
+    row.insert("typalign".to_string(), json!("d"));
+    row.insert("typstorage".to_string(), json!("x"));
+    row.insert("typisdefined".to_string(), json!(true));
+    row.insert("typispreferred".to_string(), json!(false));
+    row.insert("typnotnull".to_string(), json!(false));
+    row.insert("typelem".to_string(), json!(0));
+    row.insert("typarray".to_string(), json!(0));
+    row.insert("typbasetype".to_string(), json!(0));
+    row.insert("typtypmod".to_string(), json!(-1));
+    row.insert("typndims".to_string(), json!(0));
+    row.insert("typinput".to_string(), json!("record_in"));
+    row.insert("typoutput".to_string(), json!("record_out"));
+    row.insert("typreceive".to_string(), json!("record_recv"));
+    row.insert("typsend".to_string(), json!("record_send"));
+    row.insert("typdelim".to_string(), json!(","));
     row
 }
 
+/// The physical storage attributes a `pg_type` OID implies for `pg_attribute`:
+/// `(attlen, attbyval, attalign, attstorage)`. Covers the common scalar types a
+/// user table exposes; unknown OIDs fall back to a variable-length,
+/// not-by-value, extended-storage column - the safe default for any text-like or
+/// composite type.
+fn column_type_storage(type_oid: i32) -> (i32, bool, &'static str, &'static str) {
+    match type_oid {
+        16 => (1, true, "c", "p"),                 // bool
+        18 => (1, true, "c", "p"),                 // "char"
+        21 => (2, true, "s", "p"),                 // int2
+        23 => (4, true, "i", "p"),                 // int4
+        26 => (4, true, "i", "p"),                 // oid
+        20 => (8, true, "d", "p"),                 // int8
+        700 => (4, true, "i", "p"),                // float4
+        701 => (8, true, "d", "p"),                // float8
+        1082 => (4, true, "i", "p"),               // date
+        1114 | 1184 => (8, true, "d", "p"),        // timestamp / timestamptz
+        1700 => (-1, false, "i", "m"),             // numeric (main-storage)
+        25 | 1042 | 1043 => (-1, false, "i", "x"), // text / bpchar / varchar
+        _ => (-1, false, "i", "x"),
+    }
+}
+
+/// The default collation OID a `pg_type` OID implies for `pg_attribute`: the
+/// collatable string types use the database default collation (100); every other
+/// type is non-collatable (0).
+fn column_collation(type_oid: i32) -> i32 {
+    match type_oid {
+        25 | 1042 | 1043 => 100, // text / bpchar / varchar -> default collation
+        _ => 0,
+    }
+}
+
 /// Build the `pg_catalog.pg_attribute` rows for a relation's columns. `attrelid`
-/// is the owning relation's OID; `attnum` is the 1-based ordinal position.
+/// is the owning relation's OID; `attnum` is the 1-based ordinal position. The
+/// physical columns clients read for the binary protocol and for column
+/// introspection (`attlen`/`attbyval`/`attalign`/`attstorage`/`attcollation`) are
+/// derived from each column's type OID; `atthasdef` reflects whether the column
+/// has a default (its `pg_attrdef` handle).
 pub fn build_pg_attribute_rows(attrelid: i32, columns: &[ColumnSpec]) -> Vec<Row> {
     columns
         .iter()
         .enumerate()
         .map(|(idx, col)| {
+            let (attlen, attbyval, attalign, attstorage) = column_type_storage(col.type_oid);
             let mut row = Row::new();
             row.insert("attrelid".to_string(), json!(attrelid));
             row.insert("attname".to_string(), json!(col.name));
@@ -706,10 +1117,52 @@ pub fn build_pg_attribute_rows(attrelid: i32, columns: &[ColumnSpec]) -> Vec<Row
             row.insert("attnum".to_string(), json!((idx + 1) as i32));
             row.insert("atttypmod".to_string(), json!(-1));
             row.insert("attnotnull".to_string(), json!(!col.nullable));
+            row.insert("atthasdef".to_string(), json!(col.has_default));
             row.insert("attisdropped".to_string(), json!(false));
+            // Physical layout, derived from the column's type.
+            row.insert("attlen".to_string(), json!(attlen));
+            row.insert("attbyval".to_string(), json!(attbyval));
+            row.insert("attalign".to_string(), json!(attalign));
+            row.insert("attstorage".to_string(), json!(attstorage));
+            row.insert(
+                "attcollation".to_string(),
+                json!(column_collation(col.type_oid)),
+            );
+            // Fixed structural defaults for a plain, locally-defined column.
+            row.insert("attndims".to_string(), json!(0));
+            row.insert("attcacheoff".to_string(), json!(-1));
+            row.insert("attislocal".to_string(), json!(true));
+            row.insert("attinhcount".to_string(), json!(0));
+            row.insert("attstattarget".to_string(), json!(-1));
+            row.insert("attidentity".to_string(), json!(""));
+            row.insert("attgenerated".to_string(), json!(""));
+            row.insert("attcompression".to_string(), json!(""));
+            row.insert("atthasmissing".to_string(), json!(false));
             row
         })
         .collect()
+}
+
+/// Base OID for synthesized `pg_attrdef.oid` values on the lazy path. The column
+/// is NOT NULL in PostgreSQL but no consumer reads it (the constraint/column
+/// views join `pg_attrdef` on `adrelid`+`adnum`), so a high, unread range avoids
+/// colliding with real allocated OIDs.
+const SYNTHETIC_ATTRDEF_OID_BASE: i32 = 900_000;
+
+/// Build one `pg_catalog.pg_attrdef` row marking that column `adnum` of relation
+/// `adrelid` has a default.
+///
+/// The compiled default expression (`adbin`, a node tree) is left NULL: we do not
+/// store node trees, and the human-facing default text is integration-supplied
+/// (Phase 3). This row, joined with `pg_attribute.atthasdef`, is the structural
+/// handle that `information_schema.columns` and clients read.
+pub fn build_pg_attrdef_row(oid: i32, adrelid: i32, adnum: i32) -> Row {
+    let mut row = Row::new();
+    row.insert("oid".to_string(), json!(oid));
+    row.insert("adrelid".to_string(), json!(adrelid));
+    row.insert("adnum".to_string(), json!(adnum));
+    row.insert("adbin".to_string(), Value::Null);
+    row
 }
 
 /// Build one `information_schema.tables` row for a relation.
@@ -802,7 +1255,9 @@ pub fn build_rows_for(table: CatalogTable, source: &dyn LazyCatalogSource) -> DF
             for db in fetch_databases(source)? {
                 for schema in fetch_schemas(source, &db.datname)? {
                     for rel in fetch_relations(source, &db.datname, &schema.name)? {
-                        rows.push(build_pg_class_row(&rel, schema.oid));
+                        let natts = fetch_columns(source, &db.datname, &schema.name, &rel.name)?
+                            .len() as i32;
+                        rows.push(build_pg_class_row(&rel, schema.oid, natts));
                     }
                     // An index is itself a relation, so it gets its own pg_class
                     // row (relkind 'i') alongside the tables in this schema.
@@ -817,6 +1272,39 @@ pub fn build_rows_for(table: CatalogTable, source: &dyn LazyCatalogSource) -> DF
                 for schema in fetch_schemas(source, &db.datname)? {
                     for index in fetch_indexes(source, &db.datname, &schema.name)? {
                         rows.push(build_pg_index_row(&index));
+                    }
+                }
+            }
+        }
+        CatalogTable::PgConstraint => {
+            for db in fetch_databases(source)? {
+                for schema in fetch_schemas(source, &db.datname)? {
+                    for constraint in fetch_constraints(source, &db.datname, &schema.name)? {
+                        rows.push(build_pg_constraint_row(&constraint));
+                    }
+                }
+            }
+        }
+        CatalogTable::PgAttrdef => {
+            // One pg_attrdef row per column flagged as having a default. The OID
+            // is synthesized from a per-scan counter: nothing reads pg_attrdef.oid
+            // (consumers join on adrelid+adnum), so only stability within a scan
+            // matters, and the build order is deterministic.
+            let mut synthetic_oid = SYNTHETIC_ATTRDEF_OID_BASE;
+            for db in fetch_databases(source)? {
+                for schema in fetch_schemas(source, &db.datname)? {
+                    for rel in fetch_relations(source, &db.datname, &schema.name)? {
+                        let columns = fetch_columns(source, &db.datname, &schema.name, &rel.name)?;
+                        for (idx, col) in columns.iter().enumerate() {
+                            if col.has_default {
+                                rows.push(build_pg_attrdef_row(
+                                    synthetic_oid,
+                                    rel.oid,
+                                    (idx + 1) as i32,
+                                ));
+                                synthetic_oid += 1;
+                            }
+                        }
                     }
                 }
             }
@@ -1059,6 +1547,8 @@ impl LazyCatalogOptions {
                 CatalogTable::PgType,
                 CatalogTable::PgAttribute,
                 CatalogTable::PgIndex,
+                CatalogTable::PgConstraint,
+                CatalogTable::PgAttrdef,
                 CatalogTable::PgConfig,
                 CatalogTable::PgSettings,
                 CatalogTable::InformationSchemaTables,

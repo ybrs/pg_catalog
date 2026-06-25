@@ -71,7 +71,7 @@ mod tests {
     use super::*;
     use arrow::datatypes::DataType;
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_register_table() -> Result<()> {
         let config = datafusion::execution::context::SessionConfig::new()
             .with_default_catalog_and_schema("crm", "crm");

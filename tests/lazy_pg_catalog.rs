@@ -7,9 +7,9 @@ use arrow::array::Array;
 use datafusion::error::{DataFusionError, Result as DFResult};
 use datafusion_pg_catalog::{
     get_base_session_context, get_base_session_context_with_lazy_catalog, register_lazy_catalog,
-    register_user_database_with_callback, ColumnSpec, ConfigSettingDef, DatabaseDef, IndexDef,
-    LazyCatalogOptions, LazyCatalogSource, LazyDatabaseRow, RelationDef, RelationKind, SchemaDef,
-    SettingDef,
+    register_user_database_with_callback, ColumnSpec, ConfigSettingDef, ConstraintDef, DatabaseDef,
+    IndexDef, LazyCatalogOptions, LazyCatalogSource, LazyDatabaseRow, RelationDef, RelationKind,
+    SchemaDef, SettingDef,
 };
 
 /// Collect a single-column `StringArray` result into a `Vec<String>`.
@@ -25,6 +25,33 @@ async fn string_column(
             .as_any()
             .downcast_ref::<arrow::array::StringArray>()
             .expect("expected a Utf8 column");
+        for i in 0..arr.len() {
+            if arr.is_valid(i) {
+                out.push(arr.value(i).to_string());
+            }
+        }
+    }
+    Ok(out)
+}
+
+/// Collect a single-column text result into a `Vec<String>`, casting whatever
+/// string representation the engine returns (`Utf8`, `LargeUtf8`, `Utf8View`, a
+/// dictionary, ...) to `Utf8` first. Use this for catalog columns whose Arrow
+/// string flavor is not guaranteed (e.g. the `"char"` `contype`, or values that
+/// pass through `information_schema` domain casts).
+async fn text_column(
+    ctx: &datafusion::execution::context::SessionContext,
+    sql: &str,
+) -> DFResult<Vec<String>> {
+    let batches = ctx.sql(sql).await?.collect().await?;
+    let mut out = Vec::new();
+    for b in &batches {
+        let utf8 = arrow::compute::cast(b.column(0), &arrow::datatypes::DataType::Utf8)
+            .expect("a single-column text result must cast to Utf8");
+        let arr = utf8
+            .as_any()
+            .downcast_ref::<arrow::array::StringArray>()
+            .expect("cast result must be a Utf8 StringArray");
         for i in 0..arr.len() {
             if arr.is_valid(i) {
                 out.push(arr.value(i).to_string());
@@ -170,7 +197,7 @@ async fn ctx_with_fake_source() -> DFResult<datafusion::execution::context::Sess
     Ok(ctx)
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_register_pg_database_on_scan() -> DFResult<()> {
     let (ctx, _log) = get_base_session_context(
         Some("pg_catalog_data/pg_schema"),
@@ -214,7 +241,7 @@ async fn test_lazy_register_pg_database_on_scan() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_merges_pg_database_rows() -> DFResult<()> {
     let (ctx, _log) = get_base_session_context(
         Some("pg_catalog_data/pg_schema"),
@@ -272,7 +299,7 @@ async fn test_lazy_merges_pg_database_rows() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_catalog_joins_resolve() -> DFResult<()> {
     let ctx = ctx_with_fake_source().await?;
 
@@ -290,7 +317,7 @@ async fn test_lazy_catalog_joins_resolve() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_catalog_builtins_survive() -> DFResult<()> {
     let ctx = ctx_with_fake_source().await?;
 
@@ -320,7 +347,7 @@ async fn test_lazy_catalog_builtins_survive() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_catalog_oid_passthrough() -> DFResult<()> {
     let ctx = ctx_with_fake_source().await?;
 
@@ -343,7 +370,7 @@ async fn test_lazy_catalog_oid_passthrough() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_catalog_information_schema_columns() -> DFResult<()> {
     let ctx = ctx_with_fake_source().await?;
 
@@ -393,7 +420,7 @@ async fn test_lazy_catalog_information_schema_columns() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_catalog_projection_and_filter() -> DFResult<()> {
     let ctx = ctx_with_fake_source().await?;
 
@@ -408,7 +435,7 @@ async fn test_lazy_catalog_projection_and_filter() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_catalog_error_propagates() -> DFResult<()> {
     let (ctx, _log) = get_base_session_context(
         Some("pg_catalog_data/pg_schema"),
@@ -451,7 +478,7 @@ async fn count_rows(
     Ok(arr.value(0))
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_tables_view_reflects_lazy_tables() -> DFResult<()> {
     // The `pg_tables` VIEW is `SELECT ... FROM pg_class ... WHERE relkind IN ('r','p')`.
     // Registering the lazy source BEFORE the views are created binds the view's
@@ -483,7 +510,7 @@ async fn test_pg_tables_view_reflects_lazy_tables() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_tables_view_keeps_builtin_tables() -> DFResult<()> {
     // Merging with built-ins must hold through the view too: a built-in ordinary
     // table (pg_class itself, relkind 'r') is still listed alongside user tables.
@@ -516,7 +543,7 @@ async fn test_pg_tables_view_keeps_builtin_tables() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_registered_after_session_is_blind_to_views() -> DFResult<()> {
     // Control test documenting WHY get_base_session_context_with_lazy_catalog
     // exists: a view (pg_tables) is planned during session construction and binds
@@ -593,7 +620,7 @@ impl LazyCatalogSource for DuplicateRelationSource {
     }
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_catalog_double_registration_is_idempotent() -> DFResult<()> {
     // Registering the same source twice must NOT duplicate rows: the second
     // registration captures the first provider's merged output as its "builtin",
@@ -683,7 +710,11 @@ impl LazyCatalogSource for IndexedSource {
         _r: &str,
         callback: &mut dyn FnMut(Vec<ColumnSpec>),
     ) -> DFResult<()> {
-        callback(vec![ColumnSpec::new("id", 23, false)]);
+        // 'id' (no default) and 'note' (has a default expression).
+        callback(vec![
+            ColumnSpec::new("id", 23, false),
+            ColumnSpec::new("note", 25, true).with_default(),
+        ]);
         Ok(())
     }
 
@@ -695,16 +726,40 @@ impl LazyCatalogSource for IndexedSource {
     ) -> DFResult<()> {
         if database == "idxdb" && schema == "public" {
             // A unique primary-key index on column 1 ('id') of the 'indexed' table.
-            let mut idx = IndexDef::new(80300, "indexed_pkey", 80200, vec![1]);
-            idx.is_unique = true;
-            idx.is_primary = true;
-            callback(vec![idx]);
+            let mut pkey = IndexDef::new(80300, "indexed_pkey", 80200, vec![1]);
+            pkey.is_unique = true;
+            pkey.is_primary = true;
+            // A non-unique secondary index spanning columns 1 ('id') and 2
+            // ('note'), so pg_get_indexdef must list multiple key columns in order.
+            let spanning = IndexDef::new(80301, "indexed_id_note_idx", 80200, vec![1, 2]);
+            callback(vec![pkey, spanning]);
+        }
+        Ok(())
+    }
+
+    fn constraints(
+        &self,
+        database: &str,
+        schema: &str,
+        callback: &mut dyn FnMut(Vec<ConstraintDef>),
+    ) -> DFResult<()> {
+        if database == "idxdb" && schema == "public" {
+            // A primary key on column 1 ('id') of 'indexed', backed by the
+            // indexed_pkey unique index (oid 80300). Schema oid is 80100.
+            callback(vec![ConstraintDef::primary_key(
+                80400,
+                "indexed_pkey",
+                80100,
+                80200,
+                vec![1],
+                80300,
+            )]);
         }
         Ok(())
     }
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_pg_index_reflects_source() -> DFResult<()> {
     // An index reported by the source becomes both a pg_index structure row and an
     // index relation in pg_class (relkind 'i'), the two rows pg_indexes /
@@ -741,16 +796,23 @@ async fn test_lazy_pg_index_reflects_source() -> DFResult<()> {
         "pg_index must point at the table oid"
     );
 
-    // Joining pg_index -> the index's pg_class name resolves the index by table.
+    // Joining pg_index -> the index's pg_class name resolves the table's indexes
+    // (the primary key and the spanning secondary index).
     let by_table = string_column(
         &ctx,
         "SELECT i.relname FROM pg_catalog.pg_index x \
          JOIN pg_catalog.pg_class i ON i.oid = x.indexrelid \
          JOIN pg_catalog.pg_class t ON t.oid = x.indrelid \
-         WHERE t.relname = 'indexed'",
+         WHERE t.relname = 'indexed' ORDER BY i.relname",
     )
     .await?;
-    assert_eq!(by_table, vec!["indexed_pkey".to_string()]);
+    assert_eq!(
+        by_table,
+        vec![
+            "indexed_id_note_idx".to_string(),
+            "indexed_pkey".to_string()
+        ]
+    );
 
     // indkey lists the single indexed column's attnum (1 = 'id').
     let indkey = int_column(
@@ -759,10 +821,172 @@ async fn test_lazy_pg_index_reflects_source() -> DFResult<()> {
     )
     .await?;
     assert_eq!(indkey, vec![1], "indkey must list the indexed attnum");
+
+    // pg_get_indexdef templates the CREATE INDEX text from those structural rows
+    // (unique flag, btree access method, schema-qualified table, key column name).
+    let indexdef = string_column(&ctx, "SELECT pg_catalog.pg_get_indexdef(80300)").await?;
+    assert_eq!(
+        indexdef,
+        vec!["CREATE UNIQUE INDEX indexed_pkey ON public.indexed USING btree (id)".to_string()],
+        "pg_get_indexdef must reconstruct the CREATE INDEX text for a registered index"
+    );
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
+async fn test_pg_get_indexdef_multicolumn_and_unresolvable_oids() -> DFResult<()> {
+    // pg_get_indexdef must list a multi-column index's key columns in indkey
+    // order, and must yield NULL (not an error or empty text) when the argument
+    // is NULL or names an index oid that no row describes.
+    let (ctx, _log) = get_base_session_context_with_lazy_catalog(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
+        None,
+        Arc::new(IndexedSource),
+        LazyCatalogOptions::all(),
+    )
+    .await?;
+
+    // The spanning index (oid 80301) covers columns 1 ('id') and 2 ('note'); both
+    // appear, in order, inside the single CREATE INDEX statement.
+    let spanning = string_column(&ctx, "SELECT pg_catalog.pg_get_indexdef(80301)").await?;
+    assert_eq!(
+        spanning,
+        vec![
+            "CREATE INDEX indexed_id_note_idx ON public.indexed USING btree (id, note)".to_string()
+        ],
+        "pg_get_indexdef must list every key column of a multi-column index in order"
+    );
+
+    // A NULL argument resolves to NULL.
+    let null_arg = int_column(
+        &ctx,
+        "SELECT (pg_catalog.pg_get_indexdef(CAST(NULL AS BIGINT)) IS NULL)::int",
+    )
+    .await?;
+    assert_eq!(null_arg, vec![1], "pg_get_indexdef(NULL) must be NULL");
+
+    // An oid that describes no index resolves to NULL, not an empty or partial
+    // statement.
+    let unknown_oid = int_column(
+        &ctx,
+        "SELECT (pg_catalog.pg_get_indexdef(999999) IS NULL)::int",
+    )
+    .await?;
+    assert_eq!(
+        unknown_oid,
+        vec![1],
+        "pg_get_indexdef of an unknown oid must be NULL"
+    );
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_lazy_pg_constraint_reflects_source() -> DFResult<()> {
+    // A constraint reported by the source becomes a pg_constraint row, and the
+    // (now live) information_schema constraint views derive from it.
+    let (ctx, _log) = get_base_session_context_with_lazy_catalog(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
+        None,
+        Arc::new(IndexedSource),
+        LazyCatalogOptions::all(),
+    )
+    .await?;
+
+    // The pg_constraint structure row is a primary key over the 'indexed' table.
+    let contype = text_column(
+        &ctx,
+        "SELECT contype FROM pg_catalog.pg_constraint \
+         WHERE conname = 'indexed_pkey' AND conrelid = 80200",
+    )
+    .await?;
+    assert_eq!(
+        contype,
+        vec!["p".to_string()],
+        "pg_constraint must hold the PK"
+    );
+
+    // The live table_constraints view reflects the registered constraint.
+    let constraint_types = text_column(
+        &ctx,
+        "SELECT constraint_type FROM information_schema.table_constraints \
+         WHERE table_name = 'indexed' AND constraint_name = 'indexed_pkey'",
+    )
+    .await?;
+    assert_eq!(
+        constraint_types,
+        vec!["PRIMARY KEY".to_string()],
+        "table_constraints must show the registered primary key"
+    );
+
+    // key_column_usage maps the constraint to its column ('id').
+    let key_columns = text_column(
+        &ctx,
+        "SELECT column_name FROM information_schema.key_column_usage \
+         WHERE constraint_name = 'indexed_pkey' AND table_name = 'indexed'",
+    )
+    .await?;
+    assert_eq!(
+        key_columns,
+        vec!["id".to_string()],
+        "key_column_usage must map the PK to column 'id'"
+    );
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_lazy_pg_attrdef_reflects_source() -> DFResult<()> {
+    // A column flagged with a default becomes atthasdef on pg_attribute plus a
+    // backing pg_attrdef row, while a column without one gets neither.
+    let (ctx, _log) = get_base_session_context_with_lazy_catalog(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
+        None,
+        Arc::new(IndexedSource),
+        LazyCatalogOptions::all(),
+    )
+    .await?;
+
+    // 'note' (attnum 2) has a default: atthasdef true and a pg_attrdef row.
+    let with_default = ctx
+        .sql(
+            "SELECT 1 FROM pg_catalog.pg_attribute \
+             WHERE attrelid = 80200 AND attname = 'note' AND atthasdef = true",
+        )
+        .await?
+        .count()
+        .await?;
+    assert_eq!(with_default, 1, "the defaulted column must set atthasdef");
+
+    let attrdef_for_note = ctx
+        .sql("SELECT 1 FROM pg_catalog.pg_attrdef WHERE adrelid = 80200 AND adnum = 2")
+        .await?
+        .count()
+        .await?;
+    assert_eq!(
+        attrdef_for_note, 1,
+        "the defaulted column must get a pg_attrdef row"
+    );
+
+    // 'id' (attnum 1) has no default, so no pg_attrdef row - the table has exactly
+    // the one pg_attrdef row, for 'note'.
+    let attrdef_total = ctx
+        .sql("SELECT 1 FROM pg_catalog.pg_attrdef WHERE adrelid = 80200")
+        .await?
+        .count()
+        .await?;
+    assert_eq!(
+        attrdef_total, 1,
+        "only the defaulted column gets a pg_attrdef row"
+    );
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_pg_tables_flags_reflect_source() -> DFResult<()> {
     // has_index from the source surfaces as pg_tables.hasindexes; the other flags
     // are non-NULL false (not blank, as they were before).
@@ -794,7 +1018,7 @@ async fn test_lazy_pg_tables_flags_reflect_source() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_catalog_owner_omitted_is_null() -> DFResult<()> {
     // FakeSource builds relations via RelationDef::table (no owner), so a backend
     // without ownership leaves pg_class.relowner NULL (int_column skips NULLs).
@@ -811,7 +1035,7 @@ async fn test_lazy_catalog_owner_omitted_is_null() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_catalog_user_database_wins_over_builtin() -> DFResult<()> {
     // A user database whose name collides with a built-in ('postgres') must
     // REPLACE the built-in row, not duplicate it: exactly one row, the user's.
@@ -839,7 +1063,7 @@ async fn test_lazy_catalog_user_database_wins_over_builtin() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_catalog_duplicate_database_errors() -> DFResult<()> {
     // Two user databases with the same name is a source mistake -> error.
     let (ctx, _log) = get_base_session_context(
@@ -872,7 +1096,7 @@ async fn test_lazy_catalog_duplicate_database_errors() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_catalog_duplicate_relation_errors() -> DFResult<()> {
     // Two user relations of the same name in the same schema -> error.
     let (ctx, _log) = get_base_session_context(
@@ -958,7 +1182,7 @@ impl LazyCatalogSource for ConfigSource {
     }
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_config_callback_overrides_and_extends() -> DFResult<()> {
     let (ctx, _log) = get_base_session_context(
         Some("pg_catalog_data/pg_schema"),
@@ -999,7 +1223,7 @@ async fn test_pg_config_callback_overrides_and_extends() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_settings_callback_overrides_value() -> DFResult<()> {
     let (ctx, _log) = get_base_session_context(
         Some("pg_catalog_data/pg_schema"),
@@ -1032,7 +1256,7 @@ async fn test_pg_settings_callback_overrides_value() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_settings_defaults_without_callback() -> DFResult<()> {
     // With no lazy source, pg_settings serves its built-in snapshot as a table.
     let (ctx, _log) = get_base_session_context(
@@ -1057,7 +1281,7 @@ async fn test_pg_settings_defaults_without_callback() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_config_defaults_without_callback() -> DFResult<()> {
     // With no lazy source, pg_config serves its built-in defaults as a table.
     let (ctx, _log) = get_base_session_context(

@@ -1,25 +1,19 @@
 //! Runtime-robustness tests for catalog scalar UDFs that run a sub-query.
 //!
 //! `oid(text)` (and `pg_get_userbyid`) resolve values by running a catalog SQL
-//! query from a synchronous UDF body. They must work regardless of the caller's
-//! tokio runtime flavor - in particular on the current-thread runtime that
-//! `#[tokio::test]` uses by default (where `tokio::task::block_in_place` would
-//! panic). These tests deliberately use the default `#[tokio::test]` runtime.
+//! query from a synchronous UDF body. `run_catalog_query` has two branches and
+//! these tests exercise both: on a current-thread runtime (the default
+//! `#[tokio::test]`) it spawns onto a fallback multi-thread runtime and blocks on
+//! the result, while on a multi-thread runtime (`#[tokio::test(flavor =
+//! "multi_thread")]`, the flavor the production server uses) it takes the
+//! `block_in_place` + `spawn` path. Either way the nested catalog query must
+//! resolve without panicking or deadlocking.
 
 use arrow::array::{Array, Int64Array};
 use datafusion::error::Result as DFResult;
-use datafusion_pg_catalog::get_base_session_context;
 
-async fn base_ctx() -> DFResult<datafusion::execution::context::SessionContext> {
-    let (ctx, _log) = get_base_session_context(
-        Some("pg_catalog_data/pg_schema"),
-        "pgtry".to_string(),
-        "public".to_string(),
-        None,
-    )
-    .await?;
-    Ok(ctx)
-}
+mod common;
+use common::base_ctx;
 
 /// Collect a single Int64 column into `Vec<Option<i64>>`.
 async fn int64_column(
@@ -69,7 +63,7 @@ async fn test_oid_udf_scalar_resolves_on_current_thread_runtime() -> DFResult<()
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_oid_udf_unknown_relation_is_null() -> DFResult<()> {
     let ctx = base_ctx().await?;
     let resolved = int64_column(&ctx, "SELECT oid('no_such_relation_xyz')").await?;

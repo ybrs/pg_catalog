@@ -66,7 +66,7 @@ async fn run() -> anyhow::Result<()> {
     .await?;
 
     register_user_database(&ctx, "pgtry").await?;
-    pg_catalog_helpers::register_schema(&ctx, "pgtry", "public").await?;
+    let public_oid = pg_catalog_helpers::register_schema(&ctx, "pgtry", "public").await?;
     use pg_catalog_helpers::ColumnDef;
     let mut c1 = BTreeMap::new();
     c1.insert(
@@ -74,6 +74,7 @@ async fn run() -> anyhow::Result<()> {
         ColumnDef {
             col_type: "int".to_string(),
             nullable: true,
+            has_default: false,
         },
     );
     let mut c2 = BTreeMap::new();
@@ -82,9 +83,10 @@ async fn run() -> anyhow::Result<()> {
         ColumnDef {
             col_type: "text".to_string(),
             nullable: true,
+            has_default: false,
         },
     );
-    pg_catalog_helpers::register_user_tables(&ctx, "pgtry", "public", "users", vec![c1, c2])
+    pg_catalog_helpers::register_user_tables(&ctx, "pgtry", public_oid, "users", vec![c1, c2])
         .await?;
 
     start_server(
@@ -116,7 +118,7 @@ mod tests {
     use datafusion_pg_catalog::router::dispatch_query;
     use std::sync::Arc;
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread")]
     async fn test_dispatch_in_main() -> anyhow::Result<()> {
         let ctx = SessionContext::new();
         dispatch_query(&ctx, "SELECT 1", None, None, |_c, _q, _p, _t| async {

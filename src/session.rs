@@ -179,8 +179,16 @@ struct ViewToRegister {
     sql: String,
 }
 
-const VIEW_ONLY_TABLES: &[(&str, &str)] =
-    &[("pg_catalog", "pg_views"), ("pg_catalog", "pg_tables")];
+const VIEW_ONLY_TABLES: &[(&str, &str)] = &[
+    ("pg_catalog", "pg_views"),
+    ("pg_catalog", "pg_tables"),
+    // Constraint views served live so they reflect runtime-registered user
+    // constraints (pg_constraint) rather than the frozen seed snapshot.
+    ("information_schema", "table_constraints"),
+    ("information_schema", "key_column_usage"),
+    ("information_schema", "constraint_column_usage"),
+    ("information_schema", "referential_constraints"),
+];
 
 fn should_register_as_view(schema_name: &str, table_name: &str) -> bool {
     VIEW_ONLY_TABLES
@@ -211,6 +219,20 @@ fn normalize_view_sql(sql: &str) -> String {
     let trimmed = sql.trim();
     let without_semicolon = trimmed.trim_end_matches(';').trim();
     without_semicolon.to_string()
+}
+
+/// Replace `current_database()` calls in a catalog view body with `catalog` as a
+/// string literal.
+///
+/// A live view is planned eagerly at session setup (`CREATE VIEW`), but
+/// `current_database()` is a per-connection UDF registered only once a client
+/// connects, so it is unresolved at setup time. In this single-catalog layer the
+/// current database is always the default catalog, so substituting its name as a
+/// literal is both sufficient and correct - and confines the dependency to view
+/// creation rather than requiring the connection-scoped UDF up front.
+fn inline_current_database(sql: &str, catalog: &str) -> String {
+    let literal = format!("'{}'", catalog.replace('\'', "''"));
+    sql.replace("current_database()", &literal)
 }
 
 async fn set_default_schema(ctx: &SessionContext, schema: &str) -> datafusion::error::Result<()> {
@@ -539,9 +561,15 @@ fn parse_schema_file(path: &str) -> HashMap<String, HashMap<String, HashMap<Stri
     parse_schema_contents(&contents)
 }
 
-fn parse_schema_zip(path: &str) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
-    let file = fs::File::open(path).expect("Failed to open schema zip file");
-    let mut archive = ZipArchive::new(file).expect("Failed to read zip file");
+/// Parse every `.yaml` entry of a zip archive into a merged schema map.
+///
+/// Reads each YAML member through `parse_schema_contents` and merges the
+/// results with `merge_schema_maps`. Non-`.yaml` entries are skipped. The
+/// archive may come from any seekable reader (a file or an in-memory buffer).
+fn parse_schema_zip_reader<R: std::io::Read + std::io::Seek>(
+    reader: R,
+) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
+    let mut archive = ZipArchive::new(reader).expect("Failed to read zip file");
     let mut all = HashMap::new();
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i).expect("Invalid zip entry");
@@ -558,25 +586,17 @@ fn parse_schema_zip(path: &str) -> HashMap<String, HashMap<String, HashMap<Strin
     all
 }
 
+/// Parse the YAML schema zip located at `path` into a merged schema map.
+fn parse_schema_zip(path: &str) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
+    let file = fs::File::open(path).expect("Failed to open schema zip file");
+    parse_schema_zip_reader(file)
+}
+
+/// Parse an in-memory YAML schema zip into a merged schema map.
 fn parse_schema_zip_bytes(
     bytes: &[u8],
 ) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
-    let reader = Cursor::new(bytes);
-    let mut archive = ZipArchive::new(reader).expect("Failed to read zip bytes");
-    let mut all = HashMap::new();
-    for i in 0..archive.len() {
-        let mut entry = archive.by_index(i).expect("Invalid zip entry");
-        if !entry.name().ends_with(".yaml") {
-            continue;
-        }
-        let mut contents = String::new();
-        entry
-            .read_to_string(&mut contents)
-            .expect("Failed to read zip entry");
-        let parsed = parse_schema_contents(&contents);
-        merge_schema_maps(&mut all, parsed);
-    }
-    all
+    parse_schema_zip_reader(Cursor::new(bytes))
 }
 
 /// Serialize the parsed catalog into a zip of per-table Arrow IPC streams.
@@ -1085,38 +1105,55 @@ async fn create_registered_views(
 
     let state = ctx.state();
     let original_default_schema = state.config_options().catalog.default_schema.clone();
+    let default_catalog = state.config_options().catalog.default_catalog.clone();
     drop(state);
-    let mut active_default_schema = original_default_schema.clone();
 
-    for view in views {
-        if active_default_schema != view.schema {
-            set_default_schema(ctx, &view.schema).await?;
-            active_default_schema = view.schema.clone();
+    // Catalog view bodies reference their base tables (pg_class, pg_attribute,
+    // pg_constraint, ...) unqualified, and those all live in pg_catalog - so
+    // resolve every view body under pg_catalog regardless of which schema the
+    // view itself belongs to. The CREATE statement below is fully schema-
+    // qualified, so each view still lands in its own schema (e.g.
+    // information_schema.table_constraints).
+    const VIEW_BODY_RESOLUTION_SCHEMA: &str = "pg_catalog";
+    // Create the views under the pg_catalog resolution schema, but capture the
+    // result so the session's default schema is ALWAYS restored afterward - even if a
+    // view fails - rather than left pinned to pg_catalog on an early error.
+    let result: Result<(), DataFusionError> = async {
+        let mut active_default_schema = original_default_schema.clone();
+        for view in views {
+            if active_default_schema != VIEW_BODY_RESOLUTION_SCHEMA {
+                set_default_schema(ctx, VIEW_BODY_RESOLUTION_SCHEMA).await?;
+                active_default_schema = VIEW_BODY_RESOLUTION_SCHEMA.to_string();
+            }
+
+            let qualified = format_fully_qualified_name(&view.catalog, &view.schema, &view.name);
+            let definition = normalize_view_sql(&view.sql);
+            if definition.is_empty() {
+                return Err(DataFusionError::Execution(format!(
+                    "view_sql for {} is empty",
+                    qualified
+                )));
+            }
+
+            let rewritten_select = {
+                let inlined = inline_current_database(&definition, &default_catalog);
+                let rewritten = rewrite_srf_to_unnest(&inlined)?;
+                let (rewritten, _) = rewrite_filters(&rewritten)?;
+                let rewritten = rewrite_exists_to_count(&rewritten)?;
+                rewrite_tuple_in_subquery_to_exists(&rewritten)?
+            };
+            let create_sql = format!("CREATE OR REPLACE VIEW {qualified} AS {rewritten_select}");
+            ctx.sql(&create_sql).await?.collect().await?;
         }
-
-        let qualified = format_fully_qualified_name(&view.catalog, &view.schema, &view.name);
-        let definition = normalize_view_sql(&view.sql);
-        if definition.is_empty() {
-            return Err(DataFusionError::Execution(format!(
-                "view_sql for {} is empty",
-                qualified
-            )));
-        }
-
-        let rewritten_select = {
-            let rewritten = rewrite_srf_to_unnest(&definition)?;
-            let (rewritten, _) = rewrite_filters(&rewritten)?;
-            let rewritten = rewrite_exists_to_count(&rewritten)?;
-            rewrite_tuple_in_subquery_to_exists(&rewritten)?
-        };
-        let create_sql = format!("CREATE OR REPLACE VIEW {qualified} AS {rewritten_select}");
-        ctx.sql(&create_sql).await?.collect().await?;
+        Ok(())
     }
+    .await;
 
-    if active_default_schema != original_default_schema {
-        set_default_schema(ctx, &original_default_schema).await?;
-    }
-
+    // Restore the original default schema on every exit path; a view error takes
+    // precedence over a restore error.
+    let restored = set_default_schema(ctx, &original_default_schema).await;
+    result?;
+    restored?;
     Ok(())
 }
 
@@ -1302,6 +1339,32 @@ mod tests {
     use arrow::datatypes::DataType;
     use std::io::Write;
     use tempfile::NamedTempFile;
+
+    #[test]
+    fn test_inline_current_database_substitutes_every_call() {
+        // Each current_database() call site becomes the catalog name as a quoted
+        // literal; text that does not call it is untouched.
+        let sql = "SELECT current_database() AS a, current_database() AS b FROM t";
+        assert_eq!(
+            inline_current_database(sql, "pgtry"),
+            "SELECT 'pgtry' AS a, 'pgtry' AS b FROM t"
+        );
+        assert_eq!(
+            inline_current_database("SELECT 1", "pgtry"),
+            "SELECT 1",
+            "SQL without current_database() must pass through unchanged"
+        );
+    }
+
+    #[test]
+    fn test_inline_current_database_escapes_single_quotes() {
+        // A catalog name containing a single quote must be doubled so the inlined
+        // literal stays a single, well-formed string literal.
+        assert_eq!(
+            inline_current_database("SELECT current_database()", "od'd"),
+            "SELECT 'od''d'"
+        );
+    }
 
     #[test]
     fn test_parse_schema_file() {

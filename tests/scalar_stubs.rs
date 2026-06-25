@@ -5,20 +5,11 @@
 
 use arrow::array::{Array, Int32Array, StringArray};
 use datafusion::error::Result as DFResult;
-use datafusion_pg_catalog::get_base_session_context;
 
-async fn base_ctx() -> DFResult<datafusion::execution::context::SessionContext> {
-    let (ctx, _log) = get_base_session_context(
-        Some("pg_catalog_data/pg_schema"),
-        "pgtry".to_string(),
-        "public".to_string(),
-        None,
-    )
-    .await?;
-    Ok(ctx)
-}
+mod common;
+use common::base_ctx;
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_my_temp_schema() -> DFResult<()> {
     let ctx = base_ctx().await?;
     let b = ctx
@@ -35,7 +26,7 @@ async fn test_pg_my_temp_schema() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_getdatabaseencoding() -> DFResult<()> {
     let ctx = base_ctx().await?;
     let b = ctx
@@ -52,7 +43,7 @@ async fn test_getdatabaseencoding() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_relation_is_updatable() -> DFResult<()> {
     let ctx = base_ctx().await?;
     // Two-arg form, any arg types; returns 0 (not updatable) per row.
@@ -70,7 +61,7 @@ async fn test_pg_relation_is_updatable() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_char_max_length_is_null() -> DFResult<()> {
     let ctx = base_ctx().await?;
     let b = ctx
@@ -87,7 +78,7 @@ async fn test_pg_char_max_length_is_null() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_format_function() -> DFResult<()> {
     let ctx = base_ctx().await?;
     // %s substitution (the check_constraints view shape), %% literal, %I/%L
@@ -118,7 +109,7 @@ async fn test_format_function() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_get_function_arg_default_is_null() -> DFResult<()> {
     let ctx = base_ctx().await?;
     // Two-arg form (func oid, argnum); we don't model defaults, so it returns NULL.
@@ -136,7 +127,7 @@ async fn test_pg_get_function_arg_default_is_null() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_column_is_updatable_is_false() -> DFResult<()> {
     use arrow::array::BooleanArray;
     let ctx = base_ctx().await?;
@@ -156,7 +147,7 @@ async fn test_pg_column_is_updatable_is_false() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_truetypid_selects_base_for_domains() -> DFResult<()> {
     let ctx = base_ctx().await?;
     // _pg_truetypid(own, typtype, base): returns `base` when typtype = 'd'
@@ -185,7 +176,7 @@ async fn test_pg_truetypid_selects_base_for_domains() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_truetypmod_selects_base_for_domains() -> DFResult<()> {
     let ctx = base_ctx().await?;
     // _pg_truetypmod(own, typtype, base) over int4 typmods.
@@ -213,7 +204,7 @@ async fn test_pg_truetypmod_selects_base_for_domains() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_information_schema_type_helpers_compute_values() -> DFResult<()> {
     let ctx = base_ctx().await?;
     // For int4 (OID 23) the numeric helpers compute its fixed type facts.

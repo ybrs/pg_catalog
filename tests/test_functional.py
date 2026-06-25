@@ -1,45 +1,18 @@
 # Integration tests that start the pg_catalog server and run basic queries over pgwire.
 # Ensures the server behaves like PostgreSQL for fundamental cases.
 
-import os
-import time
 import subprocess
-import shutil
+
 import psycopg
 import pytest
 
-CONN_STR = "host=127.0.0.1 port=5444 dbname=pgtry user=dbuser password=pencil sslmode=disable"
+from conftest import SHARED_PORT, conn_str, load_yaml, pg_server, server  # noqa: F401
 
-@pytest.fixture(scope="module")
-def server(tmp_path_factory):
-    zip_dir = tmp_path_factory.mktemp("schema")
-    zip_path = zip_dir / "schema.zip"
-    shutil.make_archive(str(zip_path.with_suffix("")), "zip", "pg_catalog_data/pg_schema")
-    proc = subprocess.Popen([
-        "cargo", "run", "--quiet", "--",
-        str(zip_path),
-        "--default-catalog", "pgtry",
-        "--default-schema", "public",
-        "--host", "127.0.0.1",
-        "--port", "5444",
-    ], text=True)
+CONN_STR = conn_str(SHARED_PORT)
 
-    for _ in range(12):
-        try:
-            with psycopg.connect(CONN_STR):
-                break
-        except Exception:
-            time.sleep(5)
-    else:
-        proc.terminate()
-        raise RuntimeError("server failed to start")
-
-    yield proc
-    proc.terminate()
-    try:
-        proc.wait(timeout=5)
-    except subprocess.TimeoutExpired:
-        proc.kill()
+# Distinct ports for tests that need their own server process with special arguments.
+ERROR_LOGGING_PORT = 5445
+CAPTURE_OPTION_PORT = 5446
 
 def test_query_returns_text(server):
     with psycopg.connect(CONN_STR) as conn:
@@ -514,37 +487,19 @@ def test_rewrite_trigger_counts(server):
 
 
 def test_error_logging():
-    proc = subprocess.Popen([
-        "cargo", "run", "--quiet", "--",
-        "pg_catalog_data/pg_schema",
-        "--default-catalog", "pgtry",
-        "--default-schema", "public",
-        "--host", "127.0.0.1",
-        "--port", "5445",
-    ], text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-
-    for _ in range(12):
+    with pg_server(ERROR_LOGGING_PORT, pipe_output=True) as proc:
         try:
-            with psycopg.connect("host=127.0.0.1 port=5445 dbname=pgtry user=dbuser password=pencil sslmode=disable"):
-                break
-        except Exception:
-            time.sleep(5)
-    else:
-        proc.terminate()
-        raise RuntimeError("server failed to start")
-
-    try:
-        with psycopg.connect("host=127.0.0.1 port=5445 dbname=pgtry user=dbuser password=pencil sslmode=disable") as conn:
-            cur = conn.cursor()
-            with pytest.raises(Exception):
-                cur.execute("SELECT * FROM missing_table")
-    finally:
-        proc.terminate()
-        try:
-            out, _ = proc.communicate(timeout=5)
-        except subprocess.TimeoutExpired:
-            proc.kill()
-            out, _ = proc.communicate()
+            with psycopg.connect(conn_str(ERROR_LOGGING_PORT)) as conn:
+                cur = conn.cursor()
+                with pytest.raises(Exception):
+                    cur.execute("SELECT * FROM missing_table")
+        finally:
+            proc.terminate()
+            try:
+                out, _ = proc.communicate(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                out, _ = proc.communicate()
 
     assert "exec_error" in out
     assert "missing_table" in out
@@ -560,28 +515,8 @@ def test_users_dummy_data(server):
 
 def test_capture_option(tmp_path):
     capture_file = tmp_path / "captured.yaml"
-    proc = subprocess.Popen([
-        "cargo", "run", "--quiet", "--",
-        "pg_catalog_data/pg_schema",
-        "--default-catalog", "pgtry",
-        "--default-schema", "public",
-        "--host", "127.0.0.1",
-        "--port", "5446",
-        "--capture", str(capture_file),
-    ], text=True)
-
-    for _ in range(12):
-        try:
-            with psycopg.connect("host=127.0.0.1 port=5446 dbname=pgtry user=dbuser password=pencil sslmode=disable"):
-                break
-        except Exception:
-            time.sleep(5)
-    else:
-        proc.terminate()
-        raise RuntimeError("server failed to start")
-
-    try:
-        with psycopg.connect("host=127.0.0.1 port=5446 dbname=pgtry user=dbuser password=pencil sslmode=disable") as conn:
+    with pg_server(CAPTURE_OPTION_PORT, capture=capture_file):
+        with psycopg.connect(conn_str(CAPTURE_OPTION_PORT)) as conn:
             cur = conn.cursor()
             cur.execute("SELECT 1 AS one")
             cur.fetchone()
@@ -592,17 +527,8 @@ def test_capture_option(tmp_path):
             cur.fetchone()
             with pytest.raises(Exception):
                 cur.execute("SELECT * FROM missing_table")
-    finally:
-        proc.terminate()
-        try:
-            proc.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            proc.kill()
 
-    import yaml
-
-    with open(capture_file) as f:
-        data = yaml.safe_load(f)
+    data = load_yaml(capture_file)
 
     assert len(data) == 3
     assert data[0]["success"] is True

@@ -6,18 +6,9 @@
 
 use arrow::array::{Array, BooleanArray};
 use datafusion::error::Result as DFResult;
-use datafusion_pg_catalog::get_base_session_context;
 
-async fn base_ctx() -> DFResult<datafusion::execution::context::SessionContext> {
-    let (ctx, _log) = get_base_session_context(
-        Some("pg_catalog_data/pg_schema"),
-        "pgtry".to_string(),
-        "public".to_string(),
-        None,
-    )
-    .await?;
-    Ok(ctx)
-}
+mod common;
+use common::base_ctx;
 
 /// Run `sql` and collect a single Boolean column.
 async fn bool_column(
@@ -43,7 +34,7 @@ async fn bool_column(
     Ok(out)
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_is_other_temp_schema_scalar() -> DFResult<()> {
     let ctx = base_ctx().await?;
     // OID as int, bare and qualified.
@@ -63,7 +54,7 @@ async fn test_pg_is_other_temp_schema_scalar() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_pg_is_other_temp_schema_over_a_column() -> DFResult<()> {
     let ctx = base_ctx().await?;
     let rows = bool_column(

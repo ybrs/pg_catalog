@@ -7,18 +7,9 @@
 
 use arrow::array::{Array, BooleanArray, StringArray};
 use datafusion::error::Result as DFResult;
-use datafusion_pg_catalog::get_base_session_context;
 
-async fn base_ctx() -> DFResult<datafusion::execution::context::SessionContext> {
-    let (ctx, _log) = get_base_session_context(
-        Some("pg_catalog_data/pg_schema"),
-        "pgtry".to_string(),
-        "public".to_string(),
-        None,
-    )
-    .await?;
-    Ok(ctx)
-}
+mod common;
+use common::base_ctx;
 
 async fn one_bool(
     ctx: &datafusion::execution::context::SessionContext,
@@ -37,7 +28,7 @@ async fn one_bool(
     })
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_has_privilege_family_all_names() -> DFResult<()> {
     let ctx = base_ctx().await?;
     // Every registered function name, in its 2-arg form.
@@ -64,7 +55,7 @@ async fn test_has_privilege_family_all_names() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_has_privilege_arg_shapes() -> DFResult<()> {
     let ctx = base_ctx().await?;
     // 2-arg by name, 3-arg (user, object, priv), and schema-qualified.
@@ -91,7 +82,7 @@ async fn test_has_privilege_arg_shapes() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 async fn test_nameconcatoid() -> DFResult<()> {
     let ctx = base_ctx().await?;
     let batches = ctx

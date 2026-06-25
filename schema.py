@@ -9,6 +9,8 @@ import datetime
 import psycopg
 import yaml
 
+from yaml_loader import load_yaml_stream
+
 logging.basicConfig(
     level=getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), logging.INFO)
 )
@@ -194,7 +196,7 @@ def show(output_dir, specific_table=None):
 
     for fpath in files:
         with open(fpath, "r") as f:
-            entry = yaml.safe_load(f)
+            entry = load_yaml_stream(f)
 
         base = os.path.basename(fpath)
         schema_table = base.replace(".yaml", "").replace("__", ".")
