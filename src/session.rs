@@ -10,16 +10,19 @@ use datafusion::execution::context::SessionContext;
 use serde::Deserialize;
 use serde_yaml;
 
-use crate::clean_duplicate_columns::alias_all_columns;
+use crate::clean_duplicate_columns::{alias_unnamed_columns, disambiguate_duplicate_columns};
 use crate::replace::{
-    alias_subquery_tables, regclass_udfs, replace_regclass, replace_set_command_with_namespace,
+    alias_subquery_tables, drop_oid_array_cast, drop_redundant_oid_and_regclass_casts,
+    regclass_udfs, replace_regclass, replace_set_command_with_namespace,
     rewrite_array_agg_varchar_cast, rewrite_array_subquery, rewrite_available_updates,
-    rewrite_brace_array_literal, rewrite_char_cast, rewrite_name_cast, rewrite_oid_cast,
-    rewrite_oidvector_any, rewrite_oidvector_unnest, rewrite_pg_custom_operator,
-    rewrite_regoper_cast, rewrite_regoperator_cast, rewrite_regproc_cast,
-    rewrite_regprocedure_cast, rewrite_regtype_cast, rewrite_schema_qualified_custom_types,
-    rewrite_schema_qualified_text, rewrite_schema_qualified_udtfs, rewrite_time_zone_utc,
-    rewrite_tuple_equality, rewrite_xid_cast, strip_default_collate,
+    rewrite_brace_array_literal, rewrite_char_cast, rewrite_exists_to_count,
+    rewrite_information_schema_casts, rewrite_name_cast, rewrite_oid_cast,
+    rewrite_pg_custom_operator, rewrite_pg_truetypid_composite_args, rewrite_regoper_cast,
+    rewrite_regoperator_cast, rewrite_regproc_cast, rewrite_regprocedure_cast,
+    rewrite_regtype_cast, rewrite_schema_qualified_custom_types, rewrite_schema_qualified_text,
+    rewrite_schema_qualified_udtfs, rewrite_srf_to_unnest, rewrite_time_zone_utc,
+    rewrite_tuple_equality, rewrite_tuple_in_subquery_to_exists, rewrite_xid_cast,
+    strip_default_collate,
 };
 use pgwire::api::Type;
 use std::collections::{BTreeMap, HashMap};
@@ -30,21 +33,26 @@ use std::sync::{Arc, Mutex};
 use zip::ZipArchive;
 
 use crate::user_functions::{
-    register_array_agg, register_current_schema, register_current_schemas, register_encode,
-    register_has_database_privilege, register_has_schema_privilege, register_oidvector_to_array,
-    register_pg_available_extension_versions, register_pg_get_array,
+    register_acldefault, register_aclexplode, register_array_agg, register_current_schema,
+    register_current_schemas, register_encode, register_format, register_getdatabaseencoding,
+    register_has_database_privilege, register_has_privilege_family, register_has_schema_privilege,
+    register_nameconcatoid, register_pg_available_extension_versions, register_pg_char_max_length,
+    register_pg_char_octet_length, register_pg_column_is_updatable, register_pg_expandarray,
+    register_pg_get_array, register_pg_get_function_arg_default,
     register_pg_get_function_arguments, register_pg_get_function_result,
     register_pg_get_function_sqlbody, register_pg_get_indexdef, register_pg_get_keywords,
     register_pg_get_one, register_pg_get_ruledef, register_pg_get_statisticsobjdef_columns,
-    register_pg_get_triggerdef, register_pg_get_viewdef, register_pg_postmaster_start_time,
-    register_pg_relation_is_publishable, register_pg_relation_size,
-    register_pg_total_relation_size, register_quote_ident, register_scalar_array_to_string,
-    register_scalar_format_type, register_scalar_pg_age, register_scalar_pg_encoding_to_char,
-    register_scalar_pg_get_expr, register_scalar_pg_get_partkeydef,
-    register_scalar_pg_get_userbyid, register_scalar_pg_is_in_recovery,
-    register_scalar_pg_table_is_visible, register_scalar_pg_tablespace_location,
-    register_scalar_regclass_oid, register_scalar_txid_current, register_translate, register_upper,
-    register_version_fn,
+    register_pg_get_triggerdef, register_pg_get_viewdef, register_pg_has_role,
+    register_pg_index_position, register_pg_is_other_temp_schema, register_pg_my_temp_schema,
+    register_pg_numeric_helpers, register_pg_options_to_table, register_pg_postmaster_start_time,
+    register_pg_relation_is_publishable, register_pg_relation_is_updatable,
+    register_pg_relation_size, register_pg_total_relation_size, register_pg_truetypid_helpers,
+    register_quote_ident, register_scalar_array_to_string, register_scalar_format_type,
+    register_scalar_pg_age, register_scalar_pg_encoding_to_char, register_scalar_pg_get_expr,
+    register_scalar_pg_get_partkeydef, register_scalar_pg_get_userbyid,
+    register_scalar_pg_is_in_recovery, register_scalar_pg_table_is_visible,
+    register_scalar_pg_tablespace_location, register_scalar_regclass_oid,
+    register_scalar_txid_current, register_translate, register_upper, register_version_fn,
 };
 
 use crate::scalar_to_cte::rewrite_subquery_as_cte;
@@ -53,15 +61,18 @@ use bytes::Bytes;
 use datafusion::common::{config::ConfigEntry, config_err};
 use datafusion::scalar::ScalarValue;
 
-static SCHEMA_ZIP: &[u8] = include_bytes!(concat!(
+/// The embedded catalog, as a zip of per-table Arrow IPC streams. Loaded at
+/// startup (when no explicit schema path is given) far faster than parsing the
+/// YAML. Regenerate with `cargo run --release --bin gen_schema_ipc` after the
+/// YAML catalog changes; the YAML zip remains the human-editable source.
+static SCHEMA_IPC: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/pg_catalog_data/postgres-schema-nightly.zip"
+    "/pg_catalog_data/postgres-schema-nightly-ipc.zip"
 ));
-use crate::db_table::{map_pg_type, ObservableMemTable, ScanTrace};
+use crate::db_table::{map_pg_type, ScanRecordingMemTable, ScanTrace};
 use crate::lazy_catalog::{register_lazy_catalog, LazyCatalogOptions, LazyCatalogSource};
 use crate::replace_any_group_by::rewrite_group_by_for_any;
 use datafusion::common::config::{ConfigExtension, ExtensionOptions};
-use df_subquery_udf::rewrite_query;
 
 #[derive(Clone, Debug)]
 pub struct ClientOpts {
@@ -316,6 +327,10 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     let sql = rewrite_pg_custom_operator(&sql)?;
     let sql = rewrite_schema_qualified_text(&sql)?;
     let sql = rewrite_schema_qualified_custom_types(&sql)?;
+    // Expand `_pg_truetypid(a.*, t.*)` whole-row args into the columns those
+    // functions read, so DataFusion can bind them (it has no composite type).
+    let sql = rewrite_pg_truetypid_composite_args(&sql)?;
+    let sql = rewrite_information_schema_casts(&sql)?;
     let sql = rewrite_schema_qualified_udtfs(&sql)?;
     let sql = rewrite_char_cast(&sql)?;
     let sql = replace_regclass(&sql)?;
@@ -323,12 +338,20 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     let sql = rewrite_xid_cast(&sql)?;
     let sql = rewrite_name_cast(&sql)?;
     let sql = rewrite_oid_cast(&sql)?;
-    let sql = rewrite_oidvector_unnest(&sql)?;
-    let sql = rewrite_oidvector_any(&sql)?;
+    // Drop value-preserving `::regclass` / `::oid` casts on column expressions
+    // (e.g. `c.oid::regclass`, `proargtypes::oid`).
+    let sql = drop_redundant_oid_and_regclass_casts(&sql)?;
+    // Drop `::oid[]` array casts (planner can't take a bare `oid` element type;
+    // the underlying columns are already integer arrays in this catalog).
+    let sql = drop_oid_array_cast(&sql)?;
     let sql = rewrite_array_agg_varchar_cast(&sql)?;
     let sql = rewrite_tuple_equality(&sql)?;
     let sql = alias_subquery_tables(&sql)?;
-    let (sql, aliases) = alias_all_columns(&sql)?;
+    // Give duplicate column names in nested projections distinct aliases so
+    // DataFusion's optimizer doesn't hit its name-mismatch assertion (e.g. the
+    // two `nspname`s in constraint_column_usage's derived table).
+    let sql = disambiguate_duplicate_columns(&sql)?;
+    let (sql, aliases) = alias_unnamed_columns(&sql)?;
     let sql = rewrite_subquery_as_cte(&sql);
 
     log::debug!("before group by {}", sql);
@@ -337,81 +360,25 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     return Ok((sql, aliases));
 }
 
-pub async fn execute_sql_inner(
+/// Plan `sql` on `ctx`, run it, and rename the result columns per `aliases`.
+///
+/// `scalars`, when present, are bound as the query's positional parameters.
+/// Returns the collected batches and the renamed Arrow schema. Shared by the
+/// native attempt and the correlated-subquery UDF fallback in
+/// [`rewrite_and_execute_sql`].
+async fn plan_collect_and_rename(
     ctx: &SessionContext,
     sql: &str,
-    vec: Option<Vec<Option<Bytes>>>,
-    vec0: Option<Vec<Type>>,
+    scalars: Option<Vec<ScalarValue>>,
+    aliases: &HashMap<String, String>,
 ) -> datafusion::error::Result<(Vec<RecordBatch>, Arc<Schema>)> {
-    log::debug!("input sql {:?}", sql);
-
-    let (sql, aliases) = rewrite_filters(&sql)?;
-
-    let (sql, temp_udfs) = rewrite_query(&sql, &mut ctx.clone()).await?;
-
-    let df = if let (Some(params), Some(types)) = (vec, vec0) {
-        log::debug!("params {:?}", params);
-        print_params(&params);
-
-        let mut scalars = Vec::new();
-
-        for (param, typ) in params.into_iter().zip(types.into_iter()) {
-            let value = match (param, typ) {
-                (Some(bytes), Type::INT2) => {
-                    let v = i16::from_be_bytes(bytes[..].try_into().unwrap());
-                    ScalarValue::Int16(Some(v))
-                }
-                (Some(bytes), Type::INT8) => {
-                    let v = i64::from_be_bytes(bytes[..].try_into().unwrap());
-                    ScalarValue::Int64(Some(v))
-                }
-                (Some(bytes), Type::INT4) => {
-                    let v = i32::from_be_bytes(bytes[..].try_into().unwrap());
-                    ScalarValue::Int32(Some(v))
-                }
-                (Some(bytes), Type::OID) => {
-                    // OID values are 32-bit unsigned integers. We map them to
-                    // BIGINT to align with `rewrite_oid_cast`, which rewrites
-                    // `::oid` casts on parameters to BIGINT.
-                    let v = u32::from_be_bytes(bytes[..].try_into().unwrap());
-                    ScalarValue::Int64(Some(v as i64))
-                }
-                (Some(bytes), Type::VARCHAR)
-                | (Some(bytes), Type::TEXT)
-                | (Some(bytes), Type::BPCHAR)
-                | (Some(bytes), Type::NAME)
-                | (Some(bytes), Type::UNKNOWN) => {
-                    let s = String::from_utf8(bytes.to_vec()).unwrap();
-                    ScalarValue::Utf8(Some(s))
-                }
-                (None, Type::INT2) => ScalarValue::Int16(None),
-                (None, Type::INT8) => ScalarValue::Int64(None),
-                (None, Type::INT4) => ScalarValue::Int32(None),
-                (None, Type::OID) => ScalarValue::Int64(None),
-                (None, Type::VARCHAR)
-                | (None, Type::TEXT)
-                | (None, Type::BPCHAR)
-                | (None, Type::NAME)
-                | (None, Type::UNKNOWN) => ScalarValue::Utf8(None),
-                (some, other_type) => {
-                    panic!("unsupported param {:?} type {:?}", some, other_type);
-                }
-            };
-            scalars.push(value);
-        }
-
-        let df = ctx.sql(&sql).await?.with_param_values(scalars)?;
-        df
-    } else {
-        log::debug!("final sql {:?}", sql);
-        let df = ctx.sql(&sql).await?;
-        // log::debug!("executed sql");
-        df
+    let df = match scalars {
+        Some(scalars) => ctx.sql(sql).await?.with_param_values(scalars)?,
+        None => ctx.sql(sql).await?,
     };
 
-    // TODO: fix scope
-    let original_schema = df.schema();
-    let renamed_fields = original_schema
+    let renamed_fields = df
+        .schema()
         .fields()
         .iter()
         .map(|f| {
@@ -427,15 +394,95 @@ pub async fn execute_sql_inner(
     let results = df.collect().await?;
     let results = results
         .iter()
-        .map(|batch| rename_columns(batch, &aliases))
+        .map(|batch| rename_columns(batch, aliases))
         .collect::<Vec<_>>();
+    Ok((results, schema))
+}
+
+pub async fn rewrite_and_execute_sql(
+    ctx: &SessionContext,
+    sql: &str,
+    param_values: Option<Vec<Option<Bytes>>>,
+    param_types: Option<Vec<Type>>,
+) -> datafusion::error::Result<(Vec<RecordBatch>, Arc<Schema>)> {
+    log::debug!("input sql {:?}", sql);
+
+    // Turn `(srf(x)).field` set-returning-function projections into an
+    // `unnest(List<Struct>)` form DataFusion can plan. Runs BEFORE rewrite_filters
+    // so the resulting `__srf_unnest['field']` access is in place before the
+    // group-by-injection heuristic there inspects the projection.
+    let sql = rewrite_srf_to_unnest(&sql)?;
+
+    let (sql, aliases) = rewrite_filters(&sql)?;
+
+    // DataFusion 54 decorrelates correlated subqueries natively; the one gap is
+    // `EXISTS` used as a scalar value (e.g. inside CASE), which we convert to a
+    // `(SELECT count(*) ...) > 0` scalar subquery it can plan.
+    let sql = rewrite_exists_to_count(&sql)?;
+
+    // Multi-column `(...) IN (SELECT ... )` -> correlated `EXISTS` (DataFusion
+    // can't plan multi-column IN). Runs AFTER rewrite_exists_to_count so the
+    // EXISTS it emits stays a native WHERE predicate.
+    let sql = rewrite_tuple_in_subquery_to_exists(&sql)?;
+
+    let scalars: Option<Vec<ScalarValue>> =
+        if let (Some(params), Some(types)) = (param_values, param_types) {
+            log::debug!("params {:?}", params);
+            print_params(&params);
+
+            let mut scalars = Vec::new();
+            for (param, typ) in params.into_iter().zip(types.into_iter()) {
+                let value = match (param, typ) {
+                    (Some(bytes), Type::INT2) => {
+                        let v = i16::from_be_bytes(bytes[..].try_into().unwrap());
+                        ScalarValue::Int16(Some(v))
+                    }
+                    (Some(bytes), Type::INT8) => {
+                        let v = i64::from_be_bytes(bytes[..].try_into().unwrap());
+                        ScalarValue::Int64(Some(v))
+                    }
+                    (Some(bytes), Type::INT4) => {
+                        let v = i32::from_be_bytes(bytes[..].try_into().unwrap());
+                        ScalarValue::Int32(Some(v))
+                    }
+                    (Some(bytes), Type::OID) => {
+                        // OID values are 32-bit unsigned integers. We map them to
+                        // BIGINT to align with `rewrite_oid_cast`, which rewrites
+                        // `::oid` casts on parameters to BIGINT.
+                        let v = u32::from_be_bytes(bytes[..].try_into().unwrap());
+                        ScalarValue::Int64(Some(v as i64))
+                    }
+                    (Some(bytes), Type::VARCHAR)
+                    | (Some(bytes), Type::TEXT)
+                    | (Some(bytes), Type::BPCHAR)
+                    | (Some(bytes), Type::NAME)
+                    | (Some(bytes), Type::UNKNOWN) => {
+                        let s = String::from_utf8(bytes.to_vec()).unwrap();
+                        ScalarValue::Utf8(Some(s))
+                    }
+                    (None, Type::INT2) => ScalarValue::Int16(None),
+                    (None, Type::INT8) => ScalarValue::Int64(None),
+                    (None, Type::INT4) => ScalarValue::Int32(None),
+                    (None, Type::OID) => ScalarValue::Int64(None),
+                    (None, Type::VARCHAR)
+                    | (None, Type::TEXT)
+                    | (None, Type::BPCHAR)
+                    | (None, Type::NAME)
+                    | (None, Type::UNKNOWN) => ScalarValue::Utf8(None),
+                    (some, other_type) => {
+                        panic!("unsupported param {:?} type {:?}", some, other_type);
+                    }
+                };
+                scalars.push(value);
+            }
+            Some(scalars)
+        } else {
+            None
+        };
+
+    let (results, schema) = plan_collect_and_rename(ctx, &sql, scalars, &aliases).await?;
 
     let (results, schema) = remove_virtual_system_columns(&sql, results, schema);
-
-    // after the execution of the query we do a cleanup for added udfs
-    for name in temp_udfs {
-        ctx.deregister_udf(&name);
-    }
 
     Ok((results, schema))
 }
@@ -443,11 +490,11 @@ pub async fn execute_sql_inner(
 pub async fn execute_sql(
     ctx: &SessionContext,
     sql: &str,
-    vec: Option<Vec<Option<Bytes>>>,
-    vec0: Option<Vec<Type>>,
+    param_values: Option<Vec<Option<Bytes>>>,
+    param_types: Option<Vec<Type>>,
 ) -> datafusion::error::Result<(Vec<RecordBatch>, Arc<Schema>)> {
-    let params_for_log = vec.clone();
-    match execute_sql_inner(ctx, sql, vec, vec0).await {
+    let params_for_log = param_values.clone();
+    match rewrite_and_execute_sql(ctx, sql, param_values, param_types).await {
         Ok(v) => Ok(v),
         Err(e) => {
             log::error!("exec_error query: {:?}", sql);
@@ -463,7 +510,8 @@ fn parse_schema(
 ) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
     if let Some(schema_path) = schema_path {
         if schema_path.is_empty() {
-            return parse_schema_zip_bytes(SCHEMA_ZIP);
+            // Empty path means "use the embedded catalog" -> fast IPC artifact.
+            return parse_schema_ipc_bytes(SCHEMA_IPC);
         }
         let path = Path::new(schema_path);
         if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("zip") {
@@ -479,7 +527,10 @@ fn parse_schema(
             );
         }
     } else {
-        parse_schema_zip_bytes(SCHEMA_ZIP)
+        // No path -> embedded catalog, loaded from the Arrow IPC artifact. This
+        // skips YAML parsing + JSON->Arrow conversion (the entire ~1.85s cold
+        // start); explicit file/dir/zip paths still load YAML.
+        parse_schema_ipc_bytes(SCHEMA_IPC)
     }
 }
 
@@ -526,6 +577,134 @@ fn parse_schema_zip_bytes(
         merge_schema_maps(&mut all, parsed);
     }
     all
+}
+
+/// Serialize the parsed catalog into a zip of per-table Arrow IPC streams.
+///
+/// Each table becomes one IPC stream whose Arrow schema carries the table's
+/// identity and view info under `pgcat.*` metadata keys. This is the
+/// fast-loading counterpart to the YAML zip: reading it back skips YAML parsing
+/// and the JSON->Arrow conversion entirely (those two dominate cold start -
+/// ~1.85s vs ~9ms for everything else).
+fn schemas_to_ipc_zip(
+    schemas: &HashMap<String, HashMap<String, HashMap<String, ParsedTable>>>,
+) -> Vec<u8> {
+    use arrow::ipc::writer::StreamWriter;
+    use std::io::Write as _;
+    use zip::write::FileOptions;
+
+    let mut out: Vec<u8> = Vec::new();
+    {
+        let mut zip = zip::ZipWriter::new(Cursor::new(&mut out));
+        let options: FileOptions<()> = FileOptions::default();
+        let mut idx = 0usize;
+        for (catalog, schemas) in schemas {
+            for (schema_name, tables) in schemas {
+                for (table, parsed) in tables {
+                    let mut md = HashMap::new();
+                    md.insert("pgcat.catalog".to_string(), catalog.clone());
+                    md.insert("pgcat.schema".to_string(), schema_name.clone());
+                    md.insert("pgcat.table".to_string(), table.clone());
+                    md.insert(
+                        "pgcat.is_view".to_string(),
+                        if parsed.is_view { "1" } else { "0" }.to_string(),
+                    );
+                    if let Some(sql) = &parsed.view_sql {
+                        md.insert("pgcat.view_sql".to_string(), sql.clone());
+                    }
+                    let meta_schema = Arc::new(Schema::new_with_metadata(
+                        parsed.schema.fields().clone(),
+                        md,
+                    ));
+
+                    let mut buf: Vec<u8> = Vec::new();
+                    {
+                        let mut writer =
+                            StreamWriter::try_new(&mut buf, &meta_schema).expect("ipc writer");
+                        for batch in &parsed.batches {
+                            // Rebind each batch onto the metadata-carrying schema.
+                            let rebound =
+                                RecordBatch::try_new(meta_schema.clone(), batch.columns().to_vec())
+                                    .expect("ipc batch");
+                            writer.write(&rebound).expect("ipc write");
+                        }
+                        writer.finish().expect("ipc finish");
+                    }
+
+                    zip.start_file(format!("{idx:05}.arrow"), options)
+                        .expect("zip entry");
+                    zip.write_all(&buf).expect("zip write");
+                    idx += 1;
+                }
+            }
+        }
+        zip.finish().expect("zip finish");
+    }
+    out
+}
+
+/// Load the catalog from a zip of per-table Arrow IPC streams (the fast path for
+/// the embedded artifact). The inverse of [`schemas_to_ipc_zip`].
+fn parse_schema_ipc_bytes(
+    bytes: &[u8],
+) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
+    use arrow::ipc::reader::StreamReader;
+
+    let reader = Cursor::new(bytes);
+    let mut archive = ZipArchive::new(reader).expect("Failed to read ipc zip");
+    let mut all: HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> = HashMap::new();
+    for i in 0..archive.len() {
+        let mut entry = archive.by_index(i).expect("Invalid zip entry");
+        if !entry.name().ends_with(".arrow") {
+            continue;
+        }
+        let mut buf: Vec<u8> = Vec::new();
+        entry.read_to_end(&mut buf).expect("read ipc entry");
+
+        let mut stream = StreamReader::try_new(Cursor::new(buf), None).expect("ipc reader");
+        let md_schema = stream.schema();
+        let md = md_schema.metadata();
+        let catalog = md
+            .get("pgcat.catalog")
+            .cloned()
+            .expect("missing catalog md");
+        let schema_name = md.get("pgcat.schema").cloned().expect("missing schema md");
+        let table = md.get("pgcat.table").cloned().expect("missing table md");
+        let is_view = md.get("pgcat.is_view").map(|v| v == "1").unwrap_or(false);
+        let view_sql = md.get("pgcat.view_sql").cloned();
+
+        // Drop the pgcat.* metadata so the schema matches the YAML path exactly.
+        let clean_schema: SchemaRef = Arc::new(Schema::new(md_schema.fields().clone()));
+        let mut batches = Vec::new();
+        for batch in stream.by_ref() {
+            let batch = batch.expect("ipc batch");
+            batches.push(
+                RecordBatch::try_new(clean_schema.clone(), batch.columns().to_vec())
+                    .expect("rebind batch"),
+            );
+        }
+
+        let parsed = ParsedTable {
+            schema: clean_schema,
+            batches,
+            view_sql,
+            is_view,
+        };
+        all.entry(catalog)
+            .or_default()
+            .entry(schema_name)
+            .or_default()
+            .insert(table, parsed);
+    }
+    all
+}
+
+/// Build the embedded IPC catalog artifact from the YAML schema zip. Used by the
+/// `gen_schema_ipc` tool to (re)generate `postgres-schema-nightly-ipc.zip`
+/// whenever the YAML catalog changes.
+pub fn build_ipc_artifact(yaml_zip_bytes: &[u8]) -> Vec<u8> {
+    let schemas = parse_schema_zip_bytes(yaml_zip_bytes);
+    schemas_to_ipc_zip(&schemas)
 }
 
 fn parse_schema_contents(
@@ -886,7 +1065,7 @@ async fn register_catalogs_from_schemas(
                 let table_name = table.clone();
                 log::debug!("-- table {:?}", &table);
 
-                let base = ObservableMemTable::new(table_name, schema_ref, log.clone(), batches);
+                let base = ScanRecordingMemTable::new(table_name, schema_ref, log.clone(), batches);
                 let provider: Arc<dyn datafusion::datasource::TableProvider> = Arc::new(base);
                 schema_provider.register_table(table, provider)?;
             }
@@ -924,15 +1103,14 @@ async fn create_registered_views(
             )));
         }
 
-        let (rewritten_select, temp_udfs) = {
-            let (rewritten, _) = rewrite_filters(&definition)?;
-            rewrite_query(&rewritten, &mut ctx.clone()).await?
+        let rewritten_select = {
+            let rewritten = rewrite_srf_to_unnest(&definition)?;
+            let (rewritten, _) = rewrite_filters(&rewritten)?;
+            let rewritten = rewrite_exists_to_count(&rewritten)?;
+            rewrite_tuple_in_subquery_to_exists(&rewritten)?
         };
         let create_sql = format!("CREATE OR REPLACE VIEW {qualified} AS {rewritten_select}");
         ctx.sql(&create_sql).await?.collect().await?;
-        for udf in temp_udfs {
-            ctx.deregister_udf(&udf);
-        }
     }
 
     if active_default_schema != original_default_schema {
@@ -976,7 +1154,7 @@ pub async fn get_base_session_context(
 /// This matters because catalog views (those in `VIEW_ONLY_TABLES`, currently
 /// `pg_views` and `pg_tables`) are planned during session construction and bind
 /// to the table providers that exist at that moment. Registering the lazy source
-/// here — before view creation — makes those views resolve against the lazy
+/// here - before view creation - makes those views resolve against the lazy
 /// providers, so they reflect the source's rows.
 /// Calling [`register_lazy_catalog`] *after* `get_base_session_context` only
 /// rebinds the base tables; the already-created views keep pointing at the
@@ -1010,10 +1188,10 @@ async fn build_base_session_context(
     current_schemas_getter: Option<Arc<dyn Fn(&SessionContext) -> Vec<String> + Send + Sync>>,
     lazy_catalog: Option<(Arc<dyn LazyCatalogSource>, LazyCatalogOptions)>,
 ) -> datafusion::error::Result<(SessionContext, Arc<Mutex<Vec<ScanTrace>>>)> {
-    let _current_schemas_getter: Arc<dyn Fn(&SessionContext) -> Vec<String> + Send + Sync> =
+    let current_schemas_fn: Arc<dyn Fn(&SessionContext) -> Vec<String> + Send + Sync> =
         current_schemas_getter.unwrap_or_else(|| Arc::new(default_current_schemas));
 
-    let log: Arc<Mutex<Vec<ScanTrace>>> = Arc::new(Mutex::new(Vec::new()));
+    let scan_traces: Arc<Mutex<Vec<ScanTrace>>> = Arc::new(Mutex::new(Vec::new()));
 
     let schemas = parse_schema(schema_path);
     let mut session_config = datafusion::execution::context::SessionConfig::new()
@@ -1025,7 +1203,7 @@ async fn build_base_session_context(
 
     let ctx: SessionContext = SessionContext::new_with_config(session_config);
     let pending_views =
-        register_catalogs_from_schemas(&ctx, schemas, default_catalog, log.clone()).await?;
+        register_catalogs_from_schemas(&ctx, schemas, default_catalog, scan_traces.clone()).await?;
 
     for f in regclass_udfs(&ctx) {
         ctx.register_udf(f);
@@ -1038,16 +1216,15 @@ async fn build_base_session_context(
 
     register_scalar_regclass_oid(&ctx)?;
     register_scalar_pg_tablespace_location(&ctx)?;
-    register_scalar_format_type(&ctx)?;
+    register_scalar_format_type(&ctx).await?;
     ctx.register_udtf(
         "regclass_oid",
         Arc::new(crate::user_functions::RegClassOidFunc),
     );
 
-    register_current_schema(&ctx, _current_schemas_getter.clone())?;
-    register_current_schemas(&ctx, _current_schemas_getter.clone())?;
+    register_current_schema(&ctx, current_schemas_fn.clone())?;
+    register_current_schemas(&ctx, current_schemas_fn.clone())?;
 
-    register_scalar_format_type(&ctx)?;
     register_scalar_pg_get_expr(&ctx)?;
     register_scalar_pg_get_partkeydef(&ctx)?;
     register_scalar_pg_table_is_visible(&ctx)?;
@@ -1056,12 +1233,30 @@ async fn build_base_session_context(
     register_scalar_array_to_string(&ctx)?;
     register_pg_get_one(&ctx)?;
     register_pg_get_array(&ctx)?;
-    register_oidvector_to_array(&ctx)?;
     register_array_agg(&ctx)?;
     register_pg_get_statisticsobjdef_columns(&ctx)?;
     register_pg_relation_is_publishable(&ctx)?;
     register_has_database_privilege(&ctx)?;
     register_has_schema_privilege(&ctx)?;
+    register_has_privilege_family(&ctx)?;
+    register_nameconcatoid(&ctx)?;
+    register_pg_has_role(&ctx)?;
+    register_pg_is_other_temp_schema(&ctx)?;
+    register_pg_my_temp_schema(&ctx)?;
+    register_getdatabaseencoding(&ctx)?;
+    register_pg_relation_is_updatable(&ctx)?;
+    register_pg_column_is_updatable(&ctx)?;
+    register_pg_get_function_arg_default(&ctx)?;
+    register_format(&ctx)?;
+    register_pg_char_max_length(&ctx)?;
+    register_pg_char_octet_length(&ctx)?;
+    register_pg_index_position(&ctx)?;
+    register_pg_numeric_helpers(&ctx)?;
+    register_pg_truetypid_helpers(&ctx)?;
+    register_pg_options_to_table(&ctx)?;
+    register_pg_expandarray(&ctx)?;
+    register_aclexplode(&ctx)?;
+    register_acldefault(&ctx)?;
     register_pg_postmaster_start_time(&ctx)?;
     register_pg_relation_size(&ctx)?;
     register_pg_total_relation_size(&ctx)?;
@@ -1096,7 +1291,7 @@ async fn build_base_session_context(
 
     // println!("Current catalog: {}", default_catalog);
 
-    Ok((ctx, log))
+    Ok((ctx, scan_traces))
 }
 
 #[cfg(test)]

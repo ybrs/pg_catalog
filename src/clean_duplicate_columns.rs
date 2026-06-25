@@ -14,7 +14,7 @@ fn alias_projection(
     counter: &mut usize,
     alias_map: &mut HashMap<String, String>,
 ) {
-    let mut new_proj = Vec::new();
+    let mut aliased_projection = Vec::new();
     for item in &select.projection {
         match item {
             SelectItem::UnnamedExpr(expr) => match expr {
@@ -32,7 +32,7 @@ fn alias_projection(
                         // find the value "oid" and put it to name
                         alias_map.insert(alias.clone(), name.into());
 
-                        new_proj.push(SelectItem::ExprWithAlias {
+                        aliased_projection.push(SelectItem::ExprWithAlias {
                             expr: expr.clone(),
                             alias: Ident::new(alias),
                         });
@@ -52,7 +52,7 @@ fn alias_projection(
                         // find the value "oid" and put it to name
                         alias_map.insert(alias.clone(), name);
 
-                        new_proj.push(SelectItem::ExprWithAlias {
+                        aliased_projection.push(SelectItem::ExprWithAlias {
                             expr: expr.clone(),
                             alias: Ident::new(alias),
                         });
@@ -61,7 +61,7 @@ fn alias_projection(
                         let alias = format!("alias_{}", *counter);
                         *counter += 1;
                         alias_map.insert(alias.clone(), data_type.to_string().to_lowercase());
-                        new_proj.push(SelectItem::ExprWithAlias {
+                        aliased_projection.push(SelectItem::ExprWithAlias {
                             expr: expr.clone(),
                             alias: Ident::new(alias),
                         });
@@ -73,14 +73,14 @@ fn alias_projection(
                     let name = f.clone().name.to_string();
                     alias_map.insert(alias.clone(), name);
 
-                    new_proj.push(SelectItem::ExprWithAlias {
+                    aliased_projection.push(SelectItem::ExprWithAlias {
                         expr: expr.clone(),
                         alias: Ident::new(alias),
                     });
                 }
 
                 Expr::Wildcard(_) | Expr::QualifiedWildcard(_, _) => {
-                    new_proj.push(SelectItem::UnnamedExpr(expr.clone()));
+                    aliased_projection.push(SelectItem::UnnamedExpr(expr.clone()));
                 }
                 _ => {
                     let alias = format!("alias_{}", *counter);
@@ -97,19 +97,19 @@ fn alias_projection(
 
                     alias_map.insert(alias.clone(), name);
 
-                    new_proj.push(SelectItem::ExprWithAlias {
+                    aliased_projection.push(SelectItem::ExprWithAlias {
                         expr: expr.clone(),
                         alias: Ident::new(alias),
                     });
                 }
             },
-            _ => new_proj.push(item.clone()),
+            _ => aliased_projection.push(item.clone()),
         }
     }
-    select.projection = new_proj;
+    select.projection = aliased_projection;
 }
 
-fn walk_set_expr(
+fn alias_columns_in_set_expr(
     expr: &mut SetExpr,
     counter: &mut usize,
     alias_map: &mut HashMap<String, String>,
@@ -123,7 +123,7 @@ fn walk_set_expr(
             for table_with_joins in &mut select.from {
                 match &mut table_with_joins.relation {
                     TableFactor::Derived { subquery, .. } => {
-                        walk_query(subquery, counter, alias_map, depth + 1);
+                        alias_columns_in_query(subquery, counter, alias_map, depth + 1);
                     }
                     _ => {}
                 }
@@ -131,35 +131,140 @@ fn walk_set_expr(
         }
 
         SetExpr::SetOperation { left, right, .. } => {
-            walk_set_expr(left, counter, alias_map, depth);
-            walk_set_expr(right, counter, alias_map, depth);
+            alias_columns_in_set_expr(left, counter, alias_map, depth);
+            alias_columns_in_set_expr(right, counter, alias_map, depth);
         }
         SetExpr::Query(subquery) => {
-            walk_query(subquery, counter, alias_map, depth + 1);
+            alias_columns_in_query(subquery, counter, alias_map, depth + 1);
         }
         _ => {}
     }
 }
 
-fn walk_query(
+fn alias_columns_in_query(
     query: &mut Query,
     counter: &mut usize,
     alias_map: &mut HashMap<String, String>,
     depth: usize,
 ) {
-    walk_set_expr(&mut query.body, counter, alias_map, depth);
+    alias_columns_in_set_expr(&mut query.body, counter, alias_map, depth);
 
     if let Some(with) = &mut query.with {
         for cte in &mut with.cte_tables {
-            walk_query(&mut cte.query, counter, alias_map, depth + 1);
+            alias_columns_in_query(&mut cte.query, counter, alias_map, depth + 1);
         }
     }
+}
+
+/// The client-visible name a projection item produces, for plain column refs.
+/// Returns `None` for wildcards or complex expressions we don't disambiguate.
+fn projection_output_name(item: &SelectItem) -> Option<String> {
+    match item {
+        SelectItem::ExprWithAlias { alias, .. } => Some(alias.value.clone()),
+        SelectItem::UnnamedExpr(Expr::Identifier(id)) => Some(id.value.clone()),
+        SelectItem::UnnamedExpr(Expr::CompoundIdentifier(segs)) => {
+            segs.last().map(|id| id.value.clone())
+        }
+        _ => None,
+    }
+}
+
+/// Disambiguate duplicate column names within a single SELECT's projection by
+/// aliasing the second and later occurrences (`nspname`, `nspname`, ... ->
+/// `nspname`, `nspname_2`, ...).
+fn dedup_projection(select: &mut Select) {
+    let mut seen: HashMap<String, usize> = HashMap::new();
+    for item in &mut select.projection {
+        let Some(name) = projection_output_name(item) else {
+            continue;
+        };
+        let count = seen.entry(name.clone()).or_insert(0);
+        *count += 1;
+        if *count > 1 {
+            let expr = match item {
+                SelectItem::UnnamedExpr(e) => e.clone(),
+                SelectItem::ExprWithAlias { expr, .. } => expr.clone(),
+                _ => continue,
+            };
+            *item = SelectItem::ExprWithAlias {
+                expr,
+                alias: Ident::new(format!("{name}_{count}")),
+            };
+        }
+    }
+}
+
+/// Walk into nested `SELECT`s (derived tables, set-operation branches, CTEs) and
+/// disambiguate duplicate projection names in each. The top level (`depth == 0`)
+/// is skipped - [`alias_unnamed_columns`] already aliases it, and renaming
+/// top-level columns would change the client-facing result names.
+fn dedup_in_set_expr(expr: &mut SetExpr, depth: usize) {
+    match expr {
+        SetExpr::Select(select) => {
+            if depth > 0 {
+                dedup_projection(select);
+            }
+            for table_with_joins in &mut select.from {
+                if let TableFactor::Derived { subquery, .. } = &mut table_with_joins.relation {
+                    dedup_in_query(subquery, depth + 1);
+                }
+                for join in &mut table_with_joins.joins {
+                    if let TableFactor::Derived { subquery, .. } = &mut join.relation {
+                        dedup_in_query(subquery, depth + 1);
+                    }
+                }
+            }
+        }
+        SetExpr::SetOperation { left, right, .. } => {
+            dedup_in_set_expr(left, depth);
+            dedup_in_set_expr(right, depth);
+        }
+        SetExpr::Query(subquery) => dedup_in_query(subquery, depth + 1),
+        _ => {}
+    }
+}
+
+/// Recurse [`dedup_in_set_expr`] through a query body and its CTEs.
+fn dedup_in_query(query: &mut Query, depth: usize) {
+    dedup_in_set_expr(&mut query.body, depth);
+    if let Some(with) = &mut query.with {
+        for cte in &mut with.cte_tables {
+            dedup_in_query(&mut cte.query, depth + 1);
+        }
+    }
+}
+
+/// Disambiguate duplicate column names inside *nested* SELECT projections.
+///
+/// DataFusion's optimizer asserts a column's name matches its projection
+/// expression and panics ("Internal error: Assertion failed: col.name() ==
+/// matching_name") when a derived table projects two columns with the same name
+/// - e.g. `SELECT nr.nspname, ..., nc.nspname` in `constraint_column_usage`. The
+/// top-level projection is already disambiguated by [`alias_unnamed_columns`];
+/// this covers the nested case it skips. Inner names aren't client-visible
+/// (they're under a column-alias list, or a duplicate name was unreferenceable
+/// anyway), so no rename-back is needed.
+pub fn disambiguate_duplicate_columns(sql: &str) -> Result<String> {
+    let dialect = PostgreSqlDialect {};
+    let mut statements =
+        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
+    let _ = visit_statements_mut(&mut statements, |stmt| {
+        if let Statement::Query(query) = stmt {
+            dedup_in_query(query, 0);
+        }
+        ControlFlow::<()>::Continue(())
+    });
+    Ok(statements
+        .into_iter()
+        .map(|stmt| stmt.to_string())
+        .collect::<Vec<_>>()
+        .join(" "))
 }
 
 /// Assign unique aliases to every projected column and return a map
 /// of alias to original name so duplicate column names do not confuse
 /// clients.
-pub fn alias_all_columns(sql: &str) -> Result<(String, HashMap<String, String>)> {
+pub fn alias_unnamed_columns(sql: &str) -> Result<(String, HashMap<String, String>)> {
     let dialect = PostgreSqlDialect {};
     let mut statements =
         Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
@@ -169,7 +274,7 @@ pub fn alias_all_columns(sql: &str) -> Result<(String, HashMap<String, String>)>
 
     let _ = visit_statements_mut(&mut statements, |stmt| {
         if let Statement::Query(query) = stmt {
-            walk_query(query, &mut counter, &mut alias_map, 0);
+            alias_columns_in_query(query, &mut counter, &mut alias_map, 0);
         }
         ControlFlow::<()>::Continue(())
     });
@@ -190,6 +295,36 @@ mod tests {
     use super::*;
     use std::error::Error;
 
+    #[test]
+    fn test_disambiguate_duplicate_columns_in_derived_table() -> Result<(), Box<dyn Error>> {
+        // Two `nspname`s in a derived table -> the second becomes `nspname_2`,
+        // so DataFusion doesn't hit its name-mismatch assertion. The outer
+        // (depth 0) projection is left alone.
+        let sql = "SELECT a, b FROM (SELECT nr.nspname, nc.nspname FROM x nr, y nc) t(a, b)";
+        let out = disambiguate_duplicate_columns(sql)?;
+        assert!(
+            out.contains("nc.nspname AS nspname_2"),
+            "second nspname aliased: {out}"
+        );
+        assert_eq!(
+            out.matches("nspname").count(),
+            3,
+            "only the dup is renamed: {out}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_disambiguate_leaves_unique_columns_untouched() -> Result<(), Box<dyn Error>> {
+        let sql = "SELECT x FROM (SELECT a.p, b.q FROM a, b) t";
+        let out = disambiguate_duplicate_columns(sql)?;
+        assert!(
+            !out.contains("_2"),
+            "no aliasing when names are unique: {out}"
+        );
+        Ok(())
+    }
+
     fn alias_maps(nums: &[&str]) -> HashMap<String, String> {
         let mut map = HashMap::new();
         for (i, &val) in nums.iter().enumerate() {
@@ -200,7 +335,7 @@ mod tests {
     }
 
     #[test]
-    fn test_alias_all_columns() -> Result<(), Box<dyn Error>> {
+    fn test_alias_unnamed_columns() -> Result<(), Box<dyn Error>> {
         let cases = vec![
             (
                 "SELECT t.id FROM foo",
@@ -290,7 +425,7 @@ mod tests {
         ];
 
         for (input, expected_substrings, expected_alias_map) in cases {
-            let (transformed, aliases) = alias_all_columns(input).unwrap();
+            let (transformed, aliases) = alias_unnamed_columns(input).unwrap();
             for expected in expected_substrings {
                 assert!(
                     transformed.contains(expected),

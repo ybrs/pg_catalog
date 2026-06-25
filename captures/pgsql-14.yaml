@@ -25,16 +25,16 @@ dbuser=CTc/dbuser"
     Name: "postgres"
     Owner: "postgres"
   - 
-    Access privileges: "=c/abadur
-abadur=CTc/abadur"
+    Access privileges: "=c/sysuser
+sysuser=CTc/sysuser"
     Collate: "nl_NL.UTF-8"
     Ctype: "nl_NL.UTF-8"
     Encoding: "UTF8"
     Name: "template0"
     Owner: "postgres"
   - 
-    Access privileges: "=c/abadur
-abadur=CTc/abadur"
+    Access privileges: "=c/sysuser
+sysuser=CTc/sysuser"
     Collate: "nl_NL.UTF-8"
     Ctype: "nl_NL.UTF-8"
     Encoding: "UTF8"

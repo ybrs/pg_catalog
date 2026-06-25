@@ -38,7 +38,7 @@ public:
         rolconfig: _text
         oid: oid
       rows:
-      - rolname: abadur
+      - rolname: sysuser
         rolsuper: true
         rolinherit: true
         rolcreaterole: true

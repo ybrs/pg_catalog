@@ -29,12 +29,4 @@ public:
         client_dn: text
         client_serial: numeric
         issuer_dn: text
-      rows:
-      - pid: 73329
-        ssl: false
-        version: null
-        cipher: null
-        bits: null
-        client_dn: null
-        client_serial: null
-        issuer_dn: null
+      rows: []

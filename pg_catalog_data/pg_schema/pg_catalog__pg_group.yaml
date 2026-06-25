@@ -9,7 +9,7 @@ public:
       schema:
         groname: varchar(64)
         grosysid: int
-        grolist: _text
+        grolist: _oid
       pg_types:
         groname: name
         grosysid: oid

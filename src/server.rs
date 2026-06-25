@@ -329,7 +329,7 @@ impl DatafusionBackend {
         Some(Response::Query(QueryResponse::new(fields, rows)))
     }
 
-    fn parse_show_variable(sql: &str) -> Option<String> {
+    fn parse_show_variable_name(sql: &str) -> Option<String> {
         let dialect = PostgreSqlDialect {};
         let mut statements = Parser::parse_sql(&dialect, sql).ok()?;
         if statements.len() != 1 {
@@ -360,6 +360,47 @@ impl AuthSource for DummyAuthSource {
     }
 }
 
+/// Stringify the elements of a string-like Arrow array (Utf8, Utf8View, or
+/// LargeUtf8) for array-text encoding, rendering NULL elements as `"NULL"`.
+fn stringify_string_array(arr: &arrow::array::ArrayRef) -> Vec<String> {
+    use arrow::array::Array;
+    let n = arr.len();
+    let mut out = Vec::with_capacity(n);
+    let push = |out: &mut Vec<String>, is_null: bool, val: &str| {
+        out.push(if is_null {
+            "NULL".to_string()
+        } else {
+            val.to_string()
+        });
+    };
+    if let Some(a) = arr.as_any().downcast_ref::<StringArray>() {
+        for i in 0..n {
+            push(
+                &mut out,
+                a.is_null(i),
+                if a.is_null(i) { "" } else { a.value(i) },
+            );
+        }
+    } else if let Some(a) = arr.as_any().downcast_ref::<StringViewArray>() {
+        for i in 0..n {
+            push(
+                &mut out,
+                a.is_null(i),
+                if a.is_null(i) { "" } else { a.value(i) },
+            );
+        }
+    } else if let Some(a) = arr.as_any().downcast_ref::<LargeStringArray>() {
+        for i in 0..n {
+            push(
+                &mut out,
+                a.is_null(i),
+                if a.is_null(i) { "" } else { a.value(i) },
+            );
+        }
+    }
+    out
+}
+
 fn arrow_to_pg_type(dt: &DataType) -> Type {
     use arrow::datatypes::DataType::*;
 
@@ -373,17 +414,24 @@ fn arrow_to_pg_type(dt: &DataType) -> Type {
         Float32 => Type::FLOAT4, // real
         Float64 => Type::FLOAT8, // double precision
 
-        // ── arrays ───────────────────────────────────────────────
+        // -- arrays -----------------------------------------------
         List(inner) => match inner.data_type() {
-            Utf8 => Type::TEXT_ARRAY,    // text[]
-            Int32 => Type::INT4_ARRAY,   // int4[]
-            Int64 => Type::INT8_ARRAY,   // int8[]
-            Boolean => Type::BOOL_ARRAY, // bool[]
-            // add more element types here as you need them
-            other => panic!("arrow_to_pg_type: no pgwire::Type for list<{other:?}>"),
+            Utf8 | Utf8View | LargeUtf8 => Type::TEXT_ARRAY, // text[]
+            Int16 => Type::INT2_ARRAY,                       // int2[]
+            Int32 => Type::INT4_ARRAY,                       // int4[]
+            Int64 => Type::INT8_ARRAY,                       // int8[]
+            Boolean => Type::BOOL_ARRAY,                     // bool[]
+            Float32 => Type::FLOAT4_ARRAY,                   // real[]
+            Float64 => Type::FLOAT8_ARRAY,                   // double precision[]
+            // Never panic on an unmapped element type: fall back to text[] so the
+            // client gets a sensible (if generic) array type instead of a crash.
+            other => {
+                log::warn!("arrow_to_pg_type: no array type for list<{other:?}>, using text[]");
+                Type::TEXT_ARRAY
+            }
         },
 
-        // anything else – send as plain text so the client can at
+        // anything else - send as plain text so the client can at
         // least see something instead of us mangling it away
         other => {
             log::warn!("arrow_to_pg_type: mapping {other:?} to TEXT");
@@ -514,7 +562,7 @@ fn batches_to_json_rows(batches: &[RecordBatch]) -> Vec<BTreeMap<String, serde_j
 /// pgwire 0.40 represents an unspecified prepared-statement parameter type
 /// (protocol OID 0) as `None`. Our query path and pgwire's
 /// `DescribeStatementResponse` both work with concrete `Type`s, so resolve any
-/// unspecified entry to `Type::UNKNOWN` — matching the pre-0.40 behaviour where
+/// unspecified entry to `Type::UNKNOWN` - matching the pre-0.40 behaviour where
 /// pgwire handed us concrete types directly.
 fn concrete_param_types(types: &[Option<Type>]) -> Vec<Type> {
     types
@@ -631,7 +679,7 @@ fn batch_to_row_stream(
                     encoder.encode_field(&value).unwrap();
                 }
 
-                // ---------- TIMESTAMP μs / ms / ns ----------
+                // ---------- TIMESTAMP us / ms / ns ----------
                 DataType::Timestamp(unit, _) => {
                     match unit {
                         TimeUnit::Microsecond => {
@@ -690,7 +738,7 @@ fn batch_to_row_stream(
                             };
                             encoder.encode_field(&value).unwrap();
                         }
-                        _ => unreachable!(), // TimeUnit::Second isn’t used by Arrow today
+                        _ => unreachable!(), // TimeUnit::Second isn't used by Arrow today
                     }
                 }
                 DataType::Boolean => {
@@ -703,22 +751,17 @@ fn batch_to_row_stream(
                     encoder.encode_field(&value).unwrap();
                 }
 
-                DataType::List(inner) if inner.data_type() == &DataType::Utf8 => {
+                DataType::List(inner)
+                    if matches!(
+                        inner.data_type(),
+                        DataType::Utf8 | DataType::Utf8View | DataType::LargeUtf8
+                    ) =>
+                {
                     let list = col.as_any().downcast_ref::<ListArray>().unwrap();
                     let value: Option<Vec<String>> = if list.is_null(row_idx) {
                         None
                     } else {
-                        let arr = list.value(row_idx);
-                        let sa = arr.as_any().downcast_ref::<StringArray>().unwrap();
-                        let mut items = Vec::with_capacity(sa.len());
-                        for i in 0..sa.len() {
-                            if sa.is_null(i) {
-                                items.push("NULL".to_string());
-                            } else {
-                                items.push(sa.value(i).to_string());
-                            }
-                        }
-                        Some(items)
+                        Some(stringify_string_array(&list.value(row_idx)))
                     };
                     encoder.encode_field(&value).unwrap();
                 }
@@ -774,7 +817,7 @@ impl SimpleQueryHandler for DatafusionBackend {
 
             let rows = stream::iter(vec![Ok(row)]);
             return Ok(vec![Response::Query(QueryResponse::new(field_infos, rows))]);
-        } else if let Some(var) = Self::parse_show_variable(trimmed) {
+        } else if let Some(var) = Self::parse_show_variable_name(trimmed) {
             if let Some(resp) = self.show_variable_response(&var.to_lowercase(), FieldFormat::Text)
             {
                 return Ok(vec![resp]);
@@ -794,28 +837,30 @@ impl SimpleQueryHandler for DatafusionBackend {
         let _ = self.register_session_user(client);
         let _ = self.register_current_user(client);
 
-        let exec_res = dispatch_query(&self.ctx, query, None, None, |ctx, sql, p, t| async move {
-            let lsql = sql.to_lowercase();
-            if lsql.contains("from users") {
-                let schema = Arc::new(Schema::new(vec![
-                    Field::new("id", DataType::Int32, false),
-                    Field::new("name", DataType::Utf8, true),
-                ]));
-                let batch = RecordBatch::try_new(
-                    schema.clone(),
-                    vec![
-                        Arc::new(Int32Array::from(vec![1, 2])) as ArrayRef,
-                        Arc::new(StringArray::from(vec![Some("Alice"), Some("Bob")])) as ArrayRef,
-                    ],
-                )
-                .unwrap();
-                Ok((vec![batch], schema))
-            } else {
-                execute_sql(ctx, sql, p, t).await
-            }
-        })
-        .await;
-        let (results, schema) = match exec_res {
+        let dispatch_result =
+            dispatch_query(&self.ctx, query, None, None, |ctx, sql, p, t| async move {
+                let lsql = sql.to_lowercase();
+                if lsql.contains("from users") {
+                    let schema = Arc::new(Schema::new(vec![
+                        Field::new("id", DataType::Int32, false),
+                        Field::new("name", DataType::Utf8, true),
+                    ]));
+                    let batch = RecordBatch::try_new(
+                        schema.clone(),
+                        vec![
+                            Arc::new(Int32Array::from(vec![1, 2])) as ArrayRef,
+                            Arc::new(StringArray::from(vec![Some("Alice"), Some("Bob")]))
+                                as ArrayRef,
+                        ],
+                    )
+                    .unwrap();
+                    Ok((vec![batch], schema))
+                } else {
+                    execute_sql(ctx, sql, p, t).await
+                }
+            })
+            .await;
+        let (results, schema) = match dispatch_result {
             Ok(v) => v,
             Err(e) => {
                 if let Some(c) = &self.capture {
@@ -843,11 +888,16 @@ impl SimpleQueryHandler for DatafusionBackend {
 
             responses.push(Response::Query(QueryResponse::new(field_infos, rows)));
         } else {
-            for batch in &results {
-                let schema = Arc::new(batch_to_field_info(batch, &Format::UnifiedText)?);
-                let rows = batch_to_row_stream(batch, schema.clone());
-                responses.push(Response::Query(QueryResponse::new(schema, rows)));
-            }
+            // A query can produce several RecordBatches - one per UNION branch,
+            // and one per ~8192 rows. They share a schema, so concatenate into a
+            // SINGLE result set. Emitting one Response::Query per batch sends the
+            // client multiple result sets for one query, and it sees only the last
+            // (which silently dropped every UNION view's other branches).
+            let combined = arrow::compute::concat_batches(&results[0].schema(), &results)
+                .map_err(|e| PgWireError::ApiError(Box::new(e)))?;
+            let field_infos = Arc::new(batch_to_field_info(&combined, &Format::UnifiedText)?);
+            let rows = batch_to_row_stream(&combined, field_infos.clone());
+            responses.push(Response::Query(QueryResponse::new(field_infos, rows)));
         }
 
         if lowercase.starts_with("set") {
@@ -924,7 +974,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
             let row = encoder.take_row();
             let rows = stream::iter(vec![Ok(row)]);
             return Ok(Response::Query(QueryResponse::new(field_infos, rows)));
-        } else if let Some(var) = Self::parse_show_variable(sql_trim) {
+        } else if let Some(var) = Self::parse_show_variable_name(sql_trim) {
             if let Some(resp) = self.show_variable_response(
                 &var.to_lowercase(),
                 portal.result_column_format.format_for(0),
@@ -937,7 +987,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
         let _ = self.register_session_user(client);
         let _ = self.register_current_user(client);
 
-        let exec_res = dispatch_query(
+        let dispatch_result = dispatch_query(
             &self.ctx,
             portal.statement.statement.as_str(),
             Some(portal.parameters.clone()),
@@ -965,7 +1015,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
             },
         )
         .await;
-        let (results, schema) = match exec_res {
+        let (results, schema) = match dispatch_result {
             Ok(v) => v,
             Err(e) => {
                 if let Some(c) = &self.capture {
@@ -985,10 +1035,14 @@ impl ExtendedQueryHandler for DatafusionBackend {
             }
         };
 
+        // Concatenate all batches into one: a query can return several (one per
+        // UNION branch, one per ~8192 rows), and taking only `results[0]` dropped
+        // every batch after the first.
         let batch = if results.is_empty() {
             RecordBatch::new_empty(schema.clone())
         } else {
-            results[0].clone()
+            arrow::compute::concat_batches(&results[0].schema(), &results)
+                .map_err(|e| PgWireError::ApiError(Box::new(e)))?
         };
 
         let field_infos = Arc::new(batch_to_field_info(&batch, &portal.result_column_format)?);
@@ -1318,6 +1372,54 @@ mod tests {
         assert_eq!(arrow_to_pg_type(&DataType::LargeUtf8), Type::TEXT);
         assert_eq!(arrow_to_pg_type(&DataType::Float32), Type::FLOAT4);
         assert_eq!(arrow_to_pg_type(&DataType::Float64), Type::FLOAT8);
+    }
+
+    #[test]
+    fn test_arrow_to_pg_type_lists_never_panic() {
+        use arrow::datatypes::Field;
+        let list = |dt: DataType| DataType::List(Arc::new(Field::new("item", dt, true)));
+        // Previously `list<Utf8View>` panicked; it (and any list) must map to an
+        // array type, never crash.
+        assert_eq!(
+            arrow_to_pg_type(&list(DataType::Utf8View)),
+            Type::TEXT_ARRAY
+        );
+        assert_eq!(
+            arrow_to_pg_type(&list(DataType::LargeUtf8)),
+            Type::TEXT_ARRAY
+        );
+        assert_eq!(arrow_to_pg_type(&list(DataType::Utf8)), Type::TEXT_ARRAY);
+        assert_eq!(arrow_to_pg_type(&list(DataType::Int16)), Type::INT2_ARRAY);
+        assert_eq!(
+            arrow_to_pg_type(&list(DataType::Float64)),
+            Type::FLOAT8_ARRAY
+        );
+        // An unmapped element type falls back to text[] instead of panicking.
+        assert_eq!(arrow_to_pg_type(&list(DataType::Date32)), Type::TEXT_ARRAY);
+    }
+
+    #[test]
+    fn test_row_stream_list_utf8view_no_panic() {
+        use arrow::array::{ListBuilder, StringViewBuilder};
+        // A list<Utf8View> column must encode without panicking.
+        let mut lb = ListBuilder::new(StringViewBuilder::new());
+        lb.values().append_value("a");
+        lb.values().append_value("b");
+        lb.append(true);
+        let arr = lb.finish();
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "tags",
+            arr.data_type().clone(),
+            true,
+        )]));
+        let batch = RecordBatch::try_new(schema, vec![Arc::new(arr) as ArrayRef]).unwrap();
+        let info = batch_to_field_info(&batch, &Format::UnifiedText).unwrap();
+        assert_eq!(info[0].datatype(), &Type::TEXT_ARRAY);
+        let rows = futures::executor::block_on(
+            batch_to_row_stream(&batch, Arc::new(info)).collect::<Vec<_>>(),
+        );
+        assert_eq!(rows.len(), 1);
+        assert!(rows[0].is_ok());
     }
 
     #[test]

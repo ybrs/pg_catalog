@@ -1,4 +1,5 @@
 # Instructions
+- Plain ASCII text only. NO emoji, emoticons, status icons, or non-ASCII glyphs in code or docs. Write status as `working`/`partial`/`broken`; use `->`/`<-` for arrows, `-`/`|`/`+` for diagrams, and ASCII `-`/`"`/`'`/`...` instead of em-dashes, curly quotes, or ellipsis glyphs. Applies to comments, docstrings, output strings, and Markdown.
 - Never fail silently. If tests don't pass fix the test. Never skip the tests.
 - Never fail silently. If can't parse the query, return an error. Don't fallback to default or whatever. If there is an error. Return Error to the client.
 - Don't remove any existing files unless you are explicitly told. 

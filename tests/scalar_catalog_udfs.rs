@@ -2,7 +2,7 @@
 //!
 //! `oid(text)` (and `pg_get_userbyid`) resolve values by running a catalog SQL
 //! query from a synchronous UDF body. They must work regardless of the caller's
-//! tokio runtime flavor — in particular on the current-thread runtime that
+//! tokio runtime flavor - in particular on the current-thread runtime that
 //! `#[tokio::test]` uses by default (where `tokio::task::block_in_place` would
 //! panic). These tests deliberately use the default `#[tokio::test]` runtime.
 

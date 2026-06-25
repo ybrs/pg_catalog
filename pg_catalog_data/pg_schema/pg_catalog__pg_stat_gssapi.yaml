@@ -22,9 +22,4 @@ public:
         principal: text
         encrypted: bool
         credentials_delegated: bool
-      rows:
-      - pid: 73329
-        gss_authenticated: false
-        principal: null
-        encrypted: false
-        credentials_delegated: false
+      rows: []

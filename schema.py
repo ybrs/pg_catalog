@@ -24,14 +24,52 @@ PG_TYPE_MAPPING = {
     "varchar": "varchar(256)",
     "bpchar": "varchar(64)",
     "bool": "boolean",
-    "float4": "float",
-    "float8": "float",
+    # Keep single/double precision distinct: float4 -> Float32 (FLOAT4 / OID 700),
+    # float8 -> Float64 (FLOAT8 / OID 701) on the Rust side. Collapsing both to a
+    # bare "float" made every float4 column (e.g. pg_class.reltuples) report as
+    # float8 over the wire.
+    "float4": "float4",
+    "float8": "float8",
 }
+
+# Array (`_X`) element types we keep as integer arrays instead of collapsing to
+# a text array. Without this, e.g. `pg_constraint.conkey` (`_int2`, the key column
+# numbers) loaded as text and `attnum = ANY(conkey)` matched nothing, silently
+# emptying constraint_column_usage / key_column_usage / parameters. The Rust
+# `map_pg_type` (db_table.rs) maps these to `List<Int*>`.
+INT_ARRAY_TYPES = {"_int2", "_int4", "_int8", "_oid"}
+
+
+# PostgreSQL's `oidvector` / `int2vector` (e.g. pg_proc.proargtypes,
+# pg_index.indkey) are integer arrays. Keep them as such so the Rust loader maps
+# them to List<Int*> instead of the varchar fallback (a scalar text "16 16").
+VECTOR_TYPES = {"oidvector", "int2vector"}
+
 
 def map_pg_type(pg_type):
     if pg_type.startswith("_"):
-        return "_text"
+        if pg_type in INT_ARRAY_TYPES:
+            return pg_type  # keep _int2/_int4/_int8/_oid -> integer arrays
+        return "_text"  # other arrays stay text arrays
+    if pg_type in VECTOR_TYPES:
+        return pg_type  # keep oidvector/int2vector -> integer arrays
     return PG_TYPE_MAPPING.get(pg_type, "varchar(256)")
+
+# Tables/views whose contents are runtime/session state (statistics, locks,
+# activity, memory, prepared statements). Their rows change on every server
+# start, so we emit them with an empty `rows:` to keep the generated catalog
+# deterministic (their schema is still captured). Anything matching `pg_stat*`
+# (which also covers `pg_statio*`) plus the names below.
+VOLATILE_TABLE_NAMES = {
+    "pg_locks",
+    "pg_prepared_statements",
+    "pg_cursors",
+    "pg_backend_memory_contexts",
+    "pg_shmem_allocations",
+}
+
+def is_volatile_table(name: str) -> bool:
+    return name.startswith("pg_stat") or name in VOLATILE_TABLE_NAMES
 
 def fetch_objects(conn, schema):
     with conn.cursor() as cur:
@@ -111,7 +149,7 @@ def generate(output_dir):
                 table_schema, raw_types, table_rows = fetch_table_schema_and_rows(conn, schema_name, objname)
                 entry["schema"] = table_schema
                 entry["pg_types"] = raw_types
-                entry["rows"] = table_rows
+                entry["rows"] = [] if is_volatile_table(objname) else table_rows
             elif relkind == "v":  # View
                 entry["type"] = "view"
                 view_sql = fetch_view_definition(conn, schema_name, objname)
@@ -119,7 +157,7 @@ def generate(output_dir):
                 entry["view_sql"] = view_sql
                 entry["schema"] = table_schema
                 entry["pg_types"] = raw_types
-                entry["rows"] = table_rows
+                entry["rows"] = [] if is_volatile_table(objname) else table_rows
 
             if description:
                 # TODO: description is not working
@@ -196,7 +234,9 @@ if __name__ == "__main__":
 
     cmd = sys.argv[1]
 
-    conn = psycopg.connect("host=localhost port=5434 dbname=postgres")
+    # Connect as the fixed bootstrap superuser created by run-postgres.sh
+    # (-U sysuser), so catalog ownership/ACLs read "sysuser" everywhere.
+    conn = psycopg.connect("host=localhost port=5434 dbname=postgres user=sysuser")
 
 
     if cmd == "generate":

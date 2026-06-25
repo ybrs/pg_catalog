@@ -16,7 +16,7 @@ impl OptimizerRule for StripPgGetOne {
         "strip_pg_get_one"
     }
 
-    // ask the optimiser framework to call us bottom‑up on every node
+    // ask the optimiser framework to call us bottom-up on every node
     fn apply_order(&self) -> Option<ApplyOrder> {
         Some(ApplyOrder::BottomUp)
     }
@@ -28,7 +28,7 @@ impl OptimizerRule for StripPgGetOne {
     ) -> Result<Transformed<LogicalPlan>> {
         plan.map_expressions(|e| {
             match e {
-                // unwrap   pggetone(<expr>)   ➜   <expr>
+                // unwrap   pggetone(<expr>)   ->   <expr>
                 Expr::ScalarFunction(sf)
                     if sf.func.name() == "pg_get_one" && sf.args.len() == 1 =>
                 {

@@ -30,7 +30,7 @@ public:
         rolvaliduntil: timestamptz
       rows:
       - oid: 10
-        rolname: abadur
+        rolname: sysuser
         rolsuper: true
         rolinherit: true
         rolcreaterole: true

@@ -8,8 +8,8 @@
 //!
 //! The contract here is deliberately backend-agnostic and connection-free: it
 //! speaks only in catalog concepts (database/schema/relation/column names and
-//! OIDs). What backs a source — an embedded SQL engine, a network service, a
-//! file, an in-memory `Vec`, or nothing — is entirely opaque to `pg_catalog`.
+//! OIDs). What backs a source - an embedded SQL engine, a network service, a
+//! file, an in-memory `Vec`, or nothing - is entirely opaque to `pg_catalog`.
 //!
 //! OIDs are supplied by the source and written through verbatim; `pg_catalog`
 //! never invents, derives, caches, or remembers them. Keeping OIDs stable and
@@ -49,6 +49,32 @@ pub type Row = std::collections::BTreeMap<String, Value>;
 /// verbatim. Only `datname`/`datdba` are mandatory; the rest default to
 /// PostgreSQL-compatible values. The `oid` is user-supplied.
 pub type DatabaseDef = LazyDatabaseRow;
+
+/// One `pg_config` build/install setting fed into `pg_catalog.pg_config`
+/// (the static `name`/`setting` pairs the `pg_config` CLI reports). An embedder
+/// supplies these to override or extend the built-in defaults; a setting whose
+/// `name` matches a built-in one replaces it.
+#[derive(Clone, Debug)]
+pub struct ConfigSettingDef {
+    /// The setting name (`pg_config.name`), e.g. `VERSION` or `BINDIR`.
+    pub name: String,
+    /// The setting value (`pg_config.setting`).
+    pub setting: String,
+}
+
+/// One `pg_settings` runtime configuration parameter (GUC) fed into
+/// `pg_catalog.pg_settings`. An embedder supplies these to override the built-in
+/// snapshot - typically the session-mutable settings whose live value it knows
+/// (e.g. `search_path`, `TimeZone`). A setting whose `name` matches a built-in
+/// one replaces that whole row, so the metadata columns of an overridden row are
+/// left NULL unless re-supplied.
+#[derive(Clone, Debug)]
+pub struct SettingDef {
+    /// The parameter name (`pg_settings.name`), e.g. `search_path`.
+    pub name: String,
+    /// The parameter's current value (`pg_settings.setting`).
+    pub setting: String,
+}
 
 /// One user schema fed into `pg_catalog.pg_namespace`. `oid` is user-supplied.
 #[derive(Clone, Debug)]
@@ -121,7 +147,7 @@ pub struct RelationDef {
     /// Whether this is a table/view/materialized view.
     pub kind: RelationKind,
     /// Owning role OID (`pg_class.relowner`), surfaced as `pg_tables.tableowner`
-    /// via `pg_get_userbyid`. `None` leaves it NULL — appropriate for backends
+    /// via `pg_get_userbyid`. `None` leaves it NULL - appropriate for backends
     /// with no ownership concept (e.g. DuckDB); a backend that has owners (e.g.
     /// PostgreSQL) supplies the role OID here.
     pub owner_oid: Option<i32>,
@@ -152,6 +178,59 @@ impl RelationDef {
             has_rules: false,
             has_triggers: false,
             row_security: false,
+        }
+    }
+}
+
+/// One index fed into `pg_catalog.pg_index` (plus its own `pg_class` row).
+///
+/// In PostgreSQL an index is itself a relation: it has a `pg_class` row of
+/// `relkind = 'i'` that carries its *name*, and a `pg_index` row that carries its
+/// *structure* (which table and columns it covers, whether it is unique/primary).
+/// `pg_indexes` and `pg_get_indexdef` reconstruct the `CREATE INDEX` text by
+/// joining the two, so a single [`IndexDef`] produces BOTH rows: the catalog
+/// derives the index's `pg_class` identity row and its `pg_index` structure row
+/// from this one description.
+///
+/// All OIDs are user-supplied and written through verbatim. Functional/partial
+/// index expressions (`pg_index.indexprs`/`indpred`, stored by PostgreSQL as
+/// node trees) are out of scope and left NULL; a plain column index needs none of
+/// them.
+#[derive(Clone, Debug)]
+pub struct IndexDef {
+    /// The index relation's own `pg_class.oid`, written to `pg_index.indexrelid`.
+    pub index_oid: i32,
+    /// The index relation's name (`pg_class.relname`), e.g. `users_pkey`.
+    pub index_name: String,
+    /// The indexed table's `pg_class.oid`, written to `pg_index.indrelid`.
+    pub table_oid: i32,
+    /// The indexed table columns, as 1-based `pg_attribute.attnum` values in index
+    /// order. Written to `pg_index.indkey`; its length is `indnatts`.
+    pub key_attnums: Vec<i32>,
+    /// Whether the index enforces uniqueness (`pg_index.indisunique`).
+    pub is_unique: bool,
+    /// Whether the index implements the table's primary key
+    /// (`pg_index.indisprimary`).
+    pub is_primary: bool,
+}
+
+impl IndexDef {
+    /// Construct an index definition from its OID, name, the OID of the table it
+    /// indexes, and the indexed column attnums, with the unique/primary flags off.
+    /// Set those flags afterward for a unique index or a primary key.
+    pub fn new(
+        index_oid: i32,
+        index_name: impl Into<String>,
+        table_oid: i32,
+        key_attnums: Vec<i32>,
+    ) -> Self {
+        Self {
+            index_oid,
+            index_name: index_name.into(),
+            table_oid,
+            key_attnums,
+            is_unique: false,
+            is_primary: false,
         }
     }
 }
@@ -190,7 +269,7 @@ impl ColumnSpec {
 /// in-memory, or empty) is opaque to `pg_catalog`. Built-in system rows are added
 /// by the layer, so implementors return ONLY their own objects.
 ///
-/// Errors are returned as `DataFusionError` and propagate to the client — a
+/// Errors are returned as `DataFusionError` and propagate to the client - a
 /// source must never fail silently. A method with nothing to contribute simply
 /// returns `Ok(())` without invoking its callback (or invokes it with an empty
 /// vector).
@@ -218,6 +297,44 @@ pub trait LazyCatalogSource: Send + Sync {
         relation: &str,
         callback: &mut dyn FnMut(Vec<ColumnSpec>),
     ) -> DFResult<()>;
+
+    /// Indexes in `database`.`schema` -> `pg_catalog.pg_index` (plus each index's
+    /// own `pg_class` row).
+    ///
+    /// Has a default that contributes nothing, so existing implementors expose no
+    /// indexes and keep compiling. Override it to report a relation's indexes so
+    /// `pg_indexes` / `pg_get_indexdef` can describe them. The `index_oid` of each
+    /// returned [`IndexDef`] must be distinct from every relation OID, since an
+    /// index occupies its own `pg_class` row.
+    fn indexes(
+        &self,
+        _database: &str,
+        _schema: &str,
+        _callback: &mut dyn FnMut(Vec<IndexDef>),
+    ) -> DFResult<()> {
+        Ok(())
+    }
+
+    /// `pg_config` build/install settings -> `pg_catalog.pg_config`.
+    ///
+    /// Has a default that contributes nothing, so existing implementors keep the
+    /// built-in `pg_config` defaults. Override it to report the embedding
+    /// application's own build settings (e.g. its real `VERSION`); a setting
+    /// whose `name` matches a built-in one replaces it.
+    fn config(&self, _callback: &mut dyn FnMut(Vec<ConfigSettingDef>)) -> DFResult<()> {
+        Ok(())
+    }
+
+    /// `pg_settings` runtime parameters -> `pg_catalog.pg_settings`.
+    ///
+    /// Has a default that contributes nothing, so existing implementors keep the
+    /// built-in settings snapshot. Override it to report the embedding
+    /// application's live values for session-mutable parameters (e.g.
+    /// `search_path`, `TimeZone`); a setting whose `name` matches a built-in one
+    /// replaces it.
+    fn settings(&self, _callback: &mut dyn FnMut(Vec<SettingDef>)) -> DFResult<()> {
+        Ok(())
+    }
 }
 
 /// Identifies which catalog table a [`LazyCatalogTableProvider`] serves.
@@ -233,6 +350,12 @@ pub enum CatalogTable {
     PgType,
     /// `pg_catalog.pg_attribute`.
     PgAttribute,
+    /// `pg_catalog.pg_index`.
+    PgIndex,
+    /// `pg_catalog.pg_config`.
+    PgConfig,
+    /// `pg_catalog.pg_settings`.
+    PgSettings,
     /// `information_schema.tables`.
     InformationSchemaTables,
     /// `information_schema.columns`.
@@ -251,6 +374,9 @@ impl CatalogTable {
             CatalogTable::PgClass => ("pg_catalog", "pg_class"),
             CatalogTable::PgType => ("pg_catalog", "pg_type"),
             CatalogTable::PgAttribute => ("pg_catalog", "pg_attribute"),
+            CatalogTable::PgIndex => ("pg_catalog", "pg_index"),
+            CatalogTable::PgConfig => ("pg_catalog", "pg_config"),
+            CatalogTable::PgSettings => ("pg_catalog", "pg_settings"),
             CatalogTable::InformationSchemaTables => ("information_schema", "tables"),
             CatalogTable::InformationSchemaColumns => ("information_schema", "columns"),
             CatalogTable::InformationSchemaSchemata => ("information_schema", "schemata"),
@@ -266,7 +392,7 @@ impl CatalogTable {
     /// (e.g. `(relnamespace, relname)`), so the same name under two different
     /// schemas is not a duplicate. `pg_namespace` is keyed by `oid` (its true
     /// identity) because the flattened catalog intentionally allows the same
-    /// schema name — e.g. `public` — under several databases.
+    /// schema name - e.g. `public` - under several databases.
     pub fn key_columns(&self) -> &'static [&'static str] {
         match self {
             CatalogTable::PgDatabase => &["datname"],
@@ -274,6 +400,9 @@ impl CatalogTable {
             CatalogTable::PgClass => &["relnamespace", "relname"],
             CatalogTable::PgType => &["typnamespace", "typname"],
             CatalogTable::PgAttribute => &["attrelid", "attname"],
+            CatalogTable::PgIndex => &["indexrelid"],
+            CatalogTable::PgConfig => &["name"],
+            CatalogTable::PgSettings => &["name"],
             CatalogTable::InformationSchemaTables => {
                 &["table_catalog", "table_schema", "table_name"]
             }
@@ -313,6 +442,31 @@ fn fetch_relations(
     Ok(out)
 }
 
+/// Pull the indexes of `database`.`schema` from `source`.
+fn fetch_indexes(
+    source: &dyn LazyCatalogSource,
+    database: &str,
+    schema: &str,
+) -> DFResult<Vec<IndexDef>> {
+    let mut out = Vec::new();
+    source.indexes(database, schema, &mut |rows| out.extend(rows))?;
+    Ok(out)
+}
+
+/// Pull the `pg_config` settings from `source`.
+fn fetch_config(source: &dyn LazyCatalogSource) -> DFResult<Vec<ConfigSettingDef>> {
+    let mut out = Vec::new();
+    source.config(&mut |rows| out.extend(rows))?;
+    Ok(out)
+}
+
+/// Pull the `pg_settings` parameters from `source`.
+fn fetch_settings(source: &dyn LazyCatalogSource) -> DFResult<Vec<SettingDef>> {
+    let mut out = Vec::new();
+    source.settings(&mut |rows| out.extend(rows))?;
+    Ok(out)
+}
+
 /// Pull the columns of `database`.`schema`.`relation` from `source`.
 fn fetch_columns(
     source: &dyn LazyCatalogSource,
@@ -327,12 +481,31 @@ fn fetch_columns(
 
 // --- pure row builders (oids taken straight from the source objects) ------
 
-/// Build the JSON object value for a list-typed column, or NULL when absent.
-fn acl_value(acl: &Option<Vec<String>>) -> Value {
-    match acl {
+/// Build a JSON array from a list of strings, or NULL when the list is absent.
+fn string_list_to_json(items: &Option<Vec<String>>) -> Value {
+    match items {
         Some(items) => Value::Array(items.iter().map(|s| json!(s)).collect()),
         None => Value::Null,
     }
+}
+
+/// Build one `pg_catalog.pg_config` row (a `name`/`setting` pair) from a
+/// [`ConfigSettingDef`].
+pub fn build_pg_config_row(def: &ConfigSettingDef) -> Row {
+    let mut row = Row::new();
+    row.insert("name".to_string(), json!(def.name));
+    row.insert("setting".to_string(), json!(def.setting));
+    row
+}
+
+/// Build one `pg_catalog.pg_settings` row from a [`SettingDef`]. Only `name` and
+/// `setting` are populated; the remaining metadata columns are left to default to
+/// NULL (they describe the parameter, not its value).
+pub fn build_pg_settings_row(def: &SettingDef) -> Row {
+    let mut row = Row::new();
+    row.insert("name".to_string(), json!(def.name));
+    row.insert("setting".to_string(), json!(def.setting));
+    row
 }
 
 /// Build one `pg_catalog.pg_database` row from a [`DatabaseDef`], filling unset
@@ -409,7 +582,7 @@ pub fn build_pg_database_row(def: &DatabaseDef) -> Row {
             .map(|v| json!(v))
             .unwrap_or(Value::Null),
     );
-    row.insert("datacl".to_string(), acl_value(&def.datacl));
+    row.insert("datacl".to_string(), string_list_to_json(&def.datacl));
     row
 }
 
@@ -449,6 +622,60 @@ pub fn build_pg_class_row(def: &RelationDef, namespace_oid: i32) -> Row {
     row.insert("relispopulated".to_string(), json!(true));
     row.insert("relpersistence".to_string(), json!("p"));
     row.insert("relreplident".to_string(), json!("d"));
+    row
+}
+
+/// Build the `pg_catalog.pg_class` row for an index relation (`relkind = 'i'`).
+///
+/// An index has no composite rowtype, so `reltype` is 0 and no `pg_type` row is
+/// emitted. `relhasindex` is false (an index does not itself have indexes). The
+/// remaining defaults match [`build_pg_class_row`] so client introspection sees
+/// the same non-NULL columns for an index as for a table.
+pub fn build_index_pg_class_row(def: &IndexDef, namespace_oid: i32) -> Row {
+    let mut row = Row::new();
+    row.insert("oid".to_string(), json!(def.index_oid));
+    row.insert("relname".to_string(), json!(def.index_name));
+    row.insert("relnamespace".to_string(), json!(namespace_oid));
+    row.insert("reltype".to_string(), json!(0));
+    row.insert("relkind".to_string(), json!("i"));
+    row.insert("reltuples".to_string(), json!(0.0));
+    row.insert("relispartition".to_string(), json!(false));
+    row.insert("relhasindex".to_string(), json!(false));
+    row.insert("relhasrules".to_string(), json!(false));
+    row.insert("relhastriggers".to_string(), json!(false));
+    row.insert("relrowsecurity".to_string(), json!(false));
+    row.insert("relispopulated".to_string(), json!(true));
+    row.insert("relpersistence".to_string(), json!("p"));
+    row.insert("relreplident".to_string(), json!("n"));
+    row
+}
+
+/// Build one `pg_catalog.pg_index` row from an [`IndexDef`].
+///
+/// `indkey` is the list of indexed-column attnums; `indnatts`/`indnkeyatts` are
+/// its length. The boolean flags describe a plain, valid, ready index. The
+/// node-tree columns (`indexprs`/`indpred`) and the per-column option vectors
+/// (`indcollation`/`indclass`/`indoption`) are left NULL - a plain column index
+/// needs none of them, and the node trees are out of scope.
+pub fn build_pg_index_row(def: &IndexDef) -> Row {
+    let natts = def.key_attnums.len() as i32;
+    let mut row = Row::new();
+    row.insert("indexrelid".to_string(), json!(def.index_oid));
+    row.insert("indrelid".to_string(), json!(def.table_oid));
+    row.insert("indnatts".to_string(), json!(natts));
+    row.insert("indnkeyatts".to_string(), json!(natts));
+    row.insert("indisunique".to_string(), json!(def.is_unique));
+    row.insert("indnullsnotdistinct".to_string(), json!(false));
+    row.insert("indisprimary".to_string(), json!(def.is_primary));
+    row.insert("indisexclusion".to_string(), json!(false));
+    row.insert("indimmediate".to_string(), json!(true));
+    row.insert("indisclustered".to_string(), json!(false));
+    row.insert("indisvalid".to_string(), json!(true));
+    row.insert("indcheckxmin".to_string(), json!(false));
+    row.insert("indisready".to_string(), json!(true));
+    row.insert("indislive".to_string(), json!(true));
+    row.insert("indisreplident".to_string(), json!(false));
+    row.insert("indkey".to_string(), json!(def.key_attnums));
     row
 }
 
@@ -549,6 +776,16 @@ pub fn build_info_schemata_row(catalog: &str, def: &SchemaDef) -> Row {
 pub fn build_rows_for(table: CatalogTable, source: &dyn LazyCatalogSource) -> DFResult<Vec<Row>> {
     let mut rows = Vec::new();
     match table {
+        CatalogTable::PgConfig => {
+            for setting in fetch_config(source)? {
+                rows.push(build_pg_config_row(&setting));
+            }
+        }
+        CatalogTable::PgSettings => {
+            for setting in fetch_settings(source)? {
+                rows.push(build_pg_settings_row(&setting));
+            }
+        }
         CatalogTable::PgDatabase => {
             for db in fetch_databases(source)? {
                 rows.push(build_pg_database_row(&db));
@@ -566,6 +803,20 @@ pub fn build_rows_for(table: CatalogTable, source: &dyn LazyCatalogSource) -> DF
                 for schema in fetch_schemas(source, &db.datname)? {
                     for rel in fetch_relations(source, &db.datname, &schema.name)? {
                         rows.push(build_pg_class_row(&rel, schema.oid));
+                    }
+                    // An index is itself a relation, so it gets its own pg_class
+                    // row (relkind 'i') alongside the tables in this schema.
+                    for index in fetch_indexes(source, &db.datname, &schema.name)? {
+                        rows.push(build_index_pg_class_row(&index, schema.oid));
+                    }
+                }
+            }
+        }
+        CatalogTable::PgIndex => {
+            for db in fetch_databases(source)? {
+                for schema in fetch_schemas(source, &db.datname)? {
+                    for index in fetch_indexes(source, &db.datname, &schema.name)? {
+                        rows.push(build_pg_index_row(&index));
                     }
                 }
             }
@@ -702,7 +953,7 @@ fn drop_builtin_rows_shadowed_by_users(
 }
 
 /// A [`TableProvider`] for one catalog table. On every scan it asks the source
-/// for that table's user rows (here and now — nothing is cached), converts them
+/// for that table's user rows (here and now - nothing is cached), converts them
 /// to a batch, and serves them *merged* with the built-in batches captured at
 /// registration. DataFusion does all joins/filters/projection across providers.
 pub struct LazyCatalogTableProvider {
@@ -711,7 +962,7 @@ pub struct LazyCatalogTableProvider {
     /// The table's Arrow schema (taken from the YAML-loaded provider).
     schema: SchemaRef,
     /// The built-in system rows, captured once at registration (immutable).
-    builtin: Vec<RecordBatch>,
+    builtin_batches: Vec<RecordBatch>,
     /// The user's callback object.
     source: Arc<dyn LazyCatalogSource>,
 }
@@ -728,10 +979,6 @@ impl std::fmt::Debug for LazyCatalogTableProvider {
 #[async_trait]
 impl TableProvider for LazyCatalogTableProvider {
     /// Return self as `Any` for downcasting by DataFusion.
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
     /// The Arrow schema for this catalog table.
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
@@ -759,7 +1006,7 @@ impl TableProvider for LazyCatalogTableProvider {
 
         // Collect the user rows' identities. Two user rows sharing a key mean the
         // source defined the same object twice (e.g. two `mytable`s in one
-        // schema) — that is a source error, surfaced rather than silently merged.
+        // schema) - that is a source error, surfaced rather than silently merged.
         let mut user_keys: HashSet<Vec<String>> = HashSet::with_capacity(user_rows.len());
         for row in &user_rows {
             let key = user_row_key(row, key_cols);
@@ -776,8 +1023,8 @@ impl TableProvider for LazyCatalogTableProvider {
 
         // Merge: a user row replaces any built-in row with the same identity, so
         // a user-supplied object always wins over the one it shadows.
-        let mut batches = Vec::with_capacity(self.builtin.len() + 1);
-        for builtin in &self.builtin {
+        let mut batches = Vec::with_capacity(self.builtin_batches.len() + 1);
+        for builtin in &self.builtin_batches {
             batches.push(drop_builtin_rows_shadowed_by_users(
                 builtin,
                 &self.schema,
@@ -811,6 +1058,9 @@ impl LazyCatalogOptions {
                 CatalogTable::PgClass,
                 CatalogTable::PgType,
                 CatalogTable::PgAttribute,
+                CatalogTable::PgIndex,
+                CatalogTable::PgConfig,
+                CatalogTable::PgSettings,
                 CatalogTable::InformationSchemaTables,
                 CatalogTable::InformationSchemaColumns,
                 CatalogTable::InformationSchemaSchemata,
@@ -879,7 +1129,7 @@ pub async fn register_lazy_catalog(
         let provider: Arc<dyn TableProvider> = Arc::new(LazyCatalogTableProvider {
             table,
             schema: table_schema,
-            builtin,
+            builtin_batches: builtin,
             source: source.clone(),
         });
 

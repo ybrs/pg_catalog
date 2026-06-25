@@ -8,7 +8,7 @@ public:
         stxname: varchar(64)
         stxnamespace: int
         stxowner: int
-        stxkeys: varchar(256)
+        stxkeys: int2vector
         stxstattarget: int
         stxkind: _text
         stxexprs: varchar(256)

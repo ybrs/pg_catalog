@@ -5,7 +5,7 @@ public:
       schema:
         oid: int
         enumtypid: int
-        enumsortorder: float
+        enumsortorder: float4
         enumlabel: varchar(64)
       pg_types:
         oid: oid

@@ -43,11 +43,11 @@ public:
         deadlocks: bigint
         checksum_failures: bigint
         checksum_last_failure: varchar(256)
-        blk_read_time: float
-        blk_write_time: float
-        session_time: float
-        active_time: float
-        idle_in_transaction_time: float
+        blk_read_time: float8
+        blk_write_time: float8
+        session_time: float8
+        active_time: float8
+        idle_in_transaction_time: float8
         sessions: bigint
         sessions_abandoned: bigint
         sessions_fatal: bigint
@@ -82,116 +82,4 @@ public:
         sessions_fatal: int8
         sessions_killed: int8
         stats_reset: timestamptz
-      rows:
-      - datid: 0
-        datname: null
-        numbackends: 0
-        xact_commit: 0
-        xact_rollback: 0
-        blks_read: 220
-        blks_hit: 328918
-        tup_returned: 247201
-        tup_fetched: 143717
-        tup_inserted: 27
-        tup_updated: 4
-        tup_deleted: 0
-        conflicts: 0
-        temp_files: 0
-        temp_bytes: 0
-        deadlocks: 0
-        checksum_failures: null
-        checksum_last_failure: null
-        blk_read_time: 0.0
-        blk_write_time: 0.0
-        session_time: 0.0
-        active_time: 0.0
-        idle_in_transaction_time: 0.0
-        sessions: 0
-        sessions_abandoned: 0
-        sessions_fatal: 0
-        sessions_killed: 0
-        stats_reset: null
-      - datid: 5
-        datname: postgres
-        numbackends: 1
-        xact_commit: 372
-        xact_rollback: 9
-        blks_read: 3731
-        blks_hit: 1297793
-        tup_returned: 3192702
-        tup_fetched: 827940
-        tup_inserted: 0
-        tup_updated: 0
-        tup_deleted: 0
-        conflicts: 0
-        temp_files: 0
-        temp_bytes: 0
-        deadlocks: 0
-        checksum_failures: null
-        checksum_last_failure: null
-        blk_read_time: 0.0
-        blk_write_time: 0.0
-        session_time: 623169.262
-        active_time: 8912.996
-        idle_in_transaction_time: 159861.301
-        sessions: 20
-        sessions_abandoned: 0
-        sessions_fatal: 0
-        sessions_killed: 3
-        stats_reset: null
-      - datid: 1
-        datname: template1
-        numbackends: 0
-        xact_commit: 994
-        xact_rollback: 0
-        blks_read: 1226
-        blks_hit: 92614
-        tup_returned: 112622
-        tup_fetched: 31418
-        tup_inserted: 16449
-        tup_updated: 765
-        tup_deleted: 34
-        conflicts: 0
-        temp_files: 0
-        temp_bytes: 0
-        deadlocks: 0
-        checksum_failures: null
-        checksum_last_failure: null
-        blk_read_time: 0.0
-        blk_write_time: 0.0
-        session_time: 0.0
-        active_time: 0.0
-        idle_in_transaction_time: 0.0
-        sessions: 0
-        sessions_abandoned: 0
-        sessions_fatal: 0
-        sessions_killed: 0
-        stats_reset: null
-      - datid: 4
-        datname: template0
-        numbackends: 0
-        xact_commit: 0
-        xact_rollback: 0
-        blks_read: 0
-        blks_hit: 0
-        tup_returned: 0
-        tup_fetched: 0
-        tup_inserted: 0
-        tup_updated: 0
-        tup_deleted: 0
-        conflicts: 0
-        temp_files: 0
-        temp_bytes: 0
-        deadlocks: 0
-        checksum_failures: null
-        checksum_last_failure: null
-        blk_read_time: 0.0
-        blk_write_time: 0.0
-        session_time: 0.0
-        active_time: 0.0
-        idle_in_transaction_time: 0.0
-        sessions: 0
-        sessions_abandoned: 0
-        sessions_fatal: 0
-        sessions_killed: 0
-        stats_reset: null
+      rows: []

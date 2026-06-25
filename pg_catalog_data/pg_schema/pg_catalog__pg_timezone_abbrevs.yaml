@@ -1,9 +1,7 @@
 public:
   pg_catalog:
     pg_timezone_abbrevs:
-      type: view
-      view_sql: " SELECT abbrev,\n    utc_offset,\n    is_dst\n   FROM pg_timezone_abbrevs()\
-        \ pg_timezone_abbrevs(abbrev, utc_offset, is_dst);"
+      type: system_catalog
       schema:
         abbrev: varchar(256)
         utc_offset: varchar(256)

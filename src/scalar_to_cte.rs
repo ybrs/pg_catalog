@@ -1,31 +1,31 @@
 #![allow(unused_imports)]
-/*───────────────────────────────────────────────────────────────────────────────
+/*-------------------------------------------------------------------------------
 Scalar-subquery-to-CTE re-writer
-──────────────────────────────────────────────────────────────────────────────
+------------------------------------------------------------------------------
 
 WHY WE BUILT IT
-═══════════════
-DataFusion’s logical plan *hates* correlated scalar sub-queries:
-  • they prevent predicate push-down and join re-ordering,
-  • they’re rewritten into a naïve “pull up every row, evaluate per row”
+===============
+DataFusion's logical plan *hates* correlated scalar sub-queries:
+  - they prevent predicate push-down and join re-ordering,
+  - they're rewritten into a naive "pull up every row, evaluate per row"
     execution which is disastrously slow on large tables.
 
-Turning…
+Turning...
 
-    SELECT …,
+    SELECT ...,
            (SELECT max(b)
             FROM   t2
             WHERE  t2.id = t1.id)      -- correlated scalar
     FROM t1
 
-…into…
+...into...
 
     WITH __cte1 AS (
         SELECT max(b), t2.id           -- key(s) & scalar value
         FROM   t2
         GROUP BY t2.id
     )
-    SELECT …,
+    SELECT ...,
            __cte1.col                  -- scalar becomes simple column ref
     FROM t1
     LEFT JOIN __cte1 ON t1.id = __cte1.id
@@ -33,20 +33,20 @@ Turning…
 removes the correlation barrier: the optimiser sees only joins + a WITH
 block, all of which it already handles well.
 
-PARKING-LOT – IDEAS / TODOS
-═══════════════════════════
-  1. EXISTS / NOT EXISTS   ─ rewrite into semi-/anti-joins.
-  2. UNION / INTERSECT     ─ support set-ops inside the scalar sub-query.
-  3. Complex projections   ─ sub-queries embedded in wider expressions.
-  4. General “outer-only” predicates (t1.x > 10, t1.flag = 1, …).
+PARKING-LOT - IDEAS / TODOS
+===========================
+  1. EXISTS / NOT EXISTS   - rewrite into semi-/anti-joins.
+  2. UNION / INTERSECT     - support set-ops inside the scalar sub-query.
+  3. Complex projections   - sub-queries embedded in wider expressions.
+  4. General "outer-only" predicates (t1.x > 10, t1.flag = 1, ...).
   5. Multiple scalars in one expression (cte1.col + cte2.col).
   6. Stable synthetic alias numbering across nested rewrites.
   7. Avoid name clashes if inner query already exposes a `col` column.
   8. Cache helper template parses for speed.
   9. Pretty printer for the resulting SQL (line breaks, indent).
- 10. Deep-nesting unit tests (scalar within scalar within …).
+ 10. Deep-nesting unit tests (scalar within scalar within ...).
 
-─────────────────────────────────────────────────────────────────────────────*/
+-----------------------------------------------------------------------------*/
 
 use sqlparser::ast::ObjectNamePart;
 use sqlparser::ast::*;
@@ -66,7 +66,7 @@ pub struct RewriteOutcome {
 /// Rewrite correlated scalar subqueries into WITH clauses joined back
 /// to the outer query. Returns the rewritten SQL and the number of
 /// subqueries converted.
-pub fn rewrite(sql: &str) -> Result<RewriteOutcome> {
+pub fn rewrite_scalar_subqueries_to_ctes(sql: &str) -> Result<RewriteOutcome> {
     let mut stmt = parse_sql(sql)?;
 
     // ------------------------------------------------------------------
@@ -89,7 +89,7 @@ pub fn rewrite(sql: &str) -> Result<RewriteOutcome> {
 /// rewritten SQL string. Will panic on SQL parse errors or if the input
 /// string is empty.
 pub fn rewrite_subquery_as_cte(sql: &str) -> String {
-    let out = rewrite(sql);
+    let out = rewrite_scalar_subqueries_to_ctes(sql);
     out.unwrap().sql
 }
 
@@ -122,7 +122,7 @@ mod visitor {
             this
         }
 
-        /* ─────── recursive helpers ─────── */
+        /* ------- recursive helpers ------- */
 
         fn visit_statement(&mut self, stmt: &Statement) {
             if let Statement::Query(q) = stmt {
@@ -134,15 +134,15 @@ mod visitor {
             if let SetExpr::Select(select) = query.body.as_ref() {
                 self.visit_select(select);
             }
-            // UNION / INTERSECT 👉 ignored for now
+            // UNION / INTERSECT -> ignored for now
         }
 
         fn visit_select(&mut self, select: &Select) {
             for item in &select.projection {
                 match item {
-                    //  SELECT (subq)               …
+                    //  SELECT (subq)               ...
                     SelectItem::UnnamedExpr(expr)
-                    //  SELECT (subq) AS alias      …
+                    //  SELECT (subq) AS alias      ...
                     | SelectItem::ExprWithAlias { expr, .. } => {
                         self.visit_expr(expr)
                     }
@@ -162,12 +162,12 @@ mod visitor {
                             match arg {
                                 // unnamed argument
                                 FunctionArg::Unnamed(FunctionArgExpr::Expr(expr_box))
-                                // named argument ( …, name := <expr> )
+                                // named argument ( ..., name := <expr> )
                                 | FunctionArg::Named {
                                     arg: FunctionArgExpr::Expr(expr_box),
                                     ..
                                 } => {
-                                    // `expr_box` is `&Box<Expr>` — just pass it
+                                    // `expr_box` is `&Box<Expr>` - just pass it
                                     self.visit_expr(expr_box);
                                 }
                                 _ => {}
@@ -195,7 +195,7 @@ mod visitor {
                         self.visit_expr(op);
                     }
 
-                    // walk WHEN … THEN … pairs
+                    // walk WHEN ... THEN ... pairs
                     for CaseWhen { condition, result } in conditions {
                         self.visit_expr(condition);
                         self.visit_expr(result);
@@ -212,7 +212,7 @@ mod visitor {
                 // Unary
                 Expr::UnaryOp { expr, .. } => self.visit_expr(expr),
 
-                // everything else – literals / idents etc.
+                // everything else - literals / idents etc.
                 _ => {}
             }
         }
@@ -220,29 +220,23 @@ mod visitor {
 }
 
 ////////////////////////////////////////////////////////////////
-/// Mutating rewriter  – Phase-3 skeleton
+/// Mutating rewriter  - Phase-3 skeleton
 ////////////////////////////////////////////////////////////////
 mod rewriter {
     use super::*;
 
     #[derive(Debug)]
-    struct PendingRewrite<'a> {
-        expr_slot: &'a mut Expr,
-        info: CorrelatedInfo,
-    }
-
-    #[derive(Debug)]
     struct CorrelatedInfo {
         cte_ident: Ident,
         subquery: Box<Query>,
-        on_pairs: Vec<CorrPred>, // t1.id = t2.id ...
-        outer_only: Vec<Expr>,   // t1.flag, t1.x > 10, …
+        on_pairs: Vec<CorrelatedPredicate>, // t1.id = t2.id ...
+        outer_only_predicates: Vec<Expr>,   // t1.flag, t1.x > 10, ...
         orig_alias: Option<Ident>,
         outer_aliases: Vec<Ident>,
     }
 
     // ------------------------------------------------------------
-    // ★ Correlation discovery utilities
+    // * Correlation discovery utilities
     // ------------------------------------------------------------
 
     /// walk the expression and return *all* column paths it contains
@@ -282,32 +276,25 @@ mod rewriter {
         let mut paths = vec![];
         collect_paths(e, &mut paths);
 
-        // at least one reference to the outer alias …
+        // at least one reference to the outer alias ...
         if !paths.iter().any(|p| p.first() == Some(outer)) {
             return false;
         }
-        // … and *no* reference to any other alias
+        // ... and *no* reference to any other alias
         paths.iter().all(|p| p.first() == Some(outer))
-    }
-
-    /// `t1.id = t2.id`  →  `(outer=id, inner=id)`
-    #[derive(Debug, Clone)]
-    struct EqPair {
-        outer: Vec<Ident>,
-        inner: Vec<Ident>,
     }
 
     /// One correlated comparison: `t1.x <> t2.y`
     #[derive(Debug, Clone, PartialEq, Eq)]
-    struct CorrPred {
+    struct CorrelatedPredicate {
         outer: Vec<Ident>,
         inner: Vec<Ident>,
         op: BinaryOperator, // =  <>  <  <=  >  >=
-        is_any: bool,       // true  ↔  came from  oid = ANY(arr)
+        is_any: bool,       // true  <->  came from  oid = ANY(arr)
     }
 
     /// walk a boolean expression and collect `outer = inner` pairs
-    fn collect_corr_preds(e: &Expr, outer_alias: &Ident, out: &mut Vec<CorrPred>) {
+    fn collect_corr_preds(e: &Expr, outer_alias: &Ident, out: &mut Vec<CorrelatedPredicate>) {
         if let Expr::AnyOp {
             left,
             compare_op: BinaryOperator::Eq,
@@ -315,13 +302,13 @@ mod rewriter {
             ..
         } = e
         {
-            let l = as_path(left);
-            let r = as_path(right);
+            let l = expr_to_column_path(left);
+            let r = expr_to_column_path(right);
 
             match (l.first(), r.first()) {
                 //  oid  = ANY(pol.polroles)
                 (Some(a), Some(b)) if b == outer_alias && a != outer_alias => {
-                    let cand = CorrPred {
+                    let cand = CorrelatedPredicate {
                         outer: r,
                         inner: l,
                         op: BinaryOperator::Eq, // keep the operator
@@ -333,7 +320,7 @@ mod rewriter {
                 }
                 //  ANY(pol.xxx) = oid   (unlikely, but symmetrical)
                 (Some(a), Some(b)) if a == outer_alias && b != outer_alias => {
-                    let cand = CorrPred {
+                    let cand = CorrelatedPredicate {
                         outer: l,
                         inner: r,
                         op: BinaryOperator::Eq,
@@ -345,7 +332,7 @@ mod rewriter {
                 }
                 _ => {}
             }
-            return; // already handled – don’t fall through
+            return; // already handled - don't fall through
         }
 
         match e {
@@ -369,10 +356,10 @@ mod rewriter {
                         | BinaryOperator::GtEq
                 ) =>
             {
-                let (l, r) = (as_path(left), as_path(right));
+                let (l, r) = (expr_to_column_path(left), expr_to_column_path(right));
                 match (l.first(), r.first()) {
                     (Some(a), Some(b)) if a == outer_alias && b != outer_alias => {
-                        let cand = CorrPred {
+                        let cand = CorrelatedPredicate {
                             outer: l,
                             inner: r,
                             op: op.clone(),
@@ -383,7 +370,7 @@ mod rewriter {
                         }
                     }
                     (Some(a), Some(b)) if b == outer_alias && a != outer_alias => {
-                        let cand = CorrPred {
+                        let cand = CorrelatedPredicate {
                             outer: r,
                             inner: l,
                             op: op.clone(),
@@ -400,8 +387,8 @@ mod rewriter {
         }
     }
 
-    /// helper – CompoundIdentifier to Vec<Ident>, otherwise []
-    fn as_path(e: &Expr) -> Vec<Ident> {
+    /// helper - CompoundIdentifier to Vec<Ident>, otherwise []
+    fn expr_to_column_path(e: &Expr) -> Vec<Ident> {
         match e {
             Expr::CompoundIdentifier(p) => p.clone(),
             // make "id" look like ["id"]  (needed for  id = ANY(t.arr) )
@@ -410,7 +397,7 @@ mod rewriter {
         }
     }
 
-    /// flatten `a AND b AND c` → `[a, b, c]`
+    /// flatten `a AND b AND c` -> `[a, b, c]`
     fn split_and(e: &Expr) -> Vec<Expr> {
         match e {
             Expr::BinaryOp {
@@ -445,11 +432,13 @@ mod rewriter {
 
     /// does this boolean expression represent *exactly* the same
     /// correlated predicate that we lifted into `pairs`?
-    fn is_same_pred(e: &Expr, p: &CorrPred) -> bool {
+    fn is_same_pred(e: &Expr, p: &CorrelatedPredicate) -> bool {
         if let Expr::BinaryOp { op, left, right } = e {
             if op == &p.op {
-                return (as_path(left) == p.outer && as_path(right) == p.inner)
-                    || (as_path(right) == p.outer && as_path(left) == p.inner);
+                return (expr_to_column_path(left) == p.outer
+                    && expr_to_column_path(right) == p.inner)
+                    || (expr_to_column_path(right) == p.outer
+                        && expr_to_column_path(left) == p.inner);
             }
         }
 
@@ -461,8 +450,10 @@ mod rewriter {
         } = e
         {
             return p.is_any
-                && ((as_path(left) == p.inner && as_path(right) == p.outer)
-                    || (as_path(right) == p.inner && as_path(left) == p.outer));
+                && ((expr_to_column_path(left) == p.inner
+                    && expr_to_column_path(right) == p.outer)
+                    || (expr_to_column_path(right) == p.inner
+                        && expr_to_column_path(left) == p.outer));
         }
 
         false
@@ -480,12 +471,49 @@ mod rewriter {
         }
 
         /// walk an expression tree, returning:
-        ///   * `has_aggr` – did we see any aggregate function?
-        ///   * `cols`     – top-level column references *outside* aggregates
-        fn scan_expr(e: &Expr, inside_aggr: bool, has_aggr: &mut bool, cols: &mut Vec<Expr>) {
+        ///   * `has_aggr` - did we see any aggregate function?
+        ///   * `cols`     - top-level column references *outside* aggregates
+        /// True if `e` (or any sub-expression) does an array/struct subscript
+        /// access like `x['field']`, or calls `unnest(...)` - both markers of the
+        /// SRF->unnest rewrite, which must not get an injected GROUP BY.
+        fn has_srf_unnest_marker(e: &Expr) -> bool {
+            use sqlparser::ast::AccessExpr;
+            let mut found = false;
+            let _ = sqlparser::ast::visit_expressions(e, |x| {
+                match x {
+                    Expr::CompoundFieldAccess { access_chain, .. }
+                        if access_chain
+                            .iter()
+                            .any(|a| matches!(a, AccessExpr::Subscript(_))) =>
+                    {
+                        found = true;
+                    }
+                    Expr::Function(f)
+                        if f.name
+                            .0
+                            .last()
+                            .and_then(|p| p.as_ident())
+                            .map(|i| i.value.eq_ignore_ascii_case("unnest"))
+                            .unwrap_or(false) =>
+                    {
+                        found = true;
+                    }
+                    _ => {}
+                }
+                std::ops::ControlFlow::<()>::Continue(())
+            });
+            found
+        }
+
+        fn collect_group_by_columns(
+            e: &Expr,
+            inside_aggr: bool,
+            has_aggr: &mut bool,
+            cols: &mut Vec<Expr>,
+        ) {
             match e {
                 Expr::Function(f) => {
-                    // ── take the unqualified function name (last identifier) ─────────
+                    // -- take the unqualified function name (last identifier) ---------
                     let base_name = f // ObjectName
                         .name
                         .0
@@ -516,7 +544,7 @@ mod rewriter {
                         for arg in &list.args {
                             if let FunctionArg::Unnamed(FunctionArgExpr::Expr(bx)) = arg {
                                 let new_inside = inside_aggr || is_aggr;
-                                Self::scan_expr(bx, new_inside, has_aggr, cols);
+                                Self::collect_group_by_columns(bx, new_inside, has_aggr, cols);
                             }
                         }
                     }
@@ -524,15 +552,15 @@ mod rewriter {
                 Expr::CompoundIdentifier(_) | Expr::Identifier(_) if !inside_aggr => {
                     cols.push(e.clone()); // plain column
                 }
-                // recurse through the usual suspects …
+                // recurse through the usual suspects ...
                 Expr::BinaryOp { left, right, .. } => {
-                    Self::scan_expr(left, inside_aggr, has_aggr, cols);
-                    Self::scan_expr(right, inside_aggr, has_aggr, cols);
+                    Self::collect_group_by_columns(left, inside_aggr, has_aggr, cols);
+                    Self::collect_group_by_columns(right, inside_aggr, has_aggr, cols);
                 }
                 Expr::Nested(inner)
                 | Expr::UnaryOp { expr: inner, .. }
                 | Expr::Cast { expr: inner, .. } => {
-                    Self::scan_expr(inner, inside_aggr, has_aggr, cols);
+                    Self::collect_group_by_columns(inner, inside_aggr, has_aggr, cols);
                 }
                 Expr::Case {
                     operand,
@@ -541,14 +569,14 @@ mod rewriter {
                     ..
                 } => {
                     if let Some(op) = operand {
-                        Self::scan_expr(op, inside_aggr, has_aggr, cols);
+                        Self::collect_group_by_columns(op, inside_aggr, has_aggr, cols);
                     }
                     for CaseWhen { condition, result } in conditions {
-                        Self::scan_expr(condition, inside_aggr, has_aggr, cols);
-                        Self::scan_expr(result, inside_aggr, has_aggr, cols);
+                        Self::collect_group_by_columns(condition, inside_aggr, has_aggr, cols);
+                        Self::collect_group_by_columns(result, inside_aggr, has_aggr, cols);
                     }
                     if let Some(er) = else_result {
-                        Self::scan_expr(er, inside_aggr, has_aggr, cols);
+                        Self::collect_group_by_columns(er, inside_aggr, has_aggr, cols);
                     }
                 }
                 _ => {}
@@ -569,22 +597,51 @@ mod rewriter {
                 return;
             }
 
-            let mut has_aggr = false; // saw COUNT/SUM/…
+            // Don't inject GROUP BY when the projection does struct/array
+            // subscript access (`x['field']`). That shape is produced by the
+            // SRF->unnest rewrite (`__srf_unnest['option_name']`) and never
+            // appears in the PostgreSQL catalog views otherwise; auto-grouping
+            // it would wrongly require the unnested column in the GROUP BY.
+            if sel.projection.iter().any(|item| match item {
+                SelectItem::UnnamedExpr(e) | SelectItem::ExprWithAlias { expr: e, .. } => {
+                    Self::has_srf_unnest_marker(e)
+                }
+                _ => false,
+            }) {
+                return;
+            }
+
+            // Don't inject GROUP BY when the projection contains a wildcard
+            // (`*` or `tbl.*`): the grouped columns can't be enumerated, and
+            // DataFusion rejects the plan with "While expanding wildcard, column
+            // ... must appear in the GROUP BY". The `columns` information_schema
+            // view hits this once its other blockers are cleared.
+            if sel.projection.iter().any(|item| {
+                matches!(
+                    item,
+                    SelectItem::Wildcard(_) | SelectItem::QualifiedWildcard(_, _)
+                )
+            }) {
+                return;
+            }
+
+            let mut has_aggr = false; // saw COUNT/SUM/...
             let mut cols = Vec::<Expr>::new();
-            let mut total_proj = 0_usize; // how many projection items?
+            let mut projection_expr_count = 0_usize; // how many projection items?
 
             for item in &sel.projection {
                 if let SelectItem::UnnamedExpr(expr) | SelectItem::ExprWithAlias { expr, .. } = item
                 {
-                    total_proj += 1;
-                    Self::scan_expr(expr, false, &mut has_aggr, &mut cols);
+                    projection_expr_count += 1;
+                    Self::collect_group_by_columns(expr, false, &mut has_aggr, &mut cols);
                 }
             }
 
-            // do we mix “plain columns” with “anything else”?
-            let mix_plain_and_other = !cols.is_empty() && cols.len() < total_proj;
+            // do we mix "plain columns" with "anything else"?
+            let mixes_plain_columns_with_aggregates =
+                !cols.is_empty() && cols.len() < projection_expr_count;
 
-            if has_aggr || mix_plain_and_other {
+            if has_aggr || mixes_plain_columns_with_aggregates {
                 // deduplicate column list
                 let mut seen = HashSet::new();
                 let exprs: Vec<Expr> = cols
@@ -597,10 +654,10 @@ mod rewriter {
         }
 
         /* ---------- helpers ---------- */
-        // ────────────────────────────────────────────────────────────────
+        // ----------------------------------------------------------------
         // Recursively rewrite every Expr in-place and lift scalar
         // sub-queries to CTEs.
-        // ────────────────────────────────────────────────────────────────
+        // ----------------------------------------------------------------
         fn rewrite_expr(
             &mut self,
             expr: &mut Expr,
@@ -609,19 +666,19 @@ mod rewriter {
             sel: &mut Select,
         ) {
             match expr {
-                // ───────────── scalar sub-query → CTE ─────────────
+                // ------------- scalar sub-query -> CTE -------------
                 Expr::Subquery(_) => {
-                    let fake = SelectItem::UnnamedExpr(expr.clone());
-                    if let Some(info) = self.analyse_scalar(&fake, outer_aliases) {
+                    let wrapped_select_item = SelectItem::UnnamedExpr(expr.clone());
+                    if let Some(info) = self.analyse_scalar(&wrapped_select_item, outer_aliases) {
                         self.push_cte(w, &info);
                         self.add_join(sel, &info);
 
-                        *expr = Self::make_ref(&info);
+                        *expr = Self::make_cte_column_ref(&info);
                         self.converted += 1;
                     }
                 }
 
-                // ───────────── recurse into children ───────────────
+                // ------------- recurse into children ---------------
                 Expr::Function(func) => {
                     if let FunctionArguments::List(list) = &mut func.args {
                         for arg in &mut list.args {
@@ -664,9 +721,9 @@ mod rewriter {
             }
         }
 
-        fn make_from_entry(alias: &Ident) -> TableWithJoins {
-            let tmpl = super::parse_sql(&format!("SELECT * FROM {alias}")).unwrap();
-            if let Statement::Query(q) = tmpl {
+        fn make_from_clause_table(alias: &Ident) -> TableWithJoins {
+            let template_stmt = super::parse_sql(&format!("SELECT * FROM {alias}")).unwrap();
+            if let Statement::Query(q) = template_stmt {
                 if let SetExpr::Select(sel) = q.body.as_ref() {
                     return sel.from[0].clone();
                 }
@@ -674,23 +731,12 @@ mod rewriter {
             unreachable!("template changed")
         }
 
-        fn make_cross_join(alias: &Ident) -> Join {
-            // dummy base table so we can grab the Join node
-            let tmp =
-                super::parse_sql(&format!("SELECT * FROM x CROSS JOIN {alias}")).expect("parser");
-            if let Statement::Query(q) = tmp {
-                if let SetExpr::Select(sel) = q.body.as_ref() {
-                    return sel.from[0].joins[0].clone();
-                }
-            }
-            unreachable!("template shape changed")
-        }
-
         fn make_left_join(alias: &Ident) -> Join {
-            let tmp = super::parse_sql(&format!("SELECT * FROM x LEFT JOIN {alias} ON true"))
-                .expect("parser");
+            let template_stmt =
+                super::parse_sql(&format!("SELECT * FROM x LEFT JOIN {alias} ON true"))
+                    .expect("parser");
 
-            if let Statement::Query(q) = tmp {
+            if let Statement::Query(q) = template_stmt {
                 if let SetExpr::Select(sel) = q.body.as_ref() {
                     return sel.from[0].joins[0].clone();
                 }
@@ -783,7 +829,7 @@ mod rewriter {
 
             // we only support plain SELECT sub-queries for now
             if let SetExpr::Select(inner_sel) = sub.body.as_ref() {
-                let mut pairs = Vec::<CorrPred>::new();
+                let mut pairs = Vec::<CorrelatedPredicate>::new();
                 let mut outer_only = Vec::new();
                 if let Some(pred) = &inner_sel.selection {
                     for alias in outer_aliases {
@@ -820,7 +866,7 @@ mod rewriter {
                     cte_ident: self.fresh_name(),
                     subquery: sub.clone(),
                     on_pairs: pairs,
-                    outer_only,
+                    outer_only_predicates: outer_only,
                     outer_aliases: outer_aliases.to_vec(),
                     orig_alias: match sel_item {
                         SelectItem::ExprWithAlias { alias, .. } => Some(alias.clone()),
@@ -859,8 +905,8 @@ mod rewriter {
                     };
                 }
 
-                // helper – add "col_path" unless already there
-                let mut ensure_proj = |path: &Vec<Ident>| {
+                // helper - add "col_path" unless already there
+                let mut ensure_projected_column = |path: &Vec<Ident>| {
                     let already = inner_sel.projection.iter().any(|item| {
                         matches!(item,
                                 SelectItem::UnnamedExpr(
@@ -874,15 +920,15 @@ mod rewriter {
                 };
 
                 // ---- gather every inner-side column that will be used by the JOIN ----
-                let mut need: Vec<Vec<Ident>> = Vec::new();
+                let mut join_key_paths: Vec<Vec<Ident>> = Vec::new();
                 for p in &info.on_pairs {
-                    if !need.contains(&p.inner) {
-                        need.push(p.inner.clone());
+                    if !join_key_paths.contains(&p.inner) {
+                        join_key_paths.push(p.inner.clone());
                     }
                 }
 
-                for p in need {
-                    ensure_proj(&p);
+                for p in join_key_paths {
+                    ensure_projected_column(&p);
                 }
 
                 // ensure aggregates with join columns are grouped
@@ -892,24 +938,28 @@ mod rewriter {
             // prefix unqualified tables inside the CTE with pg_catalog
             Self::qualify_pg_catalog_tables(&mut subq);
 
-            // ★ use *subq* we just cleaned, not the original
+            // * use *subq* we just cleaned, not the original
             w.cte_tables
                 .push(Self::make_cte(&info.cte_ident, Box::new(subq)));
         }
 
         fn add_join(&mut self, sel: &mut Select, info: &CorrelatedInfo) {
             if sel.from.is_empty() {
-                sel.from.push(Self::make_from_entry(&info.cte_ident));
+                sel.from.push(Self::make_from_clause_table(&info.cte_ident));
             } else {
                 sel.from[0].joins.push(self.build_left_join(
                     &info.cte_ident,
                     &info.on_pairs,
-                    &info.outer_only,
+                    &info.outer_only_predicates,
                 ));
             }
         }
 
-        fn strip_corr_filters(sel: &mut Select, pairs: &[CorrPred], outer_aliases: &[Ident]) {
+        fn strip_corr_filters(
+            sel: &mut Select,
+            pairs: &[CorrelatedPredicate],
+            outer_aliases: &[Ident],
+        ) {
             if let Some(pred) = &sel.selection {
                 let mut keep: Vec<Expr> = vec![];
                 for conjunct in split_and(pred) {
@@ -926,7 +976,7 @@ mod rewriter {
             }
         }
 
-        fn replace_outer_refs(expr: &mut Expr, pairs: &[CorrPred]) {
+        fn replace_outer_refs(expr: &mut Expr, pairs: &[CorrelatedPredicate]) {
             match expr {
                 Expr::CompoundIdentifier(path) => {
                     for p in pairs {
@@ -995,20 +1045,25 @@ mod rewriter {
             }
         }
 
-        fn make_ref(info: &CorrelatedInfo) -> Expr {
+        fn make_cte_column_ref(info: &CorrelatedInfo) -> Expr {
             Expr::CompoundIdentifier(vec![info.cte_ident.clone(), Ident::new("col")])
         }
 
-        fn build_left_join(&self, alias: &Ident, pairs: &[CorrPred], outer_only: &[Expr]) -> Join {
+        fn build_left_join(
+            &self,
+            alias: &Ident,
+            pairs: &[CorrelatedPredicate],
+            outer_only: &[Expr],
+        ) -> Join {
             let mut join = Self::make_left_join(alias);
 
-            // helper:   t2.id  →  __cteN.id
-            let rewrite_inner = |path: &Vec<Ident>| -> Expr {
+            // helper:   t2.id  ->  __cteN.id
+            let qualify_with_cte_alias = |path: &Vec<Ident>| -> Expr {
                 let mut new = path.clone();
                 let first = new[0].clone(); // remember the column
-                new[0] = alias.clone(); //  ⟶  __cteN …
+                new[0] = alias.clone(); //  ->  __cteN ...
                 if new.len() == 1 {
-                    // add “id” back:  __cteN.id
+                    // add "id" back:  __cteN.id
                     new.push(first);
                 }
                 Expr::CompoundIdentifier(new)
@@ -1023,17 +1078,17 @@ mod rewriter {
                 let pred = if p.is_any {
                     // __cteN.oid = ANY(pol.roles)
                     Expr::AnyOp {
-                        left: Box::new(rewrite_inner(&p.inner)),
-                        compare_op: p.op.clone(), // always “=”
+                        left: Box::new(qualify_with_cte_alias(&p.inner)),
+                        compare_op: p.op.clone(), // always "="
                         right: Box::new(Expr::CompoundIdentifier(p.outer.clone())),
                         is_some: false,
                     }
                 } else {
-                    // plain binary comparison  ( =  <>  <  … )
+                    // plain binary comparison  ( =  <>  <  ... )
                     Expr::BinaryOp {
                         left: Box::new(Expr::CompoundIdentifier(p.outer.clone())),
                         op: p.op.clone(),
-                        right: Box::new(rewrite_inner(&p.inner)),
+                        right: Box::new(qualify_with_cte_alias(&p.inner)),
                     }
                 };
 
@@ -1048,7 +1103,7 @@ mod rewriter {
             }
 
             // -------------------------------------------------------------
-            // 2. tack on the “outer-only” predicates (t1.flag, …)
+            // 2. tack on the "outer-only" predicates (t1.flag, ...)
             //     skip any that duplicate a correlated comparison
             // -------------------------------------------------------------
             let mut outer_only_filtered: Vec<Expr> = Vec::new();
@@ -1069,7 +1124,7 @@ mod rewriter {
             }
 
             // -------------------------------------------------------------
-            // 3. install the ON-clause (defaults to “true” if we built none)
+            // 3. install the ON-clause (defaults to "true" if we built none)
             // -------------------------------------------------------------
             if let Some(expr) = on {
                 join.join_operator = JoinOperator::LeftOuter(JoinConstraint::On(expr));
@@ -1126,12 +1181,12 @@ mod rewriter {
 
             // ---------- recurse into every projection expr first ----------
 
-            // 1) Move everything out – ends the &mut borrow immediately.
-            let drained: Vec<SelectItem> = sel.projection.drain(..).collect();
+            // 1) Move everything out - ends the &mut borrow immediately.
+            let projection_items: Vec<SelectItem> = sel.projection.drain(..).collect();
 
             // 2) Rewrite while we own the items; we can pass &mut sel freely.
-            let mut new_proj = Vec::with_capacity(drained.len());
-            for mut item in drained {
+            let mut new_proj = Vec::with_capacity(projection_items.len());
+            for mut item in projection_items {
                 if let SelectItem::UnnamedExpr(ref mut expr)
                 | SelectItem::ExprWithAlias { ref mut expr, .. } = item
                 {
@@ -1181,7 +1236,7 @@ mod rewriter {
 
             // ---------- 3rd pass: patch projection expressions ----------
             for (idx, info) in collected {
-                let replacement_expr = Self::make_ref(&info);
+                let replacement_expr = Self::make_cte_column_ref(&info);
 
                 sel.projection[idx] = if let Some(alias) = info.orig_alias {
                     SelectItem::ExprWithAlias {
@@ -1211,7 +1266,7 @@ mod tests {
     #[tokio::test]
     async fn rewrite_noop_roundtrip() -> Result<()> {
         let original = "SELECT 1";
-        let outcome = rewrite(original)?;
+        let outcome = rewrite_scalar_subqueries_to_ctes(original)?;
         assert_eq!(outcome.sql, original);
         assert_eq!(outcome.converted, 0);
         Ok(())
@@ -1240,7 +1295,7 @@ mod tests {
               a,
               (SELECT max(b) FROM t2) AS s1
             FROM t1"#;
-        let out = rewrite(sql)?;
+        let out = rewrite_scalar_subqueries_to_ctes(sql)?;
         assert!(!out.sql.is_empty());
         Ok(())
     }
@@ -1248,7 +1303,7 @@ mod tests {
     #[test]
     fn rewrite_single_scalar_to_cte() -> Result<()> {
         let sql = "SELECT (SELECT 1) AS x";
-        let out = rewrite(sql)?;
+        let out = rewrite_scalar_subqueries_to_ctes(sql)?;
         assert_eq!(out.converted, 1);
         assert!(out.sql.contains("WITH"));
         assert!(out.sql.contains("__cte1"));
@@ -1259,7 +1314,7 @@ mod tests {
     #[test]
     fn rewrite_preserves_other_columns() -> Result<()> {
         let sql = "SELECT a, (SELECT 2) AS two FROM t";
-        let out = rewrite(sql)?;
+        let out = rewrite_scalar_subqueries_to_ctes(sql)?;
         // make sure original top-level columns still there
         assert!(out.sql.starts_with("WITH"));
         assert!(out.sql.contains("SELECT a, __cte1.col")); // rough check
@@ -1269,7 +1324,7 @@ mod tests {
     #[test]
     fn scalar_becomes_join() -> Result<()> {
         let q = "SELECT (SELECT 1) FROM t";
-        let out = rewrite(q)?;
+        let out = rewrite_scalar_subqueries_to_ctes(q)?;
         log::debug!("scalar_becomes_join {:?}", out);
         assert_eq!(out.converted, 1);
         assert!(out.sql.contains("WITH"));
@@ -1280,7 +1335,7 @@ mod tests {
     #[test]
     fn cte_is_injected() -> Result<()> {
         let q = "SELECT (SELECT 42)";
-        let out = rewrite(q)?;
+        let out = rewrite_scalar_subqueries_to_ctes(q)?;
         assert_eq!(out.converted, 1);
         assert!(out.sql.starts_with("WITH"));
         assert!(out.sql.contains("__cte1"));
@@ -1290,7 +1345,7 @@ mod tests {
     #[test]
     fn rewrite_equality_join() -> Result<()> {
         let q = "SELECT (SELECT max(b) FROM t2 WHERE t2.id = t1.id) FROM t1";
-        let out = rewrite(q)?;
+        let out = rewrite_scalar_subqueries_to_ctes(q)?;
         log::debug!("rewrite_equality_join {:?}", out);
         assert!(out.sql.contains("LEFT OUTER JOIN __cte1"));
         assert!(out.sql.contains("t1.id = __cte1.id"));
@@ -1305,7 +1360,7 @@ mod tests {
                     WHERE  t2.id  = t1.id
                     AND  t2.val <> t1.val)
             FROM t1";
-        let out = rewrite(q)?;
+        let out = rewrite_scalar_subqueries_to_ctes(q)?;
         log::debug!("rewrite_inequality_join {:?}", out);
 
         assert!(
@@ -1318,7 +1373,7 @@ mod tests {
     #[test]
     fn keeps_explicit_alias() -> Result<()> {
         let q = "SELECT (SELECT 1) AS answer";
-        let out = rewrite(q)?;
+        let out = rewrite_scalar_subqueries_to_ctes(q)?;
         log::debug!("keeps_explicit_alias {:?}", out);
         assert!(out.sql.contains("answer")); // alias survived
         Ok(())
@@ -1327,7 +1382,7 @@ mod tests {
     #[test]
     fn synthesises_alias_when_missing() -> Result<()> {
         let q = "SELECT (SELECT 1)";
-        let out = rewrite(q)?;
+        let out = rewrite_scalar_subqueries_to_ctes(q)?;
         log::debug!("synthesises_alias_when_missing {:?}", out);
         assert!(out.sql.contains("subq1")); // our synthetic alias
         Ok(())
@@ -1336,7 +1391,7 @@ mod tests {
     #[test]
     fn cte_strips_correlated_filters() -> Result<()> {
         let q = "SELECT (SELECT 1 FROM t2 WHERE t2.id = t1.id AND t2.flag = 'Y') FROM t1";
-        let out = rewrite(q)?;
+        let out = rewrite_scalar_subqueries_to_ctes(q)?;
 
         log::debug!("cte_strips_correlated_filters {:?} : ", out);
 
@@ -1365,7 +1420,7 @@ mod tests {
     #[test]
     fn outer_only_predicate_removed() -> Result<()> {
         let q = "SELECT (SELECT 1 FROM t2 WHERE t1.flag) FROM t1";
-        let out = rewrite(q)?;
+        let out = rewrite_scalar_subqueries_to_ctes(q)?;
         log::debug!("outer_only_predicate_removed {:?}", out);
 
         assert!(
@@ -1382,7 +1437,7 @@ mod tests {
     #[test]
     fn correlated_with_second_alias() -> Result<()> {
         let q = "SELECT (SELECT 1 FROM t2 b WHERE b.id = j.id) FROM t1 i JOIN t1 j ON i.id = j.id";
-        let out = rewrite(q)?;
+        let out = rewrite_scalar_subqueries_to_ctes(q)?;
         log::debug!("correlated_with_second_alias {:?}", out.sql);
         assert!(
             out.sql.contains("j.id = __cte1.id"),
@@ -1399,7 +1454,7 @@ mod tests {
                     WHERE  t2.id = t1.id)    -- correlated predicate
             FROM t1";
 
-        let out = rewrite(q)?;
+        let out = rewrite_scalar_subqueries_to_ctes(q)?;
         let sql = out.sql;
 
         // 1) the inner column appears in the CTE SELECT-list
@@ -1425,7 +1480,7 @@ mod tests {
                     AND    t2.y <> t1.y)     -- two different columns
             FROM t1";
 
-        let out = rewrite(q)?;
+        let out = rewrite_scalar_subqueries_to_ctes(q)?;
         let sql = out.sql;
 
         // Both columns must be selected by the CTE
@@ -1471,7 +1526,7 @@ mod tests {
               AND NOT a.attisdropped;
         "#;
 
-        let sql = rewrite(q)?.sql;
+        let sql = rewrite_scalar_subqueries_to_ctes(q)?.sql;
         // println!("result query {:?}", sql);
 
         // scalar exposed
@@ -1490,7 +1545,7 @@ mod tests {
             SELECT pg_catalog.pg_get_array(
                     (SELECT rolname FROM pg_catalog.pg_roles ORDER BY 1)
                 )";
-        let out = rewrite(sql)?;
+        let out = rewrite_scalar_subqueries_to_ctes(sql)?;
         let s = out.sql;
 
         assert!(out.converted >= 1, "no scalar was rewritten");
@@ -1505,10 +1560,10 @@ mod tests {
 
     #[test]
     fn rewrite_eq_any_predicate() -> Result<()> {
-        // ────────────────────────────────────────────────────────────────
+        // ----------------------------------------------------------------
         // outer             :  t(arr  INT[])
         // inner correlated  :  SELECT id FROM x WHERE id = ANY(t.arr)
-        // ────────────────────────────────────────────────────────────────
+        // ----------------------------------------------------------------
         let sql = r#"
             SELECT (SELECT id
                     FROM   x
@@ -1516,7 +1571,7 @@ mod tests {
                    )
             FROM t"#;
 
-        let out = rewrite(sql)?;
+        let out = rewrite_scalar_subqueries_to_ctes(sql)?;
         let s = out.sql;
 
         log::debug!("rewrite_eq_any_predicate {:?}", s);
@@ -1539,9 +1594,9 @@ mod tests {
 
     #[test]
     fn injects_group_by_for_mixed_projection() -> Result<()> {
-        // ────────────────────────────────────────────────────────────────
+        // ----------------------------------------------------------------
         // plain column  +  aggregate => we expect a GROUP BY clause
-        // ────────────────────────────────────────────────────────────────
+        // ----------------------------------------------------------------
         let sql = r#"
             SELECT pol.polname,
                 pg_catalog.pg_get_array(
@@ -1549,7 +1604,7 @@ mod tests {
                 ) AS roles
             FROM pg_catalog.pg_policy AS pol"#;
 
-        let out = rewrite(sql)?;
+        let out = rewrite_scalar_subqueries_to_ctes(sql)?;
         let rewritten = out.sql.to_lowercase();
         log::debug!("injects_group_by_for_mixed_projection: {:?}", rewritten);
         // the synthetic GROUP BY must name *exactly* the plain column we projected
@@ -1576,7 +1631,7 @@ mod tests {
                 ) AS roles
             FROM pg_catalog.pg_policy AS pol"#;
 
-        let out = rewrite(sql)?;
+        let out = rewrite_scalar_subqueries_to_ctes(sql)?;
         let rewritten = out.sql.to_lowercase();
         log::debug!("injects_group_by_for_array_agg: {:?}", rewritten);
         assert!(
@@ -1591,7 +1646,7 @@ mod tests {
     fn multiple_correlated_aliases() -> Result<()> {
         let sql = "SELECT (SELECT pg_attrdef.adbin FROM pg_attrdef WHERE adrelid = cls.oid AND adnum = attr.attnum) AS default \nFROM pg_attribute AS attr\nJOIN pg_type AS typ ON attr.atttypid = typ.oid\nJOIN pg_class AS cls ON cls.oid = attr.attrelid\nJOIN pg_namespace AS ns ON ns.oid = cls.relnamespace";
 
-        let out = rewrite(sql)?;
+        let out = rewrite_scalar_subqueries_to_ctes(sql)?;
         let s = out.sql.clone();
         log::debug!("rewritten: {}", s);
 
@@ -1615,7 +1670,7 @@ mod tests {
     fn trigger_counts_no_dup() -> Result<()> {
         let sql = "SELECT  rel.oid,\n        (SELECT count(*) FROM pg_trigger WHERE tgrelid=rel.oid AND tgisinternal = FALSE) AS triggercount,\n        (SELECT count(*) FROM pg_trigger WHERE tgrelid=rel.oid AND tgisinternal = FALSE AND tgenabled = 'O') AS has_enable_triggers,\n        (CASE WHEN rel.relkind = 'p' THEN true ELSE false END) AS is_partitioned,\n        nsp.nspname AS schema,\n        nsp.oid AS schemaoid,\n        rel.relname AS name,\n        CASE WHEN nsp.nspname like 'pg_%' or nsp.nspname = 'information_schema' THEN true ELSE false END as is_system\nFROM    pg_class rel\nINNER JOIN pg_namespace nsp ON rel.relnamespace= nsp.oid\n    WHERE rel.relkind IN ('r','t','f','p')\n        AND NOT rel.relispartition\n    ORDER BY nsp.nspname, rel.relname";
 
-        let out = rewrite(sql)?;
+        let out = rewrite_scalar_subqueries_to_ctes(sql)?;
         let s = out.sql.clone();
         assert!(s.contains("LEFT OUTER JOIN __cte1"));
         assert!(s.contains("LEFT OUTER JOIN __cte2"));
@@ -1633,7 +1688,7 @@ mod tests {
     fn outer_refs_rewritten_in_projection() -> Result<()> {
         let sql = "SELECT (SELECT pg_get_expr(adbin, cls.oid) FROM pg_attrdef WHERE adrelid = cls.oid AND adnum = attr.attnum) FROM pg_attribute AS attr JOIN pg_class AS cls ON cls.oid = attr.attrelid";
 
-        let out = rewrite(sql)?;
+        let out = rewrite_scalar_subqueries_to_ctes(sql)?;
         let s = out.sql.to_lowercase();
 
         assert!(
@@ -1675,7 +1730,7 @@ mod tests {
             JOIN pg_class AS cls ON cls.oid = attr.attrelid
         "#;
 
-        let out = rewrite(sql)?;
+        let out = rewrite_scalar_subqueries_to_ctes(sql)?;
         let lowered = out.sql.to_lowercase();
 
         assert!(lowered.starts_with("with __cte1"), "cte not injected");
@@ -1699,7 +1754,7 @@ mod tests {
     #[test]
     fn qualify_unqualified_inner_table() -> Result<()> {
         let sql = "SELECT (SELECT pg_attrdef.adbin FROM pg_attrdef WHERE adrelid = cls.oid AND adnum = attr.attnum) FROM pg_attribute AS attr JOIN pg_class AS cls ON cls.oid = attr.attrelid";
-        let out = rewrite(sql)?;
+        let out = rewrite_scalar_subqueries_to_ctes(sql)?;
         let lowered = out.sql.to_lowercase();
         assert!(
             lowered.contains("from pg_catalog.pg_attrdef"),
@@ -1756,7 +1811,7 @@ mod tests {
             JOIN pg_class AS cls ON cls.oid = attr.attrelid
         "#;
 
-        let out = rewrite(sql)?;
+        let out = rewrite_scalar_subqueries_to_ctes(sql)?;
         let lowered = out.sql.to_lowercase();
 
         assert!(lowered.starts_with("with __cte1"), "cte not injected");

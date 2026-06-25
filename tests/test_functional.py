@@ -71,7 +71,7 @@ def test_text_array_return(server):
             "SELECT datacl FROM pg_catalog.pg_database WHERE datname = 'template1'"
         )
         row = cur.fetchone()
-        assert row[0] == ["=c/abadur", "abadur=CTc/abadur"]
+        assert row[0] == ["=c/sysuser", "sysuser=CTc/sysuser"]
 
         cur.execute(
             "SELECT datacl FROM pg_catalog.pg_database WHERE datname = 'pgtry'"
@@ -618,3 +618,59 @@ def test_postmaster_time_zone_lowercase(server):
         )
         row = cur.fetchone()
         assert isinstance(int(row[0]), int)
+
+
+def test_union_all_returns_all_branches(server):
+    # Regression: the wire layer pushed one result set per RecordBatch, so a
+    # UNION ALL (one batch per branch) reached the client as multiple result
+    # sets and only the last was seen. All branches must now come back.
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT 1 AS a UNION ALL SELECT 2 AS a UNION ALL SELECT 3 AS a")
+        vals = sorted(r[0] for r in cur.fetchall())
+        assert vals == [1, 2, 3], vals
+
+
+def test_table_constraints_view(server):
+    # Exercises a multi-branch UNION view end to end (the wire fix) plus the
+    # simplified nulls_distinct. Should list real constraints (PRIMARY KEY /
+    # UNIQUE) and the synthesized NOT NULL CHECKs together.
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT constraint_type FROM information_schema.table_constraints")
+        types = set(r[0] for r in cur.fetchall())
+        assert {"PRIMARY KEY", "CHECK"}.issubset(types), types
+        cur.execute(
+            "SELECT count(*) FROM information_schema.table_constraints "
+            "WHERE constraint_type = 'CHECK'"
+        )
+        assert cur.fetchone()[0] > 0
+
+
+def test_element_types_view(server):
+    # Exercises the multi-column IN -> EXISTS rewrite end to end (the visibility
+    # filter is a 4-column IN-subquery DataFusion can't plan natively).
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT count(*) FROM information_schema.element_types")
+        assert cur.fetchone()[0] > 0
+
+
+def test_constraint_column_usage_executes(server):
+    # The two `nspname`s in its derived table used to trip a DataFusion assertion;
+    # the duplicate-column disambiguation rewrite must let it plan and run.
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM information_schema.constraint_column_usage")
+        cols = [d.name for d in cur.description]
+        assert "constraint_name" in cols and "column_name" in cols, cols
+
+
+def test_user_mapping_options_executes(server):
+    # Its LATERAL pg_options_to_table SRF was rewritten to the projection form;
+    # it must plan and return the right columns (empty until FDW mappings exist).
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM information_schema.user_mapping_options")
+        cols = [d.name for d in cur.description]
+        assert "option_name" in cols and "option_value" in cols, cols

@@ -53,8 +53,8 @@ public:
         datfrozenxid: '730'
         datminmxid: '1'
         dattablespace: 1663
-        datcollate: nl_NL.UTF-8
-        datctype: nl_NL.UTF-8
+        datcollate: C
+        datctype: C
         datlocale: null
         daticurules: null
         datcollversion: null
@@ -71,14 +71,14 @@ public:
         datfrozenxid: '730'
         datminmxid: '1'
         dattablespace: 1663
-        datcollate: nl_NL.UTF-8
-        datctype: nl_NL.UTF-8
+        datcollate: C
+        datctype: C
         datlocale: null
         daticurules: null
         datcollversion: null
         datacl:
-        - =c/abadur
-        - abadur=CTc/abadur
+        - =c/sysuser
+        - sysuser=CTc/sysuser
       - oid: 4
         datname: template0
         datdba: 10
@@ -91,11 +91,11 @@ public:
         datfrozenxid: '730'
         datminmxid: '1'
         dattablespace: 1663
-        datcollate: nl_NL.UTF-8
-        datctype: nl_NL.UTF-8
+        datcollate: C
+        datctype: C
         datlocale: null
         daticurules: null
         datcollversion: null
         datacl:
-        - =c/abadur
-        - abadur=CTc/abadur
+        - =c/sysuser
+        - sysuser=CTc/sysuser

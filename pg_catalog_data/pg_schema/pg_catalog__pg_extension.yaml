@@ -9,7 +9,7 @@ public:
         extnamespace: int
         extrelocatable: boolean
         extversion: varchar(256)
-        extconfig: _text
+        extconfig: _oid
         extcondition: _text
       pg_types:
         oid: oid
@@ -21,7 +21,7 @@ public:
         extconfig: _oid
         extcondition: _text
       rows:
-      - oid: 13132
+      - oid: 12761
         extname: plpgsql
         extowner: 10
         extnamespace: 11

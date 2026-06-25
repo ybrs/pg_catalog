@@ -1,14 +1,7 @@
 public:
   pg_catalog:
     pg_settings:
-      type: view
-      view_sql: " SELECT name,\n    setting,\n    unit,\n    category,\n    short_desc,\n\
-        \    extra_desc,\n    context,\n    vartype,\n    source,\n    min_val,\n\
-        \    max_val,\n    enumvals,\n    boot_val,\n    reset_val,\n    sourcefile,\n\
-        \    sourceline,\n    pending_restart\n   FROM pg_show_all_settings() a(name,\
-        \ setting, unit, category, short_desc, extra_desc, context, vartype, source,\
-        \ min_val, max_val, enumvals, boot_val, reset_val, sourcefile, sourceline,\
-        \ pending_restart);"
+      type: system_catalog
       schema:
         name: varchar(256)
         setting: varchar(256)
@@ -51,8 +44,7 @@ public:
         unit: null
         category: Version and Platform Compatibility / Other Platforms and Clients
         short_desc: Allows running the ALTER SYSTEM command.
-        extra_desc: Can be set to off for environments where global configuration
-          changes should be made using a different method.
+        extra_desc: Can be set to off for environments where global configuration changes should be made using a different method.
         context: sighup
         vartype: bool
         source: default
@@ -119,8 +111,7 @@ public:
         setting: ''
         unit: null
         category: Write-Ahead Log / Archive Recovery
-        short_desc: Sets the shell command that will be executed at every restart
-          point.
+        short_desc: Sets the shell command that will be executed at every restart point.
         extra_desc: null
         context: sighup
         vartype: string
@@ -191,8 +182,7 @@ public:
         setting: '0'
         unit: s
         category: Write-Ahead Log / Archiving
-        short_desc: Sets the amount of time to wait before forcing a switch to the
-          next WAL file.
+        short_desc: Sets the amount of time to wait before forcing a switch to the next WAL file.
         extra_desc: null
         context: sighup
         vartype: integer
@@ -210,8 +200,7 @@ public:
         unit: null
         category: Version and Platform Compatibility / Previous PostgreSQL Versions
         short_desc: Enable input of NULL elements in arrays.
-        extra_desc: When turned on, unquoted NULL in an array input value means a
-          null value; otherwise it is taken literally.
+        extra_desc: When turned on, unquoted NULL in an array input value means a null value; otherwise it is taken literally.
         context: user
         vartype: bool
         source: default
@@ -261,8 +250,7 @@ public:
         setting: '0.1'
         unit: null
         category: Autovacuum
-        short_desc: Number of tuple inserts, updates, or deletes prior to analyze
-          as a fraction of reltuples.
+        short_desc: Number of tuple inserts, updates, or deletes prior to analyze as a fraction of reltuples.
         extra_desc: null
         context: sighup
         vartype: real
@@ -279,8 +267,7 @@ public:
         setting: '50'
         unit: null
         category: Autovacuum
-        short_desc: Minimum number of tuple inserts, updates, or deletes prior to
-          analyze.
+        short_desc: Minimum number of tuple inserts, updates, or deletes prior to analyze.
         extra_desc: null
         context: sighup
         vartype: integer
@@ -314,8 +301,7 @@ public:
         setting: '3'
         unit: null
         category: Autovacuum
-        short_desc: Sets the maximum number of simultaneously running autovacuum worker
-          processes.
+        short_desc: Sets the maximum number of simultaneously running autovacuum worker processes.
         extra_desc: null
         context: postmaster
         vartype: integer
@@ -332,8 +318,7 @@ public:
         setting: '400000000'
         unit: null
         category: Autovacuum
-        short_desc: Multixact age at which to autovacuum a table to prevent multixact
-          wraparound.
+        short_desc: Multixact age at which to autovacuum a table to prevent multixact wraparound.
         extra_desc: null
         context: postmaster
         vartype: integer
@@ -418,8 +403,7 @@ public:
         setting: '1000'
         unit: null
         category: Autovacuum
-        short_desc: Minimum number of tuple inserts prior to vacuum, or -1 to disable
-          insert vacuums.
+        short_desc: Minimum number of tuple inserts prior to vacuum, or -1 to disable insert vacuums.
         extra_desc: null
         context: sighup
         vartype: integer
@@ -436,8 +420,7 @@ public:
         setting: '0.2'
         unit: null
         category: Autovacuum
-        short_desc: Number of tuple updates or deletes prior to vacuum as a fraction
-          of reltuples.
+        short_desc: Number of tuple updates or deletes prior to vacuum as a fraction of reltuples.
         extra_desc: null
         context: sighup
         vartype: real
@@ -488,8 +471,7 @@ public:
         setting: '0'
         unit: 8kB
         category: Resource Usage / Asynchronous Behavior
-        short_desc: Number of pages after which previously performed writes are flushed
-          to disk.
+        short_desc: Number of pages after which previously performed writes are flushed to disk.
         extra_desc: null
         context: user
         vartype: integer
@@ -557,11 +539,10 @@ public:
         sourceline: null
         pending_restart: false
       - name: bgwriter_flush_after
-        setting: '0'
+        setting: '64'
         unit: 8kB
         category: Resource Usage / Background Writer
-        short_desc: Number of pages after which previously performed writes are flushed
-          to disk.
+        short_desc: Number of pages after which previously performed writes are flushed to disk.
         extra_desc: null
         context: sighup
         vartype: integer
@@ -569,8 +550,8 @@ public:
         min_val: '0'
         max_val: '256'
         enumvals: null
-        boot_val: '0'
-        reset_val: '0'
+        boot_val: '64'
+        reset_val: '64'
         sourcefile: null
         sourceline: null
         pending_restart: false
@@ -699,8 +680,7 @@ public:
         setting: '0.9'
         unit: null
         category: Write-Ahead Log / Checkpoints
-        short_desc: Time spent flushing dirty buffers during checkpoint, as fraction
-          of checkpoint interval.
+        short_desc: Time spent flushing dirty buffers during checkpoint, as fraction of checkpoint interval.
         extra_desc: null
         context: sighup
         vartype: real
@@ -714,11 +694,10 @@ public:
         sourceline: null
         pending_restart: false
       - name: checkpoint_flush_after
-        setting: '0'
+        setting: '32'
         unit: 8kB
         category: Write-Ahead Log / Checkpoints
-        short_desc: Number of pages after which previously performed writes are flushed
-          to disk.
+        short_desc: Number of pages after which previously performed writes are flushed to disk.
         extra_desc: null
         context: sighup
         vartype: integer
@@ -726,8 +705,8 @@ public:
         min_val: '0'
         max_val: '256'
         enumvals: null
-        boot_val: '0'
-        reset_val: '0'
+        boot_val: '32'
+        reset_val: '32'
         sourcefile: null
         sourceline: null
         pending_restart: false
@@ -752,11 +731,8 @@ public:
         setting: '30'
         unit: s
         category: Write-Ahead Log / Checkpoints
-        short_desc: Sets the maximum time before warning if checkpoints triggered
-          by WAL volume happen too frequently.
-        extra_desc: Write a message to the server log if checkpoints caused by the
-          filling of WAL segment files happen more frequently than this amount of
-          time. Zero turns off the warning.
+        short_desc: Sets the maximum time before warning if checkpoints triggered by WAL volume happen too frequently.
+        extra_desc: Write a message to the server log if checkpoints caused by the filling of WAL segment files happen more frequently than this amount of time. Zero turns off the warning.
         context: sighup
         vartype: integer
         source: default
@@ -772,8 +748,7 @@ public:
         setting: '0'
         unit: ms
         category: Connections and Authentication / TCP Settings
-        short_desc: Sets the time interval between checks for disconnection while
-          running queries.
+        short_desc: Sets the time interval between checks for disconnection while running queries.
         extra_desc: null
         context: user
         vartype: integer
@@ -808,8 +783,7 @@ public:
         unit: null
         category: Client Connection Defaults / Statement Behavior
         short_desc: Sets the message levels that are sent to the client.
-        extra_desc: Each level includes all the levels that follow it. The later the
-          level, the fewer messages are sent.
+        extra_desc: Each level includes all the levels that follow it. The later the level, the fewer messages are sent.
         context: user
         vartype: enum
         source: default
@@ -834,8 +808,7 @@ public:
         setting: ''
         unit: null
         category: Reporting and Logging / Process Title
-        short_desc: Sets the name of the cluster, which is included in the process
-          title.
+        short_desc: Sets the name of the cluster, which is included in the process title.
         extra_desc: null
         context: postmaster
         vartype: string
@@ -852,8 +825,7 @@ public:
         setting: '0'
         unit: null
         category: Write-Ahead Log / Settings
-        short_desc: Sets the delay in microseconds between transaction commit and
-          flushing WAL to disk.
+        short_desc: Sets the delay in microseconds between transaction commit and flushing WAL to disk.
         extra_desc: null
         context: superuser
         vartype: integer
@@ -870,8 +842,7 @@ public:
         setting: '5'
         unit: null
         category: Write-Ahead Log / Settings
-        short_desc: Sets the minimum number of concurrent open transactions required
-          before performing "commit_delay".
+        short_desc: Sets the minimum number of concurrent open transactions required before performing "commit_delay".
         extra_desc: null
         context: user
         vartype: integer
@@ -888,8 +859,7 @@ public:
         setting: '32'
         unit: 8kB
         category: Resource Usage / Memory
-        short_desc: Sets the size of the dedicated buffer pool used for the commit
-          timestamp cache.
+        short_desc: Sets the size of the dedicated buffer pool used for the commit timestamp cache.
         extra_desc: Specify 0 to have this value determined as a fraction of shared_buffers.
         context: postmaster
         vartype: integer
@@ -924,7 +894,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: config_file
-        setting: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        setting: /workspace/pg_catalog/postgres-data/postgresql.conf
         unit: null
         category: File Locations
         short_desc: Sets the server's main configuration file.
@@ -936,7 +906,7 @@ public:
         max_val: null
         enumvals: null
         boot_val: null
-        reset_val: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        reset_val: /workspace/pg_catalog/postgres-data/postgresql.conf
         sourcefile: null
         sourceline: null
         pending_restart: false
@@ -945,8 +915,7 @@ public:
         unit: null
         category: Query Tuning / Other Planner Options
         short_desc: Enables the planner to use constraints to optimize queries.
-        extra_desc: Table scans will be skipped if their constraints guarantee that
-          no rows match the query.
+        extra_desc: Table scans will be skipped if their constraints guarantee that no rows match the query.
         context: user
         vartype: enum
         source: default
@@ -965,8 +934,7 @@ public:
         setting: '0.005'
         unit: null
         category: Query Tuning / Planner Cost Constants
-        short_desc: Sets the planner's estimate of the cost of processing each index
-          entry during an index scan.
+        short_desc: Sets the planner's estimate of the cost of processing each index entry during an index scan.
         extra_desc: null
         context: user
         vartype: real
@@ -983,8 +951,7 @@ public:
         setting: '0.0025'
         unit: null
         category: Query Tuning / Planner Cost Constants
-        short_desc: Sets the planner's estimate of the cost of processing each operator
-          or function call.
+        short_desc: Sets the planner's estimate of the cost of processing each operator or function call.
         extra_desc: null
         context: user
         vartype: real
@@ -1001,8 +968,7 @@ public:
         setting: '0.01'
         unit: null
         category: Query Tuning / Planner Cost Constants
-        short_desc: Sets the planner's estimate of the cost of processing each tuple
-          (row).
+        short_desc: Sets the planner's estimate of the cost of processing each tuple (row).
         extra_desc: null
         context: user
         vartype: real
@@ -1019,8 +985,7 @@ public:
         setting: ''
         unit: null
         category: Client Connection Defaults / Statement Behavior
-        short_desc: Sets whether a CREATEROLE user automatically grants the role to
-          themselves, and with which options.
+        short_desc: Sets whether a CREATEROLE user automatically grants the role to themselves, and with which options.
         extra_desc: null
         context: user
         vartype: string
@@ -1037,8 +1002,7 @@ public:
         setting: '0.1'
         unit: null
         category: Query Tuning / Other Planner Options
-        short_desc: Sets the planner's estimate of the fraction of a cursor's rows
-          that will be retrieved.
+        short_desc: Sets the planner's estimate of the fraction of a cursor's rows that will be retrieved.
         extra_desc: null
         context: user
         vartype: real
@@ -1069,7 +1033,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: data_directory
-        setting: /Users/abadur/projects/query/postgres-data
+        setting: /workspace/pg_catalog/postgres-data
         unit: null
         category: File Locations
         short_desc: Sets the server's data directory.
@@ -1081,7 +1045,7 @@ public:
         max_val: null
         enumvals: null
         boot_val: null
-        reset_val: /Users/abadur/projects/query/postgres-data
+        reset_val: /workspace/pg_catalog/postgres-data
         sourcefile: null
         sourceline: null
         pending_restart: false
@@ -1090,9 +1054,7 @@ public:
         unit: null
         category: Preset Options
         short_desc: Shows the mode of the data directory.
-        extra_desc: The parameter value is a numeric mode specification in the form
-          accepted by the chmod and umask system calls. (To use the customary octal
-          format the number must start with a 0 (zero).)
+        extra_desc: The parameter value is a numeric mode specification in the form accepted by the chmod and umask system calls. (To use the customary octal format the number must start with a 0 (zero).)
         context: internal
         vartype: integer
         source: default
@@ -1122,7 +1084,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: DateStyle
-        setting: ISO, DMY
+        setting: ISO, MDY
         unit: null
         category: Client Connection Defaults / Locale and Formatting
         short_desc: Sets the display format for date and time values.
@@ -1134,8 +1096,8 @@ public:
         max_val: null
         enumvals: null
         boot_val: ISO, MDY
-        reset_val: ISO, DMY
-        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        reset_val: ISO, MDY
+        sourcefile: /workspace/pg_catalog/postgres-data/postgresql.conf
         sourceline: 736
         pending_restart: false
       - name: deadlock_timeout
@@ -1210,12 +1172,8 @@ public:
         setting: buffered
         unit: null
         category: Developer Options
-        short_desc: Forces immediate streaming or serialization of changes in large
-          transactions.
-        extra_desc: On the publisher, it allows streaming or serializing each change
-          in logical decoding. On the subscriber, it allows serialization of all changes
-          to files and notifies the parallel apply workers to read and apply them
-          at the end of the transaction.
+        short_desc: Forces immediate streaming or serialization of changes in large transactions.
+        extra_desc: On the publisher, it allows streaming or serializing each change in logical decoding. On the subscriber, it allows serialization of all changes to files and notifies the parallel apply workers to read and apply them at the end of the transaction.
         context: user
         vartype: enum
         source: default
@@ -1234,9 +1192,7 @@ public:
         unit: null
         category: Developer Options
         short_desc: Forces the planner's use parallel query nodes.
-        extra_desc: This can be useful for testing the parallel query infrastructure
-          by forcing the planner to generate plans that contain nodes that perform
-          tuple communication between workers and the main process.
+        extra_desc: This can be useful for testing the parallel query infrastructure by forcing the planner to generate plans that contain nodes that perform tuple communication between workers and the main process.
         context: user
         vartype: enum
         source: default
@@ -1324,8 +1280,7 @@ public:
         unit: null
         category: Query Tuning / Other Planner Options
         short_desc: Sets the default statistics target.
-        extra_desc: This applies to table columns that have not had a column-specific
-          target set via ALTER TABLE SET STATISTICS.
+        extra_desc: This applies to table columns that have not had a column-specific target set via ALTER TABLE SET STATISTICS.
         context: user
         vartype: integer
         source: default
@@ -1372,7 +1327,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: default_text_search_config
-        setting: pg_catalog.dutch
+        setting: pg_catalog.english
         unit: null
         category: Client Connection Defaults / Locale and Formatting
         short_desc: Sets default text search configuration.
@@ -1384,8 +1339,8 @@ public:
         max_val: null
         enumvals: null
         boot_val: pg_catalog.simple
-        reset_val: pg_catalog.dutch
-        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        reset_val: pg_catalog.english
+        sourcefile: /workspace/pg_catalog/postgres-data/postgresql.conf
         sourceline: 762
         pending_restart: false
       - name: default_toast_compression
@@ -1401,6 +1356,7 @@ public:
         max_val: null
         enumvals:
         - pglz
+        - lz4
         boot_val: pglz
         reset_val: pglz
         sourcefile: null
@@ -1466,9 +1422,7 @@ public:
         unit: null
         category: Client Connection Defaults / Other Defaults
         short_desc: Sets the path for dynamically loadable modules.
-        extra_desc: If a dynamically loadable module needs to be opened and the specified
-          name does not have a directory component (i.e., the name does not contain
-          a slash), the system will search this path for the specified file.
+        extra_desc: If a dynamically loadable module needs to be opened and the specified name does not have a directory component (i.e., the name does not contain a slash), the system will search this path for the specified file.
         context: superuser
         vartype: string
         source: default
@@ -1497,18 +1451,15 @@ public:
         - mmap
         boot_val: posix
         reset_val: posix
-        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        sourcefile: /workspace/pg_catalog/postgres-data/postgresql.conf
         sourceline: 152
         pending_restart: false
       - name: effective_cache_size
         setting: '524288'
         unit: 8kB
         category: Query Tuning / Planner Cost Constants
-        short_desc: Sets the planner's assumption about the total size of the data
-          caches.
-        extra_desc: That is, the total size of the caches (kernel cache and shared
-          buffers) used for PostgreSQL data files. This is measured in disk pages,
-          which are normally 8 kB each.
+        short_desc: Sets the planner's assumption about the total size of the data caches.
+        extra_desc: That is, the total size of the caches (kernel cache and shared buffers) used for PostgreSQL data files. This is measured in disk pages, which are normally 8 kB each.
         context: user
         vartype: integer
         source: default
@@ -1521,11 +1472,10 @@ public:
         sourceline: null
         pending_restart: false
       - name: effective_io_concurrency
-        setting: '0'
+        setting: '1'
         unit: null
         category: Resource Usage / Asynchronous Behavior
-        short_desc: Number of simultaneous requests that can be handled efficiently
-          by the disk subsystem.
+        short_desc: Number of simultaneous requests that can be handled efficiently by the disk subsystem.
         extra_desc: null
         context: user
         vartype: integer
@@ -1533,8 +1483,8 @@ public:
         min_val: '0'
         max_val: '1000'
         enumvals: null
-        boot_val: '0'
-        reset_val: '0'
+        boot_val: '1'
+        reset_val: '1'
         sourcefile: null
         sourceline: null
         pending_restart: false
@@ -1798,8 +1748,7 @@ public:
         unit: null
         category: Query Tuning / Planner Method Configuration
         short_desc: Enables plan-time and execution-time partition pruning.
-        extra_desc: Allows the query planner and executor to compare partition bounds
-          to conditions in the query to determine which partitions must be scanned.
+        extra_desc: Allows the query planner and executor to compare partition bounds to conditions in the query to determine which partitions must be scanned.
         context: user
         vartype: bool
         source: default
@@ -1849,11 +1798,8 @@ public:
         setting: 'on'
         unit: null
         category: Query Tuning / Planner Method Configuration
-        short_desc: Enables the planner's ability to produce plans that provide presorted
-          input for ORDER BY / DISTINCT aggregate functions.
-        extra_desc: Allows the query planner to build plans that provide presorted
-          input for aggregate functions with an ORDER BY / DISTINCT clause.  When
-          disabled, implicit sorts are always performed during execution.
+        short_desc: Enables the planner's ability to produce plans that provide presorted input for ORDER BY / DISTINCT aggregate functions.
+        extra_desc: Allows the query planner to build plans that provide presorted input for aggregate functions with an ORDER BY / DISTINCT clause.  When disabled, implicit sorts are always performed during execution.
         context: user
         vartype: bool
         source: default
@@ -1937,8 +1883,7 @@ public:
         setting: PostgreSQL
         unit: null
         category: Reporting and Logging / Where to Log
-        short_desc: Sets the application name used to identify PostgreSQL messages
-          in the event log.
+        short_desc: Sets the application name used to identify PostgreSQL messages in the event log.
         extra_desc: null
         context: postmaster
         vartype: string
@@ -2007,10 +1952,7 @@ public:
         unit: null
         category: Client Connection Defaults / Locale and Formatting
         short_desc: Sets the number of digits displayed for floating-point values.
-        extra_desc: This affects real, double precision, and geometric data types.
-          A zero or negative parameter value is added to the standard number of digits
-          (FLT_DIG or DBL_DIG as appropriate). Any value greater than zero selects
-          precise output mode.
+        extra_desc: This affects real, double precision, and geometric data types. A zero or negative parameter value is added to the standard number of digits (FLT_DIG or DBL_DIG as appropriate). Any value greater than zero selects precise output mode.
         context: user
         vartype: integer
         source: default
@@ -2027,8 +1969,7 @@ public:
         unit: null
         category: Query Tuning / Other Planner Options
         short_desc: Sets the FROM-list size beyond which subqueries are not collapsed.
-        extra_desc: The planner will merge subqueries into upper queries if the resulting
-          FROM list would have no more than this many items.
+        extra_desc: The planner will merge subqueries into upper queries if the resulting FROM list would have no more than this many items.
         context: user
         vartype: integer
         source: default
@@ -2045,10 +1986,7 @@ public:
         unit: null
         category: Write-Ahead Log / Settings
         short_desc: Forces synchronization of updates to disk.
-        extra_desc: The server will use the fsync() system call in several places
-          to make sure that updates are physically written to disk. This ensures that
-          a database cluster will recover to a consistent state after an operating
-          system or hardware crash.
+        extra_desc: The server will use the fsync() system call in several places to make sure that updates are physically written to disk. This ensures that a database cluster will recover to a consistent state after an operating system or hardware crash.
         context: sighup
         vartype: bool
         source: default
@@ -2065,10 +2003,7 @@ public:
         unit: null
         category: Write-Ahead Log / Settings
         short_desc: Writes full pages to WAL when first modified after a checkpoint.
-        extra_desc: A page write in process during an operating system crash might
-          be only partially written to disk.  During recovery, the row changes stored
-          in WAL are not enough to recover.  This option writes pages when first modified
-          after a checkpoint to WAL so full recovery is possible.
+        extra_desc: A page write in process during an operating system crash might be only partially written to disk.  During recovery, the row changes stored in WAL are not enough to recover.  This option writes pages when first modified after a checkpoint to WAL so full recovery is possible.
         context: sighup
         vartype: bool
         source: default
@@ -2268,7 +2203,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: hba_file
-        setting: /Users/abadur/projects/query/postgres-data/pg_hba.conf
+        setting: /workspace/pg_catalog/postgres-data/pg_hba.conf
         unit: null
         category: File Locations
         short_desc: Sets the server's "hba" configuration file.
@@ -2280,7 +2215,7 @@ public:
         max_val: null
         enumvals: null
         boot_val: null
-        reset_val: /Users/abadur/projects/query/postgres-data/pg_hba.conf
+        reset_val: /workspace/pg_catalog/postgres-data/pg_hba.conf
         sourcefile: null
         sourceline: null
         pending_restart: false
@@ -2305,8 +2240,7 @@ public:
         setting: 'off'
         unit: null
         category: Replication / Standby Servers
-        short_desc: Allows feedback from a hot standby to the primary that will avoid
-          query conflicts.
+        short_desc: Allows feedback from a hot standby to the primary that will avoid query conflicts.
         extra_desc: null
         context: sighup
         vartype: bool
@@ -2404,7 +2338,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: ident_file
-        setting: /Users/abadur/projects/query/postgres-data/pg_ident.conf
+        setting: /workspace/pg_catalog/postgres-data/pg_ident.conf
         unit: null
         category: File Locations
         short_desc: Sets the server's "ident" configuration file.
@@ -2416,7 +2350,7 @@ public:
         max_val: null
         enumvals: null
         boot_val: null
-        reset_val: /Users/abadur/projects/query/postgres-data/pg_ident.conf
+        reset_val: /workspace/pg_catalog/postgres-data/pg_ident.conf
         sourcefile: null
         sourceline: null
         pending_restart: false
@@ -2424,8 +2358,7 @@ public:
         setting: '0'
         unit: ms
         category: Client Connection Defaults / Statement Behavior
-        short_desc: Sets the maximum allowed idle time between queries, when in a
-          transaction.
+        short_desc: Sets the maximum allowed idle time between queries, when in a transaction.
         extra_desc: A value of 0 turns off the timeout.
         context: user
         vartype: integer
@@ -2442,8 +2375,7 @@ public:
         setting: '0'
         unit: ms
         category: Client Connection Defaults / Statement Behavior
-        short_desc: Sets the maximum allowed idle time between queries, when not in
-          a transaction.
+        short_desc: Sets the maximum allowed idle time between queries, when not in a transaction.
         extra_desc: A value of 0 turns off the timeout.
         context: user
         vartype: integer
@@ -2461,11 +2393,7 @@ public:
         unit: null
         category: Developer Options
         short_desc: Continues processing after a checksum failure.
-        extra_desc: Detection of a checksum failure normally causes PostgreSQL to
-          report an error, aborting the current transaction. Setting ignore_checksum_failure
-          to true causes the system to ignore the failure (but still report a warning),
-          and continue processing. This behavior could cause crashes or other serious
-          problems. Only has an effect if checksums are enabled.
+        extra_desc: Detection of a checksum failure normally causes PostgreSQL to report an error, aborting the current transaction. Setting ignore_checksum_failure to true causes the system to ignore the failure (but still report a warning), and continue processing. This behavior could cause crashes or other serious problems. Only has an effect if checksums are enabled.
         context: superuser
         vartype: bool
         source: default
@@ -2482,13 +2410,7 @@ public:
         unit: null
         category: Developer Options
         short_desc: Continues recovery after an invalid pages failure.
-        extra_desc: Detection of WAL records having references to invalid pages during
-          recovery causes PostgreSQL to raise a PANIC-level error, aborting the recovery.
-          Setting "ignore_invalid_pages" to true causes the system to ignore invalid
-          page references in WAL records (but still report a warning), and continue
-          recovery. This behavior may cause crashes, data loss, propagate or hide
-          corruption, or other serious problems. Only has an effect during recovery
-          or in standby mode.
+        extra_desc: Detection of WAL records having references to invalid pages during recovery causes PostgreSQL to raise a PANIC-level error, aborting the recovery. Setting "ignore_invalid_pages" to true causes the system to ignore invalid page references in WAL records (but still report a warning), and continue recovery. This behavior may cause crashes, data loss, propagate or hide corruption, or other serious problems. Only has an effect during recovery or in standby mode.
         context: postmaster
         vartype: bool
         source: default
@@ -2505,8 +2427,7 @@ public:
         unit: null
         category: Developer Options
         short_desc: Disables reading from system indexes.
-        extra_desc: It does not prevent updating the indexes, so it is safe to use.  The
-          worst consequence is slowness.
+        extra_desc: It does not prevent updating the indexes, so it is safe to use.  The worst consequence is slowness.
         context: backend
         vartype: bool
         source: default
@@ -2765,8 +2686,7 @@ public:
         unit: null
         category: Query Tuning / Other Planner Options
         short_desc: Sets the FROM-list size beyond which JOIN constructs are not flattened.
-        extra_desc: The planner will flatten explicit JOIN constructs into lists of
-          FROM items whenever a list of no more than this many items would result.
+        extra_desc: The planner will flatten explicit JOIN constructs into lists of FROM items whenever a list of no more than this many items would result.
         context: user
         vartype: integer
         source: default
@@ -2782,8 +2702,7 @@ public:
         setting: 'off'
         unit: null
         category: Connections and Authentication / Authentication
-        short_desc: Sets whether Kerberos and GSSAPI user names should be treated
-          as case-insensitive.
+        short_desc: Sets whether Kerberos and GSSAPI user names should be treated as case-insensitive.
         extra_desc: null
         context: sighup
         vartype: bool
@@ -2797,7 +2716,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: krb_server_keyfile
-        setting: ''
+        setting: FILE:/opt/postgresql/etc/krb5.keytab
         unit: null
         category: Connections and Authentication / Authentication
         short_desc: Sets the location of the Kerberos server key file.
@@ -2808,13 +2727,13 @@ public:
         min_val: null
         max_val: null
         enumvals: null
-        boot_val: ''
-        reset_val: ''
+        boot_val: FILE:/opt/postgresql/etc/krb5.keytab
+        reset_val: FILE:/opt/postgresql/etc/krb5.keytab
         sourcefile: null
         sourceline: null
         pending_restart: false
       - name: lc_messages
-        setting: nl_NL.UTF-8
+        setting: C
         unit: null
         category: Client Connection Defaults / Locale and Formatting
         short_desc: Sets the language in which messages are displayed.
@@ -2826,12 +2745,12 @@ public:
         max_val: null
         enumvals: null
         boot_val: ''
-        reset_val: nl_NL.UTF-8
-        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        reset_val: C
+        sourcefile: /workspace/pg_catalog/postgres-data/postgresql.conf
         sourceline: 752
         pending_restart: false
       - name: lc_monetary
-        setting: nl_NL.UTF-8
+        setting: C
         unit: null
         category: Client Connection Defaults / Locale and Formatting
         short_desc: Sets the locale for formatting monetary amounts.
@@ -2843,12 +2762,12 @@ public:
         max_val: null
         enumvals: null
         boot_val: C
-        reset_val: nl_NL.UTF-8
-        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        reset_val: C
+        sourcefile: /workspace/pg_catalog/postgres-data/postgresql.conf
         sourceline: 754
         pending_restart: false
       - name: lc_numeric
-        setting: nl_NL.UTF-8
+        setting: C
         unit: null
         category: Client Connection Defaults / Locale and Formatting
         short_desc: Sets the locale for formatting numbers.
@@ -2860,12 +2779,12 @@ public:
         max_val: null
         enumvals: null
         boot_val: C
-        reset_val: nl_NL.UTF-8
-        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        reset_val: C
+        sourcefile: /workspace/pg_catalog/postgres-data/postgresql.conf
         sourceline: 755
         pending_restart: false
       - name: lc_time
-        setting: nl_NL.UTF-8
+        setting: C
         unit: null
         category: Client Connection Defaults / Locale and Formatting
         short_desc: Sets the locale for formatting date and time values.
@@ -2877,8 +2796,8 @@ public:
         max_val: null
         enumvals: null
         boot_val: C
-        reset_val: nl_NL.UTF-8
-        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        reset_val: C
+        sourcefile: /workspace/pg_catalog/postgres-data/postgresql.conf
         sourceline: 756
         pending_restart: false
       - name: listen_addresses
@@ -2902,10 +2821,8 @@ public:
         setting: 'off'
         unit: null
         category: Version and Platform Compatibility / Previous PostgreSQL Versions
-        short_desc: Enables backward compatibility mode for privilege checks on large
-          objects.
-        extra_desc: Skips privilege checks when reading or modifying large objects,
-          for compatibility with PostgreSQL releases prior to 9.0.
+        short_desc: Enables backward compatibility mode for privilege checks on large objects.
+        extra_desc: Skips privilege checks when reading or modifying large objects, for compatibility with PostgreSQL releases prior to 9.0.
         context: superuser
         vartype: bool
         source: default
@@ -2955,8 +2872,7 @@ public:
         setting: '600000'
         unit: ms
         category: Reporting and Logging / What to Log
-        short_desc: Sets the minimum execution time above which autovacuum actions
-          will be logged.
+        short_desc: Sets the minimum execution time above which autovacuum actions will be logged.
         extra_desc: Zero prints all actions. -1 turns autovacuum logging off.
         context: sighup
         vartype: integer
@@ -3008,8 +2924,7 @@ public:
         unit: null
         category: Reporting and Logging / Where to Log
         short_desc: Sets the destination for server log output.
-        extra_desc: Valid values are combinations of "stderr", "syslog", "csvlog",
-          "jsonlog", and "eventlog", depending on the platform.
+        extra_desc: Valid values are combinations of "stderr", "syslog", "csvlog", "jsonlog", and "eventlog", depending on the platform.
         context: sighup
         vartype: string
         source: command line
@@ -3026,8 +2941,7 @@ public:
         unit: null
         category: Reporting and Logging / Where to Log
         short_desc: Sets the destination directory for log files.
-        extra_desc: Can be specified as relative to the data directory or as absolute
-          path.
+        extra_desc: Can be specified as relative to the data directory or as absolute path.
         context: sighup
         vartype: string
         source: command line
@@ -3115,9 +3029,7 @@ public:
         unit: null
         category: Reporting and Logging / Where to Log
         short_desc: Sets the file permissions for log files.
-        extra_desc: The parameter value is expected to be a numeric mode specification
-          in the form accepted by the chmod and umask system calls. (To use the customary
-          octal format the number must start with a 0 (zero).)
+        extra_desc: The parameter value is expected to be a numeric mode specification in the form accepted by the chmod and umask system calls. (To use the customary octal format the number must start with a 0 (zero).)
         context: sighup
         vartype: integer
         source: default
@@ -3151,10 +3063,7 @@ public:
         unit: null
         category: Reporting and Logging / What to Log
         short_desc: Logs the host name in the connection logs.
-        extra_desc: By default, connection logs only show the IP address of the connecting
-          host. If you want them to show the host name you can turn this on, but depending
-          on your host name resolution setup it might impose a non-negligible performance
-          penalty.
+        extra_desc: By default, connection logs only show the IP address of the connecting host. If you want them to show the host name you can turn this on, but depending on your host name resolution setup it might impose a non-negligible performance penalty.
         context: sighup
         vartype: bool
         source: default
@@ -3204,8 +3113,7 @@ public:
         setting: '-1'
         unit: ms
         category: Reporting and Logging / When to Log
-        short_desc: Sets the minimum execution time above which a sample of statements
-          will be logged. Sampling is determined by log_statement_sample_rate.
+        short_desc: Sets the minimum execution time above which a sample of statements will be logged. Sampling is determined by log_statement_sample_rate.
         extra_desc: Zero logs a sample of all queries. -1 turns this feature off.
         context: superuser
         vartype: integer
@@ -3222,8 +3130,7 @@ public:
         setting: '0'
         unit: ms
         category: Reporting and Logging / When to Log
-        short_desc: Sets the minimum execution time above which all statements will
-          be logged.
+        short_desc: Sets the minimum execution time above which all statements will be logged.
         extra_desc: Zero prints all queries. -1 turns this feature off.
         context: superuser
         vartype: integer
@@ -3240,10 +3147,8 @@ public:
         setting: error
         unit: null
         category: Reporting and Logging / When to Log
-        short_desc: Causes all statements generating error at or above this level
-          to be logged.
-        extra_desc: Each level includes all the levels that follow it. The later the
-          level, the fewer messages are sent.
+        short_desc: Causes all statements generating error at or above this level to be logged.
+        extra_desc: Each level includes all the levels that follow it. The later the level, the fewer messages are sent.
         context: superuser
         vartype: enum
         source: default
@@ -3272,8 +3177,7 @@ public:
         unit: null
         category: Reporting and Logging / When to Log
         short_desc: Sets the message levels that are logged.
-        extra_desc: Each level includes all the levels that follow it. The later the
-          level, the fewer messages are sent.
+        extra_desc: Each level includes all the levels that follow it. The later the level, the fewer messages are sent.
         context: superuser
         vartype: enum
         source: default
@@ -3301,8 +3205,7 @@ public:
         setting: '-1'
         unit: B
         category: Reporting and Logging / What to Log
-        short_desc: Sets the maximum length in bytes of data logged for bind parameter
-          values when logging statements.
+        short_desc: Sets the maximum length in bytes of data logged for bind parameter values when logging statements.
         extra_desc: -1 to print values in full.
         context: superuser
         vartype: integer
@@ -3319,8 +3222,7 @@ public:
         setting: '0'
         unit: B
         category: Reporting and Logging / What to Log
-        short_desc: Sets the maximum length in bytes of data logged for bind parameter
-          values when logging statements, on error.
+        short_desc: Sets the maximum length in bytes of data logged for bind parameter values when logging statements, on error.
         extra_desc: -1 to print values in full.
         context: user
         vartype: integer
@@ -3477,8 +3379,7 @@ public:
         setting: '1'
         unit: null
         category: Reporting and Logging / When to Log
-        short_desc: Fraction of statements exceeding "log_min_duration_sample" to
-          be logged.
+        short_desc: Fraction of statements exceeding "log_min_duration_sample" to be logged.
         extra_desc: Use a value between 0.0 (never log) and 1.0 (always log).
         context: superuser
         vartype: real
@@ -3526,7 +3427,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: log_timezone
-        setting: Europe/Amsterdam
+        setting: Europe/Berlin
         unit: null
         category: Reporting and Logging / What to Log
         short_desc: Sets the time zone to use in log messages.
@@ -3538,8 +3439,8 @@ public:
         max_val: null
         enumvals: null
         boot_val: GMT
-        reset_val: Europe/Amsterdam
-        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        reset_val: Europe/Berlin
+        sourcefile: /workspace/pg_catalog/postgres-data/postgresql.conf
         sourceline: 622
         pending_restart: false
       - name: log_transaction_sample_rate
@@ -3547,8 +3448,7 @@ public:
         unit: null
         category: Reporting and Logging / When to Log
         short_desc: Sets the fraction of transactions from which to log all statements.
-        extra_desc: Use a value between 0.0 (never log) and 1.0 (log all statements
-          for all transactions).
+        extra_desc: Use a value between 0.0 (never log) and 1.0 (log all statements for all transactions).
         context: superuser
         vartype: real
         source: default
@@ -3581,8 +3481,7 @@ public:
         setting: 'on'
         unit: null
         category: Reporting and Logging / Where to Log
-        short_desc: Start a subprocess to capture stderr, csvlog and/or jsonlog into
-          log files.
+        short_desc: Start a subprocess to capture stderr, csvlog and/or jsonlog into log files.
         extra_desc: null
         context: postmaster
         vartype: bool
@@ -3600,8 +3499,7 @@ public:
         unit: kB
         category: Resource Usage / Memory
         short_desc: Sets the maximum memory to be used for logical decoding.
-        extra_desc: This much memory can be used by each internal reorder buffer before
-          spilling to disk.
+        extra_desc: This much memory can be used by each internal reorder buffer before spilling to disk.
         context: user
         vartype: integer
         source: default
@@ -3614,11 +3512,10 @@ public:
         sourceline: null
         pending_restart: false
       - name: maintenance_io_concurrency
-        setting: '0'
+        setting: '10'
         unit: null
         category: Resource Usage / Asynchronous Behavior
-        short_desc: A variant of "effective_io_concurrency" that is used for maintenance
-          work.
+        short_desc: A variant of "effective_io_concurrency" that is used for maintenance work.
         extra_desc: null
         context: user
         vartype: integer
@@ -3626,8 +3523,8 @@ public:
         min_val: '0'
         max_val: '1000'
         enumvals: null
-        boot_val: '0'
-        reset_val: '0'
+        boot_val: '10'
+        reset_val: '10'
         sourcefile: null
         sourceline: null
         pending_restart: false
@@ -3662,15 +3559,14 @@ public:
         enumvals: null
         boot_val: '100'
         reset_val: '100'
-        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        sourcefile: /workspace/pg_catalog/postgres-data/postgresql.conf
         sourceline: 65
         pending_restart: false
       - name: max_files_per_process
         setting: '1000'
         unit: null
         category: Resource Usage / Kernel Resources
-        short_desc: Sets the maximum number of simultaneously open files for each
-          server process.
+        short_desc: Sets the maximum number of simultaneously open files for each server process.
         extra_desc: null
         context: postmaster
         vartype: integer
@@ -3739,9 +3635,7 @@ public:
         unit: null
         category: Lock Management
         short_desc: Sets the maximum number of locks per transaction.
-        extra_desc: The shared lock table is sized on the assumption that at most
-          "max_locks_per_transaction" objects per server process or prepared transaction
-          will need to be locked at any one time.
+        extra_desc: The shared lock table is sized on the assumption that at most "max_locks_per_transaction" objects per server process or prepared transaction will need to be locked at any one time.
         context: postmaster
         vartype: integer
         source: default
@@ -3774,8 +3668,7 @@ public:
         setting: '1048576'
         unit: null
         category: Resource Usage / Disk
-        short_desc: Sets the maximum number of allocated pages for NOTIFY / LISTEN
-          queue.
+        short_desc: Sets the maximum number of allocated pages for NOTIFY / LISTEN queue.
         extra_desc: null
         context: postmaster
         vartype: integer
@@ -3809,8 +3702,7 @@ public:
         setting: '2'
         unit: null
         category: Resource Usage / Asynchronous Behavior
-        short_desc: Sets the maximum number of parallel processes per maintenance
-          operation.
+        short_desc: Sets the maximum number of parallel processes per maintenance operation.
         extra_desc: null
         context: user
         vartype: integer
@@ -3827,8 +3719,7 @@ public:
         setting: '8'
         unit: null
         category: Resource Usage / Asynchronous Behavior
-        short_desc: Sets the maximum number of parallel workers that can be active
-          at one time.
+        short_desc: Sets the maximum number of parallel workers that can be active at one time.
         extra_desc: null
         context: user
         vartype: integer
@@ -3863,8 +3754,7 @@ public:
         unit: null
         category: Lock Management
         short_desc: Sets the maximum number of predicate-locked tuples per page.
-        extra_desc: If more than this number of tuples on the same page are locked
-          by a connection, those locks are replaced by a page-level lock.
+        extra_desc: If more than this number of tuples on the same page are locked by a connection, those locks are replaced by a page-level lock.
         context: sighup
         vartype: integer
         source: default
@@ -3880,11 +3770,8 @@ public:
         setting: '-2'
         unit: null
         category: Lock Management
-        short_desc: Sets the maximum number of predicate-locked pages and tuples per
-          relation.
-        extra_desc: If more than this total of pages and tuples in the same relation
-          are locked by a connection, those locks are replaced by a relation-level
-          lock.
+        short_desc: Sets the maximum number of predicate-locked pages and tuples per relation.
+        extra_desc: If more than this total of pages and tuples in the same relation are locked by a connection, those locks are replaced by a relation-level lock.
         context: sighup
         vartype: integer
         source: default
@@ -3901,9 +3788,7 @@ public:
         unit: null
         category: Lock Management
         short_desc: Sets the maximum number of predicate locks per transaction.
-        extra_desc: The shared predicate lock table is sized on the assumption that
-          at most "max_pred_locks_per_transaction" objects per server process or prepared
-          transaction will need to be locked at any one time.
+        extra_desc: The shared predicate lock table is sized on the assumption that at most "max_pred_locks_per_transaction" objects per server process or prepared transaction will need to be locked at any one time.
         context: postmaster
         vartype: integer
         source: default
@@ -3936,8 +3821,7 @@ public:
         setting: '10'
         unit: null
         category: Replication / Sending Servers
-        short_desc: Sets the maximum number of simultaneously defined replication
-          slots.
+        short_desc: Sets the maximum number of simultaneously defined replication slots.
         extra_desc: null
         context: postmaster
         vartype: integer
@@ -3954,10 +3838,8 @@ public:
         setting: '-1'
         unit: MB
         category: Replication / Sending Servers
-        short_desc: Sets the maximum WAL size that can be reserved by replication
-          slots.
-        extra_desc: Replication slots will be marked as failed, and segments released
-          for deletion or recycling, if this much space is occupied by WAL on disk.
+        short_desc: Sets the maximum WAL size that can be reserved by replication slots.
+        extra_desc: Replication slots will be marked as failed, and segments released for deletion or recycling, if this much space is occupied by WAL on disk.
         context: sighup
         vartype: integer
         source: default
@@ -3990,8 +3872,7 @@ public:
         setting: '30000'
         unit: ms
         category: Replication / Standby Servers
-        short_desc: Sets the maximum delay before canceling queries when a hot standby
-          server is processing archived WAL data.
+        short_desc: Sets the maximum delay before canceling queries when a hot standby server is processing archived WAL data.
         extra_desc: null
         context: sighup
         vartype: integer
@@ -4008,8 +3889,7 @@ public:
         setting: '30000'
         unit: ms
         category: Replication / Standby Servers
-        short_desc: Sets the maximum delay before canceling queries when a hot standby
-          server is processing streamed WAL data.
+        short_desc: Sets the maximum delay before canceling queries when a hot standby server is processing streamed WAL data.
         extra_desc: null
         context: sighup
         vartype: integer
@@ -4070,7 +3950,7 @@ public:
         enumvals: null
         boot_val: '1024'
         reset_val: '1024'
-        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        sourcefile: /workspace/pg_catalog/postgres-data/postgresql.conf
         sourceline: 257
         pending_restart: false
       - name: max_worker_processes
@@ -4112,8 +3992,7 @@ public:
         unit: 8kB
         category: Query Tuning / Planner Cost Constants
         short_desc: Sets the minimum amount of index data for a parallel scan.
-        extra_desc: If the planner estimates that it will read a number of index pages
-          too small to reach this limit, a parallel scan will not be considered.
+        extra_desc: If the planner estimates that it will read a number of index pages too small to reach this limit, a parallel scan will not be considered.
         context: user
         vartype: integer
         source: default
@@ -4130,8 +4009,7 @@ public:
         unit: 8kB
         category: Query Tuning / Planner Cost Constants
         short_desc: Sets the minimum amount of table data for a parallel scan.
-        extra_desc: If the planner estimates that it will read a number of table pages
-          too small to reach this limit, a parallel scan will not be considered.
+        extra_desc: If the planner estimates that it will read a number of table pages too small to reach this limit, a parallel scan will not be considered.
         context: user
         vartype: integer
         source: default
@@ -4157,15 +4035,14 @@ public:
         enumvals: null
         boot_val: '80'
         reset_val: '80'
-        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        sourcefile: /workspace/pg_catalog/postgres-data/postgresql.conf
         sourceline: 258
         pending_restart: false
       - name: multixact_member_buffers
         setting: '32'
         unit: 8kB
         category: Resource Usage / Memory
-        short_desc: Sets the size of the dedicated buffer pool used for the MultiXact
-          member cache.
+        short_desc: Sets the size of the dedicated buffer pool used for the MultiXact member cache.
         extra_desc: null
         context: postmaster
         vartype: integer
@@ -4182,8 +4059,7 @@ public:
         setting: '16'
         unit: 8kB
         category: Resource Usage / Memory
-        short_desc: Sets the size of the dedicated buffer pool used for the MultiXact
-          offset cache.
+        short_desc: Sets the size of the dedicated buffer pool used for the MultiXact offset cache.
         extra_desc: null
         context: postmaster
         vartype: integer
@@ -4200,8 +4076,7 @@ public:
         setting: '16'
         unit: 8kB
         category: Resource Usage / Memory
-        short_desc: Sets the size of the dedicated buffer pool used for the LISTEN/NOTIFY
-          message cache.
+        short_desc: Sets the size of the dedicated buffer pool used for the LISTEN/NOTIFY message cache.
         extra_desc: null
         context: postmaster
         vartype: integer
@@ -4235,8 +4110,7 @@ public:
         setting: '1000'
         unit: null
         category: Query Tuning / Planner Cost Constants
-        short_desc: Sets the planner's estimate of the cost of starting up worker
-          processes for parallel query.
+        short_desc: Sets the planner's estimate of the cost of starting up worker processes for parallel query.
         extra_desc: null
         context: user
         vartype: real
@@ -4253,8 +4127,7 @@ public:
         setting: '0.1'
         unit: null
         category: Query Tuning / Planner Cost Constants
-        short_desc: Sets the planner's estimate of the cost of passing each tuple
-          (row) from worker to leader backend.
+        short_desc: Sets the planner's estimate of the cost of passing each tuple (row) from worker to leader backend.
         extra_desc: null
         context: user
         vartype: real
@@ -4291,9 +4164,7 @@ public:
         unit: null
         category: Query Tuning / Other Planner Options
         short_desc: Controls the planner's selection of custom or generic plan.
-        extra_desc: Prepared statements can have custom and generic plans, and the
-          planner will attempt to choose which is better.  This can be set to override
-          the default behavior.
+        extra_desc: Prepared statements can have custom and generic plans, and the planner will attempt to choose which is better.  This can be set to override the default behavior.
         context: user
         vartype: enum
         source: default
@@ -4329,8 +4200,7 @@ public:
         setting: '0'
         unit: s
         category: Developer Options
-        short_desc: Sets the amount of time to wait after authentication on connection
-          startup.
+        short_desc: Sets the amount of time to wait after authentication on connection startup.
         extra_desc: This allows attaching a debugger to the process.
         context: backend
         vartype: integer
@@ -4347,8 +4217,7 @@ public:
         setting: '0'
         unit: s
         category: Developer Options
-        short_desc: Sets the amount of time to wait before authentication on connection
-          startup.
+        short_desc: Sets the amount of time to wait before authentication on connection startup.
         extra_desc: This allows attaching a debugger to the process.
         context: sighup
         vartype: integer
@@ -4365,8 +4234,7 @@ public:
         setting: ''
         unit: null
         category: Replication / Standby Servers
-        short_desc: Sets the connection string to be used to connect to the sending
-          server.
+        short_desc: Sets the connection string to be used to connect to the sending server.
         extra_desc: null
         context: sighup
         vartype: string
@@ -4417,8 +4285,7 @@ public:
         setting: '4'
         unit: null
         category: Query Tuning / Planner Cost Constants
-        short_desc: Sets the planner's estimate of the cost of a nonsequentially fetched
-          disk page.
+        short_desc: Sets the planner's estimate of the cost of a nonsequentially fetched disk page.
         extra_desc: null
         context: user
         vartype: real
@@ -4435,8 +4302,7 @@ public:
         setting: ''
         unit: null
         category: Write-Ahead Log / Archive Recovery
-        short_desc: Sets the shell command that will be executed once at the end of
-          recovery.
+        short_desc: Sets the shell command that will be executed once at the end of recovery.
         extra_desc: null
         context: sighup
         vartype: string
@@ -4453,8 +4319,7 @@ public:
         setting: fsync
         unit: null
         category: Error Handling
-        short_desc: Sets the method for synchronizing the data directory before crash
-          recovery.
+        short_desc: Sets the method for synchronizing the data directory before crash recovery.
         extra_desc: null
         context: sighup
         vartype: enum
@@ -4463,6 +4328,7 @@ public:
         max_val: null
         enumvals:
         - fsync
+        - syncfs
         boot_val: fsync
         reset_val: fsync
         sourcefile: null
@@ -4509,8 +4375,7 @@ public:
         setting: ''
         unit: null
         category: Write-Ahead Log / Recovery Target
-        short_desc: Set to "immediate" to end recovery as soon as a consistent state
-          is reached.
+        short_desc: Set to "immediate" to end recovery as soon as a consistent state is reached.
         extra_desc: null
         context: postmaster
         vartype: string
@@ -4564,8 +4429,7 @@ public:
         setting: ''
         unit: null
         category: Write-Ahead Log / Recovery Target
-        short_desc: Sets the LSN of the write-ahead log location up to which recovery
-          will proceed.
+        short_desc: Sets the LSN of the write-ahead log location up to which recovery will proceed.
         extra_desc: null
         context: postmaster
         vartype: string
@@ -4650,8 +4514,7 @@ public:
         setting: '10'
         unit: null
         category: Query Tuning / Other Planner Options
-        short_desc: Sets the planner's estimate of the average size of a recursive
-          query's working table.
+        short_desc: Sets the planner's estimate of the average size of a recursive query's working table.
         extra_desc: null
         context: user
         vartype: real
@@ -4685,8 +4548,7 @@ public:
         setting: '0'
         unit: null
         category: Connections and Authentication / Connection Settings
-        short_desc: Sets the number of connection slots reserved for roles with privileges
-          of pg_use_reserved_connections.
+        short_desc: Sets the number of connection slots reserved for roles with privileges of pg_use_reserved_connections.
         extra_desc: null
         context: postmaster
         vartype: integer
@@ -4720,8 +4582,7 @@ public:
         setting: ''
         unit: null
         category: Write-Ahead Log / Archive Recovery
-        short_desc: Sets the shell command that will be called to retrieve an archived
-          WAL file.
+        short_desc: Sets the shell command that will be called to retrieve an archived WAL file.
         extra_desc: null
         context: sighup
         vartype: string
@@ -4857,8 +4718,7 @@ public:
         setting: '1'
         unit: null
         category: Query Tuning / Planner Cost Constants
-        short_desc: Sets the planner's estimate of the cost of a sequentially fetched
-          disk page.
+        short_desc: Sets the planner's estimate of the cost of a sequentially fetched disk page.
         extra_desc: null
         context: user
         vartype: real
@@ -4875,8 +4735,7 @@ public:
         setting: '32'
         unit: 8kB
         category: Resource Usage / Memory
-        short_desc: Sets the size of the dedicated buffer pool used for the serializable
-          transaction cache.
+        short_desc: Sets the size of the dedicated buffer pool used for the serializable transaction cache.
         extra_desc: null
         context: postmaster
         vartype: integer
@@ -4991,15 +4850,14 @@ public:
         enumvals: null
         boot_val: '16384'
         reset_val: '16384'
-        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        sourcefile: /workspace/pg_catalog/postgres-data/postgresql.conf
         sourceline: 129
         pending_restart: false
       - name: shared_memory_size
         setting: '143'
         unit: MB
         category: Preset Options
-        short_desc: Shows the size of the server's main shared memory area (rounded
-          up to the nearest MB).
+        short_desc: Shows the size of the server's main shared memory area (rounded up to the nearest MB).
         extra_desc: null
         context: internal
         vartype: integer
@@ -5013,11 +4871,10 @@ public:
         sourceline: null
         pending_restart: false
       - name: shared_memory_size_in_huge_pages
-        setting: '-1'
+        setting: '72'
         unit: null
         category: Preset Options
-        short_desc: Shows the number of huge pages needed for the main shared memory
-          area.
+        short_desc: Shows the number of huge pages needed for the main shared memory area.
         extra_desc: -1 indicates that the value could not be determined.
         context: internal
         vartype: integer
@@ -5026,7 +4883,7 @@ public:
         max_val: '2147483647'
         enumvals: null
         boot_val: '-1'
-        reset_val: '-1'
+        reset_val: '72'
         sourcefile: null
         sourceline: null
         pending_restart: false
@@ -5034,8 +4891,7 @@ public:
         setting: mmap
         unit: null
         category: Resource Usage / Memory
-        short_desc: Selects the shared memory implementation used for the main shared
-          memory region.
+        short_desc: Selects the shared memory implementation used for the main shared memory region.
         extra_desc: null
         context: postmaster
         vartype: enum
@@ -5301,8 +5157,7 @@ public:
         setting: 'off'
         unit: null
         category: Connections and Authentication / SSL
-        short_desc: Controls whether "ssl_passphrase_command" is called during server
-          reload.
+        short_desc: Controls whether "ssl_passphrase_command" is called during server reload.
         extra_desc: null
         context: sighup
         vartype: bool
@@ -5390,8 +5245,7 @@ public:
         setting: '32'
         unit: 8kB
         category: Resource Usage / Memory
-        short_desc: Sets the size of the dedicated buffer pool used for the subtransaction
-          cache.
+        short_desc: Sets the size of the dedicated buffer pool used for the subtransaction cache.
         extra_desc: Specify 0 to have this value determined as a fraction of shared_buffers.
         context: postmaster
         vartype: integer
@@ -5442,8 +5296,7 @@ public:
         setting: 'off'
         unit: null
         category: Replication / Standby Servers
-        short_desc: Enables a physical standby to synchronize logical failover replication
-          slots from the primary server.
+        short_desc: Enables a physical standby to synchronize logical failover replication slots from the primary server.
         extra_desc: null
         context: sighup
         vartype: bool
@@ -5477,11 +5330,8 @@ public:
         setting: ''
         unit: null
         category: Replication / Primary Server
-        short_desc: Lists streaming replication standby server replication slot names
-          that logical WAL sender processes will wait for.
-        extra_desc: Logical WAL sender processes will send decoded changes to output
-          plugins only after the specified replication slots have confirmed receiving
-          WAL.
+        short_desc: Lists streaming replication standby server replication slot names that logical WAL sender processes will wait for.
+        extra_desc: Logical WAL sender processes will send decoded changes to output plugins only after the specified replication slots have confirmed receiving WAL.
         context: sighup
         vartype: string
         source: default
@@ -5519,8 +5369,7 @@ public:
         setting: ''
         unit: null
         category: Replication / Primary Server
-        short_desc: Number of synchronous standbys and list of names of potential
-          synchronous ones.
+        short_desc: Number of synchronous standbys and list of names of potential synchronous ones.
         extra_desc: null
         context: sighup
         vartype: string
@@ -5562,8 +5411,7 @@ public:
         setting: postgres
         unit: null
         category: Reporting and Logging / Where to Log
-        short_desc: Sets the program name used to identify PostgreSQL messages in
-          syslog.
+        short_desc: Sets the program name used to identify PostgreSQL messages in syslog.
         extra_desc: null
         context: sighup
         vartype: string
@@ -5611,12 +5459,11 @@ public:
         sourceline: null
         pending_restart: false
       - name: tcp_keepalives_count
-        setting: '8'
+        setting: '9'
         unit: null
         category: Connections and Authentication / TCP Settings
         short_desc: Maximum number of TCP keepalive retransmits.
-        extra_desc: Number of consecutive keepalive retransmits that can be lost before
-          a connection is considered dead. A value of 0 uses the system default.
+        extra_desc: Number of consecutive keepalive retransmits that can be lost before a connection is considered dead. A value of 0 uses the system default.
         context: user
         vartype: integer
         source: default
@@ -5731,7 +5578,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: TimeZone
-        setting: Europe/Amsterdam
+        setting: Europe/Berlin
         unit: null
         category: Client Connection Defaults / Locale and Formatting
         short_desc: Sets the time zone for displaying and interpreting time stamps.
@@ -5743,8 +5590,8 @@ public:
         max_val: null
         enumvals: null
         boot_val: GMT
-        reset_val: Europe/Amsterdam
-        sourcefile: /Users/abadur/projects/query/postgres-data/postgresql.conf
+        reset_val: Europe/Berlin
+        sourcefile: /workspace/pg_catalog/postgres-data/postgresql.conf
         sourceline: 738
         pending_restart: false
       - name: timezone_abbreviations
@@ -5820,9 +5667,7 @@ public:
         unit: null
         category: Statistics / Cumulative Query and Index Statistics
         short_desc: Collects information about executing commands.
-        extra_desc: Enables the collection of information on the currently executing
-          command of each session, along with the time at which that command began
-          execution.
+        extra_desc: Enables the collection of information on the currently executing command of each session, along with the time at which that command began execution.
         context: superuser
         vartype: bool
         source: default
@@ -5943,8 +5788,7 @@ public:
         setting: '32'
         unit: 8kB
         category: Resource Usage / Memory
-        short_desc: Sets the size of the dedicated buffer pool used for the transaction
-          status cache.
+        short_desc: Sets the size of the dedicated buffer pool used for the transaction status cache.
         extra_desc: Specify 0 to have this value determined as a fraction of shared_buffers.
         context: postmaster
         vartype: integer
@@ -5961,8 +5805,7 @@ public:
         setting: 'off'
         unit: null
         category: Client Connection Defaults / Statement Behavior
-        short_desc: Whether to defer a read-only serializable transaction until it
-          can be executed with no possible serialization failures.
+        short_desc: Whether to defer a read-only serializable transaction until it can be executed with no possible serialization failures.
         extra_desc: null
         context: user
         vartype: bool
@@ -6017,8 +5860,7 @@ public:
         setting: '0'
         unit: ms
         category: Client Connection Defaults / Statement Behavior
-        short_desc: Sets the maximum allowed duration of any transaction within a
-          session (not a prepared transaction).
+        short_desc: Sets the maximum allowed duration of any transaction within a session (not a prepared transaction).
         extra_desc: A value of 0 turns off the timeout.
         context: user
         vartype: integer
@@ -6036,10 +5878,7 @@ public:
         unit: null
         category: Version and Platform Compatibility / Other Platforms and Clients
         short_desc: Treats "expr=NULL" as "expr IS NULL".
-        extra_desc: When turned on, expressions of the form expr = NULL (or NULL =
-          expr) are treated as expr IS NULL, that is, they return true if expr evaluates
-          to the null value, and false otherwise. The correct behavior of expr = NULL
-          is to always return null (unknown).
+        extra_desc: When turned on, expressions of the form expr = NULL (or NULL = expr) are treated as expr IS NULL, that is, they return true if expr evaluates to the null value, and false otherwise. The correct behavior of expr = NULL is to always return null (unknown).
         context: user
         vartype: bool
         source: default
@@ -6073,8 +5912,7 @@ public:
         unit: null
         category: Connections and Authentication / Connection Settings
         short_desc: Sets the owning group of the Unix-domain socket.
-        extra_desc: The owning user of the socket is always the user that starts the
-          server.
+        extra_desc: The owning user of the socket is always the user that starts the server.
         context: postmaster
         vartype: string
         source: default
@@ -6091,10 +5929,7 @@ public:
         unit: null
         category: Connections and Authentication / Connection Settings
         short_desc: Sets the access permissions of the Unix-domain socket.
-        extra_desc: Unix-domain sockets use the usual Unix file system permission
-          set. The parameter value is expected to be a numeric mode specification
-          in the form accepted by the chmod and umask system calls. (To use the customary
-          octal format the number must start with a 0 (zero).)
+        extra_desc: Unix-domain sockets use the usual Unix file system permission set. The parameter value is expected to be a numeric mode specification in the form accepted by the chmod and umask system calls. (To use the customary octal format the number must start with a 0 (zero).)
         context: postmaster
         vartype: integer
         source: default
@@ -6111,8 +5946,7 @@ public:
         unit: null
         category: Reporting and Logging / Process Title
         short_desc: Updates the process title to show the active SQL command.
-        extra_desc: Enables updating of the process title every time a new SQL command
-          is received by the server.
+        extra_desc: Enables updating of the process title every time a new SQL command is received by the server.
         context: superuser
         vartype: bool
         source: default
@@ -6230,8 +6064,7 @@ public:
         setting: '1600000000'
         unit: null
         category: Client Connection Defaults / Statement Behavior
-        short_desc: Age at which VACUUM should trigger failsafe to avoid a wraparound
-          outage.
+        short_desc: Age at which VACUUM should trigger failsafe to avoid a wraparound outage.
         extra_desc: null
         context: user
         vartype: integer
@@ -6282,8 +6115,7 @@ public:
         setting: '1600000000'
         unit: null
         category: Client Connection Defaults / Statement Behavior
-        short_desc: Multixact age at which VACUUM should trigger failsafe to avoid
-          a wraparound outage.
+        short_desc: Multixact age at which VACUUM should trigger failsafe to avoid a wraparound outage.
         extra_desc: null
         context: user
         vartype: integer
@@ -6300,8 +6132,7 @@ public:
         setting: '5000000'
         unit: null
         category: Client Connection Defaults / Statement Behavior
-        short_desc: Minimum age at which VACUUM should freeze a MultiXactId in a table
-          row.
+        short_desc: Minimum age at which VACUUM should freeze a MultiXactId in a table row.
         extra_desc: null
         context: user
         vartype: integer
@@ -6318,8 +6149,7 @@ public:
         setting: '150000000'
         unit: null
         category: Client Connection Defaults / Statement Behavior
-        short_desc: Multixact age at which VACUUM should scan whole table to freeze
-          tuples.
+        short_desc: Multixact age at which VACUUM should scan whole table to freeze tuples.
         extra_desc: null
         context: user
         vartype: integer
@@ -6370,8 +6200,7 @@ public:
         setting: 'off'
         unit: null
         category: Write-Ahead Log / Settings
-        short_desc: Compresses full-page writes written in WAL file with specified
-          method.
+        short_desc: Compresses full-page writes written in WAL file with specified method.
         extra_desc: null
         context: superuser
         vartype: enum
@@ -6380,6 +6209,8 @@ public:
         max_val: null
         enumvals:
         - pglz
+        - lz4
+        - zstd
         - 'on'
         - 'off'
         boot_val: 'off'
@@ -6391,10 +6222,8 @@ public:
         setting: ''
         unit: null
         category: Developer Options
-        short_desc: Sets the WAL resource managers for which WAL consistency checks
-          are done.
-        extra_desc: Full-page images will be logged for all data blocks and cross-checked
-          against the results of WAL replay.
+        short_desc: Sets the WAL resource managers for which WAL consistency checks are done.
+        extra_desc: Full-page images will be logged for all data blocks and cross-checked against the results of WAL replay.
         context: superuser
         vartype: string
         source: default
@@ -6411,8 +6240,7 @@ public:
         unit: B
         category: Write-Ahead Log / Recovery
         short_desc: Buffer size for reading ahead in the WAL during recovery.
-        extra_desc: Maximum distance to read ahead in the WAL to prefetch referenced
-          data blocks.
+        extra_desc: Maximum distance to read ahead in the WAL to prefetch referenced data blocks.
         context: postmaster
         vartype: integer
         source: default
@@ -6482,8 +6310,7 @@ public:
         setting: 'off'
         unit: null
         category: Write-Ahead Log / Settings
-        short_desc: Writes full pages to WAL when first modified after a checkpoint,
-          even for a non-critical modification.
+        short_desc: Writes full pages to WAL when first modified after a checkpoint, even for a non-critical modification.
         extra_desc: null
         context: postmaster
         vartype: bool
@@ -6500,8 +6327,7 @@ public:
         setting: 'off'
         unit: null
         category: Replication / Standby Servers
-        short_desc: Sets whether a WAL receiver should create a temporary replication
-          slot if no permanent slot is configured.
+        short_desc: Sets whether a WAL receiver should create a temporary replication slot if no permanent slot is configured.
         extra_desc: null
         context: sighup
         vartype: bool
@@ -6518,8 +6344,7 @@ public:
         setting: '10'
         unit: s
         category: Replication / Standby Servers
-        short_desc: Sets the maximum interval between WAL receiver status reports
-          to the sending server.
+        short_desc: Sets the maximum interval between WAL receiver status reports to the sending server.
         extra_desc: null
         context: sighup
         vartype: integer
@@ -6570,8 +6395,7 @@ public:
         setting: '5000'
         unit: ms
         category: Replication / Standby Servers
-        short_desc: Sets the time to wait before retrying to retrieve WAL after a
-          failed attempt.
+        short_desc: Sets the time to wait before retrying to retrieve WAL after a failed attempt.
         extra_desc: null
         context: sighup
         vartype: integer
@@ -6653,7 +6477,7 @@ public:
         sourceline: null
         pending_restart: false
       - name: wal_sync_method
-        setting: open_datasync
+        setting: fdatasync
         unit: null
         category: Write-Ahead Log / Settings
         short_desc: Selects the method used for forcing WAL updates to disk.
@@ -6665,12 +6489,11 @@ public:
         max_val: null
         enumvals:
         - fsync
-        - fsync_writethrough
         - fdatasync
         - open_sync
         - open_datasync
-        boot_val: open_datasync
-        reset_val: open_datasync
+        boot_val: fdatasync
+        reset_val: fdatasync
         sourcefile: null
         sourceline: null
         pending_restart: false
@@ -6713,8 +6536,7 @@ public:
         unit: kB
         category: Resource Usage / Memory
         short_desc: Sets the maximum memory to be used for query workspaces.
-        extra_desc: This much memory can be used by each internal sort operation and
-          hash table before switching to temporary disk files.
+        extra_desc: This much memory can be used by each internal sort operation and hash table before switching to temporary disk files.
         context: user
         vartype: integer
         source: default
@@ -6749,8 +6571,7 @@ public:
         setting: content
         unit: null
         category: Client Connection Defaults / Statement Behavior
-        short_desc: Sets whether XML data in implicit parsing and serialization operations
-          is to be considered as documents or content fragments.
+        short_desc: Sets whether XML data in implicit parsing and serialization operations is to be considered as documents or content fragments.
         extra_desc: null
         context: user
         vartype: enum
@@ -6770,11 +6591,7 @@ public:
         unit: null
         category: Developer Options
         short_desc: Continues processing past damaged page headers.
-        extra_desc: Detection of a damaged page header normally causes PostgreSQL
-          to report an error, aborting the current transaction. Setting "zero_damaged_pages"
-          to true causes the system to instead report a warning, zero out the damaged
-          page, and continue processing. This behavior will destroy data, namely all
-          the rows on the damaged page.
+        extra_desc: Detection of a damaged page header normally causes PostgreSQL to report an error, aborting the current transaction. Setting "zero_damaged_pages" to true causes the system to instead report a warning, zero out the damaged page, and continue processing. This behavior will destroy data, namely all the rows on the damaged page.
         context: superuser
         vartype: bool
         source: default

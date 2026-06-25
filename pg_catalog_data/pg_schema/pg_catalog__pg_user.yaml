@@ -26,7 +26,7 @@ public:
         valuntil: timestamptz
         useconfig: _text
       rows:
-      - usename: abadur
+      - usename: sysuser
         usesysid: 10
         usecreatedb: true
         usesuper: true
