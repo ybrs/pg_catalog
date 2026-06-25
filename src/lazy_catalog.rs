@@ -1143,6 +1143,12 @@ pub fn build_pg_attribute_rows(attrelid: i32, columns: &[ColumnSpec]) -> Vec<Row
         .collect()
 }
 
+/// Base OID for synthesized `pg_attrdef.oid` values on the lazy path. The column
+/// is NOT NULL in PostgreSQL but no consumer reads it (the constraint/column
+/// views join `pg_attrdef` on `adrelid`+`adnum`), so a high, unread range avoids
+/// colliding with real allocated OIDs.
+const SYNTHETIC_ATTRDEF_OID_BASE: i32 = 900_000;
+
 /// Build one `pg_catalog.pg_attrdef` row marking that column `adnum` of relation
 /// `adrelid` has a default.
 ///
@@ -1150,12 +1156,6 @@ pub fn build_pg_attribute_rows(attrelid: i32, columns: &[ColumnSpec]) -> Vec<Row
 /// store node trees, and the human-facing default text is integration-supplied
 /// (Phase 3). This row, joined with `pg_attribute.atthasdef`, is the structural
 /// handle that `information_schema.columns` and clients read.
-/// Base OID for synthesized `pg_attrdef.oid` values on the lazy path. The column
-/// is NOT NULL in PostgreSQL but no consumer reads it (the constraint/column
-/// views join `pg_attrdef` on `adrelid`+`adnum`), so a high, unread range avoids
-/// colliding with real allocated OIDs.
-const SYNTHETIC_ATTRDEF_OID_BASE: i32 = 900_000;
-
 pub fn build_pg_attrdef_row(oid: i32, adrelid: i32, adnum: i32) -> Row {
     let mut row = Row::new();
     row.insert("oid".to_string(), json!(oid));

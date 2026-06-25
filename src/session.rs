@@ -1341,6 +1341,32 @@ mod tests {
     use tempfile::NamedTempFile;
 
     #[test]
+    fn test_inline_current_database_substitutes_every_call() {
+        // Each current_database() call site becomes the catalog name as a quoted
+        // literal; text that does not call it is untouched.
+        let sql = "SELECT current_database() AS a, current_database() AS b FROM t";
+        assert_eq!(
+            inline_current_database(sql, "pgtry"),
+            "SELECT 'pgtry' AS a, 'pgtry' AS b FROM t"
+        );
+        assert_eq!(
+            inline_current_database("SELECT 1", "pgtry"),
+            "SELECT 1",
+            "SQL without current_database() must pass through unchanged"
+        );
+    }
+
+    #[test]
+    fn test_inline_current_database_escapes_single_quotes() {
+        // A catalog name containing a single quote must be doubled so the inlined
+        // literal stays a single, well-formed string literal.
+        assert_eq!(
+            inline_current_database("SELECT current_database()", "od'd"),
+            "SELECT 'od''d'"
+        );
+    }
+
+    #[test]
     fn test_parse_schema_file() {
         let yaml = r#"
 public:

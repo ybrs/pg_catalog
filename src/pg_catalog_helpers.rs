@@ -655,6 +655,25 @@ pub async fn unregister_tables(
     .collect()
     .await?;
 
+    // The same registration path also writes pg_attrdef (defaulted columns) and
+    // pg_constraint (PK/UNIQUE/FK) rows keyed by the table OID; drop those too so an
+    // unregistered table leaves no orphaned default/constraint metadata behind.
+    ctx.sql(&format!(
+        "INSERT OVERWRITE INTO pg_catalog.pg_attrdef \
+         SELECT * FROM pg_catalog.pg_attrdef WHERE adrelid <> {table_oid}"
+    ))
+    .await?
+    .collect()
+    .await?;
+
+    ctx.sql(&format!(
+        "INSERT OVERWRITE INTO pg_catalog.pg_constraint \
+         SELECT * FROM pg_catalog.pg_constraint WHERE conrelid <> {table_oid}"
+    ))
+    .await?
+    .collect()
+    .await?;
+
     Ok(())
 }
 
@@ -1589,6 +1608,102 @@ mod tests {
             .await?;
         assert_eq!(df.count().await?, 0);
 
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_unregister_tables_removes_attrdef_and_constraint_rows() -> DFResult<()> {
+        // A table registered with a defaulted column and a primary key writes
+        // pg_attrdef and pg_constraint rows keyed by its OID; unregistering must
+        // drop both so no orphaned default/constraint metadata survives.
+        let (ctx, _) = get_base_session_context(
+            Some("pg_catalog_data/pg_schema"),
+            "pgtry".to_string(),
+            "public".to_string(),
+            None,
+        )
+        .await?;
+
+        let schema_oid = register_schema(&ctx, "pgtry", "myschema").await?;
+
+        // Each column is its own single-entry map (the wire format). 'id' has no
+        // default; 'note' carries one, so it seeds a pg_attrdef row.
+        let mut id = BTreeMap::new();
+        id.insert(
+            "id".to_string(),
+            ColumnDef {
+                col_type: "int".to_string(),
+                nullable: false,
+                has_default: false,
+            },
+        );
+        let mut note = BTreeMap::new();
+        note.insert(
+            "note".to_string(),
+            ColumnDef {
+                col_type: "text".to_string(),
+                nullable: true,
+                has_default: true,
+            },
+        );
+        register_user_tables(&ctx, "pgtry", schema_oid, "contacts", vec![id, note]).await?;
+        register_user_constraint(
+            &ctx,
+            schema_oid,
+            "contacts_pkey",
+            "contacts",
+            ConstraintKind::PrimaryKey,
+            vec![1],
+            None,
+            vec![],
+        )
+        .await?;
+
+        // Both rows exist before unregistering.
+        let attrdef_before = ctx
+            .sql(
+                "SELECT 1 FROM pg_catalog.pg_attrdef \
+                 WHERE adrelid = (SELECT oid FROM pg_catalog.pg_class WHERE relname='contacts')",
+            )
+            .await?
+            .count()
+            .await?;
+        assert_eq!(
+            attrdef_before, 1,
+            "defaulted column must seed a pg_attrdef row"
+        );
+        let constraint_before = ctx
+            .sql("SELECT 1 FROM pg_catalog.pg_constraint WHERE conname='contacts_pkey'")
+            .await?
+            .count()
+            .await?;
+        assert_eq!(
+            constraint_before, 1,
+            "primary key must seed a pg_constraint row"
+        );
+
+        unregister_tables(&ctx, "pgtry", "myschema", "contacts").await?;
+
+        // Both rows are gone afterwards. The table OID no longer resolves, so these
+        // query the metadata tables directly by the now-absent name/conname.
+        let attrdef_after = ctx
+            .sql("SELECT 1 FROM pg_catalog.pg_attrdef WHERE adrelid IN (SELECT oid FROM pg_catalog.pg_class WHERE relname='contacts')")
+            .await?
+            .count()
+            .await?;
+        assert_eq!(
+            attrdef_after, 0,
+            "pg_attrdef row must be removed on unregister"
+        );
+        let constraint_after = ctx
+            .sql("SELECT 1 FROM pg_catalog.pg_constraint WHERE conname='contacts_pkey'")
+            .await?
+            .count()
+            .await?;
+        assert_eq!(
+            constraint_after, 0,
+            "pg_constraint row must be removed on unregister"
+        );
         Ok(())
     }
 

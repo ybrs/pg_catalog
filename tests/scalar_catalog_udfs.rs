@@ -1,10 +1,13 @@
 //! Runtime-robustness tests for catalog scalar UDFs that run a sub-query.
 //!
 //! `oid(text)` (and `pg_get_userbyid`) resolve values by running a catalog SQL
-//! query from a synchronous UDF body. They must work regardless of the caller's
-//! tokio runtime flavor - in particular on the current-thread runtime that
-//! `#[tokio::test(flavor = "multi_thread")]` uses by default (where `tokio::task::block_in_place` would
-//! panic). These tests deliberately use the default `#[tokio::test(flavor = "multi_thread")]` runtime.
+//! query from a synchronous UDF body. `run_catalog_query` has two branches and
+//! these tests exercise both: on a current-thread runtime (the default
+//! `#[tokio::test]`) it spawns onto a fallback multi-thread runtime and blocks on
+//! the result, while on a multi-thread runtime (`#[tokio::test(flavor =
+//! "multi_thread")]`, the flavor the production server uses) it takes the
+//! `block_in_place` + `spawn` path. Either way the nested catalog query must
+//! resolve without panicking or deadlocking.
 
 use arrow::array::{Array, Int64Array};
 use datafusion::error::Result as DFResult;
@@ -36,7 +39,7 @@ async fn int64_column(
     Ok(out)
 }
 
-#[tokio::test(flavor = "multi_thread")]
+#[tokio::test]
 async fn test_oid_udf_scalar_resolves_on_current_thread_runtime() -> DFResult<()> {
     let ctx = base_ctx().await?;
 
@@ -68,7 +71,7 @@ async fn test_oid_udf_unknown_relation_is_null() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
+#[tokio::test]
 async fn test_oid_udf_array_branch_on_current_thread_runtime() -> DFResult<()> {
     let ctx = base_ctx().await?;
 

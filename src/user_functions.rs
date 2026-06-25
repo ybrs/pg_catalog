@@ -22,41 +22,74 @@ use datafusion::logical_expr::{
 use datafusion::logical_expr::{Expr, TableType};
 use datafusion::prelude::SessionContext;
 use datafusion::prelude::*;
+use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::future::Future;
 use std::sync::Arc;
 
+/// A dedicated multi-threaded runtime used to drive catalog sub-queries only when
+/// the caller is NOT already on a multi-threaded runtime (a current-thread runtime,
+/// or no runtime), where [`tokio::task::block_in_place`] would panic. Its workers
+/// are themselves multi-threaded, so nested catalog UDFs spawned from here stay
+/// deadlock-free via the `block_in_place` branch. Production never reaches this (it
+/// is `#[tokio::main]`); it exists so any embedder flavor is safe.
+static CATALOG_FALLBACK_RT: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .expect("failed to build the pg_catalog fallback runtime")
+});
+
 /// Drive `future` to completion from a synchronous context (a DataFusion scalar
-/// UDF) on the current multi-threaded runtime, without starving it under nesting.
+/// UDF) without starving the runtime under nesting, on any caller flavor.
 ///
-/// The future is spawned as an ordinary task on the current runtime; the caller
-/// then blocks for the result inside [`tokio::task::block_in_place`]. That call
-/// transitions the calling worker into a blocking thread and the runtime
-/// spawns/borrows a replacement worker, so the scheduler keeps making progress
-/// while this thread waits. Because every nested catalog query does the same, the
-/// runtime grows its worker set with the nesting depth instead of parking a
-/// fixed-size pool - so composed catalog UDFs (a sub-query that itself evaluates a
-/// catalog UDF) cannot deadlock, at any depth (bounded only by the runtime's
-/// `max_blocking_threads`). Running the future as a spawned task (rather than
-/// inline via `block_on`) keeps each nested call in a normal worker context where
-/// `block_in_place` is valid.
+/// The future is always spawned as an ordinary task; the caller blocks on a channel
+/// for its result. WHERE it is spawned and HOW the caller blocks depend on the
+/// caller's runtime:
 ///
-/// Requires a multi-threaded runtime: production is `#[tokio::main]`, and tests
-/// that reach a catalog UDF use `#[tokio::test(flavor = "multi_thread")]`.
-/// `block_in_place` panics on a current-thread runtime.
+/// - On a multi-threaded runtime (production `#[tokio::main]`, and tests using
+///   `#[tokio::test(flavor = "multi_thread")]`): spawn on the current runtime and
+///   block inside [`tokio::task::block_in_place`], which hands the worker back so the
+///   scheduler spawns/borrows a replacement. Every nested catalog query does the
+///   same, so the runtime grows its worker set with the nesting depth instead of
+///   parking a fixed-size pool - composed catalog UDFs cannot deadlock at any depth.
+/// - On a current-thread runtime, or no runtime at all (where `block_in_place` would
+///   panic): drive the future on a dedicated multi-threaded runtime
+///   [`CATALOG_FALLBACK_RT`] and block the caller on a plain channel recv. Nested
+///   catalog UDFs invoked while that future runs are then on a multi-threaded
+///   runtime and take the `block_in_place` branch above, so nesting stays
+///   deadlock-free there too.
+///
+/// This keeps the bridge safe for any consumer (e.g. a current-thread embedder)
+/// without ever blocking a fixed-size pool, and without using OS threads directly.
 fn run_catalog_query<F, T>(future: F) -> T
 where
     F: Future<Output = T> + Send + 'static,
     T: Send + 'static,
 {
+    use tokio::runtime::{Handle, RuntimeFlavor};
+
+    let on_multi_thread = matches!(
+        Handle::try_current().map(|h| h.runtime_flavor()),
+        Ok(RuntimeFlavor::MultiThread)
+    );
+
     let (tx, rx) = std::sync::mpsc::sync_channel(1);
-    tokio::runtime::Handle::current().spawn(async move {
-        let _ = tx.send(future.await);
-    });
-    tokio::task::block_in_place(move || {
+    if on_multi_thread {
+        Handle::current().spawn(async move {
+            let _ = tx.send(future.await);
+        });
+        tokio::task::block_in_place(move || {
+            rx.recv()
+                .expect("pg_catalog query task ended without producing a result")
+        })
+    } else {
+        CATALOG_FALLBACK_RT.spawn(async move {
+            let _ = tx.send(future.await);
+        });
         rx.recv()
             .expect("pg_catalog query task ended without producing a result")
-    })
+    }
 }
 
 #[derive(Debug)]
@@ -3128,7 +3161,7 @@ fn fetch_index_definitions(ctx: Arc<SessionContext>, oids: &[i64]) -> Result<Has
         let parts_sql = format!(
             "SELECT x.indexrelid, x.indrelid, x.indisunique, x.indkey, \
                     i.relname AS indexname, c.relname AS tablename, \
-                    n.nspname AS schemaname, am.amname \
+                    n.nspname AS schemaname, am.amname, x.indexprs, x.indpred \
              FROM pg_catalog.pg_index x \
              JOIN pg_catalog.pg_class i ON i.oid = x.indexrelid \
              JOIN pg_catalog.pg_class c ON c.oid = x.indrelid \
@@ -3145,6 +3178,14 @@ fn fetch_index_definitions(ctx: Arc<SessionContext>, oids: &[i64]) -> Result<Has
                     Some(v) => v,
                     None => continue,
                 };
+                // A functional index (indexprs) or partial index (indpred) carries a
+                // node-tree expression we do not deparse; its text is supplied in
+                // Phase 3, so leave it NULL here rather than render wrong DDL.
+                if column_is_non_null(batch, "indexprs", row)?
+                    || column_is_non_null(batch, "indpred", row)?
+                {
+                    continue;
+                }
                 let table_oid = match column_oid_at(batch, "indrelid", row)? {
                     Some(v) => v,
                     None => continue,
@@ -3272,13 +3313,28 @@ fn column_oid_at(batch: &RecordBatch, column: &str, row: usize) -> Result<Option
 }
 
 /// Read a UTF-8 cell from `batch[column][row]`. Returns `None` for NULL or a
-/// non-string column.
+/// non-string column. Handles dictionary-encoded string columns (which DataFusion
+/// may produce for low-cardinality names like `relname`/`amname`) by unwrapping the
+/// dictionary value - otherwise a valid index would silently render as NULL.
 fn column_string_at(batch: &RecordBatch, column: &str, row: usize) -> Result<Option<String>> {
-    let scalar = ScalarValue::try_from_array(column_array(batch, column)?, row)?;
-    Ok(match scalar {
-        ScalarValue::Utf8(v) | ScalarValue::LargeUtf8(v) | ScalarValue::Utf8View(v) => v,
-        _ => None,
-    })
+    fn unwrap_string(scalar: ScalarValue) -> Option<String> {
+        match scalar {
+            ScalarValue::Utf8(v) | ScalarValue::LargeUtf8(v) | ScalarValue::Utf8View(v) => v,
+            ScalarValue::Dictionary(_, inner) => unwrap_string(*inner),
+            _ => None,
+        }
+    }
+    Ok(unwrap_string(ScalarValue::try_from_array(
+        column_array(batch, column)?,
+        row,
+    )?))
+}
+
+/// Whether `batch[column][row]` holds a non-NULL value, for columns whose type we
+/// do not otherwise decode (e.g. the `pg_node_tree` `indexprs`/`indpred`, which we
+/// only need to test for presence).
+fn column_is_non_null(batch: &RecordBatch, column: &str, row: usize) -> Result<bool> {
+    Ok(!ScalarValue::try_from_array(column_array(batch, column)?, row)?.is_null())
 }
 
 /// Read a boolean cell from `batch[column][row]`. Returns `None` for NULL or a

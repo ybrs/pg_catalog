@@ -1,17 +1,19 @@
 # Snapshot/regression test: every information_schema / pg_catalog VIEW ships with
-# a `rows` snapshot captured from real PostgreSQL. We run each view's `view_sql`
-# through our engine over pgwire and compare it against that snapshot at three
-# levels of strictness, so a silently-broken view can't pass unnoticed:
+# a `rows` snapshot captured from real PostgreSQL. `test_views_match_snapshot` runs
+# each view's `view_sql` through our engine over pgwire ONCE and compares it against
+# that snapshot in three escalating ways, so a silently-broken view can't pass:
 #
-#   1. test_view_row_counts_match_snapshot   - row COUNT matches, AND a view that
-#      *errors* while its snapshot has rows is flagged (not silently skipped).
-#   2. test_view_content_matches_snapshot    - for views whose count matches, the
-#      actual row CONTENT matches (catches "right number of wrong rows").
+#   1. execution    - a view that *errors* while its snapshot has rows is flagged
+#      (not silently skipped).
+#   2. row COUNT    - the number of rows matches the snapshot.
+#   3. row CONTENT  - only for views whose count matches, the actual row content
+#      matches too (catches "right number of wrong rows").
 #
-# Each level has a baseline of views that legitimately diverge today, with the
-# reason. A NEW divergence fails the test (a real regression); a baselined view
-# that now matches ALSO fails (so the baseline never silently rots). When a gap is
-# closed, remove the view from its baseline.
+# Each check carries a baseline of views that legitimately diverge today, with the
+# reason (KNOWN_EXEC_FAILURES / KNOWN_COUNT_MISMATCHES / KNOWN_CONTENT_MISMATCHES).
+# A NEW divergence fails the test (a real regression); a baselined view that now
+# matches ALSO fails (so the baseline never silently rots). When a gap is closed,
+# remove the view from its baseline.
 #
 # DB-name note: the snapshot was captured on one PostgreSQL database while our
 # server advertises another, so `current_database()` differs on every row of every
@@ -124,6 +126,33 @@ KNOWN_EXEC_FAILURES = {
 }
 
 
+# The Arrow IPC artifact the server loads (the embedded fast path). Its catalog is
+# baked from the same YAML the snapshots are derived from, so if a YAML is edited
+# without regenerating this artifact the server would serve stale rows and the
+# comparison below would fail for a reason that has nothing to do with the engine.
+IPC_ARTIFACT = "pg_catalog_data/postgres-schema-nightly-ipc.zip"
+
+
+def _assert_ipc_artifact_not_stale():
+    """Fail loudly if the server's embedded IPC catalog predates the newest YAML.
+
+    The snapshot DuckDB is rebuilt from YAML automatically, but the server reads a
+    prebuilt IPC artifact that only changes when explicitly regenerated. When the
+    two drift, comparing live rows to snapshot rows produces confusing mismatches;
+    this turns that into one clear, actionable message instead.
+    """
+    if not os.path.exists(IPC_ARTIFACT):
+        return  # a source checkout that builds the artifact on demand; nothing to check
+    newest_yaml = max(os.path.getmtime(p) for p in glob.glob(f"{SCHEMA_DIR}/*.yaml"))
+    if os.path.getmtime(IPC_ARTIFACT) < newest_yaml:
+        raise AssertionError(
+            f"{IPC_ARTIFACT} is older than the catalog YAML in {SCHEMA_DIR}: the "
+            "server would serve a stale catalog. Regenerate it with "
+            "`cargo run --release --bin gen_schema_ipc` (or `./regenerate-catalog.sh`) "
+            "before running the snapshot test."
+        )
+
+
 @functools.lru_cache(maxsize=1)
 def _snapshot_duckdb():
     """Path to the precomputed view-snapshot DuckDB, rebuilt once if missing or
@@ -220,6 +249,7 @@ def test_views_match_snapshot(server):
     that now matches - the last so a stale baseline can't silently rot. Snapshot-empty
     views that error are left alone (runtime views like pg_stat_*/locks we don't model).
     """
+    _assert_ipc_artifact_not_stale()
     conn = psycopg.connect(CONN_STR, autocommit=True)
     # Map the live database name onto the snapshot's, so the one expected
     # `current_database()` difference on every `*_catalog` column is not counted.

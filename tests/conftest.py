@@ -59,11 +59,14 @@ def _server_command(port, capture=None):
 def _wait_until_ready(proc, port):
     """Block until the server on `port` accepts a connection, or raise on failure.
 
-    Polls a real psycopg connect roughly every 0.25s for ~15s. Fails immediately if the
-    process has already exited (so a crashed server surfaces at once instead of after the
-    full timeout), and terminates the process before raising on timeout.
+    Polls a real psycopg connect every 0.25s for up to ~90s. The generous budget
+    covers a cold `cargo run` that must compile the binary first (the test profile
+    does not build the run binary, so CI's first start can spend many seconds
+    compiling - the server is alive but not yet listening). Fails immediately if the
+    process has already exited (a crash surfaces at once instead of after the full
+    timeout), and terminates the process before raising on timeout.
     """
-    for _ in range(60):
+    for _ in range(360):
         if proc.poll() is not None:
             raise RuntimeError(
                 f"server process exited with code {proc.returncode} before becoming ready"

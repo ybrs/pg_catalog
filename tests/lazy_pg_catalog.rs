@@ -726,10 +726,13 @@ impl LazyCatalogSource for IndexedSource {
     ) -> DFResult<()> {
         if database == "idxdb" && schema == "public" {
             // A unique primary-key index on column 1 ('id') of the 'indexed' table.
-            let mut idx = IndexDef::new(80300, "indexed_pkey", 80200, vec![1]);
-            idx.is_unique = true;
-            idx.is_primary = true;
-            callback(vec![idx]);
+            let mut pkey = IndexDef::new(80300, "indexed_pkey", 80200, vec![1]);
+            pkey.is_unique = true;
+            pkey.is_primary = true;
+            // A non-unique secondary index spanning columns 1 ('id') and 2
+            // ('note'), so pg_get_indexdef must list multiple key columns in order.
+            let spanning = IndexDef::new(80301, "indexed_id_note_idx", 80200, vec![1, 2]);
+            callback(vec![pkey, spanning]);
         }
         Ok(())
     }
@@ -793,16 +796,23 @@ async fn test_lazy_pg_index_reflects_source() -> DFResult<()> {
         "pg_index must point at the table oid"
     );
 
-    // Joining pg_index -> the index's pg_class name resolves the index by table.
+    // Joining pg_index -> the index's pg_class name resolves the table's indexes
+    // (the primary key and the spanning secondary index).
     let by_table = string_column(
         &ctx,
         "SELECT i.relname FROM pg_catalog.pg_index x \
          JOIN pg_catalog.pg_class i ON i.oid = x.indexrelid \
          JOIN pg_catalog.pg_class t ON t.oid = x.indrelid \
-         WHERE t.relname = 'indexed'",
+         WHERE t.relname = 'indexed' ORDER BY i.relname",
     )
     .await?;
-    assert_eq!(by_table, vec!["indexed_pkey".to_string()]);
+    assert_eq!(
+        by_table,
+        vec![
+            "indexed_id_note_idx".to_string(),
+            "indexed_pkey".to_string()
+        ]
+    );
 
     // indkey lists the single indexed column's attnum (1 = 'id').
     let indkey = int_column(
@@ -819,6 +829,55 @@ async fn test_lazy_pg_index_reflects_source() -> DFResult<()> {
         indexdef,
         vec!["CREATE UNIQUE INDEX indexed_pkey ON public.indexed USING btree (id)".to_string()],
         "pg_get_indexdef must reconstruct the CREATE INDEX text for a registered index"
+    );
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_pg_get_indexdef_multicolumn_and_unresolvable_oids() -> DFResult<()> {
+    // pg_get_indexdef must list a multi-column index's key columns in indkey
+    // order, and must yield NULL (not an error or empty text) when the argument
+    // is NULL or names an index oid that no row describes.
+    let (ctx, _log) = get_base_session_context_with_lazy_catalog(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
+        None,
+        Arc::new(IndexedSource),
+        LazyCatalogOptions::all(),
+    )
+    .await?;
+
+    // The spanning index (oid 80301) covers columns 1 ('id') and 2 ('note'); both
+    // appear, in order, inside the single CREATE INDEX statement.
+    let spanning = string_column(&ctx, "SELECT pg_catalog.pg_get_indexdef(80301)").await?;
+    assert_eq!(
+        spanning,
+        vec![
+            "CREATE INDEX indexed_id_note_idx ON public.indexed USING btree (id, note)".to_string()
+        ],
+        "pg_get_indexdef must list every key column of a multi-column index in order"
+    );
+
+    // A NULL argument resolves to NULL.
+    let null_arg = int_column(
+        &ctx,
+        "SELECT (pg_catalog.pg_get_indexdef(CAST(NULL AS BIGINT)) IS NULL)::int",
+    )
+    .await?;
+    assert_eq!(null_arg, vec![1], "pg_get_indexdef(NULL) must be NULL");
+
+    // An oid that describes no index resolves to NULL, not an empty or partial
+    // statement.
+    let unknown_oid = int_column(
+        &ctx,
+        "SELECT (pg_catalog.pg_get_indexdef(999999) IS NULL)::int",
+    )
+    .await?;
+    assert_eq!(
+        unknown_oid,
+        vec![1],
+        "pg_get_indexdef of an unknown oid must be NULL"
     );
     Ok(())
 }
