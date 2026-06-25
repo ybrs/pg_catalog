@@ -126,6 +126,27 @@ impl TableFunctionImpl for RegClassOidFunc {
     }
 }
 
+/// Look up the OID of the relation named `relname` in `pg_catalog.pg_class`,
+/// returning `None` when no such relation exists or its OID is NULL.
+///
+/// Runs `SELECT oid FROM pg_catalog.pg_class WHERE relname = '...'` through the
+/// catalog runtime (single quotes in the name are escaped) and reads column 0 of
+/// the first row via [`oid_at`], which widens whichever integer width the planner
+/// produced for the OID column.
+fn query_relname_oid(ctx: Arc<SessionContext>, relname: &str) -> Result<Option<i64>> {
+    let sql = format!(
+        "SELECT oid FROM pg_catalog.pg_class WHERE relname = '{}'",
+        relname.replace('\'', "''")
+    );
+    run_catalog_query(async move {
+        let batches = ctx.sql(&sql).await?.collect().await?;
+        if batches.is_empty() || batches[0].num_rows() == 0 {
+            return Ok::<Option<i64>, DataFusionError>(None);
+        }
+        oid_at(batches[0].column(0), 0)
+    })
+}
+
 /// Register `oid(text)` which looks up a table OID from `pg_class`.
 pub fn register_scalar_regclass_oid(ctx: &SessionContext) -> Result<()> {
     let ctx_arc = Arc::new(ctx.clone());
@@ -133,40 +154,7 @@ pub fn register_scalar_regclass_oid(ctx: &SessionContext) -> Result<()> {
     let lookup_oid_fn = Arc::new(move |args: &[ColumnarValue]| -> Result<ColumnarValue> {
         match &args[0] {
             ColumnarValue::Scalar(ScalarValue::Utf8(Some(name))) => {
-                let sql = format!(
-                    "SELECT oid FROM pg_catalog.pg_class WHERE relname = '{}'",
-                    name.replace('\'', "''")
-                );
-
-                let opt: Option<i64> = {
-                    let ctx = ctx_arc.clone();
-                    run_catalog_query(async move {
-                        let batches = ctx.sql(&sql).await?.collect().await?;
-                        if batches.is_empty() || batches[0].num_rows() == 0 {
-                            Ok::<Option<i64>, DataFusionError>(None)
-                        } else {
-                            let col = batches[0].column(0);
-                            if let Some(arr) = col.as_any().downcast_ref::<Int64Array>() {
-                                if arr.is_null(0) {
-                                    Ok(None)
-                                } else {
-                                    Ok(Some(arr.value(0)))
-                                }
-                            } else if let Some(arr) =
-                                col.as_any().downcast_ref::<arrow::array::Int32Array>()
-                            {
-                                if arr.is_null(0) {
-                                    Ok(None)
-                                } else {
-                                    Ok(Some(arr.value(0) as i64))
-                                }
-                            } else {
-                                Ok(None)
-                            }
-                        }
-                    })
-                }?;
-
+                let opt = query_relname_oid(ctx_arc.clone(), name)?;
                 Ok(ColumnarValue::Scalar(ScalarValue::Int64(opt)))
             }
             ColumnarValue::Scalar(ScalarValue::Utf8(None)) => {
@@ -180,43 +168,9 @@ pub fn register_scalar_regclass_oid(ctx: &SessionContext) -> Result<()> {
                         builder.append_null();
                         continue;
                     }
-                    let name = arr.value(i);
-                    let sql = format!(
-                        "SELECT oid FROM pg_catalog.pg_class WHERE relname = '{}'",
-                        name.replace('\'', "''")
-                    );
-                    let opt: Option<i64> = {
-                        let ctx = ctx_arc.clone();
-                        run_catalog_query(async move {
-                            let batches = ctx.sql(&sql).await?.collect().await?;
-                            if batches.is_empty() || batches[0].num_rows() == 0 {
-                                Ok::<Option<i64>, DataFusionError>(None)
-                            } else {
-                                let col = batches[0].column(0);
-                                if let Some(a) = col.as_any().downcast_ref::<Int64Array>() {
-                                    if a.is_null(0) {
-                                        Ok(None)
-                                    } else {
-                                        Ok(Some(a.value(0)))
-                                    }
-                                } else if let Some(a) =
-                                    col.as_any().downcast_ref::<arrow::array::Int32Array>()
-                                {
-                                    if a.is_null(0) {
-                                        Ok(None)
-                                    } else {
-                                        Ok(Some(a.value(0) as i64))
-                                    }
-                                } else {
-                                    Ok(None)
-                                }
-                            }
-                        })
-                    }?;
-                    if let Some(v) = opt {
-                        builder.append_value(v);
-                    } else {
-                        builder.append_null();
+                    match query_relname_oid(ctx_arc.clone(), arr.value(i))? {
+                        Some(v) => builder.append_value(v),
+                        None => builder.append_null(),
                     }
                 }
                 Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
@@ -461,49 +415,13 @@ pub fn register_scalar_pg_get_expr(ctx: &SessionContext) -> Result<()> {
 
 /// Stub implementation of `pg_get_partkeydef` that always returns NULL.
 pub fn register_scalar_pg_get_partkeydef(ctx: &SessionContext) -> Result<()> {
-    let ctx_arc = Arc::new(ctx.clone());
-    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
-        let arrays = ColumnarValue::values_to_arrays(args)?;
-        let oids = as_int64_array(&arrays[0])?;
-        let mut builder = StringBuilder::new();
-        for _ in 0..oids.len() {
-            builder.append_null();
-        }
-        Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
-    };
-    let udf = create_udf(
-        "pg_catalog.pg_get_partkeydef",
-        vec![ArrowDataType::Int64],
-        ArrowDataType::Utf8,
-        Volatility::Immutable,
-        Arc::new(fun),
-    );
-    ctx_arc.register_udf(udf);
-    Ok(())
+    register_null_text_stub(ctx, "pg_catalog.pg_get_partkeydef", 1)
 }
 
 /// Placeholder for `pg_get_statisticsobjdef_columns` which currently
 /// returns NULL for all rows.
 pub fn register_pg_get_statisticsobjdef_columns(ctx: &SessionContext) -> Result<()> {
-    let ctx_arc = Arc::new(ctx.clone());
-    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
-        let arrays = ColumnarValue::values_to_arrays(args)?;
-        let oids = as_int64_array(&arrays[0])?;
-        let mut builder = StringBuilder::new();
-        for _ in 0..oids.len() {
-            builder.append_null();
-        }
-        Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
-    };
-    let udf = create_udf(
-        "pg_catalog.pg_get_statisticsobjdef_columns",
-        vec![ArrowDataType::Int64],
-        ArrowDataType::Utf8,
-        Volatility::Immutable,
-        Arc::new(fun),
-    );
-    ctx_arc.register_udf(udf);
-    Ok(())
+    register_null_text_stub(ctx, "pg_catalog.pg_get_statisticsobjdef_columns", 1)
 }
 
 /// Compatibility stub for `pg_relation_is_publishable` which always
@@ -1160,6 +1078,19 @@ fn register_null_text_stub(
     qualified: &'static str,
     arity: usize,
 ) -> Result<()> {
+    register_null_text_stub_accepting_arities(ctx, qualified, &[arity])
+}
+
+/// Register a scalar stub under `qualified` (plus its bare alias) that returns
+/// NULL text and accepts a call at any of the given `arities` (each an argument
+/// count of any types). Used for PostgreSQL functions that are exposed with
+/// several arities, e.g. `pg_get_triggerdef(oid)` and `pg_get_triggerdef(oid,
+/// bool)`.
+fn register_null_text_stub_accepting_arities(
+    ctx: &SessionContext,
+    qualified: &'static str,
+    arities: &[usize],
+) -> Result<()> {
     use arrow::array::{ArrayRef, StringBuilder};
     use arrow::datatypes::DataType;
     use datafusion::logical_expr::{
@@ -1195,9 +1126,13 @@ fn register_null_text_stub(
         }
     }
 
+    let accepted_arities = arities
+        .iter()
+        .map(|&arity| TypeSignature::Any(arity))
+        .collect();
     let udf_impl = NullText {
         qualified: qualified.to_string(),
-        sig: Signature::one_of(vec![TypeSignature::Any(arity)], Volatility::Stable),
+        sig: Signature::one_of(accepted_arities, Volatility::Stable),
     };
     let bare = qualified.rsplit('.').next().unwrap_or(qualified);
     let udf = ScalarUDF::new_from_impl(udf_impl).with_aliases([bare]);
@@ -3292,22 +3227,24 @@ async fn fetch_attribute_names(
     Ok(out)
 }
 
+/// Borrow the array for `column` out of `batch`, erroring when the catalog query
+/// result has no such column.
+fn column_array<'a>(batch: &'a RecordBatch, column: &str) -> Result<&'a ArrayRef> {
+    batch.column_by_name(column).ok_or_else(|| {
+        DataFusionError::Execution(format!("catalog query result missing column {column}"))
+    })
+}
+
 /// Read an integer/OID cell from `batch[column][row]`, widening any signed or
 /// unsigned 32/64-bit integer to `i64`. Returns `None` for NULL.
 fn column_oid_at(batch: &RecordBatch, column: &str, row: usize) -> Result<Option<i64>> {
-    let array = batch.column_by_name(column).ok_or_else(|| {
-        DataFusionError::Execution(format!("catalog query result missing column {column}"))
-    })?;
-    oid_at(array, row)
+    oid_at(column_array(batch, column)?, row)
 }
 
 /// Read a UTF-8 cell from `batch[column][row]`. Returns `None` for NULL or a
 /// non-string column.
 fn column_string_at(batch: &RecordBatch, column: &str, row: usize) -> Result<Option<String>> {
-    let array = batch.column_by_name(column).ok_or_else(|| {
-        DataFusionError::Execution(format!("catalog query result missing column {column}"))
-    })?;
-    let scalar = ScalarValue::try_from_array(array, row)?;
+    let scalar = ScalarValue::try_from_array(column_array(batch, column)?, row)?;
     Ok(match scalar {
         ScalarValue::Utf8(v) | ScalarValue::LargeUtf8(v) | ScalarValue::Utf8View(v) => v,
         _ => None,
@@ -3317,10 +3254,7 @@ fn column_string_at(batch: &RecordBatch, column: &str, row: usize) -> Result<Opt
 /// Read a boolean cell from `batch[column][row]`. Returns `None` for NULL or a
 /// non-boolean column.
 fn column_bool_at(batch: &RecordBatch, column: &str, row: usize) -> Result<Option<bool>> {
-    let array = batch.column_by_name(column).ok_or_else(|| {
-        DataFusionError::Execution(format!("catalog query result missing column {column}"))
-    })?;
-    Ok(match ScalarValue::try_from_array(array, row)? {
+    Ok(match ScalarValue::try_from_array(column_array(batch, column)?, row)? {
         ScalarValue::Boolean(v) => v,
         _ => None,
     })
@@ -3330,9 +3264,7 @@ fn column_bool_at(batch: &RecordBatch, column: &str, row: usize) -> Result<Optio
 /// `batch[column][row]` as the contained attribute numbers. Returns `None` for a
 /// NULL cell or a non-list column.
 fn index_key_attnums_at(batch: &RecordBatch, column: &str, row: usize) -> Result<Option<Vec<i64>>> {
-    let array = batch.column_by_name(column).ok_or_else(|| {
-        DataFusionError::Execution(format!("catalog query result missing column {column}"))
-    })?;
+    let array = column_array(batch, column)?;
     let list = match array.as_any().downcast_ref::<arrow::array::ListArray>() {
         Some(list) => list,
         None => return Ok(None),
@@ -3456,209 +3388,33 @@ pub fn register_pg_get_indexdef(ctx: &SessionContext) -> Result<()> {
 
 /// pg_catalog.pg_get_function_result(oid) -> text
 pub fn register_pg_get_function_result(ctx: &SessionContext) -> Result<()> {
-    use arrow::array::{ArrayRef, StringBuilder};
-    use arrow::datatypes::DataType;
-    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
-    use std::sync::Arc;
-
-    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
-        let len = match args.first() {
-            Some(ColumnarValue::Array(a)) => a.len(),
-            _ => 1,
-        };
-        let mut b = StringBuilder::with_capacity(len, len);
-        for _ in 0..len {
-            b.append_null();
-        }
-        Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
-    };
-
-    let udf = create_udf(
-        "pg_catalog.pg_get_function_result",
-        vec![DataType::Int64],
-        DataType::Utf8,
-        Volatility::Stable,
-        Arc::new(fun),
-    )
-    .with_aliases(["pg_get_function_result"]);
-    ctx.register_udf(udf);
-    Ok(())
+    register_null_text_stub(ctx, "pg_catalog.pg_get_function_result", 1)
 }
 
 /// pg_catalog.pg_get_function_sqlbody(oid) -> text
 pub fn register_pg_get_function_sqlbody(ctx: &SessionContext) -> Result<()> {
-    use arrow::array::{ArrayRef, StringBuilder};
-    use arrow::datatypes::DataType;
-    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
-    use std::sync::Arc;
-
-    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
-        let len = match args.first() {
-            Some(ColumnarValue::Array(a)) => a.len(),
-            _ => 1,
-        };
-        let mut b = StringBuilder::with_capacity(len, len);
-        for _ in 0..len {
-            b.append_null();
-        }
-        Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
-    };
-
-    let udf = create_udf(
-        "pg_catalog.pg_get_function_sqlbody",
-        vec![DataType::Int64],
-        DataType::Utf8,
-        Volatility::Stable,
-        Arc::new(fun),
-    )
-    .with_aliases(["pg_get_function_sqlbody"]);
-    ctx.register_udf(udf);
-    Ok(())
+    register_null_text_stub(ctx, "pg_catalog.pg_get_function_sqlbody", 1)
 }
 
 /// pg_catalog.encode(bytea, text) -> text
 ///
 /// Placeholder implementation returning NULL.
 pub fn register_encode(ctx: &SessionContext) -> Result<()> {
-    use arrow::array::{ArrayRef, StringBuilder};
-    use arrow::datatypes::DataType;
-    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
-    use std::sync::Arc;
-
-    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
-        let len = match args.first() {
-            Some(ColumnarValue::Array(a)) => a.len(),
-            _ => 1,
-        };
-        let mut b = StringBuilder::with_capacity(len, len);
-        for _ in 0..len {
-            b.append_null();
-        }
-        Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
-    };
-
-    let udf = create_udf(
-        "pg_catalog.encode",
-        vec![DataType::Binary, DataType::Utf8],
-        DataType::Utf8,
-        Volatility::Stable,
-        Arc::new(fun),
-    )
-    .with_aliases(["encode"]);
-    ctx.register_udf(udf);
-    Ok(())
+    register_null_text_stub(ctx, "pg_catalog.encode", 2)
 }
 
 /// pg_catalog.pg_get_triggerdef(oid [, bool]) -> text
 ///
 /// Returns NULL placeholder.
 pub fn register_pg_get_triggerdef(ctx: &SessionContext) -> Result<()> {
-    use arrow::array::{ArrayRef, StringBuilder};
-    use arrow::datatypes::DataType;
-    use datafusion::logical_expr::{
-        ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature,
-        Volatility,
-    };
-    use std::sync::Arc;
-
-    #[derive(Debug, PartialEq, Eq, Hash)]
-    struct PgGetTriggerDef {
-        sig: Signature,
-    }
-
-    impl PgGetTriggerDef {
-        fn new() -> Self {
-            Self {
-                sig: Signature::one_of(
-                    vec![TypeSignature::Any(1), TypeSignature::Any(2)],
-                    Volatility::Stable,
-                ),
-            }
-        }
-    }
-
-    impl ScalarUDFImpl for PgGetTriggerDef {
-        fn name(&self) -> &str {
-            "pg_catalog.pg_get_triggerdef"
-        }
-        fn signature(&self) -> &Signature {
-            &self.sig
-        }
-        fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
-            Ok(DataType::Utf8)
-        }
-        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
-            let len = match args.args.first() {
-                Some(ColumnarValue::Array(a)) => a.len(),
-                _ => 1,
-            };
-            let mut b = StringBuilder::with_capacity(len, len);
-            for _ in 0..len {
-                b.append_null();
-            }
-            Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
-        }
-    }
-
-    let udf = ScalarUDF::new_from_impl(PgGetTriggerDef::new()).with_aliases(["pg_get_triggerdef"]);
-    ctx.register_udf(udf);
-    Ok(())
+    register_null_text_stub_accepting_arities(ctx, "pg_catalog.pg_get_triggerdef", &[1, 2])
 }
 
 /// pg_catalog.pg_get_ruledef(oid [, bool]) -> text
 ///
 /// Returns NULL placeholder.
 pub fn register_pg_get_ruledef(ctx: &SessionContext) -> Result<()> {
-    use arrow::array::{ArrayRef, StringBuilder};
-    use arrow::datatypes::DataType;
-    use datafusion::logical_expr::{
-        ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature,
-        Volatility,
-    };
-    use std::sync::Arc;
-
-    #[derive(Debug, PartialEq, Eq, Hash)]
-    struct PgGetRuleDef {
-        sig: Signature,
-    }
-
-    impl PgGetRuleDef {
-        fn new() -> Self {
-            Self {
-                sig: Signature::one_of(
-                    vec![TypeSignature::Any(1), TypeSignature::Any(2)],
-                    Volatility::Stable,
-                ),
-            }
-        }
-    }
-
-    impl ScalarUDFImpl for PgGetRuleDef {
-        fn name(&self) -> &str {
-            "pg_catalog.pg_get_ruledef"
-        }
-        fn signature(&self) -> &Signature {
-            &self.sig
-        }
-        fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
-            Ok(DataType::Utf8)
-        }
-        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
-            let len = match args.args.first() {
-                Some(ColumnarValue::Array(a)) => a.len(),
-                _ => 1,
-            };
-            let mut b = StringBuilder::with_capacity(len, len);
-            for _ in 0..len {
-                b.append_null();
-            }
-            Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
-        }
-    }
-
-    let udf = ScalarUDF::new_from_impl(PgGetRuleDef::new()).with_aliases(["pg_get_ruledef"]);
-    ctx.register_udf(udf);
-    Ok(())
+    register_null_text_stub_accepting_arities(ctx, "pg_catalog.pg_get_ruledef", &[1, 2])
 }
 
 /// pg_catalog.pg_available_extension_versions() -> TABLE

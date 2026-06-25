@@ -221,86 +221,79 @@ impl DatafusionBackend {
         }
     }
 
+    /// Register a zero-argument UDF that returns a constant Utf8 string read
+    /// from the client's connection metadata.
+    ///
+    /// If a UDF named `name` is already registered the call is a no-op. The
+    /// constant value comes from `client.metadata().get(metadata_key)`; when
+    /// that key is absent no UDF is registered. When `also_qualified` is true an
+    /// additional UDF aliased as `pg_catalog.<name>` is registered with the same
+    /// constant value.
+    fn register_constant_text_udf<C>(
+        &self,
+        name: &str,
+        metadata_key: &str,
+        also_qualified: bool,
+        client: &C,
+    ) -> datafusion::error::Result<()>
+    where
+        C: ClientInfo + ?Sized,
+    {
+        if self.ctx.state().scalar_functions().contains_key(name) {
+            return Ok(());
+        }
+
+        if let Some(value) = client.metadata().get(metadata_key).cloned() {
+            let fun = Arc::new(move |_args: &[ColumnarValue]| {
+                Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(value.clone()))))
+            });
+            let udf = create_udf(name, vec![], DataType::Utf8, Volatility::Stable, fun.clone());
+            self.ctx.register_udf(udf);
+            if also_qualified {
+                let qualified_name = format!("pg_catalog.{}", name);
+                let udf = create_udf(
+                    &qualified_name,
+                    vec![],
+                    DataType::Utf8,
+                    Volatility::Stable,
+                    fun,
+                );
+                self.ctx.register_udf(udf);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Register the `current_database` UDF (and its `pg_catalog` alias) from the
+    /// connection's database metadata.
     fn register_current_database<C>(&self, client: &C) -> datafusion::error::Result<()>
     where
         C: ClientInfo + ?Sized,
     {
-        static KEY: &str = "current_database";
-
-        if self.ctx.state().scalar_functions().contains_key(KEY) {
-            return Ok(());
-        }
-
-        if let Some(db) = client
-            .metadata()
-            .get(pgwire::api::METADATA_DATABASE)
-            .cloned()
-        {
-            let fun = Arc::new(move |_args: &[ColumnarValue]| {
-                Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(db.clone()))))
-            });
-            let udf = create_udf(KEY, vec![], DataType::Utf8, Volatility::Stable, fun.clone());
-            self.ctx.register_udf(udf);
-            let udf = create_udf(
-                "pg_catalog.current_database",
-                vec![],
-                DataType::Utf8,
-                Volatility::Stable,
-                fun.clone(),
-            );
-            self.ctx.register_udf(udf);
-        }
-
-        Ok(())
+        self.register_constant_text_udf(
+            "current_database",
+            pgwire::api::METADATA_DATABASE,
+            true,
+            client,
+        )
     }
 
+    /// Register the `session_user` UDF from the connection's user metadata.
     fn register_session_user<C>(&self, client: &C) -> datafusion::error::Result<()>
     where
         C: ClientInfo + ?Sized,
     {
-        static KEY: &str = "session_user";
-        if self.ctx.state().scalar_functions().contains_key(KEY) {
-            return Ok(());
-        }
-
-        if let Some(user) = client.metadata().get(pgwire::api::METADATA_USER).cloned() {
-            let fun = Arc::new(move |_args: &[ColumnarValue]| {
-                Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(user.clone()))))
-            });
-            let udf = create_udf(KEY, vec![], DataType::Utf8, Volatility::Stable, fun);
-            self.ctx.register_udf(udf);
-        }
-
-        Ok(())
+        self.register_constant_text_udf("session_user", pgwire::api::METADATA_USER, false, client)
     }
 
+    /// Register the `current_user` UDF (and its `pg_catalog` alias) from the
+    /// connection's user metadata.
     fn register_current_user<C>(&self, client: &C) -> datafusion::error::Result<()>
     where
         C: ClientInfo + ?Sized,
     {
-        static KEY: &str = "current_user";
-
-        if self.ctx.state().scalar_functions().contains_key(KEY) {
-            return Ok(());
-        }
-
-        if let Some(user) = client.metadata().get(pgwire::api::METADATA_USER).cloned() {
-            let fun = Arc::new(move |_args: &[ColumnarValue]| {
-                Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(user.clone()))))
-            });
-            let udf = create_udf(KEY, vec![], DataType::Utf8, Volatility::Stable, fun.clone());
-            self.ctx.register_udf(udf);
-            let udf = create_udf(
-                "pg_catalog.current_user",
-                vec![],
-                DataType::Utf8,
-                Volatility::Stable,
-                fun,
-            );
-            self.ctx.register_udf(udf);
-        }
-
-        Ok(())
+        self.register_constant_text_udf("current_user", pgwire::api::METADATA_USER, true, client)
     }
 
     fn show_variable_response(&self, name: &str, format: FieldFormat) -> Option<Response> {

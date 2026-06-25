@@ -561,9 +561,15 @@ fn parse_schema_file(path: &str) -> HashMap<String, HashMap<String, HashMap<Stri
     parse_schema_contents(&contents)
 }
 
-fn parse_schema_zip(path: &str) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
-    let file = fs::File::open(path).expect("Failed to open schema zip file");
-    let mut archive = ZipArchive::new(file).expect("Failed to read zip file");
+/// Parse every `.yaml` entry of a zip archive into a merged schema map.
+///
+/// Reads each YAML member through `parse_schema_contents` and merges the
+/// results with `merge_schema_maps`. Non-`.yaml` entries are skipped. The
+/// archive may come from any seekable reader (a file or an in-memory buffer).
+fn parse_schema_zip_reader<R: std::io::Read + std::io::Seek>(
+    reader: R,
+) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
+    let mut archive = ZipArchive::new(reader).expect("Failed to read zip file");
     let mut all = HashMap::new();
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i).expect("Invalid zip entry");
@@ -580,25 +586,17 @@ fn parse_schema_zip(path: &str) -> HashMap<String, HashMap<String, HashMap<Strin
     all
 }
 
+/// Parse the YAML schema zip located at `path` into a merged schema map.
+fn parse_schema_zip(path: &str) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
+    let file = fs::File::open(path).expect("Failed to open schema zip file");
+    parse_schema_zip_reader(file)
+}
+
+/// Parse an in-memory YAML schema zip into a merged schema map.
 fn parse_schema_zip_bytes(
     bytes: &[u8],
 ) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
-    let reader = Cursor::new(bytes);
-    let mut archive = ZipArchive::new(reader).expect("Failed to read zip bytes");
-    let mut all = HashMap::new();
-    for i in 0..archive.len() {
-        let mut entry = archive.by_index(i).expect("Invalid zip entry");
-        if !entry.name().ends_with(".yaml") {
-            continue;
-        }
-        let mut contents = String::new();
-        entry
-            .read_to_string(&mut contents)
-            .expect("Failed to read zip entry");
-        let parsed = parse_schema_contents(&contents);
-        merge_schema_maps(&mut all, parsed);
-    }
-    all
+    parse_schema_zip_reader(Cursor::new(bytes))
 }
 
 /// Serialize the parsed catalog into a zip of per-table Arrow IPC streams.
