@@ -89,6 +89,13 @@ KNOWN_COUNT_MISMATCHES = {
     "information_schema.table_privileges": "privilege stubs: no GRANTs modeled -> empty",
     "information_schema.udt_privileges": "privilege stubs: no GRANTs modeled -> empty",
     "information_schema.usage_privileges": "privilege stubs: partial",
+    # The role_*_grants views are real views over the privilege views above; with
+    # GRANTs unmodeled those derive empty (or partial for usage), so these do too.
+    "information_schema.role_column_grants": "derives from empty column_privileges view",
+    "information_schema.role_routine_grants": "derives from empty routine_privileges view",
+    "information_schema.role_table_grants": "derives from empty table_privileges view",
+    "information_schema.role_udt_grants": "derives from empty udt_privileges view",
+    "information_schema.role_usage_grants": "derives from partial usage_privileges view",
     # One role short: we don't fully model pg_auth_members role membership yet.
     "information_schema.applicable_roles": "role membership (pg_auth_members) not fully modeled",
 }

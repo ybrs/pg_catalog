@@ -393,7 +393,7 @@ async fn test_lazy_catalog_information_schema_columns() -> DFResult<()> {
     let name = b
         .column(0)
         .as_any()
-        .downcast_ref::<arrow::array::StringArray>()
+        .downcast_ref::<arrow::array::StringViewArray>()
         .unwrap();
     let pos = b
         .column(1)
@@ -403,12 +403,12 @@ async fn test_lazy_catalog_information_schema_columns() -> DFResult<()> {
     let dt = b
         .column(2)
         .as_any()
-        .downcast_ref::<arrow::array::StringArray>()
+        .downcast_ref::<arrow::array::StringViewArray>()
         .unwrap();
     let nullable = b
         .column(3)
         .as_any()
-        .downcast_ref::<arrow::array::StringArray>()
+        .downcast_ref::<arrow::array::StringViewArray>()
         .unwrap();
 
     assert_eq!(name.value(0), "id");
@@ -547,12 +547,11 @@ async fn test_pg_tables_view_keeps_builtin_tables() -> DFResult<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_lazy_registered_after_session_is_blind_to_views() -> DFResult<()> {
-    // Control test documenting WHY get_base_session_context_with_lazy_catalog
-    // exists: a view (pg_tables) is planned during session construction and binds
-    // to whatever pg_class provider exists THEN. Registering the lazy source
-    // afterwards rebinds the base table but NOT the already-created view, so the
-    // view cannot see the lazy tables.
+async fn test_lazy_registered_after_session_rebinds_views() -> DFResult<()> {
+    // A view (pg_tables) is planned during session construction and binds to
+    // whatever pg_class provider exists THEN. register_lazy_catalog swaps the base
+    // table provider for the lazy one and then re-plans the registered views, so a
+    // view registered after session construction still reflects the lazy tables.
     let (ctx, _log) = get_base_session_context(
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
@@ -570,15 +569,16 @@ async fn test_lazy_registered_after_session_is_blind_to_views() -> DFResult<()> 
     .await?;
     assert_eq!(base, 1, "base pg_class should see the lazy table");
 
-    // ... but the view, bound earlier, does not.
+    // ... and so does the view, because register_lazy_catalog re-planned it
+    // against the lazy provider.
     let via_view = count_rows(
         &ctx,
         "SELECT count(*) FROM pg_catalog.pg_tables WHERE tablename = 'users'",
     )
     .await?;
     assert_eq!(
-        via_view, 0,
-        "view bound before lazy registration must not see lazy tables"
+        via_view, 1,
+        "view must see the lazy table after register_lazy_catalog re-plans it"
     );
     Ok(())
 }

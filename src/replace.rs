@@ -1164,8 +1164,8 @@ pub fn rewrite_information_schema_casts(sql: &str) -> Result<String> {
 /// `regclass`/`oid` are display types over an integer OID, so for a non-literal
 /// argument the cast is value-preserving and DataFusion can't plan it; we simply
 /// drop the cast, keeping the inner expression. String-literal casts
-/// (`'pg_class'::regclass`) are left untouched - those need the OID lookup that
-/// the earlier passes perform - as are numeric `::oid` casts (already mapped to
+/// (`'pg_class'::regclass`) are left untouched - those need the OID lookup
+/// `replace_regclass` performs - as are numeric `::oid` casts (already mapped to
 /// BIGINT by `rewrite_oid_cast`).
 pub fn drop_redundant_oid_and_regclass_casts(sql: &str) -> Result<String> {
     use sqlparser::ast::{

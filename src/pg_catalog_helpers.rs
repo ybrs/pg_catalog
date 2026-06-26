@@ -5,10 +5,9 @@ use datafusion::execution::context::SessionContext;
 use serde::Deserialize;
 
 use crate::lazy_catalog::{
-    build_index_pg_class_row, build_info_columns_rows, build_info_tables_row, build_pg_attrdef_row,
-    build_pg_attribute_rows, build_pg_class_row, build_pg_constraint_row, build_pg_index_row,
-    build_pg_type_rowtype_row, ColumnSpec, ConstraintDef, ConstraintKind, IndexDef, RelationDef,
-    RelationKind,
+    build_index_pg_class_row, build_pg_attrdef_row, build_pg_attribute_rows, build_pg_class_row,
+    build_pg_constraint_row, build_pg_index_row, build_pg_type_rowtype_row, ColumnSpec,
+    ConstraintDef, ConstraintKind, IndexDef, RelationDef, RelationKind,
 };
 use crate::session::rows_to_record_batch;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -23,7 +22,8 @@ pub struct ColumnDef {
     pub col_type: String,
     pub nullable: bool,
     /// Whether the column has a default expression. Drives `pg_attribute.atthasdef`
-    /// and a `pg_attrdef` row; the default *text* is supplied later (Phase 3).
+    /// and a `pg_attrdef` row; the default *text* is supplied at query time by the
+    /// integration-supplied definition-text resolver (NULL until one is installed).
     /// Defaults to false, so existing callers and wire payloads need not set it.
     #[serde(default)]
     pub has_default: bool,
@@ -224,15 +224,21 @@ fn column_specs_from_defs(columns: &[BTreeMap<String, ColumnDef>]) -> Vec<Column
 /// Register one user relation of the given [`RelationKind`] (table or view) in the
 /// schema identified by `schema_oid`, writing every structural row both eager and
 /// lazy registration share: a `pg_class` identity row carrying the relkind, its
-/// composite rowtype in `pg_type`, a `pg_attribute` row per column, a `pg_attrdef`
-/// row per defaulted column, and the matching `information_schema.tables` /
-/// `information_schema.columns` rows. Registration is idempotent within the schema.
+/// composite rowtype in `pg_type`, a `pg_attribute` row per column, and a `pg_attrdef`
+/// row per defaulted column. The `information_schema.tables` / `.columns` views
+/// derive from those base-table rows, so they are not written here. Registration is
+/// idempotent within the schema.
 ///
 /// `register_user_tables` and `register_user_view` are thin wrappers that fix the
 /// `kind`, so tables and views emit identical metadata except for the relkind.
+///
+/// `_database_name` is accepted to keep the public wrappers' signature stable and
+/// self-documenting; the relation's rows are keyed by schema OID, so the database
+/// name is not needed: the information_schema relations derive from the base-table
+/// rows rather than being written per database here.
 async fn register_user_relation(
     ctx: &SessionContext,
-    database_name: &str,
+    _database_name: &str,
     schema_oid: i32,
     relation_name: &str,
     kind: RelationKind,
@@ -255,14 +261,13 @@ async fn register_user_relation(
         return Ok(());
     }
 
-    // The schema is identified by OID (see `register_schema`); its name is read back
-    // for the information_schema labels.
-    let Some(schema_name) = get_schema_name(ctx, schema_oid).await? else {
+    // The relation is placed by OID (see `register_schema`); confirm the schema OID
+    // resolves to a real schema before emitting rows that reference it.
+    if get_schema_name(ctx, schema_oid).await?.is_none() {
         return Err(DataFusionError::Execution(format!(
             "schema oid {schema_oid} not found while registering relation '{relation_name}'"
         )));
-    };
-    let schema_name = schema_name.as_str();
+    }
 
     let relation_oid = NEXT_OID.fetch_add(1, Ordering::SeqCst);
     let type_oid = NEXT_OID.fetch_add(1, Ordering::SeqCst);
@@ -302,7 +307,8 @@ async fn register_user_relation(
 
     // One pg_attrdef row per column that has a default (its atthasdef flag is
     // already set on the pg_attribute row above). The default text is supplied at
-    // call time by a resolver (Phase 3); this is the structural handle clients join on.
+    // call time by the integration-supplied definition-text resolver; this row is
+    // the structural handle clients join on.
     for (idx, col) in column_specs.iter().enumerate() {
         if col.has_default {
             let adnum = (idx + 1) as i32;
@@ -317,20 +323,10 @@ async fn register_user_relation(
         }
     }
 
-    // Reflect the same relation in information_schema, where ORMs and BI tools
-    // read it - again via the shared builders rather than hand-written INSERTs.
-    append_catalog_row(
-        ctx,
-        "information_schema",
-        "tables",
-        build_info_tables_row(database_name, schema_name, &relation),
-    )
-    .await?;
-    for column_row in
-        build_info_columns_rows(database_name, schema_name, relation_name, &column_specs)
-    {
-        append_catalog_row(ctx, "information_schema", "columns", column_row).await?;
-    }
+    // information_schema.tables / .columns are NOT written here: they are SQL views
+    // (see VIEWS_TO_REGISTER in session.rs) that derive from the pg_class /
+    // pg_attribute rows written above. Appending to them directly would target a
+    // view and double-write what the view already derives.
 
     Ok(())
 }
@@ -1450,37 +1446,37 @@ mod tests {
         let cat = batches[0]
             .column(0)
             .as_any()
-            .downcast_ref::<arrow::array::StringArray>()
+            .downcast_ref::<arrow::array::StringViewArray>()
             .unwrap()
             .value(0);
         let sch = batches[0]
             .column(1)
             .as_any()
-            .downcast_ref::<arrow::array::StringArray>()
+            .downcast_ref::<arrow::array::StringViewArray>()
             .unwrap()
             .value(0);
         let name = batches[0]
             .column(2)
             .as_any()
-            .downcast_ref::<arrow::array::StringArray>()
+            .downcast_ref::<arrow::array::StringViewArray>()
             .unwrap()
             .value(0);
         let typ = batches[0]
             .column(3)
             .as_any()
-            .downcast_ref::<arrow::array::StringArray>()
+            .downcast_ref::<arrow::array::StringViewArray>()
             .unwrap()
             .value(0);
         let insertable = batches[0]
             .column(4)
             .as_any()
-            .downcast_ref::<arrow::array::StringArray>()
+            .downcast_ref::<arrow::array::StringViewArray>()
             .unwrap()
             .value(0);
         let is_typed = batches[0]
             .column(5)
             .as_any()
-            .downcast_ref::<arrow::array::StringArray>()
+            .downcast_ref::<arrow::array::StringViewArray>()
             .unwrap()
             .value(0);
 
@@ -1540,7 +1536,7 @@ mod tests {
         let col0 = batches[0]
             .column(0)
             .as_any()
-            .downcast_ref::<arrow::array::StringArray>()
+            .downcast_ref::<arrow::array::StringViewArray>()
             .unwrap()
             .value(0);
         let pos0 = batches[0]
@@ -1552,20 +1548,20 @@ mod tests {
         let dt0 = batches[0]
             .column(2)
             .as_any()
-            .downcast_ref::<arrow::array::StringArray>()
+            .downcast_ref::<arrow::array::StringViewArray>()
             .unwrap()
             .value(0);
         let nul0 = batches[0]
             .column(3)
             .as_any()
-            .downcast_ref::<arrow::array::StringArray>()
+            .downcast_ref::<arrow::array::StringViewArray>()
             .unwrap()
             .value(0);
 
         let col1 = batches[0]
             .column(0)
             .as_any()
-            .downcast_ref::<arrow::array::StringArray>()
+            .downcast_ref::<arrow::array::StringViewArray>()
             .unwrap()
             .value(1);
         let pos1 = batches[0]
@@ -1577,13 +1573,13 @@ mod tests {
         let dt1 = batches[0]
             .column(2)
             .as_any()
-            .downcast_ref::<arrow::array::StringArray>()
+            .downcast_ref::<arrow::array::StringViewArray>()
             .unwrap()
             .value(1);
         let nul1 = batches[0]
             .column(3)
             .as_any()
-            .downcast_ref::<arrow::array::StringArray>()
+            .downcast_ref::<arrow::array::StringViewArray>()
             .unwrap()
             .value(1);
 

@@ -95,3 +95,72 @@ async fn test_oid_udf_array_branch_on_current_thread_runtime() -> DFResult<()> {
     assert_eq!(resolved[2], None, "unknown relation should be NULL");
     Ok(())
 }
+
+/// `pg_sequence_last_value` is NULL with no resolver installed and reports the
+/// installed resolver's value otherwise.
+#[tokio::test]
+async fn test_pg_sequence_last_value_default_null_then_resolver() -> DFResult<()> {
+    use datafusion_pg_catalog::{
+        clear_pg_sequence_last_value_resolver, set_pg_sequence_last_value_resolver,
+    };
+    use std::sync::Arc;
+
+    let ctx = base_ctx().await?;
+
+    clear_pg_sequence_last_value_resolver();
+    assert_eq!(
+        int64_column(&ctx, "SELECT pg_sequence_last_value(42)").await?,
+        vec![None],
+        "NULL when no resolver is installed"
+    );
+
+    set_pg_sequence_last_value_resolver(Arc::new(|oid: i64| Some(oid * 10)));
+    assert_eq!(
+        int64_column(&ctx, "SELECT pg_sequence_last_value(42)").await?,
+        vec![Some(420)],
+        "resolver value is reported"
+    );
+    clear_pg_sequence_last_value_resolver();
+    Ok(())
+}
+
+/// `row_security_active` is false with no resolver installed and reports the
+/// installed resolver's answer otherwise.
+#[tokio::test]
+async fn test_row_security_active_default_false_then_resolver() -> DFResult<()> {
+    use arrow::array::BooleanArray;
+    use datafusion_pg_catalog::{
+        clear_row_security_active_resolver, set_row_security_active_resolver,
+    };
+    use std::sync::Arc;
+
+    let ctx = base_ctx().await?;
+
+    clear_row_security_active_resolver();
+    let batches = ctx
+        .sql("SELECT row_security_active(7)")
+        .await?
+        .collect()
+        .await?;
+    let arr = batches[0]
+        .column(0)
+        .as_any()
+        .downcast_ref::<BooleanArray>()
+        .expect("boolean column");
+    assert!(!arr.value(0), "false when no resolver is installed");
+
+    set_row_security_active_resolver(Arc::new(|_oid: i64| true));
+    let batches = ctx
+        .sql("SELECT row_security_active(7)")
+        .await?
+        .collect()
+        .await?;
+    let arr = batches[0]
+        .column(0)
+        .as_any()
+        .downcast_ref::<BooleanArray>()
+        .expect("boolean column");
+    assert!(arr.value(0), "resolver answer is reported");
+    clear_row_security_active_resolver();
+    Ok(())
+}

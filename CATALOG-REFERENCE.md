@@ -6,8 +6,8 @@ actually works today**. Verified 2026-06-26.
 
 - **75 base tables** (71 `pg_catalog` + 4 `information_schema`) - all served as
   tables and queryable (**75 working**).
-- **136 objects declared `type: view`** - **36 are now actually served as views**
-  (35 working + 1 partial); the other **100 are still materialized as tables** (a
+- **136 objects declared `type: view`** - **85 are now actually served as views**
+  (67 working + 18 partial); the other **51 are still materialized as tables** (a
   view in name only) and are therefore **broken**. Promotion is ongoing - see
   [`update-views-plan.md`](update-views-plan.md) for the phased migration and which
   views are done vs skipped.

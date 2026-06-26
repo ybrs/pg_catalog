@@ -3086,8 +3086,8 @@ fn quote_identifier_if_needed(ident: &str) -> String {
 /// The structural parts of one index, read from the catalog, that a plain
 /// `CREATE INDEX` statement is templated from. `key_attnums` are the indexed
 /// columns' attribute numbers in key order; a `0` marks an expression column,
-/// which makes the index functional/partial (its text is integration-supplied
-/// in Phase 3, not rendered here).
+/// which makes the index functional/partial (its text comes from the
+/// integration-installed definition resolver, not rendered here).
 struct PlainIndexParts {
     index_oid: i64,
     table_oid: i64,
@@ -3238,7 +3238,7 @@ fn fetch_index_definitions(ctx: Arc<SessionContext>, oids: &[i64]) -> Result<Has
         // Functional/partial indexes (and any the structural render could not
         // describe) get their text from the integration-supplied resolver, keyed by
         // the index's identity. Absent a resolver, or when it declines, the index
-        // stays NULL - the same default as every other Phase 3 definition hook.
+        // stays NULL - the default used whenever no definition resolver is installed.
         if let Some(resolver) = INDEX_DEFINITION_RESOLVER.get() {
             for (oid, identity) in &identities {
                 if !out.contains_key(oid) {
@@ -3362,7 +3362,8 @@ fn index_key_attnums_at(batch: &RecordBatch, column: &str, row: usize) -> Result
 /// `pg_catalog.pg_get_indexdef(oid)` reconstructs the `CREATE INDEX` text for a
 /// plain index from the live catalog at call time, mirroring
 /// [`PgGetUserById`]'s batched catalog-lookup pattern. Functional/partial index
-/// expressions are left NULL pending Phase 3's integration-supplied text.
+/// expressions are left NULL unless an integration-installed resolver supplies
+/// their text.
 struct PgGetIndexDef {
     sig: Signature,
     ctx: Arc<SessionContext>,
@@ -3457,7 +3458,7 @@ impl ScalarUDFImpl for PgGetIndexDef {
 
 /// Register `pg_get_indexdef(oid)`, which reconstructs the `CREATE INDEX` text
 /// for a plain index from live catalog rows. Functional/partial indexes return
-/// NULL until their expression text is integration-supplied (Phase 3).
+/// NULL until their expression text is supplied by an installed definition resolver.
 pub fn register_pg_get_indexdef(ctx: &SessionContext) -> Result<()> {
     let udf = ScalarUDF::new_from_impl(PgGetIndexDef::new(Arc::new(ctx.clone())))
         .with_aliases(["pg_get_indexdef"]);
@@ -3486,12 +3487,12 @@ pub struct ViewIdentity {
 /// wants clients to see (it owns the text and may build it however it likes) or
 /// `None` to leave the definition NULL. pg_catalog never deparses node trees;
 /// these callbacks are the sole source of definition text. Defaulting to NULL when
-/// no resolver is installed is the contract across every Phase 3 hook.
+/// no resolver is installed is the contract for every definition resolver.
 pub type DefinitionResolver<I> = Arc<dyn Fn(&I) -> Option<String> + Send + Sync>;
 
 /// A process-wide slot holding the optional [`DefinitionResolver`] for one kind of
-/// object. One shared implementation backs every Phase 3 "integration supplies
-/// definitions" hook, so views, index expressions, and future kinds get identical
+/// object. One shared implementation backs every "integration supplies definitions"
+/// resolver, so views, index expressions, and future kinds get identical
 /// install / clear / read-at-call-time semantics with no duplicated machinery.
 struct DefinitionResolverSlot<I> {
     slot: std::sync::RwLock<Option<DefinitionResolver<I>>>,
@@ -3597,6 +3598,207 @@ pub fn set_index_definition_resolver(resolver: IndexDefinitionResolver) {
 /// return NULL again. Primarily for tests that must not leak a resolver.
 pub fn clear_index_definition_resolver() {
     INDEX_DEFINITION_RESOLVER.clear();
+}
+
+/// A process-wide slot holding an optional integration callback, read at call
+/// time. Like [`DefinitionResolverSlot`] but for callbacks that return values
+/// other than definition text (a sequence's last value, a row-security flag, ...).
+struct CallableSlot<F> {
+    slot: std::sync::RwLock<Option<F>>,
+}
+
+impl<F: Clone> CallableSlot<F> {
+    /// An empty slot - no callback installed, so the function uses its stub default.
+    fn new() -> Self {
+        Self {
+            slot: std::sync::RwLock::new(None),
+        }
+    }
+
+    /// Install `callback`, replacing any previously installed one.
+    fn set(&self, callback: F) {
+        *self.slot.write().expect("callable slot lock poisoned") = Some(callback);
+    }
+
+    /// Remove any installed callback.
+    fn clear(&self) {
+        *self.slot.write().expect("callable slot lock poisoned") = None;
+    }
+
+    /// A clone of the installed callback, taken without holding the lock while it
+    /// runs (the callback is integration code we must not call under our lock).
+    fn get(&self) -> Option<F> {
+        self.slot
+            .read()
+            .expect("callable slot lock poisoned")
+            .clone()
+    }
+}
+
+/// Read a scalar function's first OID argument as one `Option<i64>` per row,
+/// accepting any integer width (OIDs are 32-bit in this catalog but can arrive
+/// widened). Shared by the OID-keyed, resolver-backed functions below.
+fn oid_arg_as_i64(args: &[ColumnarValue]) -> Result<Vec<Option<i64>>> {
+    use arrow::array::Int64Array;
+    use arrow::compute::cast;
+    use arrow::datatypes::DataType;
+    let arrays = ColumnarValue::values_to_arrays(args)?;
+    let first = arrays
+        .first()
+        .ok_or_else(|| DataFusionError::Execution("missing oid argument".into()))?;
+    let int64 = cast(first, &DataType::Int64)?;
+    let oids = int64
+        .as_any()
+        .downcast_ref::<Int64Array>()
+        .ok_or_else(|| DataFusionError::Execution("oid argument not castable to int64".into()))?;
+    Ok((0..oids.len())
+        .map(|i| (!oids.is_null(i)).then(|| oids.value(i)))
+        .collect())
+}
+
+/// Callback giving a sequence's last value by sequence OID, or `None` when the
+/// integration cannot supply it; see [`set_pg_sequence_last_value_resolver`].
+pub type SequenceLastValueResolver = Arc<dyn Fn(i64) -> Option<i64> + Send + Sync>;
+
+/// The process-wide resolver `pg_sequence_last_value` consults at call time. A
+/// static catalog has no running sequences, so with no resolver the function is
+/// NULL - the value PostgreSQL also reports for a sequence not yet read.
+static SEQUENCE_LAST_VALUE_RESOLVER: Lazy<CallableSlot<SequenceLastValueResolver>> =
+    Lazy::new(CallableSlot::new);
+
+/// Install the callback `pg_sequence_last_value(oid)` consults, replacing any
+/// previously installed one. An embedding fronting real sequences reports their
+/// last values through it; without it the function is NULL.
+pub fn set_pg_sequence_last_value_resolver(resolver: SequenceLastValueResolver) {
+    SEQUENCE_LAST_VALUE_RESOLVER.set(resolver);
+}
+
+/// Remove any installed [`SequenceLastValueResolver`], so `pg_sequence_last_value`
+/// returns NULL again. Primarily for tests that must not leak a resolver.
+pub fn clear_pg_sequence_last_value_resolver() {
+    SEQUENCE_LAST_VALUE_RESOLVER.clear();
+}
+
+/// Callback answering whether row-level security is active for a relation OID for
+/// the current user; see [`set_row_security_active_resolver`].
+pub type RowSecurityActiveResolver = Arc<dyn Fn(i64) -> bool + Send + Sync>;
+
+/// The process-wide resolver `row_security_active` consults at call time. With no
+/// resolver the function is false, matching a catalog that enforces no policy.
+static ROW_SECURITY_ACTIVE_RESOLVER: Lazy<CallableSlot<RowSecurityActiveResolver>> =
+    Lazy::new(CallableSlot::new);
+
+/// Install the callback `row_security_active(oid)` consults, replacing any
+/// previously installed one. An embedding enforcing row-level security reports it
+/// through this; without it the function is false.
+pub fn set_row_security_active_resolver(resolver: RowSecurityActiveResolver) {
+    ROW_SECURITY_ACTIVE_RESOLVER.set(resolver);
+}
+
+/// Remove any installed [`RowSecurityActiveResolver`], so `row_security_active`
+/// returns false again. Primarily for tests that must not leak a resolver.
+pub fn clear_row_security_active_resolver() {
+    ROW_SECURITY_ACTIVE_RESOLVER.clear();
+}
+
+/// Register `pg_sequence_last_value(oid)`, giving each sequence's last value via the
+/// installed [`SequenceLastValueResolver`], or NULL when none is installed.
+pub fn register_pg_sequence_last_value(ctx: &SessionContext) -> Result<()> {
+    use arrow::array::{ArrayRef, Int64Array};
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::{
+        ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature, Volatility,
+    };
+
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    struct PgSequenceLastValue {
+        sig: Signature,
+    }
+
+    impl ScalarUDFImpl for PgSequenceLastValue {
+        /// The fully-qualified function name.
+        fn name(&self) -> &str {
+            "pg_catalog.pg_sequence_last_value"
+        }
+        /// One argument of any type (the sequence OID / regclass).
+        fn signature(&self) -> &Signature {
+            &self.sig
+        }
+        /// Always `bigint`.
+        fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
+            Ok(DataType::Int64)
+        }
+        /// The resolver's value per sequence OID, or NULL with no resolver.
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            let oids = oid_arg_as_i64(&args.args)?;
+            let resolver = SEQUENCE_LAST_VALUE_RESOLVER.get();
+            let values: Int64Array = oids
+                .iter()
+                .map(|oid| match (oid, &resolver) {
+                    (Some(oid), Some(resolve)) => resolve(*oid),
+                    _ => None,
+                })
+                .collect();
+            Ok(ColumnarValue::Array(Arc::new(values) as ArrayRef))
+        }
+    }
+
+    let udf = ScalarUDF::new_from_impl(PgSequenceLastValue {
+        sig: Signature::one_of(vec![TypeSignature::Any(1)], Volatility::Stable),
+    })
+    .with_aliases(["pg_sequence_last_value"]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
+/// Register `row_security_active(oid)`, answering via the installed
+/// [`RowSecurityActiveResolver`], or false when none is installed.
+pub fn register_row_security_active(ctx: &SessionContext) -> Result<()> {
+    use arrow::array::{ArrayRef, BooleanArray};
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::{
+        ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature, Volatility,
+    };
+
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    struct RowSecurityActive {
+        sig: Signature,
+    }
+
+    impl ScalarUDFImpl for RowSecurityActive {
+        /// The fully-qualified function name.
+        fn name(&self) -> &str {
+            "pg_catalog.row_security_active"
+        }
+        /// One argument of any type (the relation OID / regclass).
+        fn signature(&self) -> &Signature {
+            &self.sig
+        }
+        /// Always boolean.
+        fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
+            Ok(DataType::Boolean)
+        }
+        /// The resolver's answer per relation OID, or false with no resolver.
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            let oids = oid_arg_as_i64(&args.args)?;
+            let resolver = ROW_SECURITY_ACTIVE_RESOLVER.get();
+            let values: BooleanArray = oids
+                .iter()
+                .map(|oid| match (oid, &resolver) {
+                    (Some(oid), Some(resolve)) => Some(resolve(*oid)),
+                    _ => Some(false),
+                })
+                .collect();
+            Ok(ColumnarValue::Array(Arc::new(values) as ArrayRef))
+        }
+    }
+
+    let udf = ScalarUDF::new_from_impl(RowSecurityActive {
+        sig: Signature::one_of(vec![TypeSignature::Any(1)], Volatility::Stable),
+    })
+    .with_aliases(["row_security_active"]);
+    ctx.register_udf(udf);
+    Ok(())
 }
 
 /// Resolve each view / materialized-view OID to its `(schema, name)` identity with

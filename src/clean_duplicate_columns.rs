@@ -290,6 +290,60 @@ pub fn alias_unnamed_columns(sql: &str) -> Result<(String, HashMap<String, Strin
     Ok((res, alias_map))
 }
 
+/// Rename a top-level projection's `alias_N` columns back to their real names,
+/// using the map [`alias_unnamed_columns`] produced.
+///
+/// `alias_unnamed_columns` renames every unnamed top-level column to a unique
+/// `alias_N` so duplicate names cannot confuse DataFusion, and the real names are
+/// restored on the result schema sent to the client. A `CREATE VIEW` body keeps its
+/// projection names as the view's schema, so a view built from the aliased SQL would
+/// expose `alias_N` to everyone reading it. Applying this before `CREATE VIEW` gives
+/// the view its real PostgreSQL column names. Aliases happen only at the top level
+/// (`alias_columns_in_set_expr` aliases at `depth == 0`), so only the outermost
+/// projection - and each branch of a top-level set operation - is restored.
+pub fn restore_aliased_column_names(
+    sql: &str,
+    alias_map: &HashMap<String, String>,
+) -> Result<String> {
+    let dialect = PostgreSqlDialect {};
+    let mut statements =
+        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
+    let _ = visit_statements_mut(&mut statements, |stmt| {
+        if let Statement::Query(query) = stmt {
+            restore_in_set_expr(&mut query.body, alias_map);
+        }
+        ControlFlow::<()>::Continue(())
+    });
+    Ok(statements
+        .into_iter()
+        .map(|stmt| stmt.to_string())
+        .collect::<Vec<_>>()
+        .join(" "))
+}
+
+/// Restore the real name of each top-level projection column whose alias is an
+/// `alias_N` key in `alias_map`, recursing only into the branches of a top-level
+/// set operation (where the aliases also live).
+fn restore_in_set_expr(expr: &mut SetExpr, alias_map: &HashMap<String, String>) {
+    match expr {
+        SetExpr::Select(select) => {
+            for item in &mut select.projection {
+                if let SelectItem::ExprWithAlias { alias, .. } = item {
+                    if let Some(real_name) = alias_map.get(&alias.value) {
+                        *alias = Ident::new(real_name.clone());
+                    }
+                }
+            }
+        }
+        SetExpr::SetOperation { left, right, .. } => {
+            restore_in_set_expr(left, alias_map);
+            restore_in_set_expr(right, alias_map);
+        }
+        SetExpr::Query(subquery) => restore_in_set_expr(&mut subquery.body, alias_map),
+        _ => {}
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -442,6 +496,32 @@ mod tests {
             }
         }
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_restore_aliased_column_names_recovers_real_names() -> Result<(), Box<dyn Error>> {
+        // A qualified ref and an unqualified ref both lose their name to alias_N;
+        // restoring gives the real PostgreSQL names a view must expose.
+        let (aliased, map) = alias_unnamed_columns("SELECT a.rolname, usename FROM t")?;
+        assert!(aliased.contains("AS alias_1") && aliased.contains("AS alias_2"));
+        let restored = restore_aliased_column_names(&aliased, &map)?;
+        assert!(
+            restored.contains("AS rolname") && restored.contains("AS usename"),
+            "real names restored: {restored}"
+        );
+        assert!(!restored.contains("alias_"), "no alias_N remains: {restored}");
+        Ok(())
+    }
+
+    #[test]
+    fn test_restore_leaves_explicit_aliases_untouched() -> Result<(), Box<dyn Error>> {
+        // A column the body already named with AS is never aliased, so restore is a
+        // no-op for it.
+        let (aliased, map) = alias_unnamed_columns("SELECT '*'::text AS passwd FROM t")?;
+        let restored = restore_aliased_column_names(&aliased, &map)?;
+        assert!(restored.contains("AS passwd"), "explicit alias kept: {restored}");
+        assert!(!restored.contains("alias_"), "no alias_N: {restored}");
         Ok(())
     }
 }

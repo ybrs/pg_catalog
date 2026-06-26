@@ -10,7 +10,9 @@ use datafusion::execution::context::SessionContext;
 use serde::Deserialize;
 use serde_yaml;
 
-use crate::clean_duplicate_columns::{alias_unnamed_columns, disambiguate_duplicate_columns};
+use crate::clean_duplicate_columns::{
+    alias_unnamed_columns, disambiguate_duplicate_columns, restore_aliased_column_names,
+};
 use crate::replace::{
     alias_subquery_tables, drop_oid_array_cast, drop_redundant_oid_and_regclass_casts,
     regclass_udfs, replace_regclass, replace_set_command_with_namespace,
@@ -46,7 +48,8 @@ use crate::user_functions::{
     register_pg_index_position, register_pg_is_other_temp_schema, register_pg_my_temp_schema,
     register_pg_numeric_helpers, register_pg_options_to_table, register_pg_postmaster_start_time,
     register_pg_relation_is_publishable, register_pg_relation_is_updatable,
-    register_pg_relation_size, register_pg_total_relation_size, register_pg_truetypid_helpers,
+    register_pg_relation_size, register_pg_sequence_last_value, register_pg_total_relation_size,
+    register_pg_truetypid_helpers, register_row_security_active,
     register_quote_ident, register_scalar_array_to_string, register_scalar_format_type,
     register_scalar_pg_age, register_scalar_pg_encoding_to_char, register_scalar_pg_get_expr,
     register_scalar_pg_get_partkeydef, register_scalar_pg_get_userbyid,
@@ -73,6 +76,75 @@ use crate::db_table::{map_pg_type, ScanRecordingMemTable, ScanTrace};
 use crate::lazy_catalog::{register_lazy_catalog, LazyCatalogOptions, LazyCatalogSource};
 use crate::replace_any_group_by::rewrite_group_by_for_any;
 use datafusion::common::config::{ConfigExtension, ExtensionOptions};
+use std::sync::OnceLock;
+
+/// The `CREATE OR REPLACE VIEW` statements [`create_registered_views`] ran for each
+/// session, in execution order, together with the schema their bodies were resolved
+/// under. Keyed by [`SessionContext::session_id`] so concurrent sessions in one
+/// process do not clobber each other.
+///
+/// A DataFusion view stores the logical plan it was planned from; that plan
+/// captures the concrete table providers present at `CREATE VIEW` time and is not
+/// re-resolved on later queries. When [`register_lazy_catalog`] swaps a base
+/// table's provider for a lazy one, any view already planned against the old
+/// provider keeps reading the old provider and never sees the lazy rows. Replaying
+/// these statements after the swap re-plans each view against the lazy providers so
+/// the views reflect the source's rows. The map is process-global because
+/// [`register_lazy_catalog`] is a standalone entry point that receives only a
+/// `SessionContext`; the per-session key keeps each session's statements distinct.
+fn registered_view_statements() -> &'static Mutex<HashMap<String, Vec<RegisteredViewStatement>>> {
+    static SLOT: OnceLock<Mutex<HashMap<String, Vec<RegisteredViewStatement>>>> = OnceLock::new();
+    SLOT.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// One replayable `CREATE OR REPLACE VIEW`, plus the default schema its body must
+/// be resolved under (catalog view bodies reference base tables unqualified, all of
+/// which live in `pg_catalog`).
+#[derive(Clone)]
+struct RegisteredViewStatement {
+    body_resolution_schema: String,
+    create_sql: String,
+}
+
+/// Re-plan the catalog views recorded by [`create_registered_views`] so they bind
+/// to the table providers currently registered.
+///
+/// [`register_lazy_catalog`] calls this after swapping base table providers, so the
+/// views that derive from those base tables re-resolve against the lazy providers
+/// instead of the built-in snapshots they were first planned against. A view body
+/// that no longer plans is left as it was rather than dropped.
+pub async fn replan_registered_views_against_current_providers(
+    ctx: &SessionContext,
+) -> datafusion::error::Result<(), DataFusionError> {
+    let statements = registered_view_statements()
+        .lock()
+        .unwrap()
+        .get(&ctx.session_id())
+        .cloned()
+        .unwrap_or_default();
+    if statements.is_empty() {
+        return Ok(());
+    }
+
+    let original_default_schema = {
+        let state = ctx.state();
+        state.config_options().catalog.default_schema.clone()
+    };
+
+    for statement in statements {
+        set_default_schema(ctx, &statement.body_resolution_schema).await?;
+        // A body that fails to re-plan leaves the prior view definition in place,
+        // so the object stays queryable rather than being dropped.
+        match ctx.sql(&statement.create_sql).await {
+            Ok(df) => {
+                let _ = df.collect().await;
+            }
+            Err(_) => continue,
+        }
+    }
+
+    set_default_schema(ctx, &original_default_schema).await
+}
 
 #[derive(Clone, Debug)]
 pub struct ClientOpts {
@@ -183,34 +255,24 @@ struct ViewToRegister {
     fallback_batches: Vec<RecordBatch>,
 }
 
-// Declared views the server registers as real `CREATE VIEW`s (re-derive from base
-// tables on every query) instead of serving as frozen MemTable snapshots. This list
-// is migrated phase by phase - see `update-views-plan.md`. A listed view whose body
-// fails to plan falls back to its MemTable snapshot (see `create_registered_views`),
-// so adding one can only upgrade it to a real view, never break startup or drop it.
+// Declared views the server serves as `CREATE VIEW`s (re-derived from the base
+// tables on every query) instead of as frozen MemTable snapshots. A listed view
+// whose body fails to plan falls back to its MemTable snapshot (see
+// `create_registered_views`), so listing one can only upgrade it to a live view,
+// never break startup or drop it.
 //
-// Phase 0: the original six - constraint views + pg_tables/pg_views.
-// Phase 1: high-value views whose body reads only base tables and reproduces the
-//          PostgreSQL snapshot exactly, so promotion makes them genuinely live.
+// A view stays off this list when its body cannot yet be served correctly (noted
+// inline next to the gap), so it keeps its MemTable snapshot.
 const VIEWS_TO_REGISTER: &[(&str, &str)] = &[
-    // Phase 0
     ("pg_catalog", "pg_views"),
     ("pg_catalog", "pg_tables"),
     ("information_schema", "table_constraints"),
     ("information_schema", "key_column_usage"),
     ("information_schema", "constraint_column_usage"),
     ("information_schema", "referential_constraints"),
-    // Phase 1 - pg_catalog
     ("pg_catalog", "pg_indexes"),
     ("pg_catalog", "pg_matviews"),
     ("pg_catalog", "pg_shadow"),
-    ("pg_catalog", "pg_user_mappings"),
-    // pg_roles is intentionally NOT here: its body projects bare qualified
-    // column refs (`pg_authid.rolname`, ...) with no AS, and the view-creation
-    // rewrite renames those to `alias_N`, so the served view exposes wrong column
-    // names. Needs the rewrite to preserve unqualified names before it can be a
-    // correct view; see update-views-plan.md.
-    // Phase 1 - information_schema
     ("information_schema", "routines"),
     ("information_schema", "sequences"),
     ("information_schema", "domains"),
@@ -238,21 +300,69 @@ const VIEWS_TO_REGISTER: &[(&str, &str)] = &[
     ("information_schema", "view_column_usage"),
     ("information_schema", "view_routine_usage"),
     ("information_schema", "view_table_usage"),
-    // NOTE: the information_schema._pg_foreign_* helper views are intentionally NOT
-    // promoted. Like pg_roles, their bodies project bare qualified columns
-    // (`w.fdwoptions`, ...) that the view-creation rewrite renames to `alias_N`,
-    // so the served view exposes wrong column names and breaks the views that read
-    // them (e.g. foreign_data_wrapper_options reads `fdwoptions`). They are empty in
-    // a static catalog, so the row-content audit missed it; the column-name check
-    // and the srf_views Rust test now catch it. See update-views-plan.md.
+    // The most-queried introspection views. They derive from pg_class /
+    // pg_attribute / pg_namespace, so register_user_relation writes only those base
+    // tables and the lazy mechanism wraps only those base tables; these views
+    // re-derive their rows rather than being shadowed by a frozen table.
+    ("information_schema", "tables"),
+    ("information_schema", "columns"),
+    ("information_schema", "schemata"),
+    ("information_schema", "views"),
+    ("information_schema", "check_constraints"),
+    ("information_schema", "parameters"),
+    ("information_schema", "element_types"),
+    ("pg_catalog", "pg_roles"),
+    ("pg_catalog", "pg_user"),
+    ("information_schema", "_pg_foreign_data_wrappers"),
+    ("information_schema", "_pg_foreign_servers"),
+    ("information_schema", "_pg_foreign_table_columns"),
+    ("information_schema", "_pg_foreign_tables"),
+    ("pg_catalog", "pg_sequences"),
+    ("information_schema", "_pg_user_mappings"),
+    ("information_schema", "administrable_role_authorizations"),
+    ("information_schema", "applicable_roles"),
+    ("information_schema", "column_options"),
+    ("information_schema", "column_privileges"),
+    ("information_schema", "data_type_privileges"),
+    ("information_schema", "foreign_data_wrapper_options"),
+    ("information_schema", "foreign_data_wrappers"),
+    ("information_schema", "foreign_server_options"),
+    ("information_schema", "foreign_servers"),
+    ("information_schema", "foreign_table_options"),
+    ("information_schema", "foreign_tables"),
+    ("information_schema", "role_column_grants"),
+    ("information_schema", "role_routine_grants"),
+    ("information_schema", "role_table_grants"),
+    ("information_schema", "role_udt_grants"),
+    ("information_schema", "role_usage_grants"),
+    ("information_schema", "routine_privileges"),
+    ("information_schema", "table_privileges"),
+    ("information_schema", "udt_privileges"),
+    ("information_schema", "usage_privileges"),
+    ("information_schema", "user_mapping_options"),
+    ("information_schema", "user_mappings"),
+    ("pg_catalog", "pg_rules"),
+    ("pg_catalog", "pg_stat_sys_indexes"),
+    ("pg_catalog", "pg_stat_sys_tables"),
+    ("pg_catalog", "pg_stat_user_indexes"),
+    ("pg_catalog", "pg_stat_user_tables"),
+    ("pg_catalog", "pg_stat_xact_sys_tables"),
+    ("pg_catalog", "pg_stat_xact_user_tables"),
+    ("pg_catalog", "pg_statio_sys_indexes"),
+    ("pg_catalog", "pg_statio_sys_sequences"),
+    ("pg_catalog", "pg_statio_sys_tables"),
+    ("pg_catalog", "pg_statio_user_indexes"),
+    ("pg_catalog", "pg_statio_user_sequences"),
+    ("pg_catalog", "pg_statio_user_tables"),
+    ("pg_catalog", "pg_user_mappings"),
 ];
 
-/// Whether to attempt registering a declared view as a real `CREATE VIEW`.
+/// Whether to attempt registering a declared view as a `CREATE VIEW`.
 ///
-/// Only views on the phased `VIEWS_TO_REGISTER` list are attempted, so startup stays
-/// fast (the dozens of views we cannot yet serve live are not re-planned every
-/// boot). A listed view whose body fails to plan falls back to its MemTable snapshot
-/// in [`create_registered_views`], so listing one never removes the object.
+/// Only views on the `VIEWS_TO_REGISTER` list are attempted, so startup stays fast
+/// (the dozens of views not served live are not planned every boot). A listed view
+/// whose body fails to plan falls back to its MemTable snapshot in
+/// [`create_registered_views`], so listing one never removes the object.
 fn should_attempt_as_view(schema_name: &str, table_name: &str, is_view: bool) -> bool {
     is_view
         && VIEWS_TO_REGISTER
@@ -1168,6 +1278,7 @@ async fn try_create_view(
     ctx: &SessionContext,
     view: &ViewToRegister,
     default_catalog: &str,
+    body_resolution_schema: &str,
 ) -> datafusion::error::Result<(), DataFusionError> {
     let qualified = format_fully_qualified_name(&view.catalog, &view.schema, &view.name);
     let definition = normalize_view_sql(&view.sql);
@@ -1181,12 +1292,29 @@ async fn try_create_view(
     let rewritten_select = {
         let inlined = inline_current_database(&definition, default_catalog);
         let rewritten = rewrite_srf_to_unnest(&inlined)?;
-        let (rewritten, _) = rewrite_filters(&rewritten)?;
+        // rewrite_filters aliases every unnamed top-level column to `alias_N` for
+        // result-set disambiguation and returns the alias -> real-name map. A view
+        // keeps its projection names as its schema, so restore the real names before
+        // CREATE VIEW; otherwise the view would expose `alias_N` to its readers.
+        let (rewritten, column_aliases) = rewrite_filters(&rewritten)?;
         let rewritten = rewrite_exists_to_count(&rewritten)?;
-        rewrite_tuple_in_subquery_to_exists(&rewritten)?
+        let rewritten = rewrite_tuple_in_subquery_to_exists(&rewritten)?;
+        restore_aliased_column_names(&rewritten, &column_aliases)?
     };
     let create_sql = format!("CREATE OR REPLACE VIEW {qualified} AS {rewritten_select}");
     ctx.sql(&create_sql).await?.collect().await?;
+
+    // Record the exact statement so the view can be re-planned against later
+    // provider swaps (see replan_registered_views_against_current_providers).
+    registered_view_statements()
+        .lock()
+        .unwrap()
+        .entry(ctx.session_id())
+        .or_default()
+        .push(RegisteredViewStatement {
+            body_resolution_schema: body_resolution_schema.to_string(),
+            create_sql,
+        });
     Ok(())
 }
 
@@ -1226,6 +1354,14 @@ async fn create_registered_views(
         return Ok(());
     }
 
+    // Start from an empty record for this session so the slot ends up holding
+    // exactly this session's successfully created views, ready to replay against
+    // later provider swaps.
+    registered_view_statements()
+        .lock()
+        .unwrap()
+        .remove(&ctx.session_id());
+
     let state = ctx.state();
     let original_default_schema = state.config_options().catalog.default_schema.clone();
     let default_catalog = state.config_options().catalog.default_catalog.clone();
@@ -1243,9 +1379,9 @@ async fn create_registered_views(
     // creates every view whose dependencies now exist; we stop when a pass creates
     // nothing new. Whatever still fails after that has a genuine engine/UDF gap
     // (not an ordering problem) and is materialized as a table instead, so the
-    // object stays queryable. The fallback is what makes growing `VIEWS_TO_REGISTER`
-    // safe: listing a view that turns out not to plan degrades it to a table rather
-    // than crashing startup or dropping it.
+    // object stays queryable. This fallback is what makes `VIEWS_TO_REGISTER` safe:
+    // listing a view that turns out not to plan degrades it to a table rather than
+    // crashing startup or dropping it.
     let result: Result<Vec<ViewToRegister>, DataFusionError> = async {
         set_default_schema(ctx, VIEW_BODY_RESOLUTION_SCHEMA).await?;
         let mut pending = views;
@@ -1254,7 +1390,9 @@ async fn create_registered_views(
             let mut created_this_pass = 0usize;
             let mut last_error: Option<(String, DataFusionError)> = None;
             for view in pending {
-                match try_create_view(ctx, &view, &default_catalog).await {
+                match try_create_view(ctx, &view, &default_catalog, VIEW_BODY_RESOLUTION_SCHEMA)
+                    .await
+                {
                     Ok(()) => created_this_pass += 1,
                     Err(err) => {
                         last_error = Some((
@@ -1423,6 +1561,8 @@ async fn build_base_session_context(
     register_pg_my_temp_schema(&ctx)?;
     register_getdatabaseencoding(&ctx)?;
     register_pg_relation_is_updatable(&ctx)?;
+    register_pg_sequence_last_value(&ctx)?;
+    register_row_security_active(&ctx)?;
     register_pg_column_is_updatable(&ctx)?;
     register_pg_get_function_arg_default(&ctx)?;
     register_format(&ctx)?;
