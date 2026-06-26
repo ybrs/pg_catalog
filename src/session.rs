@@ -355,6 +355,55 @@ const VIEWS_TO_REGISTER: &[(&str, &str)] = &[
     ("pg_catalog", "pg_statio_user_sequences"),
     ("pg_catalog", "pg_statio_user_tables"),
     ("pg_catalog", "pg_user_mappings"),
+    // Runtime-function-backed views, now plannable because their statistics /
+    // live-state functions are registered (resolver-backed, empty by default).
+    ("pg_catalog", "pg_stat_all_tables"),
+    ("pg_catalog", "pg_stat_all_indexes"),
+    ("pg_catalog", "pg_stat_xact_all_tables"),
+    ("pg_catalog", "pg_statio_all_indexes"),
+    ("pg_catalog", "pg_statio_all_sequences"),
+    ("pg_catalog", "pg_stat_database"),
+    ("pg_catalog", "pg_stat_database_conflicts"),
+    ("pg_catalog", "pg_stat_user_functions"),
+    ("pg_catalog", "pg_stat_xact_user_functions"),
+    ("pg_catalog", "pg_stat_activity"),
+    ("pg_catalog", "pg_stat_replication"),
+    ("pg_catalog", "pg_stat_gssapi"),
+    ("pg_catalog", "pg_stat_ssl"),
+    ("pg_catalog", "pg_stat_io"),
+    ("pg_catalog", "pg_stat_slru"),
+    ("pg_catalog", "pg_stat_subscription"),
+    ("pg_catalog", "pg_stat_recovery_prefetch"),
+    ("pg_catalog", "pg_stat_progress_analyze"),
+    ("pg_catalog", "pg_stat_progress_basebackup"),
+    ("pg_catalog", "pg_stat_progress_cluster"),
+    ("pg_catalog", "pg_stat_progress_copy"),
+    ("pg_catalog", "pg_stat_progress_vacuum"),
+    ("pg_catalog", "pg_locks"),
+    ("pg_catalog", "pg_cursors"),
+    ("pg_catalog", "pg_prepared_statements"),
+    ("pg_catalog", "pg_prepared_xacts"),
+    ("pg_catalog", "pg_file_settings"),
+    ("pg_catalog", "pg_wait_events"),
+    ("pg_catalog", "pg_backend_memory_contexts"),
+    ("pg_catalog", "pg_shmem_allocations"),
+    ("pg_catalog", "pg_replication_slots"),
+    ("pg_catalog", "pg_replication_origin_status"),
+    ("information_schema", "user_mapping_options"),
+    // Views unblocked by the record-returning, visibility-predicate, and remaining
+    // scalar runtime functions (resolver-backed, empty by default).
+    ("pg_catalog", "pg_stat_archiver"),
+    ("pg_catalog", "pg_stat_wal"),
+    ("pg_catalog", "pg_stat_wal_receiver"),
+    ("pg_catalog", "pg_stat_replication_slots"),
+    ("pg_catalog", "pg_stat_subscription_stats"),
+    ("pg_catalog", "pg_stat_bgwriter"),
+    ("pg_catalog", "pg_stat_checkpointer"),
+    ("pg_catalog", "pg_stat_progress_create_index"),
+    ("pg_catalog", "pg_seclabels"),
+    ("pg_catalog", "pg_publication_tables"),
+    ("pg_catalog", "pg_stats_ext"),
+    ("pg_catalog", "pg_stats_ext_exprs"),
 ];
 
 /// Whether to attempt registering a declared view as a `CREATE VIEW`.
@@ -1563,6 +1612,8 @@ async fn build_base_session_context(
     register_pg_relation_is_updatable(&ctx)?;
     register_pg_sequence_last_value(&ctx)?;
     register_row_security_active(&ctx)?;
+    crate::runtime_function_resolvers::register_all_scalar_resolvers(&ctx);
+    crate::runtime_function_resolvers::register_all_table_resolvers(&ctx);
     register_pg_column_is_updatable(&ctx)?;
     register_pg_get_function_arg_default(&ctx)?;
     register_format(&ctx)?;

@@ -98,6 +98,31 @@ KNOWN_COUNT_MISMATCHES = {
     "information_schema.role_usage_grants": "derives from partial usage_privileges view",
     # One role short: we don't fully model pg_auth_members role membership yet.
     "information_schema.applicable_roles": "role membership (pg_auth_members) not fully modeled",
+    # The pg_stat_get_* functions are now registered (resolver-backed, NULL by
+    # default), so these views enumerate their objects with NULL statistics instead
+    # of erroring. Their snapshots were captured empty, so the counts now differ.
+    "pg_catalog.pg_stat_all_tables": "enumerates tables with NULL stats (pg_stat_get_* stubbed)",
+    "pg_catalog.pg_stat_all_indexes": "enumerates indexes with NULL stats (pg_stat_get_* stubbed)",
+    "pg_catalog.pg_stat_xact_all_tables": "enumerates tables with NULL stats (pg_stat_get_* stubbed)",
+    "pg_catalog.pg_statio_all_indexes": "enumerates indexes with NULL stats (pg_stat_get_* stubbed)",
+    "pg_catalog.pg_stat_database": "enumerates databases with NULL stats (pg_stat_get_* stubbed)",
+    "pg_catalog.pg_stat_database_conflicts": "enumerates databases with NULL stats (pg_stat_get_* stubbed)",
+    # The sys/user views derive from those enumerating parents, so they enumerate too.
+    "pg_catalog.pg_stat_sys_tables": "derives from enumerating pg_stat_all_tables",
+    "pg_catalog.pg_stat_sys_indexes": "derives from enumerating pg_stat_all_indexes",
+    "pg_catalog.pg_stat_user_tables": "derives from enumerating pg_stat_all_tables",
+    "pg_catalog.pg_stat_xact_sys_tables": "derives from enumerating pg_stat_xact_all_tables",
+    "pg_catalog.pg_stat_xact_user_tables": "derives from enumerating pg_stat_xact_all_tables",
+    "pg_catalog.pg_statio_sys_indexes": "derives from enumerating pg_statio_all_indexes",
+    # Live-state views: real views over a set-returning function with no resolver, so
+    # empty here while the snapshot has live rows.
+    "pg_catalog.pg_file_settings": "empty: pg_show_all_file_settings has no resolver",
+    "pg_catalog.pg_wait_events": "empty: pg_get_wait_events has no resolver",
+    # Single-row global-stats views: a scalar SELECT with no FROM always yields exactly
+    # one all-NULL row (as real PostgreSQL yields one live row), where the snapshot is
+    # empty. The bgwriter/checkpointer stat functions have no resolver installed.
+    "pg_catalog.pg_stat_bgwriter": "one all-NULL row: bgwriter stat functions have no resolver",
+    "pg_catalog.pg_stat_checkpointer": "one all-NULL row: checkpointer stat functions have no resolver",
 }
 
 # Views whose row count matches but whose CONTENT differs, because they expose a
@@ -127,9 +152,7 @@ KNOWN_CONTENT_MISMATCHES = {
 # so the hardened count test stays green now but flags any *new* such regression.
 KNOWN_EXEC_FAILURES = {
     "pg_catalog.pg_available_extension_versions": "GROUP BY wildcard not planned",
-    "pg_catalog.pg_file_settings": "table function pg_show_all_file_settings missing",
     "pg_catalog.pg_group": "pg_authid.oid not resolvable after subquery flattening",
-    "pg_catalog.pg_wait_events": "table function pg_get_wait_events missing",
 }
 
 

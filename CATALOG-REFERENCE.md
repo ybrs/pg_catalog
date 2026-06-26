@@ -6,11 +6,13 @@ actually works today**. Verified 2026-06-26.
 
 - **75 base tables** (71 `pg_catalog` + 4 `information_schema`) - all served as
   tables and queryable (**75 working**).
-- **136 objects declared `type: view`** - **85 are now actually served as views**
-  (67 working + 18 partial); the other **51 are still materialized as tables** (a
-  view in name only) and are therefore **broken**. Promotion is ongoing - see
-  [`update-views-plan.md`](update-views-plan.md) for the phased migration and which
-  views are done vs skipped.
+- **136 objects declared `type: view`** - **126 are now actually served as views**
+  (92 working + 34 partial); only **10 are still materialized as tables**, every one
+  blocked on an engine/parser gap rather than a missing function. The stat /
+  live-state views became real (empty) views once their runtime functions were
+  registered as integration-installable resolvers; every missing function (111 total)
+  is now wired - see [`update-views-plan.md`](update-views-plan.md) and
+  `src/runtime_function_resolvers.rs`.
 
 Every status here is machine-checked, not asserted. The numbers come from
 `claude-scripts/audit_catalog_objects.py`, which enumerates every object, reads

@@ -8,25 +8,34 @@ their base tables, so broken as views. This plan promotes them to real views.
 Phases are ordered by priority: lower number = do sooner. Phase 1 is done; Phase 2
 (the critical introspection views) and Phase 3 (remaining critical/high) are done.
 
-**Progress: 85 of 136 are now real views** - 67 working plus 18 partial. The goal is
+**Progress: 126 of 136 are now real views** - 92 working plus 34 partial. The goal is
 structural: every declared view should be served as a view, even when it derives 0
 rows because the underlying tables/functions are not populated yet (that data is a
-separate future iteration). Every view whose `view_sql` plans is registered; the
-18 partials diverge only on documented stub columns or are empty because their source
-is empty (e.g. the privilege views and the `role_*_grants` over them - GRANTs are not
-modeled). Verified by `claude-scripts/audit_catalog_objects.py` and the full Rust +
-Python suites.
+separate future iteration). The stat / live-state views (`pg_stat_*`, `pg_locks`,
+`pg_cursors`, the `pg_stat_progress_*`, ...) are now real, empty-by-default views: the
+runtime functions they call are registered as integration-installable resolvers
+(`src/runtime_function_resolvers.rs`). **Every missing function is wired** - all 111
+(92 scalar + 19 set-returning), each with its own explicit typed `set_<fn>_resolver`.
+The full contract - every function, signature, and (for table functions) output schema
+- is in `claude-scripts/missing_functions.md`. Verified by
+`claude-scripts/audit_catalog_objects.py` and the full Rust + Python suites.
 
 The `alias_N` rewrite bug is fixed: `restore_aliased_column_names`
 (`src/clean_duplicate_columns.rs`) restores a view body's real column names before
 `CREATE VIEW`.
 
-**Remaining 51 not-yet-views:**
-- **2 plan standalone but their `CREATE VIEW` fails** - `pg_user_mappings`,
-  `information_schema.user_mapping_options` (fall back to tables; needs a look).
-- **49 whose `view_sql` does not plan** - blocked on missing runtime functions or
-  engine gaps (Phase 4 below). Promoting these is the underlying-data work for later
-  iterations.
+**Remaining 10 not-yet-views - all blocked on engine/parser gaps, not functions:**
+- `pg_user_mappings`, `information_schema.user_mapping_options` - `CREATE VIEW` fails.
+- `pg_available_extension_versions` - `GROUP BY` wildcard expansion.
+- `pg_group` - `pg_authid.oid` not exposed through the `ARRAY(subquery)` rewrite.
+- `pg_policies` - unsupported SQL type name (`oid[]` cast).
+- `pg_publication_tables` - `ARRAY` parser gap.
+- `pg_statio_all_tables` - correlated `OuterReferenceColumn` has no physical plan
+  (pulled back to a table on purpose: as a view it plans but errors at execution).
+- `pg_stats` - `anyarray` column type.
+- `pg_stats_ext`, `pg_stats_ext_exprs` - `int2vector` unnest, `anyarray`, composite
+  field access. Their `pg_get_statisticsobjdef_expressions` / `pg_mcv_list_items`
+  functions are wired; the views still need these engine features.
 
 Source of the per-view facts: `claude-scripts/plan_view_promotion.py` (feasibility:
 `view_sql` status, view-on-view dependencies, merge-target) and

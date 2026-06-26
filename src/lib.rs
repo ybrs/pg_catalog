@@ -11,6 +11,7 @@ pub mod register_table;
 pub mod replace;
 pub mod replace_any_group_by;
 pub mod router;
+pub mod runtime_function_resolvers;
 pub mod scalar_to_cte;
 pub mod server;
 pub mod session;
@@ -21,6 +22,8 @@ pub use lazy_pg_catalog_helpers::*;
 pub use pg_catalog_helpers::*;
 // Re-export commonly used functions at crate root for convenience.
 pub use router::dispatch_query;
+// Every `set_<fn>_resolver` / `clear_<fn>_resolver` the macro generates is public API.
+pub use runtime_function_resolvers::*;
 pub use server::start_server;
 pub use session::{
     build_ipc_artifact, get_base_session_context, get_base_session_context_with_lazy_catalog,

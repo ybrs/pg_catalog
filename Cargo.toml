@@ -31,6 +31,9 @@ env_logger = "0.11"
 once_cell = "1.21.4"
 datafusion-functions-aggregate = "54.0.0"
 zip = "8"
+# Build-time identifier concatenation so one declarative line per catalog function
+# generates its explicit `set_<fn>_resolver` API (see runtime_function_resolvers).
+paste = "1"
 
 [dev-dependencies]
 tempfile = "3"
