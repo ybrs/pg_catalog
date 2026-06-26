@@ -6,10 +6,13 @@ use std::sync::{
 use arrow::array::Array;
 use datafusion::error::{DataFusionError, Result as DFResult};
 use datafusion_pg_catalog::{
-    get_base_session_context, get_base_session_context_with_lazy_catalog, register_lazy_catalog,
-    register_user_database_with_callback, ColumnSpec, ConfigSettingDef, ConstraintDef, DatabaseDef,
-    IndexDef, LazyCatalogOptions, LazyCatalogSource, LazyDatabaseRow, RelationDef, RelationKind,
-    SchemaDef, SettingDef,
+    clear_index_definition_resolver, clear_view_definition_resolver, get_base_session_context,
+    get_base_session_context_with_lazy_catalog, register_lazy_catalog,
+    register_user_database_with_callback, set_index_definition_resolver,
+    set_view_definition_resolver, ColumnSpec, ConfigSettingDef, ConstraintDef, DatabaseDef,
+    IndexDef, IndexDefinitionResolver, IndexIdentity, LazyCatalogOptions, LazyCatalogSource,
+    LazyDatabaseRow, RelationDef, RelationKind, SchemaDef, SettingDef, ViewDefinitionResolver,
+    ViewIdentity,
 };
 
 /// Collect a single-column `StringArray` result into a `Vec<String>`.
@@ -732,7 +735,11 @@ impl LazyCatalogSource for IndexedSource {
             // A non-unique secondary index spanning columns 1 ('id') and 2
             // ('note'), so pg_get_indexdef must list multiple key columns in order.
             let spanning = IndexDef::new(80301, "indexed_id_note_idx", 80200, vec![1, 2]);
-            callback(vec![pkey, spanning]);
+            // A functional/expression index (key column 0 = an expression), which
+            // the structural render cannot describe; its text comes from the
+            // installed index-definition resolver.
+            let expression = IndexDef::new(80302, "indexed_lower_note_idx", 80200, vec![0]);
+            callback(vec![pkey, spanning, expression]);
         }
         Ok(())
     }
@@ -810,6 +817,7 @@ async fn test_lazy_pg_index_reflects_source() -> DFResult<()> {
         by_table,
         vec![
             "indexed_id_note_idx".to_string(),
+            "indexed_lower_note_idx".to_string(),
             "indexed_pkey".to_string()
         ]
     );
@@ -1298,4 +1306,191 @@ async fn test_pg_config_defaults_without_callback() -> DFResult<()> {
     .await?;
     assert_eq!(version, vec!["PostgreSQL 17.4".to_string()]);
     Ok(())
+}
+
+/// A lazy source exposing one view, `active_users` (oid 80700), in `viewdb.public`.
+/// It carries no definition text itself - the text is supplied separately by a
+/// [`ViewDefinitionResolver`], mirroring the Phase 3 "integration supplies
+/// definitions" contract.
+struct ViewSource;
+
+impl LazyCatalogSource for ViewSource {
+    fn databases(&self, callback: &mut dyn FnMut(Vec<DatabaseDef>)) -> DFResult<()> {
+        callback(vec![db("viewdb", 80501)]);
+        Ok(())
+    }
+    fn schemas(&self, database: &str, callback: &mut dyn FnMut(Vec<SchemaDef>)) -> DFResult<()> {
+        if database == "viewdb" {
+            callback(vec![SchemaDef::new(80600, "public")]);
+        }
+        Ok(())
+    }
+    fn relations(
+        &self,
+        database: &str,
+        schema: &str,
+        callback: &mut dyn FnMut(Vec<RelationDef>),
+    ) -> DFResult<()> {
+        if database == "viewdb" && schema == "public" {
+            callback(vec![RelationDef {
+                oid: 80700,
+                reltype_oid: 80701,
+                name: "active_users".to_string(),
+                kind: RelationKind::View,
+                owner_oid: Some(80010),
+                has_index: false,
+                has_rules: false,
+                has_triggers: false,
+                row_security: false,
+            }]);
+        }
+        Ok(())
+    }
+    fn columns(
+        &self,
+        _d: &str,
+        _s: &str,
+        _r: &str,
+        callback: &mut dyn FnMut(Vec<ColumnSpec>),
+    ) -> DFResult<()> {
+        callback(vec![ColumnSpec::new("id", 23, false)]);
+        Ok(())
+    }
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_pg_get_viewdef_uses_registered_resolver() -> DFResult<()> {
+    // A registered view becomes a relkind 'v' pg_class row; pg_get_viewdef returns
+    // whatever the integration-supplied resolver produces for that view, and NULL
+    // when the resolver declines or the oid names no view.
+    let (ctx, _log) = get_base_session_context_with_lazy_catalog(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
+        None,
+        Arc::new(ViewSource),
+        LazyCatalogOptions::all(),
+    )
+    .await?;
+
+    // The integration supplies definition text keyed on the view's identity. The
+    // resolver is process-wide, so clear it at the end to avoid leaking into other
+    // tests sharing this binary.
+    let resolver: ViewDefinitionResolver = Arc::new(|view: &ViewIdentity| {
+        if view.schema == "public" && view.name == "active_users" {
+            Some("SELECT id FROM users WHERE active".to_string())
+        } else {
+            None
+        }
+    });
+    set_view_definition_resolver(resolver);
+
+    let outcome = async {
+        // pg_get_viewdef of the view's oid returns the supplied text.
+        let definition = string_column(&ctx, "SELECT pg_catalog.pg_get_viewdef(80700)").await?;
+        assert_eq!(
+            definition,
+            vec!["SELECT id FROM users WHERE active".to_string()],
+            "pg_get_viewdef must return the resolver-supplied text"
+        );
+
+        // An oid that names no view resolves to NULL.
+        let unknown = int_column(
+            &ctx,
+            "SELECT (pg_catalog.pg_get_viewdef(999999) IS NULL)::int",
+        )
+        .await?;
+        assert_eq!(
+            unknown,
+            vec![1],
+            "pg_get_viewdef of an unknown oid must be NULL"
+        );
+
+        // pg_views.definition, which calls pg_get_viewdef(c.oid), reflects the same
+        // supplied text for the live view row.
+        let via_pg_views = string_column(
+            &ctx,
+            "SELECT definition FROM pg_catalog.pg_views WHERE viewname = 'active_users'",
+        )
+        .await?;
+        assert_eq!(
+            via_pg_views,
+            vec!["SELECT id FROM users WHERE active".to_string()],
+            "pg_views.definition must reflect the resolver text for the registered view"
+        );
+        Ok::<(), DataFusionError>(())
+    }
+    .await;
+
+    clear_view_definition_resolver();
+    outcome
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_pg_get_indexdef_uses_index_resolver_for_expression_index() -> DFResult<()> {
+    // A functional/expression index cannot be rendered structurally; its
+    // CREATE INDEX text comes from the installed index-definition resolver, while
+    // plain indexes keep rendering structurally and ignore the resolver.
+    let (ctx, _log) = get_base_session_context_with_lazy_catalog(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
+        None,
+        Arc::new(IndexedSource),
+        LazyCatalogOptions::all(),
+    )
+    .await?;
+
+    // With no resolver installed, the expression index (oid 80302) is NULL.
+    let before = int_column(
+        &ctx,
+        "SELECT (pg_catalog.pg_get_indexdef(80302) IS NULL)::int",
+    )
+    .await?;
+    assert_eq!(
+        before,
+        vec![1],
+        "expression index must be NULL with no resolver installed"
+    );
+
+    // The resolver is process-wide, so clear it at the end to avoid leaking into
+    // other tests sharing this binary.
+    let resolver: IndexDefinitionResolver = Arc::new(|index: &IndexIdentity| {
+        if index.schema == "public" && index.name == "indexed_lower_note_idx" {
+            Some(
+                "CREATE INDEX indexed_lower_note_idx ON public.indexed USING btree (lower(note))"
+                    .to_string(),
+            )
+        } else {
+            None
+        }
+    });
+    set_index_definition_resolver(resolver);
+
+    let outcome = async {
+        // The expression index now gets the resolver-supplied text.
+        let expr = string_column(&ctx, "SELECT pg_catalog.pg_get_indexdef(80302)").await?;
+        assert_eq!(
+            expr,
+            vec![
+                "CREATE INDEX indexed_lower_note_idx ON public.indexed USING btree (lower(note))"
+                    .to_string()
+            ],
+            "expression index must use the resolver-supplied text"
+        );
+
+        // A plain index still renders structurally - the resolver is not consulted
+        // for indexes pg_catalog can describe from the catalog alone.
+        let plain = string_column(&ctx, "SELECT pg_catalog.pg_get_indexdef(80300)").await?;
+        assert_eq!(
+            plain,
+            vec!["CREATE UNIQUE INDEX indexed_pkey ON public.indexed USING btree (id)".to_string()],
+            "plain index must keep its structural render"
+        );
+        Ok::<(), DataFusionError>(())
+    }
+    .await;
+
+    clear_index_definition_resolver();
+    outcome
 }

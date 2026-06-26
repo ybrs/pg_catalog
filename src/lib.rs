@@ -25,3 +25,8 @@ pub use server::start_server;
 pub use session::{
     build_ipc_artifact, get_base_session_context, get_base_session_context_with_lazy_catalog,
 };
+pub use user_functions::{
+    clear_index_definition_resolver, clear_view_definition_resolver, set_index_definition_resolver,
+    set_view_definition_resolver, DefinitionResolver, IndexDefinitionResolver, IndexIdentity,
+    ViewDefinitionResolver, ViewIdentity,
+};

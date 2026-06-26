@@ -177,23 +177,87 @@ struct ViewToRegister {
     schema: String,
     name: String,
     sql: String,
+    // The materialized snapshot to register if this view's body cannot be planned
+    // as a `CREATE VIEW` - the fallback that keeps the object queryable as a table.
+    fallback_schema: SchemaRef,
+    fallback_batches: Vec<RecordBatch>,
 }
 
-const VIEW_ONLY_TABLES: &[(&str, &str)] = &[
+// Declared views the server registers as real `CREATE VIEW`s (re-derive from base
+// tables on every query) instead of serving as frozen MemTable snapshots. This list
+// is migrated phase by phase - see `update-views-plan.md`. A listed view whose body
+// fails to plan falls back to its MemTable snapshot (see `create_registered_views`),
+// so adding one can only upgrade it to a real view, never break startup or drop it.
+//
+// Phase 0: the original six - constraint views + pg_tables/pg_views.
+// Phase 1: high-value views whose body reads only base tables and reproduces the
+//          PostgreSQL snapshot exactly, so promotion makes them genuinely live.
+const VIEWS_TO_REGISTER: &[(&str, &str)] = &[
+    // Phase 0
     ("pg_catalog", "pg_views"),
     ("pg_catalog", "pg_tables"),
-    // Constraint views served live so they reflect runtime-registered user
-    // constraints (pg_constraint) rather than the frozen seed snapshot.
     ("information_schema", "table_constraints"),
     ("information_schema", "key_column_usage"),
     ("information_schema", "constraint_column_usage"),
     ("information_schema", "referential_constraints"),
+    // Phase 1 - pg_catalog
+    ("pg_catalog", "pg_indexes"),
+    ("pg_catalog", "pg_matviews"),
+    ("pg_catalog", "pg_shadow"),
+    ("pg_catalog", "pg_user_mappings"),
+    // pg_roles is intentionally NOT here: its body projects bare qualified
+    // column refs (`pg_authid.rolname`, ...) with no AS, and the view-creation
+    // rewrite renames those to `alias_N`, so the served view exposes wrong column
+    // names. Needs the rewrite to preserve unqualified names before it can be a
+    // correct view; see update-views-plan.md.
+    // Phase 1 - information_schema
+    ("information_schema", "routines"),
+    ("information_schema", "sequences"),
+    ("information_schema", "domains"),
+    ("information_schema", "attributes"),
+    ("information_schema", "triggers"),
+    ("information_schema", "user_defined_types"),
+    ("information_schema", "column_udt_usage"),
+    ("information_schema", "column_domain_usage"),
+    ("information_schema", "constraint_table_usage"),
+    ("information_schema", "character_sets"),
+    ("information_schema", "collations"),
+    ("information_schema", "collation_character_set_applicability"),
+    ("information_schema", "check_constraint_routine_usage"),
+    ("information_schema", "column_column_usage"),
+    ("information_schema", "domain_constraints"),
+    ("information_schema", "domain_udt_usage"),
+    ("information_schema", "enabled_roles"),
+    ("information_schema", "information_schema_catalog_name"),
+    ("information_schema", "routine_column_usage"),
+    ("information_schema", "routine_routine_usage"),
+    ("information_schema", "routine_sequence_usage"),
+    ("information_schema", "routine_table_usage"),
+    ("information_schema", "triggered_update_columns"),
+    ("information_schema", "transforms"),
+    ("information_schema", "view_column_usage"),
+    ("information_schema", "view_routine_usage"),
+    ("information_schema", "view_table_usage"),
+    // NOTE: the information_schema._pg_foreign_* helper views are intentionally NOT
+    // promoted. Like pg_roles, their bodies project bare qualified columns
+    // (`w.fdwoptions`, ...) that the view-creation rewrite renames to `alias_N`,
+    // so the served view exposes wrong column names and breaks the views that read
+    // them (e.g. foreign_data_wrapper_options reads `fdwoptions`). They are empty in
+    // a static catalog, so the row-content audit missed it; the column-name check
+    // and the srf_views Rust test now catch it. See update-views-plan.md.
 ];
 
-fn should_register_as_view(schema_name: &str, table_name: &str) -> bool {
-    VIEW_ONLY_TABLES
-        .iter()
-        .any(|(schema, table)| *schema == schema_name && *table == table_name)
+/// Whether to attempt registering a declared view as a real `CREATE VIEW`.
+///
+/// Only views on the phased `VIEWS_TO_REGISTER` list are attempted, so startup stays
+/// fast (the dozens of views we cannot yet serve live are not re-planned every
+/// boot). A listed view whose body fails to plan falls back to its MemTable snapshot
+/// in [`create_registered_views`], so listing one never removes the object.
+fn should_attempt_as_view(schema_name: &str, table_name: &str, is_view: bool) -> bool {
+    is_view
+        && VIEWS_TO_REGISTER
+            .iter()
+            .any(|(schema, table)| *schema == schema_name && *table == table_name)
 }
 
 fn quote_identifier(ident: &str) -> String {
@@ -1057,25 +1121,24 @@ async fn register_catalogs_from_schemas(
                     is_view,
                 } = table_info;
 
-                if should_register_as_view(schema_name.as_str(), table.as_str()) {
+                if should_attempt_as_view(schema_name.as_str(), table.as_str(), is_view) {
                     if let Some(sql) = view_sql {
-                        if !is_view {
-                            log::warn!(
-                                "view-only table list contains non-view entry {}.{}",
-                                schema_name,
-                                table
-                            );
-                        }
+                        // Defer to create_registered_views: it tries CREATE VIEW and,
+                        // if the body cannot be planned, registers the snapshot below
+                        // as a MemTable instead. We hand it the snapshot so that
+                        // fallback needs nothing from this loop's per-schema state.
                         views_to_register.push(ViewToRegister {
                             catalog: current_catalog.clone(),
                             schema: schema_name.clone(),
                             name: table.clone(),
                             sql,
+                            fallback_schema: schema_ref,
+                            fallback_batches: batches,
                         });
                         continue;
                     } else {
                         log::warn!(
-                            "view_sql missing for table {}.{}; falling back to table registration",
+                            "view_sql missing for view {}.{}; registering its snapshot as a table",
                             schema_name,
                             table
                         );
@@ -1095,9 +1158,69 @@ async fn register_catalogs_from_schemas(
     Ok(views_to_register)
 }
 
+/// Build and run the `CREATE OR REPLACE VIEW` for one declared view.
+///
+/// Returns `Ok(())` when the body planned and the view was registered. An `Err`
+/// means the body could not be planned in the current context - either a genuine
+/// engine/UDF gap or simply a view it depends on not existing yet; the caller
+/// distinguishes the two by retrying (see [`create_registered_views`]).
+async fn try_create_view(
+    ctx: &SessionContext,
+    view: &ViewToRegister,
+    default_catalog: &str,
+) -> datafusion::error::Result<(), DataFusionError> {
+    let qualified = format_fully_qualified_name(&view.catalog, &view.schema, &view.name);
+    let definition = normalize_view_sql(&view.sql);
+    if definition.is_empty() {
+        return Err(DataFusionError::Execution(format!(
+            "view_sql for {} is empty",
+            qualified
+        )));
+    }
+
+    let rewritten_select = {
+        let inlined = inline_current_database(&definition, default_catalog);
+        let rewritten = rewrite_srf_to_unnest(&inlined)?;
+        let (rewritten, _) = rewrite_filters(&rewritten)?;
+        let rewritten = rewrite_exists_to_count(&rewritten)?;
+        rewrite_tuple_in_subquery_to_exists(&rewritten)?
+    };
+    let create_sql = format!("CREATE OR REPLACE VIEW {qualified} AS {rewritten_select}");
+    ctx.sql(&create_sql).await?.collect().await?;
+    Ok(())
+}
+
+/// Register a declared view's snapshot as a MemTable - the fallback for a view whose
+/// body cannot be planned, so the object stays queryable as a table rather than
+/// vanishing.
+fn register_view_as_table(
+    ctx: &SessionContext,
+    view: ViewToRegister,
+    log: Arc<Mutex<Vec<ScanTrace>>>,
+) -> datafusion::error::Result<(), DataFusionError> {
+    let schema_provider = ctx
+        .catalog(&view.catalog)
+        .and_then(|catalog| catalog.schema(&view.schema))
+        .ok_or_else(|| {
+            DataFusionError::Execution(format!(
+                "schema {}.{} not found while materializing view {}",
+                view.catalog, view.schema, view.name
+            ))
+        })?;
+    let base = ScanRecordingMemTable::new(
+        view.name.clone(),
+        view.fallback_schema,
+        log,
+        view.fallback_batches,
+    );
+    schema_provider.register_table(view.name, Arc::new(base))?;
+    Ok(())
+}
+
 async fn create_registered_views(
     ctx: &SessionContext,
     views: Vec<ViewToRegister>,
+    log: Arc<Mutex<Vec<ScanTrace>>>,
 ) -> datafusion::error::Result<(), DataFusionError> {
     if views.is_empty() {
         return Ok(());
@@ -1111,49 +1234,67 @@ async fn create_registered_views(
     // Catalog view bodies reference their base tables (pg_class, pg_attribute,
     // pg_constraint, ...) unqualified, and those all live in pg_catalog - so
     // resolve every view body under pg_catalog regardless of which schema the
-    // view itself belongs to. The CREATE statement below is fully schema-
-    // qualified, so each view still lands in its own schema (e.g.
-    // information_schema.table_constraints).
+    // view itself belongs to. Each CREATE statement is fully schema-qualified, so a
+    // view still lands in its own schema (e.g. information_schema.table_constraints).
     const VIEW_BODY_RESOLUTION_SCHEMA: &str = "pg_catalog";
-    // Create the views under the pg_catalog resolution schema, but capture the
-    // result so the session's default schema is ALWAYS restored afterward - even if a
-    // view fails - rather than left pinned to pg_catalog on an early error.
-    let result: Result<(), DataFusionError> = async {
-        let mut active_default_schema = original_default_schema.clone();
-        for view in views {
-            if active_default_schema != VIEW_BODY_RESOLUTION_SCHEMA {
-                set_default_schema(ctx, VIEW_BODY_RESOLUTION_SCHEMA).await?;
-                active_default_schema = VIEW_BODY_RESOLUTION_SCHEMA.to_string();
-            }
 
-            let qualified = format_fully_qualified_name(&view.catalog, &view.schema, &view.name);
-            let definition = normalize_view_sql(&view.sql);
-            if definition.is_empty() {
-                return Err(DataFusionError::Execution(format!(
-                    "view_sql for {} is empty",
-                    qualified
-                )));
+    // A view body may reference another declared view, so the order we try them in
+    // matters. Rather than topologically sort, retry to a fixpoint: each pass
+    // creates every view whose dependencies now exist; we stop when a pass creates
+    // nothing new. Whatever still fails after that has a genuine engine/UDF gap
+    // (not an ordering problem) and is materialized as a table instead, so the
+    // object stays queryable. The fallback is what makes growing `VIEWS_TO_REGISTER`
+    // safe: listing a view that turns out not to plan degrades it to a table rather
+    // than crashing startup or dropping it.
+    let result: Result<Vec<ViewToRegister>, DataFusionError> = async {
+        set_default_schema(ctx, VIEW_BODY_RESOLUTION_SCHEMA).await?;
+        let mut pending = views;
+        loop {
+            let mut still_failing = Vec::new();
+            let mut created_this_pass = 0usize;
+            let mut last_error: Option<(String, DataFusionError)> = None;
+            for view in pending {
+                match try_create_view(ctx, &view, &default_catalog).await {
+                    Ok(()) => created_this_pass += 1,
+                    Err(err) => {
+                        last_error = Some((
+                            format!("{}.{}.{}", view.catalog, view.schema, view.name),
+                            err,
+                        ));
+                        still_failing.push(view);
+                    }
+                }
             }
-
-            let rewritten_select = {
-                let inlined = inline_current_database(&definition, &default_catalog);
-                let rewritten = rewrite_srf_to_unnest(&inlined)?;
-                let (rewritten, _) = rewrite_filters(&rewritten)?;
-                let rewritten = rewrite_exists_to_count(&rewritten)?;
-                rewrite_tuple_in_subquery_to_exists(&rewritten)?
-            };
-            let create_sql = format!("CREATE OR REPLACE VIEW {qualified} AS {rewritten_select}");
-            ctx.sql(&create_sql).await?.collect().await?;
+            if created_this_pass == 0 {
+                if let Some((name, err)) = last_error {
+                    log::debug!(
+                        "{} declared view(s) could not be planned; materializing as tables. \
+                         last error ({}): {}",
+                        still_failing.len(),
+                        name,
+                        err
+                    );
+                }
+                break Ok(still_failing);
+            }
+            pending = still_failing;
+            if pending.is_empty() {
+                break Ok(Vec::new());
+            }
         }
-        Ok(())
     }
     .await;
 
     // Restore the original default schema on every exit path; a view error takes
     // precedence over a restore error.
     let restored = set_default_schema(ctx, &original_default_schema).await;
-    result?;
+    let unplannable = result?;
     restored?;
+
+    // Views whose bodies never planned fall back to their materialized snapshot.
+    for view in unplannable {
+        register_view_as_table(ctx, view, log.clone())?;
+    }
     Ok(())
 }
 
@@ -1188,10 +1329,10 @@ pub async fn get_base_session_context(
 /// Like [`get_base_session_context`], but installs a lazy catalog `source` (over
 /// `options`) **before** the catalog views are created.
 ///
-/// This matters because catalog views (those in `VIEW_ONLY_TABLES`, currently
-/// `pg_views` and `pg_tables`) are planned during session construction and bind
-/// to the table providers that exist at that moment. Registering the lazy source
-/// here - before view creation - makes those views resolve against the lazy
+/// This matters because the catalog's real views (every declared view whose body
+/// plans - see [`create_registered_views`]) are planned during session construction
+/// and bind to the table providers that exist at that moment. Registering the lazy
+/// source here - before view creation - makes those views resolve against the lazy
 /// providers, so they reflect the source's rows.
 /// Calling [`register_lazy_catalog`] *after* `get_base_session_context` only
 /// rebinds the base tables; the already-created views keep pointing at the
@@ -1321,7 +1462,7 @@ async fn build_base_session_context(
         register_lazy_catalog(&ctx, source, options).await?;
     }
 
-    create_registered_views(&ctx, pending_views).await?;
+    create_registered_views(&ctx, pending_views, scan_traces.clone()).await?;
 
     let catalogs = ctx.catalog_names();
     log::info!("registered catalogs: {:?}", catalogs);

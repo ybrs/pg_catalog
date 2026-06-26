@@ -2984,58 +2984,19 @@ pub fn register_version_fn(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// pg_catalog.pg_get_viewdef(oid [, bool]) -> text
+/// Register `pg_catalog.pg_get_viewdef(oid [, pretty])`.
 ///
-/// Returns NULL placeholder for now.
+/// The function resolves each view OID to its identity from the live catalog and
+/// asks the process-wide [`ViewDefinitionResolver`] (set by
+/// [`set_view_definition_resolver`]) for the definition text, returning NULL when
+/// no resolver is set, the OID names no view, or the resolver declines. It is
+/// registered during session construction so the live `pg_views` view - whose
+/// stored plan binds the UDF at creation time - calls this resolver-backed
+/// implementation; the embedding application can install or change the resolver at
+/// any later point because the UDF reads the resolver slot at call time.
 pub fn register_pg_get_viewdef(ctx: &SessionContext) -> Result<()> {
-    use arrow::array::{ArrayRef, StringBuilder};
-    use arrow::datatypes::DataType;
-    use datafusion::logical_expr::{
-        ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature,
-        Volatility,
-    };
-    use std::sync::Arc;
-
-    #[derive(Debug, PartialEq, Eq, Hash)]
-    struct PgGetViewDef {
-        sig: Signature,
-    }
-
-    impl PgGetViewDef {
-        fn new() -> Self {
-            Self {
-                sig: Signature::one_of(
-                    vec![TypeSignature::Any(1), TypeSignature::Any(2)],
-                    Volatility::Stable,
-                ),
-            }
-        }
-    }
-
-    impl ScalarUDFImpl for PgGetViewDef {
-        fn name(&self) -> &str {
-            "pg_catalog.pg_get_viewdef"
-        }
-        fn signature(&self) -> &Signature {
-            &self.sig
-        }
-        fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
-            Ok(DataType::Utf8)
-        }
-        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
-            let len = match args.args.first() {
-                Some(ColumnarValue::Array(a)) => a.len(),
-                _ => 1,
-            };
-            let mut b = StringBuilder::with_capacity(len, len);
-            for _ in 0..len {
-                b.append_null();
-            }
-            Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
-        }
-    }
-
-    let udf = ScalarUDF::new_from_impl(PgGetViewDef::new()).with_aliases(["pg_get_viewdef"]);
+    let udf = ScalarUDF::new_from_impl(PgGetViewDef::new(Arc::new(ctx.clone())))
+        .with_aliases(["pg_get_viewdef"]);
     ctx.register_udf(udf);
     Ok(())
 }
@@ -3172,15 +3133,36 @@ fn fetch_index_definitions(ctx: Arc<SessionContext>, oids: &[i64]) -> Result<Has
         let part_batches = ctx.sql(&parts_sql).await?.collect().await?;
 
         let mut parsed: Vec<PlainIndexParts> = Vec::new();
+        // Identity of every requested index that exists, captured up front so the
+        // resolver fallback below can describe functional/partial indexes the
+        // structural render skips.
+        let mut identities: HashMap<i64, IndexIdentity> = HashMap::new();
         for batch in &part_batches {
             for row in 0..batch.num_rows() {
                 let index_oid = match column_oid_at(batch, "indexrelid", row)? {
                     Some(v) => v,
                     None => continue,
                 };
+                let index_name = column_string_at(batch, "indexname", row)?;
+                let table_name = column_string_at(batch, "tablename", row)?;
+                let schema_name = column_string_at(batch, "schemaname", row)?;
+                if let (Some(name), Some(table), Some(schema)) =
+                    (&index_name, &table_name, &schema_name)
+                {
+                    identities.insert(
+                        index_oid,
+                        IndexIdentity {
+                            oid: index_oid,
+                            schema: schema.clone(),
+                            table: table.clone(),
+                            name: name.clone(),
+                        },
+                    );
+                }
+
                 // A functional index (indexprs) or partial index (indpred) carries a
-                // node-tree expression we do not deparse; its text is supplied in
-                // Phase 3, so leave it NULL here rather than render wrong DDL.
+                // node-tree expression we do not deparse; the resolver fallback below
+                // supplies its text, so skip structural render here.
                 if column_is_non_null(batch, "indexprs", row)?
                     || column_is_non_null(batch, "indpred", row)?
                 {
@@ -3194,12 +3176,7 @@ fn fetch_index_definitions(ctx: Arc<SessionContext>, oids: &[i64]) -> Result<Has
                     Some(v) => v,
                     None => continue,
                 };
-                let (index_name, table_name, schema_name, access_method) = (
-                    column_string_at(batch, "indexname", row)?,
-                    column_string_at(batch, "tablename", row)?,
-                    column_string_at(batch, "schemaname", row)?,
-                    column_string_at(batch, "amname", row)?,
-                );
+                let access_method = column_string_at(batch, "amname", row)?;
                 let (Some(index_name), Some(table_name), Some(schema_name), Some(access_method)) =
                     (index_name, table_name, schema_name, access_method)
                 else {
@@ -3226,8 +3203,8 @@ fn fetch_index_definitions(ctx: Arc<SessionContext>, oids: &[i64]) -> Result<Has
         let names = fetch_attribute_names(ctx.clone(), &table_oids).await?;
 
         for index in parsed {
-            // An expression key column (attnum 0) means a functional/partial
-            // index; leave its text NULL for Phase 3.
+            // An expression key column (attnum 0) means a functional index; the
+            // resolver fallback below supplies its text, so skip structural render.
             if index.key_attnums.iter().any(|&attnum| attnum == 0) {
                 continue;
             }
@@ -3256,6 +3233,20 @@ fn fetch_index_definitions(ctx: Arc<SessionContext>, oids: &[i64]) -> Result<Has
                     &columns,
                 ),
             );
+        }
+
+        // Functional/partial indexes (and any the structural render could not
+        // describe) get their text from the integration-supplied resolver, keyed by
+        // the index's identity. Absent a resolver, or when it declines, the index
+        // stays NULL - the same default as every other Phase 3 definition hook.
+        if let Some(resolver) = INDEX_DEFINITION_RESOLVER.get() {
+            for (oid, identity) in &identities {
+                if !out.contains_key(oid) {
+                    if let Some(text) = resolver(identity) {
+                        out.insert(*oid, text);
+                    }
+                }
+            }
         }
 
         Ok::<_, DataFusionError>(out)
@@ -3472,6 +3463,286 @@ pub fn register_pg_get_indexdef(ctx: &SessionContext) -> Result<()> {
         .with_aliases(["pg_get_indexdef"]);
     ctx.register_udf(udf);
     Ok(())
+}
+
+/// Identifies the view (or materialized view) whose definition SQL a
+/// [`ViewDefinitionResolver`] is asked to produce. `oid` is the view's
+/// `pg_class.oid`; `schema` and `name` are its `pg_namespace.nspname` /
+/// `pg_class.relname`, resolved from the live catalog so the resolver can key on
+/// human-readable identity rather than a synthetic OID.
+#[derive(Clone, Debug)]
+pub struct ViewIdentity {
+    /// The view's `pg_class.oid`.
+    pub oid: i64,
+    /// The schema (namespace) the view lives in.
+    pub schema: String,
+    /// The view's relation name.
+    pub name: String,
+}
+
+/// A callback the embedding application installs to supply a database object's
+/// definition text at `pg_get_*def` call time, keyed by an identity of type `I`
+/// (e.g. [`ViewIdentity`], [`IndexIdentity`]). It returns the SQL the integration
+/// wants clients to see (it owns the text and may build it however it likes) or
+/// `None` to leave the definition NULL. pg_catalog never deparses node trees;
+/// these callbacks are the sole source of definition text. Defaulting to NULL when
+/// no resolver is installed is the contract across every Phase 3 hook.
+pub type DefinitionResolver<I> = Arc<dyn Fn(&I) -> Option<String> + Send + Sync>;
+
+/// A process-wide slot holding the optional [`DefinitionResolver`] for one kind of
+/// object. One shared implementation backs every Phase 3 "integration supplies
+/// definitions" hook, so views, index expressions, and future kinds get identical
+/// install / clear / read-at-call-time semantics with no duplicated machinery.
+struct DefinitionResolverSlot<I> {
+    slot: std::sync::RwLock<Option<DefinitionResolver<I>>>,
+}
+
+impl<I> DefinitionResolverSlot<I> {
+    /// An empty slot - no resolver installed, so every definition is NULL.
+    fn new() -> Self {
+        Self {
+            slot: std::sync::RwLock::new(None),
+        }
+    }
+
+    /// Install `resolver`, replacing any previously installed one.
+    fn set(&self, resolver: DefinitionResolver<I>) {
+        *self
+            .slot
+            .write()
+            .expect("definition resolver lock poisoned") = Some(resolver);
+    }
+
+    /// Remove any installed resolver.
+    fn clear(&self) {
+        *self
+            .slot
+            .write()
+            .expect("definition resolver lock poisoned") = None;
+    }
+
+    /// A clone of the installed resolver, if any, taken WITHOUT holding the lock
+    /// while it runs - the resolver is integration code we must not call under our
+    /// lock.
+    fn get(&self) -> Option<DefinitionResolver<I>> {
+        self.slot
+            .read()
+            .expect("definition resolver lock poisoned")
+            .clone()
+    }
+}
+
+/// Resolver supplying view definition SQL; see [`set_view_definition_resolver`].
+pub type ViewDefinitionResolver = DefinitionResolver<ViewIdentity>;
+
+/// The process-wide view-definition resolver, read by `pg_get_viewdef` at call
+/// time. The live `pg_views` view binds the UDF when its plan is created, so the
+/// resolver-backed UDF is registered once during session construction and reads
+/// this slot on every call - installing or changing the resolver later still flows
+/// through.
+static VIEW_DEFINITION_RESOLVER: Lazy<DefinitionResolverSlot<ViewIdentity>> =
+    Lazy::new(DefinitionResolverSlot::new);
+
+/// Install the [`ViewDefinitionResolver`] that `pg_get_viewdef` consults, replacing
+/// any previously installed one. The embedding application calls this (typically
+/// once at startup) so views, `pg_views.definition`, and
+/// `information_schema.views.view_definition` report integration-supplied SQL.
+pub fn set_view_definition_resolver(resolver: ViewDefinitionResolver) {
+    VIEW_DEFINITION_RESOLVER.set(resolver);
+}
+
+/// Remove any installed [`ViewDefinitionResolver`], so `pg_get_viewdef` returns NULL
+/// again. Primarily for tests that must not leak a resolver into other tests.
+pub fn clear_view_definition_resolver() {
+    VIEW_DEFINITION_RESOLVER.clear();
+}
+
+/// Identifies the index whose `CREATE INDEX` text an [`IndexDefinitionResolver`] is
+/// asked to produce. Used only for functional and partial indexes, which carry a
+/// node-tree expression pg_catalog cannot render structurally. `oid` is the index's
+/// `pg_class.oid`; `schema` and `table` name the indexed relation; `name` is the
+/// index's own relation name.
+#[derive(Clone, Debug)]
+pub struct IndexIdentity {
+    /// The index's `pg_class.oid`.
+    pub oid: i64,
+    /// The schema (namespace) of the indexed relation.
+    pub schema: String,
+    /// The indexed relation's name.
+    pub table: String,
+    /// The index's own relation name.
+    pub name: String,
+}
+
+/// Resolver supplying the `CREATE INDEX` text for indexes pg_catalog cannot render
+/// structurally (functional/partial indexes); see
+/// [`set_index_definition_resolver`].
+pub type IndexDefinitionResolver = DefinitionResolver<IndexIdentity>;
+
+/// The process-wide index-definition resolver, consulted by `pg_get_indexdef` only
+/// for indexes it cannot render from structured catalog data alone (functional and
+/// partial indexes). Plain indexes are always rendered structurally and ignore it.
+static INDEX_DEFINITION_RESOLVER: Lazy<DefinitionResolverSlot<IndexIdentity>> =
+    Lazy::new(DefinitionResolverSlot::new);
+
+/// Install the [`IndexDefinitionResolver`] that `pg_get_indexdef` consults for
+/// functional/partial indexes, replacing any previously installed one. Plain
+/// indexes are rendered structurally from the catalog and never reach the resolver;
+/// a functional/partial index is NULL when no resolver is installed or it declines.
+pub fn set_index_definition_resolver(resolver: IndexDefinitionResolver) {
+    INDEX_DEFINITION_RESOLVER.set(resolver);
+}
+
+/// Remove any installed [`IndexDefinitionResolver`], so functional/partial indexes
+/// return NULL again. Primarily for tests that must not leak a resolver.
+pub fn clear_index_definition_resolver() {
+    INDEX_DEFINITION_RESOLVER.clear();
+}
+
+/// Resolve each view / materialized-view OID to its `(schema, name)` identity with
+/// a single catalog query, skipping OIDs that name no view. Mirrors
+/// [`fetch_index_definitions`]'s batched distinct-OID lookup.
+fn fetch_view_identities(
+    ctx: Arc<SessionContext>,
+    oids: &[i64],
+) -> Result<HashMap<i64, ViewIdentity>> {
+    let mut out: HashMap<i64, ViewIdentity> = HashMap::new();
+    if oids.is_empty() {
+        return Ok(out);
+    }
+    let in_list = oids
+        .iter()
+        .map(|o| o.to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+    run_catalog_query(async move {
+        let sql = format!(
+            "SELECT c.oid, c.relname, n.nspname AS schemaname \
+             FROM pg_catalog.pg_class c \
+             JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace \
+             WHERE c.oid IN ({in_list}) AND c.relkind IN ('v', 'm')"
+        );
+        let batches = ctx.sql(&sql).await?.collect().await?;
+        for batch in &batches {
+            for row in 0..batch.num_rows() {
+                let (Some(oid), Some(name), Some(schema)) = (
+                    column_oid_at(batch, "oid", row)?,
+                    column_string_at(batch, "relname", row)?,
+                    column_string_at(batch, "schemaname", row)?,
+                ) else {
+                    continue;
+                };
+                out.insert(oid, ViewIdentity { oid, schema, name });
+            }
+        }
+        Ok::<_, DataFusionError>(out)
+    })
+}
+
+/// `pg_catalog.pg_get_viewdef(oid [, pretty])`. It resolves each row's view OID to
+/// its identity from the live catalog, then asks the process-wide
+/// [`ViewDefinitionResolver`] for the definition text - returning NULL where the
+/// OID is NULL, names no view, no resolver is installed, or the resolver declines.
+struct PgGetViewDef {
+    sig: Signature,
+    ctx: Arc<SessionContext>,
+}
+
+impl PgGetViewDef {
+    /// Build the UDF over a clone of the session context it resolves identities
+    /// through. Accepts the one-argument `pg_get_viewdef(oid)` and two-argument
+    /// `pg_get_viewdef(oid, pretty)` forms; the OID is read from the first argument
+    /// and the pretty flag is ignored (the resolver owns formatting).
+    fn new(ctx: Arc<SessionContext>) -> Self {
+        Self {
+            sig: Signature::one_of(
+                vec![TypeSignature::Any(1), TypeSignature::Any(2)],
+                Volatility::Stable,
+            ),
+            ctx,
+        }
+    }
+}
+
+impl std::fmt::Debug for PgGetViewDef {
+    /// Format without the (non-Debug) session context.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PgGetViewDef").finish()
+    }
+}
+
+impl PartialEq for PgGetViewDef {
+    /// Two instances are equal when they share the same session context.
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.ctx, &other.ctx)
+    }
+}
+
+impl Eq for PgGetViewDef {}
+
+impl std::hash::Hash for PgGetViewDef {
+    /// Hash by the identity of the shared session context.
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (Arc::as_ptr(&self.ctx) as usize).hash(state);
+    }
+}
+
+impl ScalarUDFImpl for PgGetViewDef {
+    /// The schema-qualified function name.
+    fn name(&self) -> &str {
+        "pg_catalog.pg_get_viewdef"
+    }
+
+    /// The accepted argument signature (an OID, optionally with a pretty flag).
+    fn signature(&self) -> &Signature {
+        &self.sig
+    }
+
+    /// `pg_get_viewdef` returns the view definition as `text`.
+    fn return_type(&self, _arg_types: &[ArrowDataType]) -> Result<ArrowDataType> {
+        Ok(ArrowDataType::Utf8)
+    }
+
+    /// Decode every row's view OID, resolve the DISTINCT ones to identities with a
+    /// single catalog query, then ask the installed resolver for each view's text
+    /// (NULL where the OID is NULL, names no view, no resolver is installed, or the
+    /// resolver supplies nothing).
+    fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+        let arrays = ColumnarValue::values_to_arrays(&args.args)?;
+        let arr = &arrays[0];
+        let len = arr.len();
+
+        let mut oids: Vec<Option<i64>> = Vec::with_capacity(len);
+        for i in 0..len {
+            oids.push(oid_at(arr, i)?);
+        }
+
+        let resolver = VIEW_DEFINITION_RESOLVER.get();
+        let identities = match &resolver {
+            // No resolver installed: every definition is NULL, and there is no
+            // need to query the catalog for identities.
+            None => HashMap::new(),
+            Some(_) => {
+                let mut distinct: Vec<i64> = oids.iter().flatten().copied().collect();
+                distinct.sort_unstable();
+                distinct.dedup();
+                fetch_view_identities(self.ctx.clone(), &distinct)?
+            }
+        };
+
+        let mut builder = StringBuilder::with_capacity(len, 64 * len.max(1));
+        for oid in oids {
+            let def = match (&resolver, oid.and_then(|oid| identities.get(&oid))) {
+                (Some(resolve), Some(identity)) => resolve(identity),
+                _ => None,
+            };
+            match def {
+                Some(text) => builder.append_value(&text),
+                None => builder.append_null(),
+            }
+        }
+        Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
+    }
 }
 
 /// pg_catalog.pg_get_function_result(oid) -> text
