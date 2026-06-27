@@ -194,6 +194,40 @@ async fn test_generated_stat_resolver_default_null_then_resolver() -> DFResult<(
     Ok(())
 }
 
+/// `current_user` / `session_user` read the mutable session-user slot, so they reflect
+/// `set_session_user` at call time (this is what lets a view body's `CURRENT_USER`,
+/// planned at startup, resolve to the querying connection's user).
+#[tokio::test]
+async fn test_session_user_reflects_slot() -> DFResult<()> {
+    use arrow::array::StringArray;
+    use datafusion_pg_catalog::set_session_user;
+
+    let ctx = base_ctx().await?;
+    let read = |label: &'static str| {
+        let ctx = ctx.clone();
+        async move {
+            let batches = ctx.sql("SELECT current_user, session_user").await?.collect().await?;
+            let col = |i: usize| {
+                batches[0]
+                    .column(i)
+                    .as_any()
+                    .downcast_ref::<StringArray>()
+                    .unwrap_or_else(|| panic!("{label} col {i} text"))
+                    .value(0)
+                    .to_string()
+            };
+            Ok::<_, datafusion::error::DataFusionError>((col(0), col(1)))
+        }
+    };
+
+    set_session_user("alice");
+    assert_eq!(read("alice").await?, ("alice".to_string(), "alice".to_string()));
+
+    set_session_user("bob");
+    assert_eq!(read("bob").await?, ("bob".to_string(), "bob".to_string()));
+    Ok(())
+}
+
 /// Read a single Boolean column into `Vec<Option<bool>>`.
 async fn bool_column(
     ctx: &datafusion::execution::context::SessionContext,

@@ -187,7 +187,9 @@ def _canon(value, db_remap):
     """
     if value is None:
         return None
-    if value in db_remap:
+    # db_remap keys are database-name strings; guard the membership test so an
+    # unhashable cell (e.g. an array column like pg_group.grolist) does not raise.
+    if isinstance(value, str) and value in db_remap:
         return db_remap[value]
     if isinstance(value, bool):
         return "t" if value else "f"

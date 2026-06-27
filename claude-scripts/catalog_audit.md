@@ -7,10 +7,8 @@
 
 | status | count |
 |---|---|
-| working | 92 |
-| partial | 34 |
-| broken-not-a-view | 9 |
-| broken | 1 |
+| working | 97 |
+| partial | 39 |
 
 ## Base-table status (every table queried with SELECT count(*))
 
@@ -24,33 +22,29 @@ A YAML `type: view` is only a real view if the server registers it with `CREATE 
 
 | served as | count |
 |---|---|
-| view | 126 |
-| table | 9 |
-| unqueryable | 1 |
+| view | 136 |
 
 Of the declared views NOT served as views, whether their `view_sql` would even run if promoted to a real view:
 
 | view_sql | count |
 |---|---|
-| view_sql errors | 8 |
-| view_sql ok | 2 |
 
 ## pg_catalog views
 
 | view | status | served as | view_sql exec | content | diverging / error |
 |---|---|---|---|---|---|
-| pg_available_extension_versions | broken | unqueryable | error | n-a | Error during planning: Column in SELECT must be in GROUP BY or an aggregate function: While expanding wildcard, column "x.extname" must appear in the GROUP BY c |
+| pg_available_extension_versions | partial | view | ok | count-mismatch |  |
 | pg_backend_memory_contexts | working | view | ok | match |  |
 | pg_cursors | working | view | ok | match |  |
 | pg_file_settings | partial | view | ok | count-mismatch |  |
-| pg_group | broken-not-a-view | table | error | n-a | Schema error: No field named pg_authid.oid. Valid fields are subq0_t.admin_option, subq0_t.grantor, subq0_t.inherit_option, subq0_t.member, subq0_t.oid, subq0_t |
+| pg_group | partial | view | ok | content-mismatch | grolist |
 | pg_indexes | working | view | ok | match |  |
 | pg_locks | working | view | ok | match |  |
 | pg_matviews | working | view | ok | match |  |
-| pg_policies | broken-not-a-view | table | error | n-a | This feature is not implemented: Unsupported SQL type name |
+| pg_policies | working | view | ok | match |  |
 | pg_prepared_statements | working | view | ok | match |  |
 | pg_prepared_xacts | working | view | ok | match |  |
-| pg_publication_tables | broken-not-a-view | table | error | n-a | Error during planning: failed to parse SQL: sql parser error: Expected: ), found: ARRAY at Line: 9, Column: 48 |
+| pg_publication_tables | working | view | ok | match |  |
 | pg_replication_origin_status | working | view | ok | match |  |
 | pg_replication_slots | working | view | ok | match |  |
 | pg_roles | working | view | ok | match |  |
@@ -95,19 +89,19 @@ Of the declared views NOT served as views, whether their `view_sql` would even r
 | pg_stat_xact_user_tables | partial | view | ok | count-mismatch |  |
 | pg_statio_all_indexes | partial | view | ok | count-mismatch |  |
 | pg_statio_all_sequences | working | view | ok | match |  |
-| pg_statio_all_tables | broken-not-a-view | table | error | n-a | This feature is not implemented: Physical plan does not support logical expression OuterReferenceColumn(Field { name: "oid", data_type: Int32, nullable: true }, |
+| pg_statio_all_tables | partial | view | ok | count-mismatch |  |
 | pg_statio_sys_indexes | partial | view | ok | count-mismatch |  |
 | pg_statio_sys_sequences | working | view | ok | match |  |
-| pg_statio_sys_tables | working | view | ok | match |  |
+| pg_statio_sys_tables | partial | view | ok | count-mismatch |  |
 | pg_statio_user_indexes | working | view | ok | match |  |
 | pg_statio_user_sequences | working | view | ok | match |  |
-| pg_statio_user_tables | working | view | ok | match |  |
-| pg_stats | broken-not-a-view | table | error | n-a | This feature is not implemented: Unsupported SQL type anyarray |
-| pg_stats_ext | broken-not-a-view | table | error | n-a | Schema error: No field named s.stxkeys. |
-| pg_stats_ext_exprs | broken-not-a-view | table | error | n-a | This feature is not implemented: Unsupported SQL type anyarray |
+| pg_statio_user_tables | partial | view | ok | count-mismatch |  |
+| pg_stats | working | view | ok | match |  |
+| pg_stats_ext | working | view | ok | match |  |
+| pg_stats_ext_exprs | working | view | ok | match |  |
 | pg_tables | working | view | ok | match |  |
 | pg_user | working | view | ok | match |  |
-| pg_user_mappings | broken-not-a-view | table | ok | match |  |
+| pg_user_mappings | working | view | ok | match |  |
 | pg_views | partial | view | ok | content-mismatch | definition |
 | pg_wait_events | partial | view | ok | count-mismatch |  |
 
@@ -174,7 +168,7 @@ Of the declared views NOT served as views, whether their `view_sql` would even r
 | udt_privileges | partial | view | ok | count-mismatch |  |
 | usage_privileges | partial | view | ok | count-mismatch |  |
 | user_defined_types | working | view | ok | match |  |
-| user_mapping_options | broken-not-a-view | table | ok | match |  |
+| user_mapping_options | working | view | ok | match |  |
 | user_mappings | working | view | ok | match |  |
 | view_column_usage | working | view | ok | match |  |
 | view_routine_usage | working | view | ok | match |  |

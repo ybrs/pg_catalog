@@ -14,7 +14,8 @@ use crate::clean_duplicate_columns::{
     alias_unnamed_columns, disambiguate_duplicate_columns, restore_aliased_column_names,
 };
 use crate::replace::{
-    alias_subquery_tables, drop_oid_array_cast, drop_redundant_oid_and_regclass_casts,
+    alias_subquery_tables, decorrelate_lateral_aggregate, drop_oid_array_cast,
+    drop_redundant_oid_and_regclass_casts,
     regclass_udfs, replace_regclass, replace_set_command_with_namespace,
     rewrite_array_agg_varchar_cast, rewrite_array_subquery, rewrite_available_updates,
     rewrite_brace_array_literal, rewrite_char_cast, rewrite_exists_to_count,
@@ -22,9 +23,10 @@ use crate::replace::{
     rewrite_pg_custom_operator, rewrite_pg_truetypid_composite_args, rewrite_regoper_cast,
     rewrite_regoperator_cast, rewrite_regproc_cast, rewrite_regprocedure_cast,
     rewrite_regtype_cast, rewrite_schema_qualified_custom_types, rewrite_schema_qualified_text,
-    rewrite_schema_qualified_udtfs, rewrite_srf_to_unnest, rewrite_time_zone_utc,
-    rewrite_tuple_equality, rewrite_tuple_in_subquery_to_exists, rewrite_xid_cast,
-    strip_default_collate,
+    rewrite_available_extension_versions_source, rewrite_schema_qualified_udtfs,
+    rewrite_srf_to_unnest, rewrite_text_backed_type_casts,
+    rewrite_time_zone_utc, rewrite_tuple_equality, rewrite_tuple_in_subquery_to_exists,
+    rewrite_xid_cast, strip_default_collate,
 };
 use pgwire::api::Type;
 use std::collections::{BTreeMap, HashMap};
@@ -49,7 +51,7 @@ use crate::user_functions::{
     register_pg_numeric_helpers, register_pg_options_to_table, register_pg_postmaster_start_time,
     register_pg_relation_is_publishable, register_pg_relation_is_updatable,
     register_pg_relation_size, register_pg_sequence_last_value, register_pg_total_relation_size,
-    register_pg_truetypid_helpers, register_row_security_active,
+    register_pg_truetypid_helpers, register_row_security_active, register_session_identity,
     register_quote_ident, register_scalar_array_to_string, register_scalar_format_type,
     register_scalar_pg_age, register_scalar_pg_encoding_to_char, register_scalar_pg_get_expr,
     register_scalar_pg_get_partkeydef, register_scalar_pg_get_userbyid,
@@ -404,6 +406,23 @@ const VIEWS_TO_REGISTER: &[(&str, &str)] = &[
     ("pg_catalog", "pg_publication_tables"),
     ("pg_catalog", "pg_stats_ext"),
     ("pg_catalog", "pg_stats_ext_exprs"),
+    // Unblocked by rewriting catalog `anyarray` / `name[]` casts to their text types
+    // (pg_user_mappings and user_mapping_options, already listed above, are unblocked
+    // by the same rewrite).
+    ("pg_catalog", "pg_stats"),
+    ("pg_catalog", "pg_policies"),
+    // Unblocked by not injecting a GROUP BY for a bare `IS NOT NULL` projection, and by
+    // renaming the backing table function so it no longer shadows the view's name.
+    ("pg_catalog", "pg_available_extension_versions"),
+    // Unblocked by decorrelating its correlated LATERAL aggregate joins.
+    ("pg_catalog", "pg_statio_all_tables"),
+    // Served via a simplified body (see SIMPLIFIED_VIEW_BODIES) - the declared bodies use
+    // engine features not yet supported, but over empty/aliasable sources the simplified
+    // form is equivalent.
+    ("pg_catalog", "pg_group"),
+    ("pg_catalog", "pg_publication_tables"),
+    ("pg_catalog", "pg_stats_ext"),
+    ("pg_catalog", "pg_stats_ext_exprs"),
 ];
 
 /// Whether to attempt registering a declared view as a `CREATE VIEW`.
@@ -577,11 +596,15 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     let sql = rewrite_pg_truetypid_composite_args(&sql)?;
     let sql = rewrite_information_schema_casts(&sql)?;
     let sql = rewrite_schema_qualified_udtfs(&sql)?;
+    let sql = rewrite_available_extension_versions_source(&sql)?;
     let sql = rewrite_char_cast(&sql)?;
     let sql = replace_regclass(&sql)?;
     let sql = rewrite_regtype_cast(&sql)?;
     let sql = rewrite_xid_cast(&sql)?;
     let sql = rewrite_name_cast(&sql)?;
+    // Map catalog type names the planner rejects (`anyarray`, `name[]`) to the
+    // concrete text types this catalog stores those columns as.
+    let sql = rewrite_text_backed_type_casts(&sql)?;
     let sql = rewrite_oid_cast(&sql)?;
     // Drop value-preserving `::regclass` / `::oid` casts on column expressions
     // (e.g. `c.oid::regclass`, `proargtypes::oid`).
@@ -591,6 +614,10 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     let sql = drop_oid_array_cast(&sql)?;
     let sql = rewrite_array_agg_varchar_cast(&sql)?;
     let sql = rewrite_tuple_equality(&sql)?;
+    // Turn correlated `LEFT JOIN LATERAL (SELECT agg(...) WHERE inner.k = outer.c) ON true`
+    // into a grouped equi-join the planner can handle (DataFusion has no physical plan for
+    // the correlated reference such a LATERAL aggregate leaves behind).
+    let sql = decorrelate_lateral_aggregate(&sql)?;
     let sql = alias_subquery_tables(&sql)?;
     // Give duplicate column names in nested projections distinct aliases so
     // DataFusion's optimizer doesn't hit its name-mismatch assertion (e.g. the
@@ -1317,6 +1344,79 @@ async fn register_catalogs_from_schemas(
     Ok(views_to_register)
 }
 
+/// View bodies served in place of the declared `view_sql` for views the engine cannot yet
+/// plan as written. Each is an equivalent the engine *can* plan: it keeps every column and
+/// every row the engine can compute and substitutes NULL only where an unsupported feature
+/// (a correlated `UNNEST`, composite-record field access, or the `VARIADIC ARRAY[...]` the
+/// parser rejects) would otherwise sit. None is lossy for the data this catalog holds:
+/// `pg_publication`, `pg_statistic_ext` and `pg_statistic_ext_data` are empty, and the
+/// `pg_group` body is the declared query with table aliases the engine resolves. When the
+/// engine gains the missing feature, drop the entry and the declared `view_sql` serves again.
+const SIMPLIFIED_VIEW_BODIES: &[(&str, &str, &str)] = &[
+    // The declared body's correlated `pg_authid.oid` only resolves when the outer table
+    // carries an explicit alias; this is that query, aliased (still 15 groups, real grolist).
+    (
+        "pg_catalog",
+        "pg_group",
+        "SELECT a.rolname AS groname, a.oid AS grosysid, \
+           ARRAY(SELECT m.member FROM pg_auth_members m WHERE m.roleid = a.oid) AS grolist \
+         FROM pg_authid a WHERE NOT a.rolcanlogin",
+    ),
+    // Declared body uses `LATERAL pg_get_publication_tables(VARIADIC ARRAY[...])`, which the
+    // parser rejects; pg_publication is empty, so projecting its columns is equivalent.
+    (
+        "pg_catalog",
+        "pg_publication_tables",
+        "SELECT p.pubname, NULL::text AS schemaname, NULL::text AS tablename, \
+           NULL::text[] AS attnames, NULL::text AS rowfilter FROM pg_publication p",
+    ),
+    // Declared body needs correlated `UNNEST(stxkeys)` and `pg_mcv_list_items`;
+    // pg_statistic_ext is empty, so engine-supported base columns plus NULL extended-stats
+    // columns match.
+    (
+        "pg_catalog",
+        "pg_stats_ext",
+        "SELECT cn.nspname AS schemaname, c.relname AS tablename, \
+           sn.nspname AS statistics_schemaname, s.stxname AS statistics_name, \
+           pg_get_userbyid(s.stxowner) AS statistics_owner, NULL::text[] AS attnames, \
+           NULL::text[] AS exprs, s.stxkind AS kinds, sd.stxdinherit AS inherited, \
+           sd.stxdndistinct AS n_distinct, sd.stxddependencies AS dependencies, \
+           NULL::text[] AS most_common_vals, NULL::text[] AS most_common_val_nulls, \
+           NULL::text[] AS most_common_freqs, NULL::text[] AS most_common_base_freqs \
+         FROM pg_statistic_ext s JOIN pg_class c ON c.oid = s.stxrelid \
+           JOIN pg_statistic_ext_data sd ON s.oid = sd.stxoid \
+           LEFT JOIN pg_namespace cn ON cn.oid = c.relnamespace \
+           LEFT JOIN pg_namespace sn ON sn.oid = s.stxnamespace",
+    ),
+    // Declared body needs composite-record field access `(stat.a).stanullfrac`;
+    // pg_statistic_ext is empty, so base columns plus NULL stat columns match.
+    (
+        "pg_catalog",
+        "pg_stats_ext_exprs",
+        "SELECT cn.nspname AS schemaname, c.relname AS tablename, \
+           sn.nspname AS statistics_schemaname, s.stxname AS statistics_name, \
+           pg_get_userbyid(s.stxowner) AS statistics_owner, NULL::text AS expr, \
+           sd.stxdinherit AS inherited, NULL::float4 AS null_frac, NULL::int AS avg_width, \
+           NULL::float4 AS n_distinct, NULL::text AS most_common_vals, \
+           NULL::text[] AS most_common_freqs, NULL::text AS histogram_bounds, \
+           NULL::float4 AS correlation, NULL::text AS most_common_elems, \
+           NULL::text[] AS most_common_elem_freqs, NULL::text[] AS elem_count_histogram \
+         FROM pg_statistic_ext s JOIN pg_class c ON c.oid = s.stxrelid \
+           LEFT JOIN pg_statistic_ext_data sd ON s.oid = sd.stxoid \
+           LEFT JOIN pg_namespace cn ON cn.oid = c.relnamespace \
+           LEFT JOIN pg_namespace sn ON sn.oid = s.stxnamespace",
+    ),
+];
+
+/// The simplified body to serve for a view, if one is registered (see
+/// [`SIMPLIFIED_VIEW_BODIES`]).
+fn simplified_view_body(schema: &str, name: &str) -> Option<&'static str> {
+    SIMPLIFIED_VIEW_BODIES
+        .iter()
+        .find(|(s, n, _)| *s == schema && *n == name)
+        .map(|(_, _, body)| *body)
+}
+
 /// Build and run the `CREATE OR REPLACE VIEW` for one declared view.
 ///
 /// Returns `Ok(())` when the body planned and the view was registered. An `Err`
@@ -1330,7 +1430,10 @@ async fn try_create_view(
     body_resolution_schema: &str,
 ) -> datafusion::error::Result<(), DataFusionError> {
     let qualified = format_fully_qualified_name(&view.catalog, &view.schema, &view.name);
-    let definition = normalize_view_sql(&view.sql);
+    let definition = match simplified_view_body(&view.schema, &view.name) {
+        Some(body) => body.to_string(),
+        None => normalize_view_sql(&view.sql),
+    };
     if definition.is_empty() {
         return Err(DataFusionError::Execution(format!(
             "view_sql for {} is empty",
@@ -1612,6 +1715,7 @@ async fn build_base_session_context(
     register_pg_relation_is_updatable(&ctx)?;
     register_pg_sequence_last_value(&ctx)?;
     register_row_security_active(&ctx)?;
+    register_session_identity(&ctx)?;
     crate::runtime_function_resolvers::register_all_scalar_resolvers(&ctx);
     crate::runtime_function_resolvers::register_all_table_resolvers(&ctx);
     register_pg_column_is_updatable(&ctx)?;

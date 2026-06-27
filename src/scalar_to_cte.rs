@@ -559,8 +559,24 @@ mod rewriter {
                 }
                 Expr::Nested(inner)
                 | Expr::UnaryOp { expr: inner, .. }
-                | Expr::Cast { expr: inner, .. } => {
+                | Expr::Cast { expr: inner, .. }
+                // Null- and boolean-test predicates wrap a single expression. Without
+                // these arms a projection item like `x IS NOT NULL` contributes no
+                // columns, so the "plain columns mixed with aggregates" heuristic below
+                // mistakes it for an aggregate and injects a bogus GROUP BY.
+                | Expr::IsNull(inner)
+                | Expr::IsNotNull(inner)
+                | Expr::IsTrue(inner)
+                | Expr::IsNotTrue(inner)
+                | Expr::IsFalse(inner)
+                | Expr::IsNotFalse(inner)
+                | Expr::IsUnknown(inner)
+                | Expr::IsNotUnknown(inner) => {
                     Self::collect_group_by_columns(inner, inside_aggr, has_aggr, cols);
+                }
+                Expr::IsDistinctFrom(left, right) | Expr::IsNotDistinctFrom(left, right) => {
+                    Self::collect_group_by_columns(left, inside_aggr, has_aggr, cols);
+                    Self::collect_group_by_columns(right, inside_aggr, has_aggr, cols);
                 }
                 Expr::Case {
                     operand,
@@ -1270,6 +1286,19 @@ mod tests {
         assert_eq!(outcome.sql, original);
         assert_eq!(outcome.converted, 0);
         Ok(())
+    }
+
+    #[test]
+    fn null_test_projection_does_not_inject_group_by() {
+        // A projection that mixes a plain column with a bare `IS NOT NULL` test must
+        // not gain a GROUP BY: the null test is a scalar expression, not an aggregate.
+        // (pg_available_extension_versions' `x.extname IS NOT NULL AS installed`.)
+        let sql = "SELECT v.a, v.b IS NOT NULL AS flag FROM (VALUES (1, 2)) AS v(a, b)";
+        let out = rewrite_subquery_as_cte(sql);
+        assert!(
+            !out.to_uppercase().contains("GROUP BY"),
+            "no GROUP BY injected for a null-test projection: {out}"
+        );
     }
 
     #[test]

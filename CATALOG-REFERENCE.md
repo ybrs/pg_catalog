@@ -6,9 +6,11 @@ actually works today**. Verified 2026-06-26.
 
 - **75 base tables** (71 `pg_catalog` + 4 `information_schema`) - all served as
   tables and queryable (**75 working**).
-- **136 objects declared `type: view`** - **126 are now actually served as views**
-  (92 working + 34 partial); only **10 are still materialized as tables**, every one
-  blocked on an engine/parser gap rather than a missing function. The stat /
+- **136 objects declared `type: view`** - **all 136 are now actually served as views**
+  (97 working + 39 partial); none falls back to a materialized table. The four whose
+  declared bodies use engine features not yet supported are served via equivalent
+  simplified bodies (`SIMPLIFIED_VIEW_BODIES` in `src/session.rs`), lossless for the data
+  this catalog holds. The stat /
   live-state views became real (empty) views once their runtime functions were
   registered as integration-installable resolvers; every missing function (111 total)
   is now wired - see [`update-views-plan.md`](update-views-plan.md) and

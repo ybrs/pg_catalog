@@ -1287,6 +1287,85 @@ pub fn drop_oid_array_cast(sql: &str) -> Result<String> {
         .join(" "))
 }
 
+/// Rewrite casts to catalog types that DataFusion's planner rejects by name into the
+/// concrete types this catalog stores those columns as.
+///
+/// Two catalog type names reach the planner only inside view bodies and are rejected
+/// outright ("Unsupported SQL type"):
+///
+/// * `anyarray` - the `pg_statistic.stavalues*` columns (and the `pg_stats` view's
+///   `NULL::anyarray` branches over them) are stored as `text`, so `::anyarray` becomes
+///   `::text`. This lets the `pg_stats` CASE branches share a common type with the
+///   text-typed `stavalues*` columns.
+/// * `name[]` - name arrays (e.g. the `pg_policies` `::name[]` role lists) are stored as
+///   `text[]`, so `name[]` becomes `text[]`.
+///
+/// `oid[]` is handled separately by [`drop_oid_array_cast`], which removes it where the
+/// underlying column is already an integer array; this rewrite leaves it untouched.
+pub fn rewrite_text_backed_type_casts(sql: &str) -> Result<String> {
+    use sqlparser::ast::{
+        visit_expressions_mut, visit_statements_mut, ArrayElemTypeDef, DataType, Expr, ObjectName,
+        ObjectNamePart,
+    };
+    use sqlparser::dialect::PostgreSqlDialect;
+    use sqlparser::parser::Parser;
+    use std::ops::ControlFlow;
+
+    /// True when `obj` names the bare `anyarray` type (optionally `pg_catalog`-qualified).
+    fn is_named(obj: &ObjectName, type_name: &str) -> bool {
+        match obj.0.as_slice() {
+            [ObjectNamePart::Identifier(id)] => id.value.eq_ignore_ascii_case(type_name),
+            [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(id)] => {
+                schema.value.eq_ignore_ascii_case("pg_catalog")
+                    && id.value.eq_ignore_ascii_case(type_name)
+            }
+            _ => false,
+        }
+    }
+
+    /// The element type of an array cast (`name[]` parses as `Array(SquareBracket(..))`).
+    fn array_elem(dt: &DataType) -> Option<&DataType> {
+        let DataType::Array(elem) = dt else {
+            return None;
+        };
+        match elem {
+            ArrayElemTypeDef::SquareBracket(inner, _) => Some(inner.as_ref()),
+            ArrayElemTypeDef::AngleBracket(inner) => Some(inner.as_ref()),
+            ArrayElemTypeDef::Parenthesis(inner) => Some(inner.as_ref()),
+            ArrayElemTypeDef::None => None,
+        }
+    }
+
+    let mut stmts = Parser::parse_sql(&PostgreSqlDialect {}, sql)
+        .map_err(|e| DataFusionError::External(Box::new(e)))?;
+
+    let _ = visit_statements_mut(&mut stmts, |stmt| {
+        visit_expressions_mut(stmt, |e| {
+            if let Expr::Cast { data_type, .. } = e {
+                let is_anyarray = matches!(data_type, DataType::Custom(obj, _) if is_named(obj, "anyarray"));
+                let is_name_array = array_elem(data_type)
+                    .is_some_and(|inner| matches!(inner, DataType::Custom(obj, _) if is_named(obj, "name")));
+                if is_anyarray {
+                    *data_type = DataType::Text;
+                } else if is_name_array {
+                    *data_type = DataType::Array(ArrayElemTypeDef::SquareBracket(
+                        Box::new(DataType::Text),
+                        None,
+                    ));
+                }
+            }
+            ControlFlow::<()>::Continue(())
+        })?;
+        ControlFlow::Continue(())
+    });
+
+    Ok(stmts
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join("; "))
+}
+
 /// Expand the whole-row composite arguments of `information_schema._pg_truetypid`
 /// and `_pg_truetypmod` into the individual columns their bodies read.
 ///
@@ -1479,6 +1558,314 @@ pub fn rewrite_char_cast(sql: &str) -> Result<String> {
         .join("; "))
 }
 
+/// Rename the `pg_available_extension_versions(...)` table-function call to the internal
+/// name `available_extension_versions` it is registered under.
+///
+/// The catalog declares both a *view* `pg_available_extension_versions` and (to back that
+/// view) a table function of the same name. DataFusion resolves a relation and a table
+/// function of the same name ambiguously - the function shadows the view in FROM clauses -
+/// so the function is registered as `available_extension_versions` and this rewrite points
+/// the view body's call there, leaving the view to own its name. Only the call form (a
+/// table factor WITH arguments) is renamed; a bare `FROM pg_available_extension_versions`
+/// (querying the view itself) is left untouched.
+pub fn rewrite_available_extension_versions_source(sql: &str) -> Result<String> {
+    use sqlparser::ast::{
+        Ident, ObjectName, ObjectNamePart, TableFactor, VisitMut, VisitorMut,
+    };
+    use sqlparser::dialect::PostgreSqlDialect;
+    use sqlparser::parser::Parser;
+    use std::ops::ControlFlow;
+
+    fn is_target(name: &ObjectName) -> bool {
+        match name.0.as_slice() {
+            [ObjectNamePart::Identifier(id)] => {
+                id.value.eq_ignore_ascii_case("pg_available_extension_versions")
+            }
+            [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(id)] => {
+                schema.value.eq_ignore_ascii_case("pg_catalog")
+                    && id.value.eq_ignore_ascii_case("pg_available_extension_versions")
+            }
+            _ => false,
+        }
+    }
+
+    struct Renamer;
+    impl VisitorMut for Renamer {
+        type Break = ();
+        fn pre_visit_table_factor(&mut self, tf: &mut TableFactor) -> ControlFlow<()> {
+            if let TableFactor::Table {
+                name, args: Some(_), ..
+            } = tf
+            {
+                if is_target(name) {
+                    *name = ObjectName(vec![ObjectNamePart::Identifier(Ident::new(
+                        "available_extension_versions",
+                    ))]);
+                }
+            }
+            ControlFlow::Continue(())
+        }
+    }
+
+    let mut stmts = Parser::parse_sql(&PostgreSqlDialect {}, sql)
+        .map_err(|e| DataFusionError::External(Box::new(e)))?;
+    for stmt in &mut stmts {
+        let _ = stmt.visit(&mut Renamer);
+    }
+    Ok(stmts
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join("; "))
+}
+
+/// Decorrelate a correlated `LEFT JOIN LATERAL (SELECT <aggregates> FROM <tbl> WHERE
+/// <tbl>.<key> = <outer>) <alias> ON true` into a grouped equi-join:
+/// `LEFT JOIN (SELECT <tbl>.<key> AS <k>, <aggregates> FROM <tbl> GROUP BY <tbl>.<key>)
+/// <alias> ON <alias>.<k> = <outer>`.
+///
+/// DataFusion has no physical plan for the correlated `OuterReferenceColumn` such a
+/// LATERAL aggregate leaves in the logical plan (it does not decorrelate aggregate
+/// LATERAL subqueries itself), so `pg_statio_all_tables` - which sums per-table index
+/// block counts this way - cannot otherwise be served as a view. The grouped equi-join is
+/// an exact equivalent the planner handles. Only the precise shape above is rewritten: a
+/// LATERAL derived table joined `ON true` whose subquery is a single aggregating SELECT
+/// over one table with one correlated equality predicate. Anything else is left untouched.
+pub fn decorrelate_lateral_aggregate(sql: &str) -> Result<String> {
+    use sqlparser::ast::{
+        BinaryOperator, Expr, GroupByExpr, Ident, Join, JoinConstraint, JoinOperator,
+        ObjectNamePart, Query, Select, SelectItem, SetExpr, TableFactor, Value, ValueWithSpan,
+    };
+    use sqlparser::dialect::PostgreSqlDialect;
+    use sqlparser::parser::Parser;
+
+    /// The mutable `ON` constraint of an inner/left equi-join, if the operator has one.
+    fn join_on_constraint(op: &mut JoinOperator) -> Option<&mut JoinConstraint> {
+        match op {
+            JoinOperator::Left(c)
+            | JoinOperator::LeftOuter(c)
+            | JoinOperator::Inner(c)
+            | JoinOperator::Join(c) => Some(c),
+            _ => None,
+        }
+    }
+
+    /// The name a single plain table is referred to by (its alias, else its bare name).
+    fn table_qualifier(tf: &TableFactor) -> Option<String> {
+        if let TableFactor::Table {
+            name,
+            alias,
+            args: None,
+            ..
+        } = tf
+        {
+            if let Some(a) = alias {
+                return Some(a.name.value.clone());
+            }
+            if let Some(ObjectNamePart::Identifier(id)) = name.0.last() {
+                return Some(id.value.clone());
+            }
+        }
+        None
+    }
+
+    /// The table qualifier of a two-part `qual.col` reference.
+    fn ref_qualifier(e: &Expr) -> Option<&str> {
+        match e {
+            Expr::CompoundIdentifier(parts) if parts.len() == 2 => Some(parts[0].value.as_str()),
+            _ => None,
+        }
+    }
+
+    /// True if `e` contains an aggregate call (so grouping is meaningful).
+    fn contains_aggregate(e: &Expr) -> bool {
+        match e {
+            Expr::Function(f) => {
+                let name = f
+                    .name
+                    .0
+                    .last()
+                    .and_then(|p| p.as_ident())
+                    .map(|i| i.value.to_lowercase())
+                    .unwrap_or_default();
+                ["sum", "count", "avg", "min", "max", "array_agg"].contains(&name.as_str())
+            }
+            Expr::Cast { expr, .. } | Expr::Nested(expr) | Expr::UnaryOp { expr, .. } => {
+                contains_aggregate(expr)
+            }
+            Expr::BinaryOp { left, right, .. } => {
+                contains_aggregate(left) || contains_aggregate(right)
+            }
+            _ => false,
+        }
+    }
+
+    /// True if the join operator is an inner/left join constrained by a literal `ON true`.
+    fn is_on_true(op: &JoinOperator) -> bool {
+        let is_true = |c: &JoinConstraint| {
+            matches!(
+                c,
+                JoinConstraint::On(Expr::Value(ValueWithSpan {
+                    value: Value::Boolean(true),
+                    ..
+                }))
+            )
+        };
+        match op {
+            JoinOperator::Left(c)
+            | JoinOperator::LeftOuter(c)
+            | JoinOperator::Inner(c)
+            | JoinOperator::Join(c) => is_true(c),
+            _ => false,
+        }
+    }
+
+    /// Rewrite one join in place if it matches the correlated-LATERAL-aggregate shape.
+    fn decorrelate_join(join: &mut Join, counter: &mut usize) -> bool {
+        // Validate the shape under an immutable borrow, cloning out the two expressions
+        // and the alias the mutation needs; bail (leaving the join untouched) otherwise.
+        let (inner_key, outer_expr, derived_name) = {
+            let TableFactor::Derived {
+                lateral: true,
+                subquery,
+                alias: Some(derived_alias),
+                ..
+            } = &join.relation
+            else {
+                return false;
+            };
+            if !is_on_true(&join.join_operator) {
+                return false;
+            }
+            let SetExpr::Select(sel) = subquery.body.as_ref() else {
+                return false;
+            };
+            if subquery.with.is_some()
+                || sel.from.len() != 1
+                || !sel.from[0].joins.is_empty()
+                || !matches!(sel.group_by, GroupByExpr::Expressions(ref e, _) if e.is_empty())
+            {
+                return false;
+            }
+            let Some(inner_qual) = table_qualifier(&sel.from[0].relation) else {
+                return false;
+            };
+            let Some(Expr::BinaryOp {
+                left,
+                op: BinaryOperator::Eq,
+                right,
+            }) = sel.selection.as_ref()
+            else {
+                return false;
+            };
+            let (inner_key, outer_expr) = match (
+                ref_qualifier(left) == Some(&inner_qual),
+                ref_qualifier(right) == Some(&inner_qual),
+            ) {
+                (true, false) => ((**left).clone(), (**right).clone()),
+                (false, true) => ((**right).clone(), (**left).clone()),
+                _ => return false,
+            };
+            let has_aggr = sel.projection.iter().any(|item| match item {
+                SelectItem::UnnamedExpr(e) | SelectItem::ExprWithAlias { expr: e, .. } => {
+                    contains_aggregate(e)
+                }
+                _ => false,
+            });
+            if !has_aggr {
+                return false;
+            }
+            (inner_key, outer_expr, derived_alias.name.value.clone())
+        };
+
+        let key_alias = format!("__decorr_key_{counter}");
+        *counter += 1;
+
+        // Apply: turn the LATERAL aggregate subquery into a grouped one and replace the
+        // `ON true` with `<alias>.<key_alias> = <outer>`.
+        if let TableFactor::Derived {
+            lateral, subquery, ..
+        } = &mut join.relation
+        {
+            *lateral = false;
+            if let SetExpr::Select(sel) = subquery.body.as_mut() {
+                sel.projection.insert(
+                    0,
+                    SelectItem::ExprWithAlias {
+                        expr: inner_key.clone(),
+                        alias: Ident::new(&key_alias),
+                    },
+                );
+                sel.group_by = GroupByExpr::Expressions(vec![inner_key], Vec::new());
+                sel.selection = None;
+            }
+        }
+        let on = Expr::BinaryOp {
+            left: Box::new(Expr::CompoundIdentifier(vec![
+                Ident::new(derived_name),
+                Ident::new(key_alias),
+            ])),
+            op: BinaryOperator::Eq,
+            right: Box::new(outer_expr),
+        };
+        if let Some(c) = join_on_constraint(&mut join.join_operator) {
+            *c = JoinConstraint::On(on);
+        }
+        true
+    }
+
+    fn walk_table_factor(tf: &mut TableFactor, counter: &mut usize) {
+        if let TableFactor::Derived { subquery, .. } = tf {
+            walk_query(subquery, counter);
+        }
+    }
+
+    fn walk_select(sel: &mut Select, counter: &mut usize) {
+        for twj in &mut sel.from {
+            walk_table_factor(&mut twj.relation, counter);
+            for join in &mut twj.joins {
+                walk_table_factor(&mut join.relation, counter);
+                decorrelate_join(join, counter);
+            }
+        }
+    }
+
+    fn walk_query(q: &mut Query, counter: &mut usize) {
+        if let Some(with) = &mut q.with {
+            for cte in &mut with.cte_tables {
+                walk_query(&mut cte.query, counter);
+            }
+        }
+        walk_set_expr(&mut q.body, counter);
+    }
+
+    fn walk_set_expr(se: &mut SetExpr, counter: &mut usize) {
+        match se {
+            SetExpr::Select(sel) => walk_select(sel, counter),
+            SetExpr::Query(q) => walk_query(q, counter),
+            SetExpr::SetOperation { left, right, .. } => {
+                walk_set_expr(left, counter);
+                walk_set_expr(right, counter);
+            }
+            _ => {}
+        }
+    }
+
+    let mut stmts = Parser::parse_sql(&PostgreSqlDialect {}, sql)
+        .map_err(|e| DataFusionError::External(Box::new(e)))?;
+    let mut counter = 0usize;
+    for stmt in &mut stmts {
+        if let sqlparser::ast::Statement::Query(q) = stmt {
+            walk_query(q, &mut counter);
+        }
+    }
+    Ok(stmts
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join("; "))
+}
+
 /// Remove the `pg_catalog.` prefix from known table functions such as
 /// `pg_get_keywords` so unqualified calls work inside user queries.
 pub fn rewrite_schema_qualified_udtfs(sql: &str) -> Result<String> {
@@ -1494,11 +1881,7 @@ pub fn rewrite_schema_qualified_udtfs(sql: &str) -> Result<String> {
         match name.0.as_slice() {
             [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(func)]
                 if schema.value.eq_ignore_ascii_case("pg_catalog")
-                    && [
-                        "pg_get_keywords",
-                        "pg_available_extension_versions",
-                        "pg_postmaster_start_time",
-                    ]
+                    && ["pg_get_keywords", "pg_postmaster_start_time"]
                     .iter()
                     .any(|f| func.value.eq_ignore_ascii_case(f)) =>
             {
@@ -3171,6 +3554,82 @@ mod tests {
             out.contains("c.oid"),
             "outer correlated ref preserved: {out}"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_decorrelate_lateral_aggregate() -> Result<(), Box<dyn std::error::Error>> {
+        let out = decorrelate_lateral_aggregate(
+            "SELECT c.relname, i.n FROM pg_class c \
+             LEFT JOIN LATERAL (SELECT sum(pg_index.x) AS n FROM pg_index \
+             WHERE pg_index.indrelid = c.oid) i ON true",
+        )?;
+        let lo = out.to_lowercase();
+        assert!(!lo.contains("lateral"), "LATERAL removed: {out}");
+        assert!(lo.contains("group by"), "GROUP BY added: {out}");
+        assert!(
+            lo.contains("__decorr_key_0") && lo.contains("= c.oid"),
+            "equi-join on the decorrelated key: {out}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_decorrelate_lateral_aggregate_leaves_non_aggregate_lateral() -> Result<(), Box<dyn std::error::Error>>
+    {
+        // A LATERAL without an aggregate is not a grouping candidate; leave it untouched.
+        let sql = "SELECT c.relname, i.x FROM pg_class c \
+             LEFT JOIN LATERAL (SELECT pg_index.x FROM pg_index \
+             WHERE pg_index.indrelid = c.oid) i ON true";
+        let out = decorrelate_lateral_aggregate(sql)?;
+        assert!(out.to_lowercase().contains("lateral"), "untouched: {out}");
+        Ok(())
+    }
+
+    #[test]
+    fn test_rewrite_available_extension_versions_source() -> Result<(), Box<dyn std::error::Error>> {
+        // The function-call form (in FROM, with args) is renamed to the internal name...
+        let called = rewrite_available_extension_versions_source(
+            "SELECT * FROM pg_available_extension_versions() e(name)",
+        )?;
+        assert!(
+            called.to_lowercase().contains("available_extension_versions()"),
+            "{called}"
+        );
+        assert!(
+            !called.to_lowercase().contains("pg_available_extension_versions"),
+            "call renamed: {called}"
+        );
+        // ...but a bare reference to the view of that name is left untouched.
+        let view = rewrite_available_extension_versions_source(
+            "SELECT count(*) FROM pg_catalog.pg_available_extension_versions",
+        )?;
+        assert!(
+            view.to_lowercase().contains("pg_available_extension_versions"),
+            "view reference preserved: {view}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_rewrite_text_backed_type_casts() -> Result<(), Box<dyn std::error::Error>> {
+        // `anyarray` becomes scalar `text`; `name[]` becomes `text[]`.
+        let out = rewrite_text_backed_type_casts(
+            "SELECT NULL::anyarray AS a, '{x}'::name[] AS b, x::pg_catalog.anyarray AS c",
+        )?;
+        let up = out.to_uppercase();
+        assert!(!up.contains("ANYARRAY"), "anyarray rewritten away: {out}");
+        assert!(!up.contains("NAME[]"), "name[] rewritten away: {out}");
+        assert!(up.contains("::TEXT[]") || up.contains("TEXT[]"), "name[] -> text[]: {out}");
+        Ok(())
+    }
+
+    #[test]
+    fn test_rewrite_text_backed_type_casts_leaves_oid_array() -> Result<(), Box<dyn std::error::Error>>
+    {
+        // `oid[]` is the job of drop_oid_array_cast; this rewrite must not touch it.
+        let out = rewrite_text_backed_type_casts("SELECT proargtypes::oid[]")?;
+        assert!(out.to_lowercase().contains("oid"), "oid[] left intact: {out}");
         Ok(())
     }
 }

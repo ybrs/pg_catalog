@@ -223,6 +223,49 @@ pub fn register_scalar_regclass_oid(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
+/// The current session user reported by `current_user` / `session_user`, read at call
+/// time. A live catalog view is planned eagerly at startup and captures the UDF
+/// instances its body references, so these UDFs must read a mutable slot rather than a
+/// value baked in at registration - otherwise a view body's `CURRENT_USER` would freeze
+/// to the startup value. The connection handler keeps it current via [`set_session_user`].
+static SESSION_USER: Lazy<std::sync::RwLock<String>> =
+    Lazy::new(|| std::sync::RwLock::new("postgres".to_string()));
+
+/// Set the user reported by `current_user` / `session_user` / `current_role`.
+pub fn set_session_user(user: &str) {
+    *SESSION_USER.write().expect("session user slot poisoned") = user.to_string();
+}
+
+/// Register `current_user` / `session_user` / `current_role` (and their
+/// `pg_catalog`-qualified aliases) as no-argument UDFs reporting the current session
+/// user. They read the mutable [`SESSION_USER`] slot at call time, so a view body's
+/// `CURRENT_USER` - planned eagerly at startup, before any client connects - both plans
+/// then and resolves to the querying connection's user at execution.
+pub fn register_session_identity(ctx: &SessionContext) -> Result<()> {
+    for (name, alias) in [
+        ("current_user", "pg_catalog.current_user"),
+        ("session_user", "pg_catalog.session_user"),
+        ("current_role", "pg_catalog.current_role"),
+    ] {
+        let udf = create_udf(
+            name,
+            vec![],
+            ArrowDataType::Utf8,
+            Volatility::Stable,
+            Arc::new(|_args| {
+                let user = SESSION_USER
+                    .read()
+                    .expect("session user slot poisoned")
+                    .clone();
+                Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(user))))
+            }),
+        )
+        .with_aliases([alias]);
+        ctx.register_udf(udf);
+    }
+    Ok(())
+}
+
 /// Register `pg_tablespace_location(oid)` which currently always
 /// returns NULL as tablespaces are not implemented.
 pub fn register_scalar_pg_tablespace_location(ctx: &SessionContext) -> Result<()> {
@@ -4049,14 +4092,14 @@ pub fn register_pg_available_extension_versions(ctx: &SessionContext) -> Result<
         }
     }
 
+    // Registered as `available_extension_versions`, NOT `pg_available_extension_versions`:
+    // the catalog also declares a *view* named `pg_available_extension_versions` whose
+    // body calls this function, and DataFusion resolves a table function and a relation
+    // of the same name ambiguously (the function shadows the view in FROM clauses). The
+    // view body's call is renamed to this internal name by
+    // `rewrite_available_extension_versions_source` so the view owns its name.
     ctx.register_udtf(
-        "pg_available_extension_versions",
-        Arc::new(ExtensionVersionsTableFunc {
-            schema: schema.clone(),
-        }),
-    );
-    ctx.register_udtf(
-        "pg_catalog.pg_available_extension_versions",
+        "available_extension_versions",
         Arc::new(ExtensionVersionsTableFunc { schema }),
     );
     Ok(())
@@ -4770,7 +4813,7 @@ mod tests {
         let ctx = SessionContext::new();
         register_pg_available_extension_versions(&ctx)?;
         let batches = ctx
-            .sql("SELECT * FROM pg_available_extension_versions()")
+            .sql("SELECT * FROM available_extension_versions()")
             .await?
             .collect()
             .await?;

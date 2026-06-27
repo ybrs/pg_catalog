@@ -114,6 +114,11 @@ KNOWN_COUNT_MISMATCHES = {
     "pg_catalog.pg_stat_xact_sys_tables": "derives from enumerating pg_stat_xact_all_tables",
     "pg_catalog.pg_stat_xact_user_tables": "derives from enumerating pg_stat_xact_all_tables",
     "pg_catalog.pg_statio_sys_indexes": "derives from enumerating pg_statio_all_indexes",
+    # pg_statio_all_tables now enumerates tables with empty IO stats (its correlated
+    # LATERAL aggregates are decorrelated), and its sys/user views derive from it.
+    "pg_catalog.pg_statio_all_tables": "enumerates tables with empty IO stats",
+    "pg_catalog.pg_statio_sys_tables": "derives from enumerating pg_statio_all_tables",
+    "pg_catalog.pg_statio_user_tables": "derives from enumerating pg_statio_all_tables",
     # Live-state views: real views over a set-returning function with no resolver, so
     # empty here while the snapshot has live rows.
     "pg_catalog.pg_file_settings": "empty: pg_show_all_file_settings has no resolver",
@@ -123,6 +128,8 @@ KNOWN_COUNT_MISMATCHES = {
     # empty. The bgwriter/checkpointer stat functions have no resolver installed.
     "pg_catalog.pg_stat_bgwriter": "one all-NULL row: bgwriter stat functions have no resolver",
     "pg_catalog.pg_stat_checkpointer": "one all-NULL row: checkpointer stat functions have no resolver",
+    # Empty: the pg_available_extension_versions() function models no extensions.
+    "pg_catalog.pg_available_extension_versions": "empty: no extensions are modeled",
 }
 
 # Views whose row count matches but whose CONTENT differs, because they expose a
@@ -151,7 +158,6 @@ KNOWN_CONTENT_MISMATCHES = {
 # These are real gaps (a missing runtime function or an unsupported plan), tracked
 # so the hardened count test stays green now but flags any *new* such regression.
 KNOWN_EXEC_FAILURES = {
-    "pg_catalog.pg_available_extension_versions": "GROUP BY wildcard not planned",
     "pg_catalog.pg_group": "pg_authid.oid not resolvable after subquery flattening",
 }
 

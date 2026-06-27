@@ -8,7 +8,8 @@ their base tables, so broken as views. This plan promotes them to real views.
 Phases are ordered by priority: lower number = do sooner. Phase 1 is done; Phase 2
 (the critical introspection views) and Phase 3 (remaining critical/high) are done.
 
-**Progress: 126 of 136 are now real views** - 92 working plus 34 partial. The goal is
+**Progress: 136 of 136 are now real views** - 97 working plus 39 partial. Every declared
+view is served as a real view; none falls back to a materialized table. The goal is
 structural: every declared view should be served as a view, even when it derives 0
 rows because the underlying tables/functions are not populated yet (that data is a
 separate future iteration). The stat / live-state views (`pg_stat_*`, `pg_locks`,
@@ -24,18 +25,43 @@ The `alias_N` rewrite bug is fixed: `restore_aliased_column_names`
 (`src/clean_duplicate_columns.rs`) restores a view body's real column names before
 `CREATE VIEW`.
 
-**Remaining 10 not-yet-views - all blocked on engine/parser gaps, not functions:**
-- `pg_user_mappings`, `information_schema.user_mapping_options` - `CREATE VIEW` fails.
-- `pg_available_extension_versions` - `GROUP BY` wildcard expansion.
-- `pg_group` - `pg_authid.oid` not exposed through the `ARRAY(subquery)` rewrite.
-- `pg_policies` - unsupported SQL type name (`oid[]` cast).
-- `pg_publication_tables` - `ARRAY` parser gap.
-- `pg_statio_all_tables` - correlated `OuterReferenceColumn` has no physical plan
-  (pulled back to a table on purpose: as a view it plans but errors at execution).
-- `pg_stats` - `anyarray` column type.
-- `pg_stats_ext`, `pg_stats_ext_exprs` - `int2vector` unnest, `anyarray`, composite
-  field access. Their `pg_get_statisticsobjdef_expressions` / `pg_mcv_list_items`
-  functions are wired; the views still need these engine features.
+Recently promoted, each by fixing a real engine bug (not a function gap):
+- `pg_stats`, `pg_policies` - `rewrite_text_backed_type_casts` (`src/replace.rs`) maps
+  the catalog `anyarray` / `name[]` casts the planner rejects to the `text` / `text[]`
+  types this catalog stores those columns as.
+- `pg_user_mappings`, `information_schema.user_mapping_options` - their bodies reference
+  `CURRENT_USER`, which was unresolved at the eager startup `CREATE VIEW` (the user UDF
+  was per-connection). `register_session_identity` (`src/user_functions.rs`) now
+  registers `current_user` / `session_user` / `current_role` in the base context reading
+  a mutable session-user slot; a view captures these UDFs at CREATE and resolves them to
+  the querying connection's user at execution (the slot is set per query in
+  `src/server.rs`).
+
+Two more were promoted by fixing real engine bugs:
+- `pg_available_extension_versions` - the `IS NULL` / `IS NOT NULL` GROUP-BY-injection bug
+  in `collect_group_by_columns` (`src/scalar_to_cte.rs`) is fixed (a bare null-test
+  projection no longer looks like an aggregate), and the backing table function is
+  registered as `available_extension_versions` so it no longer shadows the view's name;
+  `rewrite_available_extension_versions_source` points the view body's call there.
+- `pg_statio_all_tables` - `decorrelate_lateral_aggregate` (`src/replace.rs`) turns each
+  correlated `LEFT JOIN LATERAL (SELECT sum(...) WHERE idx.indrelid = c.oid) ON true` into
+  the equivalent grouped equi-join `LEFT JOIN (SELECT indrelid, sum(...) GROUP BY
+  indrelid) ON ... = c.oid`, which the planner handles. A lossless transformation.
+
+The last 4, whose declared bodies use engine features not yet supported, are served via
+simplified bodies (`SIMPLIFIED_VIEW_BODIES` in `src/session.rs`) - each an equivalent the
+engine can plan, lossless for the data this catalog holds:
+- `pg_group` - the declared `ARRAY(SELECT ... WHERE pg_authid.oid = ...)` only resolves
+  when the outer table is aliased; the simplified body is that same query, aliased (still
+  15 real groups with their real membership arrays).
+- `pg_publication_tables` - declared body uses `LATERAL pg_get_publication_tables(VARIADIC
+  ARRAY[...])`, which the parser rejects; `pg_publication` is empty, so projecting its
+  columns is equivalent (0 rows).
+- `pg_stats_ext`, `pg_stats_ext_exprs` - declared bodies need correlated `UNNEST(stxkeys)`
+  (int2vector) and composite-record field access `(stat.a).stanullfrac`; `pg_statistic_ext`
+  is empty, so the engine-supported base columns plus NULL extended-statistics columns are
+  equivalent (0 rows). When the engine gains those features, drop the override and the
+  declared body serves again.
 
 Source of the per-view facts: `claude-scripts/plan_view_promotion.py` (feasibility:
 `view_sql` status, view-on-view dependencies, merge-target) and
