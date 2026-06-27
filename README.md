@@ -183,6 +183,41 @@ async fn handle_request(ctx: &SessionContext, sql: &str) -> DFResult<Vec<RecordB
 
 ---
 
+## Runtime functions (statistics & live state)
+
+Many `pg_catalog` views call server-runtime functions a static catalog cannot compute -
+per-object statistics (`pg_stat_get_numscans`, ...), live session/lock state
+(`pg_stat_get_activity`, `pg_lock_status`, ...), WAL/replication state, and more. They are
+all registered, so those views are real, queryable views; with no callback installed each
+returns its empty default (SQL `NULL`, or no rows), so the views work out of the box.
+
+Supply values through typed **resolver** callbacks. Each function has its own explicit,
+compile-time-checked setter named `set_<function>_resolver`:
+
+```rust
+use std::sync::Arc;
+use datafusion_pg_catalog::{
+    set_pg_stat_get_numscans_resolver,   // scalar:        Fn(oid) -> Option<i64>
+    set_pg_lock_status_resolver,         // set-returning: Fn() -> Vec<PgLockStatusRow>
+    PgLockStatusRow,
+};
+
+set_pg_stat_get_numscans_resolver(Arc::new(|relation_oid: i64| Some(scans_for(relation_oid))));
+
+set_pg_lock_status_resolver(Arc::new(|| vec![
+    PgLockStatusRow { locktype: Some("relation".into()), pid: Some(42), granted: Some(true),
+                      ..Default::default() },
+]));
+```
+
+See **[docs/runtime-functions.md](docs/runtime-functions.md)** for the full guide (the two
+resolver shapes, the generated row structs, session identity, and caveats), and
+**[docs/runtime-functions-reference.md](docs/runtime-functions-reference.md)** for the
+copy-pasteable reference: every setter's exact signature and every row struct's full field
+list, in Rust.
+
+---
+
 ## Limitations
 
 - No persistence - catalog is in-memory only
