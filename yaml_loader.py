@@ -25,6 +25,29 @@ def load_yaml_stream(stream):
     return yaml.load(stream, Loader=_Loader)
 
 
+def walk_catalog_objects(doc):
+    """Yield ``(schema, name, node)`` for each object leaf in a catalog YAML doc.
+
+    The catalog YAML nests ``catalog -> schema -> object -> {type, ...}``; an
+    object node is any dict carrying a non-dict ``type`` key. Yielding the
+    surrounding schema and object name lets callers key objects without
+    re-deriving them from the file name. Schema or name fall back to ``"?"`` when
+    the node is shallower than the usual nesting.
+    """
+    stack = [([], doc)]
+    while stack:
+        prefix, node = stack.pop()
+        if not isinstance(node, dict):
+            continue
+        if "type" in node and not isinstance(node["type"], dict):
+            schema = prefix[-2] if len(prefix) >= 2 else "?"
+            name = prefix[-1] if prefix else "?"
+            yield schema, name, node
+            continue
+        for key, value in node.items():
+            stack.append((prefix + [key], value))
+
+
 def find_in_doc(node, key):
     """Return the first non-dict value stored under `key` anywhere in `node`.
 

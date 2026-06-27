@@ -47,7 +47,7 @@ def parse_parameters(detail_line):
 def normalize_sql(sql):
     try:
         return sqlglot.parse_one(sql, dialect="postgres").sql()
-    except:
+    except Exception:
         logger.error(sql)
         logger.error("=====")
         raise
@@ -110,11 +110,12 @@ def extract_queries_from_log(log_file):
         queries.append(current_query)
 
     # Now normalize, deduplicate, and prettify
-    final_queries = []
+    deduplicated_queries = []
     for entry in queries:
         query_text = entry["query"]
 
-        norm_query = normalize_sql(query_text)
+        # Normalize once to surface any unparseable query as a hard error here.
+        normalize_sql(query_text)
         query_hash = sql_hash(query_text)
 
         if query_hash in seen_hashes:
@@ -123,23 +124,18 @@ def extract_queries_from_log(log_file):
         seen_hashes.add(query_hash)
         pretty_query = sqlparse.format(query_text, reindent=True, keyword_case="upper").strip()
 
-        try:
-            new_entry = {
-                "query": query_text,
-                "pretty_query": LiteralString(pretty_query),
-                "query_hash": query_hash,
-                "expected": ""
-            }
-        except:
-            logger.error(norm_query)
-            import ipdb; ipdb.set_trace()
-            raise
+        new_entry = {
+            "query": query_text,
+            "pretty_query": LiteralString(pretty_query),
+            "query_hash": query_hash,
+            "expected": "",
+        }
         if "parameters" in entry:
             new_entry["parameters"] = entry["parameters"]
 
-        final_queries.append(new_entry)
+        deduplicated_queries.append(new_entry)
 
-    return final_queries
+    return deduplicated_queries
 
 def save_queries_to_yaml(queries, output_file):
     with open(output_file, "w") as f:

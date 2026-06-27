@@ -38,7 +38,7 @@ from typing import Dict, List, Optional
 
 import psycopg
 
-from yaml_loader import load_yaml
+from yaml_loader import load_yaml, walk_catalog_objects
 
 SCHEMA_DIR = Path("pg_catalog_data/pg_schema")
 
@@ -102,7 +102,7 @@ def collect_objects(schema_dir: Path) -> List[CatalogObject]:
     objects: List[CatalogObject] = []
     for path in sorted(schema_dir.glob("*.yaml")):
         doc = load_yaml(path)
-        for schema, name, node in _walk_objects(doc):
+        for schema, name, node in walk_catalog_objects(doc):
             yaml_type = node.get("type", "")
             if yaml_type == "view":
                 rows = node.get("rows")
@@ -129,27 +129,6 @@ def collect_objects(schema_dir: Path) -> List[CatalogObject]:
     return objects
 
 
-def _walk_objects(doc: Dict):
-    """Yield ``(schema, name, node)`` for each leaf object dict in a catalog YAML.
-
-    The YAML nests ``catalog -> schema -> object -> {type, ...}``; an object node is
-    any dict carrying a ``type`` key. Yielding the surrounding schema/name lets the
-    caller key objects without re-deriving them from the file name.
-    """
-    stack = [([], doc)]
-    while stack:
-        prefix, node = stack.pop()
-        if not isinstance(node, dict):
-            continue
-        if "type" in node and not isinstance(node["type"], dict):
-            schema = prefix[-2] if len(prefix) >= 2 else "?"
-            name = prefix[-1] if prefix else "?"
-            yield schema, name, node
-            continue
-        for key, value in node.items():
-            stack.append((prefix + [key], value))
-
-
 def _view_sql_by_name(schema_dir: Path) -> Dict[str, str]:
     """Map ``schema.name -> view_sql`` for every view in the catalog.
 
@@ -159,7 +138,7 @@ def _view_sql_by_name(schema_dir: Path) -> Dict[str, str]:
     sql: Dict[str, str] = {}
     for path in sorted(schema_dir.glob("*.yaml")):
         doc = load_yaml(path)
-        for schema, name, node in _walk_objects(doc):
+        for schema, name, node in walk_catalog_objects(doc):
             if node.get("type") == "view" and node.get("view_sql"):
                 sql[f"{schema}.{name}"] = node["view_sql"]
     return sql
@@ -170,7 +149,7 @@ def _snapshot_rows_by_name(schema_dir: Path) -> Dict[str, list]:
     rows_by_name: Dict[str, list] = {}
     for path in sorted(schema_dir.glob("*.yaml")):
         doc = load_yaml(path)
-        for schema, name, node in _walk_objects(doc):
+        for schema, name, node in walk_catalog_objects(doc):
             if node.get("type") == "view" and node.get("rows") is not None:
                 rows_by_name[f"{schema}.{name}"] = node["rows"]
     return rows_by_name

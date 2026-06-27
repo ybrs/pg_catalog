@@ -20,6 +20,68 @@ use sqlparser::dialect::PostgreSqlDialect;
 use sqlparser::parser::Parser;
 use sqlparser::tokenizer::Span;
 
+/// Returns `true` when `obj` names the type `type_name`, either bare
+/// (`type_name`) or qualified as `pg_catalog.type_name`. Comparison is
+/// case-insensitive, matching how PostgreSQL resolves unquoted identifiers.
+fn object_name_matches(obj: &ObjectName, type_name: &str) -> bool {
+    match obj.0.as_slice() {
+        [ObjectNamePart::Identifier(id)] => id.value.eq_ignore_ascii_case(type_name),
+        [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(id)] => {
+            schema.value.eq_ignore_ascii_case("pg_catalog")
+                && id.value.eq_ignore_ascii_case(type_name)
+        }
+        _ => false,
+    }
+}
+
+/// Parse `sql` as PostgreSQL, apply `rewrite` in place to every expression in
+/// every statement (depth-first), and render the statements back to a SQL
+/// string. Returns a parse error if `sql` is not valid PostgreSQL.
+///
+/// This is the shared skeleton for the many single-purpose expression rewriters
+/// below; each supplies only the per-expression transformation.
+fn rewrite_each_expression<F>(sql: &str, mut rewrite: F) -> Result<String>
+where
+    F: FnMut(&mut Expr),
+{
+    let dialect = PostgreSqlDialect {};
+    let mut statements =
+        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
+
+    let _ = visit_statements_mut(&mut statements, |stmt| {
+        let _ = visit_expressions_mut(stmt, |expr| {
+            rewrite(expr);
+            ControlFlow::<()>::Continue(())
+        });
+        ControlFlow::<()>::Continue(())
+    });
+
+    Ok(statements
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join("; "))
+}
+
+/// Rewrite every `expr::type_name` cast (where `type_name` is a custom/unknown
+/// type that DataFusion does not model) into a cast to `target`, leaving all
+/// other casts untouched. `type_name` matches bare or `pg_catalog`-qualified.
+fn rewrite_custom_type_cast_target(
+    sql: &str,
+    type_name: &str,
+    target: DataType,
+) -> Result<String> {
+    rewrite_each_expression(sql, |expr| {
+        if let Expr::Cast { data_type, .. } = expr {
+            if let DataType::Custom(obj, _) = data_type {
+                if object_name_matches(obj, type_name) {
+                    *data_type = target.clone();
+                }
+            }
+        }
+    })
+}
+
 /// Force every FROM-clause table alias to render with an explicit `AS` keyword.
 ///
 /// sqlparser 0.62 added `TableAlias::explicit`, so an alias parsed without `AS`
@@ -1304,24 +1366,11 @@ pub fn drop_oid_array_cast(sql: &str) -> Result<String> {
 /// underlying column is already an integer array; this rewrite leaves it untouched.
 pub fn rewrite_text_backed_type_casts(sql: &str) -> Result<String> {
     use sqlparser::ast::{
-        visit_expressions_mut, visit_statements_mut, ArrayElemTypeDef, DataType, Expr, ObjectName,
-        ObjectNamePart,
+        visit_expressions_mut, visit_statements_mut, ArrayElemTypeDef, DataType, Expr,
     };
     use sqlparser::dialect::PostgreSqlDialect;
     use sqlparser::parser::Parser;
     use std::ops::ControlFlow;
-
-    /// True when `obj` names the bare `anyarray` type (optionally `pg_catalog`-qualified).
-    fn is_named(obj: &ObjectName, type_name: &str) -> bool {
-        match obj.0.as_slice() {
-            [ObjectNamePart::Identifier(id)] => id.value.eq_ignore_ascii_case(type_name),
-            [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(id)] => {
-                schema.value.eq_ignore_ascii_case("pg_catalog")
-                    && id.value.eq_ignore_ascii_case(type_name)
-            }
-            _ => false,
-        }
-    }
 
     /// The element type of an array cast (`name[]` parses as `Array(SquareBracket(..))`).
     fn array_elem(dt: &DataType) -> Option<&DataType> {
@@ -1342,9 +1391,9 @@ pub fn rewrite_text_backed_type_casts(sql: &str) -> Result<String> {
     let _ = visit_statements_mut(&mut stmts, |stmt| {
         visit_expressions_mut(stmt, |e| {
             if let Expr::Cast { data_type, .. } = e {
-                let is_anyarray = matches!(data_type, DataType::Custom(obj, _) if is_named(obj, "anyarray"));
+                let is_anyarray = matches!(data_type, DataType::Custom(obj, _) if object_name_matches(obj, "anyarray"));
                 let is_name_array = array_elem(data_type)
-                    .is_some_and(|inner| matches!(inner, DataType::Custom(obj, _) if is_named(obj, "name")));
+                    .is_some_and(|inner| matches!(inner, DataType::Custom(obj, _) if object_name_matches(obj, "name")));
                 if is_anyarray {
                     *data_type = DataType::Text;
                 } else if is_name_array {
@@ -1462,100 +1511,13 @@ pub fn rewrite_pg_truetypid_composite_args(sql: &str) -> Result<String> {
 }
 
 pub fn rewrite_regtype_cast(sql: &str) -> Result<String> {
-    use sqlparser::ast::{
-        visit_expressions_mut, visit_statements_mut, DataType, Expr, ObjectName, ObjectNamePart,
-    };
-    use sqlparser::dialect::PostgreSqlDialect;
-    use sqlparser::parser::Parser;
-    use std::ops::ControlFlow;
-
-    // Return true when the object name represents regtype
-    fn is_regtype(obj: &ObjectName) -> bool {
-        match obj.0.as_slice() {
-            // unqualified: regtype
-            [ObjectNamePart::Identifier(id)] if id.value.eq_ignore_ascii_case("regtype") => true,
-            // qualified: pg_catalog.regtype
-            [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(id)]
-                if schema.value.eq_ignore_ascii_case("pg_catalog")
-                    && id.value.eq_ignore_ascii_case("regtype") =>
-            {
-                true
-            }
-            _ => false,
-        }
-    }
-
-    let dialect = PostgreSqlDialect {};
-    let mut stmts =
-        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
-
-    let _ = visit_statements_mut(&mut stmts, |stmt| {
-        let _ = visit_expressions_mut(stmt, |e| {
-            if let Expr::Cast { data_type, .. } = e {
-                if let DataType::Custom(obj, _) = data_type {
-                    if is_regtype(obj) {
-                        *data_type = DataType::Text; // regtype  ->  TEXT
-                    }
-                }
-            }
-            ControlFlow::<()>::Continue(())
-        })?;
-        ControlFlow::Continue(())
-    });
-
-    Ok(stmts
-        .into_iter()
-        .map(|s| s.to_string())
-        .collect::<Vec<_>>()
-        .join("; "))
+    rewrite_custom_type_cast_target(sql, "regtype", DataType::Text)
 }
 
 /// Normalize casts to `pg_catalog.char` by converting them to the
 /// standard `CHAR` type understood by DataFusion.
 pub fn rewrite_char_cast(sql: &str) -> Result<String> {
-    use sqlparser::ast::{
-        visit_expressions_mut, visit_statements_mut, DataType, Expr, ObjectName, ObjectNamePart,
-    };
-    use sqlparser::dialect::PostgreSqlDialect;
-    use sqlparser::parser::Parser;
-    use std::ops::ControlFlow;
-
-    fn is_char_type(obj: &ObjectName) -> bool {
-        match obj.0.as_slice() {
-            [ObjectNamePart::Identifier(id)] if id.value.eq_ignore_ascii_case("char") => true,
-            [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(id)]
-                if schema.value.eq_ignore_ascii_case("pg_catalog")
-                    && id.value.eq_ignore_ascii_case("char") =>
-            {
-                true
-            }
-            _ => false,
-        }
-    }
-
-    let dialect = PostgreSqlDialect {};
-    let mut stmts =
-        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
-
-    let _ = visit_statements_mut(&mut stmts, |stmt| {
-        visit_expressions_mut(stmt, |e| {
-            if let Expr::Cast { data_type, .. } = e {
-                if let DataType::Custom(obj, _) = data_type {
-                    if is_char_type(obj) {
-                        *data_type = DataType::Char(None);
-                    }
-                }
-            }
-            ControlFlow::<()>::Continue(())
-        })?;
-        ControlFlow::Continue(())
-    });
-
-    Ok(stmts
-        .into_iter()
-        .map(|s| s.to_string())
-        .collect::<Vec<_>>()
-        .join("; "))
+    rewrite_custom_type_cast_target(sql, "char", DataType::Char(None))
 }
 
 /// Rename the `pg_available_extension_versions(...)` table-function call to the internal
@@ -1931,188 +1893,71 @@ pub fn rewrite_schema_qualified_udtfs(sql: &str) -> Result<String> {
 /// Convert casts to `xid` into plain BIGINT casts since transaction IDs
 /// are represented as 64 bit integers in the catalog snapshots.
 pub fn rewrite_xid_cast(sql: &str) -> Result<String> {
-    use sqlparser::ast::{
-        visit_expressions_mut, visit_statements_mut, DataType, Expr, ObjectName, ObjectNamePart,
-    };
-    use sqlparser::dialect::PostgreSqlDialect;
-    use sqlparser::parser::Parser;
-    use std::ops::ControlFlow;
-
-    fn is_xid(obj: &ObjectName) -> bool {
-        match obj.0.as_slice() {
-            [ObjectNamePart::Identifier(id)] if id.value.eq_ignore_ascii_case("xid") => true,
-            [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(id)]
-                if schema.value.eq_ignore_ascii_case("pg_catalog")
-                    && id.value.eq_ignore_ascii_case("xid") =>
-            {
-                true
-            }
-            _ => false,
-        }
-    }
-
-    let dialect = PostgreSqlDialect {};
-    let mut stmts =
-        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
-
-    let _ = visit_statements_mut(&mut stmts, |stmt| {
-        visit_expressions_mut(stmt, |e| {
-            if let Expr::Cast { data_type, .. } = e {
-                if let DataType::Custom(obj, _) = data_type {
-                    if is_xid(obj) {
-                        *data_type = DataType::BigInt(None);
-                    }
-                }
-            }
-            ControlFlow::<()>::Continue(())
-        })?;
-        ControlFlow::Continue(())
-    });
-
-    Ok(stmts
-        .into_iter()
-        .map(|s| s.to_string())
-        .collect::<Vec<_>>()
-        .join("; "))
+    rewrite_custom_type_cast_target(sql, "xid", DataType::BigInt(None))
 }
 
 /// Map casts to the pseudo-type `name` onto plain TEXT since the
 /// planner does not know about PostgreSQL's internal name type.
 pub fn rewrite_name_cast(sql: &str) -> Result<String> {
-    use sqlparser::ast::{
-        visit_expressions_mut, visit_statements_mut, DataType, Expr, ObjectName, ObjectNamePart,
-    };
-    use sqlparser::dialect::PostgreSqlDialect;
-    use sqlparser::parser::Parser;
-    use std::ops::ControlFlow;
-
-    fn is_name(obj: &ObjectName) -> bool {
-        match obj.0.as_slice() {
-            [ObjectNamePart::Identifier(id)] if id.value.eq_ignore_ascii_case("name") => true,
-            [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(id)]
-                if schema.value.eq_ignore_ascii_case("pg_catalog")
-                    && id.value.eq_ignore_ascii_case("name") =>
-            {
-                true
-            }
-            _ => false,
-        }
-    }
-
-    let dialect = PostgreSqlDialect {};
-    let mut stmts =
-        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
-
-    let _ = visit_statements_mut(&mut stmts, |stmt| {
-        visit_expressions_mut(stmt, |e| {
-            if let Expr::Cast { data_type, .. } = e {
-                if let DataType::Custom(obj, _) = data_type {
-                    if is_name(obj) {
-                        *data_type = DataType::Text;
-                    }
-                }
-            }
-            ControlFlow::<()>::Continue(())
-        })?;
-        ControlFlow::Continue(())
-    });
-
-    Ok(stmts
-        .into_iter()
-        .map(|s| s.to_string())
-        .collect::<Vec<_>>()
-        .join("; "))
+    rewrite_custom_type_cast_target(sql, "name", DataType::Text)
 }
 
 /// Convert casts to the OID type into BIGINT since our catalog
 /// represents object identifiers as plain integers.
 pub fn rewrite_oid_cast(sql: &str) -> Result<String> {
-    use sqlparser::ast::{
-        visit_expressions_mut, visit_statements_mut, CastKind, DataType, Expr, Function,
-        FunctionArg, FunctionArgExpr, FunctionArgumentList, FunctionArguments, Ident, ObjectName,
-        ObjectNamePart, Value, ValueWithSpan,
-    };
-    use sqlparser::dialect::PostgreSqlDialect;
-    use sqlparser::parser::Parser;
-    use std::ops::ControlFlow;
-
-    fn is_oid(obj: &ObjectName) -> bool {
-        match obj.0.as_slice() {
-            [ObjectNamePart::Identifier(id)] if id.value.eq_ignore_ascii_case("oid") => true,
-            [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(id)]
-                if schema.value.eq_ignore_ascii_case("pg_catalog")
-                    && id.value.eq_ignore_ascii_case("oid") =>
-            {
-                true
-            }
-            _ => false,
+    rewrite_each_expression(sql, |e| {
+        let Expr::Cast {
+            expr, data_type, ..
+        } = e
+        else {
+            return;
+        };
+        let DataType::Custom(obj, _) = data_type else {
+            return;
+        };
+        if !object_name_matches(obj, "oid") {
+            return;
         }
-    }
 
-    let dialect = PostgreSqlDialect {};
-    let mut stmts =
-        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
+        // A numeric or placeholder operand is a plain integer OID, so cast it to
+        // BIGINT; anything else (e.g. a relation name) goes through the `oid()`
+        // function that resolves a name to its OID.
+        let operand_is_integer = matches!(
+            expr.as_ref(),
+            Expr::Value(ValueWithSpan {
+                value: Value::Number(_, _),
+                ..
+            }) | Expr::Value(ValueWithSpan {
+                value: Value::Placeholder(_),
+                ..
+            })
+        );
 
-    let _ = visit_statements_mut(&mut stmts, |stmt| {
-        visit_expressions_mut(stmt, |e| {
-            if let Expr::Cast {
-                expr, data_type, ..
-            } = e
-            {
-                if let DataType::Custom(obj, _) = data_type {
-                    if is_oid(obj) {
-                        let use_int = matches!(
-                            expr.as_ref(),
-                            Expr::Value(ValueWithSpan {
-                                value: Value::Number(_, _),
-                                ..
-                            }) | Expr::Value(ValueWithSpan {
-                                value: Value::Placeholder(_),
-                                ..
-                            })
-                        );
-
-                        if use_int {
-                            *e = Expr::Cast {
-                                kind: CastKind::DoubleColon,
-                                expr: expr.clone(),
-                                data_type: DataType::BigInt(None),
-                                array: false,
-                                format: None,
-                            };
-                        } else {
-                            *e = Expr::Function(Function {
-                                name: ObjectName(vec![ObjectNamePart::Identifier(Ident::new(
-                                    "oid",
-                                ))]),
-                                args: FunctionArguments::List(FunctionArgumentList {
-                                    duplicate_treatment: None,
-                                    clauses: vec![],
-                                    args: vec![FunctionArg::Unnamed(FunctionArgExpr::Expr(
-                                        *expr.clone(),
-                                    ))],
-                                }),
-                                over: None,
-                                filter: None,
-                                within_group: vec![],
-                                null_treatment: None,
-                                parameters: FunctionArguments::None,
-                                uses_odbc_syntax: false,
-                            });
-                        }
-                    }
-                }
-            }
-            ControlFlow::<()>::Continue(())
-        })?;
-        ControlFlow::Continue(())
-    });
-
-    Ok(stmts
-        .into_iter()
-        .map(|s| s.to_string())
-        .collect::<Vec<_>>()
-        .join("; "))
+        if operand_is_integer {
+            *e = Expr::Cast {
+                kind: CastKind::DoubleColon,
+                expr: expr.clone(),
+                data_type: DataType::BigInt(None),
+                array: false,
+                format: None,
+            };
+        } else {
+            *e = Expr::Function(Function {
+                name: ObjectName(vec![ObjectNamePart::Identifier(Ident::new("oid"))]),
+                args: FunctionArguments::List(FunctionArgumentList {
+                    duplicate_treatment: None,
+                    clauses: vec![],
+                    args: vec![FunctionArg::Unnamed(FunctionArgExpr::Expr(*expr.clone()))],
+                }),
+                over: None,
+                filter: None,
+                within_group: vec![],
+                null_treatment: None,
+                parameters: FunctionArguments::None,
+                uses_odbc_syntax: false,
+            });
+        }
+    })
 }
 
 /// Replace casts to regoper with NULL. Queries sometimes cast the
@@ -2120,198 +1965,33 @@ pub fn rewrite_oid_cast(sql: &str) -> Result<String> {
 /// another type like TEXT. Since the column is always NULL we can
 /// short-circuit this pattern by returning NULL directly.
 pub fn rewrite_regoper_cast(sql: &str) -> Result<String> {
-    use sqlparser::ast::{
-        visit_expressions_mut, visit_statements_mut, DataType, Expr, ObjectName, ObjectNamePart,
-        Value, ValueWithSpan,
-    };
-    use sqlparser::dialect::PostgreSqlDialect;
-    use sqlparser::parser::Parser;
-    use std::ops::ControlFlow;
-
-    fn is_regoper(obj: &ObjectName) -> bool {
-        match obj.0.as_slice() {
-            [ObjectNamePart::Identifier(id)] if id.value.eq_ignore_ascii_case("regoper") => true,
-            [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(id)]
-                if schema.value.eq_ignore_ascii_case("pg_catalog")
-                    && id.value.eq_ignore_ascii_case("regoper") =>
-            {
-                true
-            }
-            _ => false,
-        }
-    }
-
-    let dialect = PostgreSqlDialect {};
-    let mut stmts =
-        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
-
-    let _ = visit_statements_mut(&mut stmts, |stmt| {
-        visit_expressions_mut(stmt, |e| {
-            if let Expr::Cast { data_type, .. } = e {
-                if let DataType::Custom(obj, _) = data_type {
-                    if is_regoper(obj) {
-                        *e = Expr::Value(ValueWithSpan {
-                            value: Value::Null,
-                            span: Span::empty(),
-                        });
-                    }
+    rewrite_each_expression(sql, |expr| {
+        if let Expr::Cast { data_type, .. } = expr {
+            if let DataType::Custom(obj, _) = data_type {
+                if object_name_matches(obj, "regoper") {
+                    *expr = Expr::Value(ValueWithSpan {
+                        value: Value::Null,
+                        span: Span::empty(),
+                    });
                 }
             }
-            ControlFlow::<()>::Continue(())
-        })?;
-        ControlFlow::Continue(())
-    });
-
-    Ok(stmts
-        .into_iter()
-        .map(|s| s.to_string())
-        .collect::<Vec<_>>()
-        .join("; "))
+        }
+    })
 }
 
 /// Replace casts to regoperator with TEXT.
 pub fn rewrite_regoperator_cast(sql: &str) -> Result<String> {
-    use sqlparser::ast::{
-        visit_expressions_mut, visit_statements_mut, DataType, Expr, ObjectName, ObjectNamePart,
-    };
-    use sqlparser::dialect::PostgreSqlDialect;
-    use sqlparser::parser::Parser;
-    use std::ops::ControlFlow;
-
-    fn is_regoperator(obj: &ObjectName) -> bool {
-        match obj.0.as_slice() {
-            [ObjectNamePart::Identifier(id)] if id.value.eq_ignore_ascii_case("regoperator") => {
-                true
-            }
-            [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(id)]
-                if schema.value.eq_ignore_ascii_case("pg_catalog")
-                    && id.value.eq_ignore_ascii_case("regoperator") =>
-            {
-                true
-            }
-            _ => false,
-        }
-    }
-
-    let dialect = PostgreSqlDialect {};
-    let mut stmts =
-        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
-
-    let _ = visit_statements_mut(&mut stmts, |stmt| {
-        visit_expressions_mut(stmt, |e| {
-            if let Expr::Cast { data_type, .. } = e {
-                if let DataType::Custom(obj, _) = data_type {
-                    if is_regoperator(obj) {
-                        *data_type = DataType::Text;
-                    }
-                }
-            }
-            ControlFlow::<()>::Continue(())
-        })?;
-        ControlFlow::Continue(())
-    });
-
-    Ok(stmts
-        .into_iter()
-        .map(|s| s.to_string())
-        .collect::<Vec<_>>()
-        .join("; "))
+    rewrite_custom_type_cast_target(sql, "regoperator", DataType::Text)
 }
 
 /// Replace casts to regprocedure with TEXT.
 pub fn rewrite_regprocedure_cast(sql: &str) -> Result<String> {
-    use sqlparser::ast::{
-        visit_expressions_mut, visit_statements_mut, DataType, Expr, ObjectName, ObjectNamePart,
-    };
-    use sqlparser::dialect::PostgreSqlDialect;
-    use sqlparser::parser::Parser;
-    use std::ops::ControlFlow;
-
-    fn is_regprocedure(obj: &ObjectName) -> bool {
-        match obj.0.as_slice() {
-            [ObjectNamePart::Identifier(id)] if id.value.eq_ignore_ascii_case("regprocedure") => {
-                true
-            }
-            [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(id)]
-                if schema.value.eq_ignore_ascii_case("pg_catalog")
-                    && id.value.eq_ignore_ascii_case("regprocedure") =>
-            {
-                true
-            }
-            _ => false,
-        }
-    }
-
-    let dialect = PostgreSqlDialect {};
-    let mut stmts =
-        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
-
-    let _ = visit_statements_mut(&mut stmts, |stmt| {
-        visit_expressions_mut(stmt, |e| {
-            if let Expr::Cast { data_type, .. } = e {
-                if let DataType::Custom(obj, _) = data_type {
-                    if is_regprocedure(obj) {
-                        *data_type = DataType::Text;
-                    }
-                }
-            }
-            ControlFlow::<()>::Continue(())
-        })?;
-        ControlFlow::Continue(())
-    });
-
-    Ok(stmts
-        .into_iter()
-        .map(|s| s.to_string())
-        .collect::<Vec<_>>()
-        .join("; "))
+    rewrite_custom_type_cast_target(sql, "regprocedure", DataType::Text)
 }
 
 /// Replace casts to regproc with TEXT.
 pub fn rewrite_regproc_cast(sql: &str) -> Result<String> {
-    use sqlparser::ast::{
-        visit_expressions_mut, visit_statements_mut, DataType, Expr, ObjectName, ObjectNamePart,
-    };
-    use sqlparser::dialect::PostgreSqlDialect;
-    use sqlparser::parser::Parser;
-    use std::ops::ControlFlow;
-
-    fn is_regproc(obj: &ObjectName) -> bool {
-        match obj.0.as_slice() {
-            [ObjectNamePart::Identifier(id)] if id.value.eq_ignore_ascii_case("regproc") => true,
-            [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(id)]
-                if schema.value.eq_ignore_ascii_case("pg_catalog")
-                    && id.value.eq_ignore_ascii_case("regproc") =>
-            {
-                true
-            }
-            _ => false,
-        }
-    }
-
-    let dialect = PostgreSqlDialect {};
-    let mut stmts =
-        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
-
-    let _ = visit_statements_mut(&mut stmts, |stmt| {
-        let _ = visit_expressions_mut(stmt, |e| {
-            if let Expr::Cast { data_type, .. } = e {
-                if let DataType::Custom(obj, _) = data_type {
-                    if is_regproc(obj) {
-                        *data_type = DataType::Text;
-                    }
-                }
-            }
-            ControlFlow::<()>::Continue(())
-        })?;
-        ControlFlow::Continue(())
-    });
-
-    Ok(stmts
-        .into_iter()
-        .map(|s| s.to_string())
-        .collect::<Vec<_>>()
-        .join("; "))
+    rewrite_custom_type_cast_target(sql, "regproc", DataType::Text)
 }
 
 /// Replace the available_updates sub-query in pg_extension queries with NULL.

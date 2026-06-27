@@ -32,7 +32,7 @@ import re
 from collections import defaultdict
 from pathlib import Path
 
-from yaml_loader import load_yaml
+from yaml_loader import load_yaml, walk_catalog_objects
 
 SCHEMA_DIR = Path("pg_catalog_data/pg_schema")
 AUDIT_JSON = Path("claude-scripts/catalog_audit.json")
@@ -46,28 +46,12 @@ MERGE_TARGETS = {
 }
 
 
-def _walk_objects(doc):
-    """Yield ``(schema, name, node)`` for each object node (a dict with a ``type``)."""
-    stack = [([], doc)]
-    while stack:
-        prefix, node = stack.pop()
-        if not isinstance(node, dict):
-            continue
-        if "type" in node and not isinstance(node["type"], dict):
-            schema = prefix[-2] if len(prefix) >= 2 else "?"
-            name = prefix[-1] if prefix else "?"
-            yield schema, name, node
-            continue
-        for key, value in node.items():
-            stack.append((prefix + [key], value))
-
-
 def load_catalog():
     """Return ``(view_sql_by_name, all_view_names)`` read from the YAML catalog."""
     view_sql = {}
     view_names = set()
     for path in sorted(SCHEMA_DIR.glob("*.yaml")):
-        for schema, name, node in _walk_objects(load_yaml(path)):
+        for schema, name, node in walk_catalog_objects(load_yaml(path)):
             if node.get("type") == "view":
                 view_names.add(name)
                 if node.get("view_sql"):

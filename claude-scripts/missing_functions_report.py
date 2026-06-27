@@ -23,7 +23,7 @@ from pathlib import Path
 
 import psycopg
 
-from yaml_loader import find_in_doc, load_yaml
+from yaml_loader import find_in_doc, load_yaml, walk_catalog_objects
 
 SCHEMA_DIR = Path("pg_catalog_data/pg_schema")
 
@@ -50,19 +50,9 @@ CALL_RE = re.compile(r"(?:(\w+)\.)?(\w+)\s*\(")
 def collect_view_sqls():
     """Yield ``(qualified_name, view_sql)`` for every view in the catalog."""
     for path in sorted(SCHEMA_DIR.glob("*.yaml")):
-        doc = load_yaml(path)
-        stack = [([], doc)]
-        while stack:
-            prefix, node = stack.pop()
-            if not isinstance(node, dict):
-                continue
+        for schema, name, node in walk_catalog_objects(load_yaml(path)):
             if node.get("type") == "view" and node.get("view_sql"):
-                schema = prefix[-2] if len(prefix) >= 2 else "?"
-                name = prefix[-1] if prefix else "?"
                 yield f"{schema}.{name}", node["view_sql"]
-                continue
-            for key, value in node.items():
-                stack.append((prefix + [key], value))
 
 
 def called_functions(sql: str):

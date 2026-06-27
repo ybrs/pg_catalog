@@ -1,4 +1,4 @@
-use arrow::array::{Array, Int32Array, Int64Array, LargeStringArray, StringArray};
+use arrow::array::{Array, Int32Array, Int64Array, LargeStringArray, RecordBatch, StringArray};
 use datafusion::common::ScalarValue;
 use datafusion::error::{DataFusionError, Result as DFResult};
 use datafusion::execution::context::SessionContext;
@@ -610,13 +610,11 @@ async fn get_schema_name(ctx: &SessionContext, schema_oid: i32) -> DFResult<Opti
         .next())
 }
 
-async fn get_schema_oid(ctx: &SessionContext, schema_name: &str) -> DFResult<Option<i32>> {
-    let df = ctx
-        .sql("SELECT oid FROM pg_catalog.pg_namespace WHERE nspname=$schema")
-        .await?
-        .with_param_values(vec![("schema", ScalarValue::from(schema_name))])?;
-    let batches = df.collect().await?;
-
+/// Read the OID in the first row of a single-column `SELECT oid ...` result,
+/// accepting either an `Int32` or `Int64` column (widened/narrowed to `i32`).
+/// Returns `None` when the result has no rows, and an error when the column is
+/// neither integer type. `kind` names the looked-up object for the error text.
+fn first_oid_cell(batches: &[RecordBatch], kind: &str) -> DFResult<Option<i32>> {
     if batches.is_empty() || batches[0].num_rows() == 0 {
         return Ok(None);
     }
@@ -627,12 +625,24 @@ async fn get_schema_oid(ctx: &SessionContext, schema_name: &str) -> DFResult<Opt
     } else if let Some(arr) = array.as_any().downcast_ref::<Int64Array>() {
         Ok(Some(arr.value(0) as i32))
     } else {
-        Err(DataFusionError::Execution(
-            "unexpected schema oid type".to_string(),
-        ))
+        Err(DataFusionError::Execution(format!(
+            "unexpected {kind} oid type"
+        )))
     }
 }
 
+/// Look up a schema's OID by name from `pg_catalog.pg_namespace`, or `None` when
+/// no schema of that name exists.
+async fn get_schema_oid(ctx: &SessionContext, schema_name: &str) -> DFResult<Option<i32>> {
+    let df = ctx
+        .sql("SELECT oid FROM pg_catalog.pg_namespace WHERE nspname=$schema")
+        .await?
+        .with_param_values(vec![("schema", ScalarValue::from(schema_name))])?;
+    first_oid_cell(&df.collect().await?, "schema")
+}
+
+/// Look up a table's OID by name within a schema from `pg_catalog.pg_class`, or
+/// `None` when no such table exists in that schema.
 async fn get_table_oid(
     ctx: &SessionContext,
     schema_oid: i32,
@@ -644,22 +654,7 @@ async fn get_table_oid(
         ))
         .await?
         .with_param_values(vec![("relname", ScalarValue::from(table_name))])?;
-    let batches = df.collect().await?;
-
-    if batches.is_empty() || batches[0].num_rows() == 0 {
-        return Ok(None);
-    }
-
-    let array = batches[0].column(0);
-    if let Some(arr) = array.as_any().downcast_ref::<Int32Array>() {
-        Ok(Some(arr.value(0)))
-    } else if let Some(arr) = array.as_any().downcast_ref::<Int64Array>() {
-        Ok(Some(arr.value(0) as i32))
-    } else {
-        Err(DataFusionError::Execution(
-            "unexpected table oid type".to_string(),
-        ))
-    }
+    first_oid_cell(&df.collect().await?, "table")
 }
 
 fn collect_string_column(column: &arrow::array::ArrayRef) -> Vec<String> {

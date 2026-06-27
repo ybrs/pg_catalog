@@ -520,10 +520,10 @@ pub fn register_pg_relation_is_publishable(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// pg_catalog.has_database_privilege(database, text) -> bool
-///
-/// Compatibility stub that always returns `true`.
-pub fn register_has_database_privilege(ctx: &SessionContext) -> Result<()> {
+/// Register an always-`true` `(object, privilege) -> bool` compatibility stub
+/// under `pg_catalog.<base_name>` (with the bare name as an alias), accepting the
+/// object argument as an OID (`Int32`/`Int64`) or a name (`Utf8`).
+fn register_always_true_object_privilege(ctx: &SessionContext, base_name: &'static str) -> Result<()> {
     use arrow::array::{ArrayRef, BooleanBuilder};
     use arrow::datatypes::DataType;
     use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
@@ -543,51 +543,30 @@ pub fn register_has_database_privilege(ctx: &SessionContext) -> Result<()> {
 
     for dt in [DataType::Int32, DataType::Int64, DataType::Utf8] {
         let udf = create_udf(
-            "pg_catalog.has_database_privilege",
+            &format!("pg_catalog.{base_name}"),
             vec![dt.clone(), DataType::Utf8],
             DataType::Boolean,
             Volatility::Stable,
             Arc::new(fun),
         )
-        .with_aliases(["has_database_privilege"]);
+        .with_aliases([base_name]);
         ctx.register_udf(udf);
     }
     Ok(())
+}
+
+/// pg_catalog.has_database_privilege(database, text) -> bool
+///
+/// Compatibility stub that always returns `true`.
+pub fn register_has_database_privilege(ctx: &SessionContext) -> Result<()> {
+    register_always_true_object_privilege(ctx, "has_database_privilege")
 }
 
 /// pg_catalog.has_schema_privilege(schema, text) -> bool
 ///
 /// Compatibility stub that always returns `true`.
 pub fn register_has_schema_privilege(ctx: &SessionContext) -> Result<()> {
-    use arrow::array::{ArrayRef, BooleanBuilder};
-    use arrow::datatypes::DataType;
-    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
-    use std::sync::Arc;
-
-    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
-        let len = match args.get(0) {
-            Some(ColumnarValue::Array(a)) => a.len(),
-            _ => 1,
-        };
-        let mut b = BooleanBuilder::with_capacity(len);
-        for _ in 0..len {
-            b.append_value(true);
-        }
-        Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
-    };
-
-    for dt in [DataType::Int32, DataType::Int64, DataType::Utf8] {
-        let udf = create_udf(
-            "pg_catalog.has_schema_privilege",
-            vec![dt.clone(), DataType::Utf8],
-            DataType::Boolean,
-            Volatility::Stable,
-            Arc::new(fun),
-        )
-        .with_aliases(["has_schema_privilege"]);
-        ctx.register_udf(udf);
-    }
-    Ok(())
+    register_always_true_object_privilege(ctx, "has_schema_privilege")
 }
 
 /// pg_catalog.pg_has_role(\[user,\] role, privilege) -> bool
@@ -2051,38 +2030,6 @@ pub fn register_scalar_pg_table_is_visible(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-#[allow(dead_code)]
-fn fetch_user_by_oid(ctx: Arc<SessionContext>, oid: i64) -> Result<String> {
-    run_catalog_query(async move {
-        {
-            let query = format!(
-                "SELECT rolname FROM pg_catalog.pg_authid WHERE oid = {} LIMIT 1",
-                oid
-            );
-            let df = ctx.sql(&query).await?;
-            let batches = df.collect().await?;
-            for batch in batches {
-                if batch.num_rows() == 0 {
-                    continue;
-                }
-                let col = batch.column(0);
-                let arr = col
-                    .as_any()
-                    .downcast_ref::<arrow::array::StringArray>()
-                    .ok_or_else(|| {
-                        DataFusionError::Execution(
-                            "pg_catalog.pg_authid.rolname must be text".to_string(),
-                        )
-                    })?;
-                if !arr.is_null(0) {
-                    return Ok(arr.value(0).to_string());
-                }
-            }
-            Ok(format!("unknown (OID={oid})"))
-        }
-    })
-}
-
 /// Read an OID value out of an integer Arrow column at row `index`, widening any
 /// signed/unsigned 32/64-bit integer to `i64`. Returns `None` for NULL or a
 /// non-integer column.
@@ -2102,12 +2049,11 @@ fn oid_at(column: &ArrayRef, index: usize) -> Result<Option<i64>> {
 
 /// Resolve a set of role OIDs to their `rolname`s with a SINGLE catalog query.
 ///
-/// This is the batched replacement for calling [`fetch_user_by_oid`] once per
-/// row: `pg_get_userbyid` over a column (e.g. `pg_tables.tableowner`) would
-/// otherwise run one `pg_authid` query per row - O(rows) catalog queries. Here
-/// the distinct OIDs are looked up together. OIDs absent from `pg_authid` are
-/// simply missing from the returned map (callers substitute a placeholder); an
-/// empty input short-circuits without querying.
+/// `pg_get_userbyid` over a column (e.g. `pg_tables.tableowner`) resolves the
+/// distinct OIDs together rather than running one `pg_authid` query per row, so
+/// the cost is one catalog query regardless of row count. OIDs absent from
+/// `pg_authid` are simply missing from the returned map (callers substitute a
+/// placeholder); an empty input short-circuits without querying.
 fn fetch_users_by_oids(ctx: Arc<SessionContext>, oids: &[i64]) -> Result<HashMap<i64, String>> {
     let mut out: HashMap<i64, String> = HashMap::new();
     if oids.is_empty() {
@@ -2171,11 +2117,6 @@ impl PgGetUserById {
             ),
             ctx,
         }
-    }
-
-    #[allow(dead_code)]
-    fn lookup(&self, oid: i64) -> Result<String> {
-        fetch_user_by_oid(self.ctx.clone(), oid)
     }
 }
 
@@ -4181,8 +4122,9 @@ pub fn register_pg_get_keywords(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// Register `pg_relation_size(oid)` returning zero for now.
-pub fn register_pg_relation_size(ctx: &SessionContext) -> Result<()> {
+/// Register a relation-size stub `<base_name>(oid) -> int8` that returns zero for
+/// now, under `pg_catalog.<base_name>` with the bare name as an alias.
+fn register_zero_relation_size(ctx: &SessionContext, base_name: &'static str) -> Result<()> {
     use arrow::datatypes::DataType;
     use datafusion::common::ScalarValue;
     use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
@@ -4193,38 +4135,25 @@ pub fn register_pg_relation_size(ctx: &SessionContext) -> Result<()> {
     };
 
     let udf = create_udf(
-        "pg_catalog.pg_relation_size",
+        &format!("pg_catalog.{base_name}"),
         vec![DataType::Int64],
         DataType::Int64,
         Volatility::Stable,
         Arc::new(fun),
     )
-    .with_aliases(["pg_relation_size"]);
+    .with_aliases([base_name]);
     ctx.register_udf(udf);
     Ok(())
 }
 
+/// Register `pg_relation_size(oid)` returning zero for now.
+pub fn register_pg_relation_size(ctx: &SessionContext) -> Result<()> {
+    register_zero_relation_size(ctx, "pg_relation_size")
+}
+
 /// Register `pg_total_relation_size(oid)` returning zero for now.
 pub fn register_pg_total_relation_size(ctx: &SessionContext) -> Result<()> {
-    use arrow::datatypes::DataType;
-    use datafusion::common::ScalarValue;
-    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
-    use std::sync::Arc;
-
-    let fun = |_args: &[ColumnarValue]| -> Result<ColumnarValue> {
-        Ok(ColumnarValue::Scalar(ScalarValue::Int64(Some(0))))
-    };
-
-    let udf = create_udf(
-        "pg_catalog.pg_total_relation_size",
-        vec![DataType::Int64],
-        DataType::Int64,
-        Volatility::Stable,
-        Arc::new(fun),
-    )
-    .with_aliases(["pg_total_relation_size"]);
-    ctx.register_udf(udf);
-    Ok(())
+    register_zero_relation_size(ctx, "pg_total_relation_size")
 }
 
 #[cfg(test)]
