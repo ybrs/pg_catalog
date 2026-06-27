@@ -23,7 +23,8 @@ structural handle; default text is Phase 3), via two interchangeable paths that
 share the same row-builders:
 - eager / pre-register: `register_user_database`, `register_schema`,
   `register_user_tables` (emits `pg_attrdef` for defaulted columns),
-  `register_user_index`, `register_user_constraint`.
+  `register_user_view` (relkind `v`, shares the row-builders with
+  `register_user_tables`), `register_user_index`, `register_user_constraint`.
 - lazy / callback: a `LazyCatalogSource` implementation + `register_lazy_catalog`
   (a column's `ColumnSpec::with_default` drives its `pg_attrdef` row).
 
@@ -105,23 +106,36 @@ provide the text, without us ever shipping a node-tree deparser. Depends on the
 Phase 2 pool redesign - each UDF below reads supplied text via a nested catalog
 lookup.
 
-- Extend the registration contract with optional definition fields:
-  - view definition SQL + updatability flags on a `ViewDef`/`RelationDef`
-    (relkind `v`/`m`). Feeds `pg_views.definition`,
-    `information_schema.views.view_definition`, `pg_get_viewdef`, and the
-    `is_updatable` / `is_insertable_into` columns (which today read the
-    `pg_relation_is_updatable` / `pg_column_is_updatable` stubs - the integration
-    knows whether its views are updatable, so it supplies the flag).
-  - check-constraint text and column-default text on `ConstraintDef` / the column
-    default. Feeds `check_constraints.check_clause`, `pg_get_constraintdef`,
-    `pg_get_expr`, `information_schema.columns.column_default`.
-  - functional/partial index expression text on `IndexDef`. Feeds the expression
-    portion of `pg_get_indexdef` that Phase 1 left unrendered.
+The mechanism is a process-wide resolver callback the integration installs (NOT a
+stored row or a table): the relevant UDF resolves the object's identity from the
+live catalog at call time, then asks the callback for the text, returning NULL when
+no resolver is installed or it declines. The integration constructs whatever SQL it
+likes; pg_catalog never deparses.
+
+- DONE - view definitions. `set_view_definition_resolver(resolver)` installs a
+  `Fn(&ViewIdentity) -> Option<String>`. `pg_get_viewdef(oid)` resolves each view
+  OID to `(schema, name)` from `pg_class` and calls the resolver. Because the live
+  `pg_views` view binds the UDF when its plan is created, the resolver-backed UDF is
+  registered at session-construction time and reads the resolver slot at call time,
+  so installing/changing the resolver later still flows through. Feeds
+  `pg_views.definition` and `information_schema.views.view_definition`.
+- DONE - functional/partial index expression text.
+  `set_index_definition_resolver(resolver)` installs a `Fn(&IndexIdentity) ->
+  Option<String>`. `pg_get_indexdef` renders plain indexes structurally as before
+  and consults the resolver ONLY for indexes it cannot describe from the catalog
+  (functional/partial), feeding the expression portion Phase 1 left NULL. The slot
+  machinery is shared with the view resolver via a generic `DefinitionResolverSlot`.
+- Still to do, same resolver pattern:
+  - `is_updatable` / `is_insertable_into` flags (the `pg_relation_is_updatable` /
+    `pg_column_is_updatable` stubs - the integration knows whether its views are
+    updatable, so it supplies the flag).
+  - check-constraint text and column-default text. Feeds
+    `check_constraints.check_clause`, `pg_get_constraintdef`, `pg_get_expr`,
+    `information_schema.columns.column_default`. Prerequisites first: `pg_constraint`
+    has no `Check` constraint kind yet, and `information_schema.columns` user rows
+    are materialized at registration (not a live view), so a call-time resolver only
+    surfaces there once that path is promoted to live.
   - (rule definitions -> `pg_rules` / `pg_get_ruledef`: niche, defer.)
-- Implementation pattern: the relevant UDFs (`pg_get_viewdef`, `pg_get_constraintdef`,
-  `pg_get_expr`, `pg_relation_is_updatable`, ...) read the supplied text/flag from the
-  live catalog at call time (the runtime-catalog-lookup pattern used by
-  `pg_get_userbyid`), returning NULL / the safe default when nothing was supplied.
 
 ## Phase 4 - Session/GUC and SQL-surface compatibility
 

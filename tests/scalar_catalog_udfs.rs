@@ -95,3 +95,332 @@ async fn test_oid_udf_array_branch_on_current_thread_runtime() -> DFResult<()> {
     assert_eq!(resolved[2], None, "unknown relation should be NULL");
     Ok(())
 }
+
+/// `pg_sequence_last_value` is NULL with no resolver installed and reports the
+/// installed resolver's value otherwise.
+#[tokio::test]
+async fn test_pg_sequence_last_value_default_null_then_resolver() -> DFResult<()> {
+    use datafusion_pg_catalog::{
+        clear_pg_sequence_last_value_resolver, set_pg_sequence_last_value_resolver,
+    };
+    use std::sync::Arc;
+
+    let ctx = base_ctx().await?;
+
+    clear_pg_sequence_last_value_resolver();
+    assert_eq!(
+        int64_column(&ctx, "SELECT pg_sequence_last_value(42)").await?,
+        vec![None],
+        "NULL when no resolver is installed"
+    );
+
+    set_pg_sequence_last_value_resolver(Arc::new(|oid: i64| Some(oid * 10)));
+    assert_eq!(
+        int64_column(&ctx, "SELECT pg_sequence_last_value(42)").await?,
+        vec![Some(420)],
+        "resolver value is reported"
+    );
+    clear_pg_sequence_last_value_resolver();
+    Ok(())
+}
+
+/// `row_security_active` is false with no resolver installed and reports the
+/// installed resolver's answer otherwise.
+#[tokio::test]
+async fn test_row_security_active_default_false_then_resolver() -> DFResult<()> {
+    use arrow::array::BooleanArray;
+    use datafusion_pg_catalog::{
+        clear_row_security_active_resolver, set_row_security_active_resolver,
+    };
+    use std::sync::Arc;
+
+    let ctx = base_ctx().await?;
+
+    clear_row_security_active_resolver();
+    let batches = ctx
+        .sql("SELECT row_security_active(7)")
+        .await?
+        .collect()
+        .await?;
+    let arr = batches[0]
+        .column(0)
+        .as_any()
+        .downcast_ref::<BooleanArray>()
+        .expect("boolean column");
+    assert!(!arr.value(0), "false when no resolver is installed");
+
+    set_row_security_active_resolver(Arc::new(|_oid: i64| true));
+    let batches = ctx
+        .sql("SELECT row_security_active(7)")
+        .await?
+        .collect()
+        .await?;
+    let arr = batches[0]
+        .column(0)
+        .as_any()
+        .downcast_ref::<BooleanArray>()
+        .expect("boolean column");
+    assert!(arr.value(0), "resolver answer is reported");
+    clear_row_security_active_resolver();
+    Ok(())
+}
+
+/// A macro-generated `pg_stat_get_*` resolver: NULL by default, the installed
+/// callback's value otherwise. Exercises the generated explicit setter and the
+/// shared DynScalarUdf plumbing in one go.
+#[tokio::test]
+async fn test_generated_stat_resolver_default_null_then_resolver() -> DFResult<()> {
+    use datafusion_pg_catalog::{
+        clear_pg_stat_get_numscans_resolver, set_pg_stat_get_numscans_resolver,
+    };
+    use std::sync::Arc;
+
+    let ctx = base_ctx().await?;
+
+    clear_pg_stat_get_numscans_resolver();
+    assert_eq!(
+        int64_column(&ctx, "SELECT pg_stat_get_numscans(1)").await?,
+        vec![None],
+        "NULL when no resolver is installed"
+    );
+
+    set_pg_stat_get_numscans_resolver(Arc::new(|oid: i64| Some(oid + 100)));
+    assert_eq!(
+        int64_column(&ctx, "SELECT pg_stat_get_numscans(5)").await?,
+        vec![Some(105)],
+        "resolver value is reported"
+    );
+    clear_pg_stat_get_numscans_resolver();
+    Ok(())
+}
+
+/// `current_user` / `session_user` read the mutable session-user slot, so they reflect
+/// `set_session_user` at call time (this is what lets a view body's `CURRENT_USER`,
+/// planned at startup, resolve to the querying connection's user).
+#[tokio::test]
+async fn test_session_user_reflects_slot() -> DFResult<()> {
+    use arrow::array::StringArray;
+    use datafusion_pg_catalog::set_session_user;
+
+    let ctx = base_ctx().await?;
+    let read = |label: &'static str| {
+        let ctx = ctx.clone();
+        async move {
+            let batches = ctx.sql("SELECT current_user, session_user").await?.collect().await?;
+            let col = |i: usize| {
+                batches[0]
+                    .column(i)
+                    .as_any()
+                    .downcast_ref::<StringArray>()
+                    .unwrap_or_else(|| panic!("{label} col {i} text"))
+                    .value(0)
+                    .to_string()
+            };
+            Ok::<_, datafusion::error::DataFusionError>((col(0), col(1)))
+        }
+    };
+
+    set_session_user("alice");
+    assert_eq!(read("alice").await?, ("alice".to_string(), "alice".to_string()));
+
+    set_session_user("bob");
+    assert_eq!(read("bob").await?, ("bob".to_string(), "bob".to_string()));
+    Ok(())
+}
+
+/// Read a single Boolean column into `Vec<Option<bool>>`.
+async fn bool_column(
+    ctx: &datafusion::execution::context::SessionContext,
+    sql: &str,
+) -> DFResult<Vec<Option<bool>>> {
+    use arrow::array::BooleanArray;
+    let batches = ctx.sql(sql).await?.collect().await?;
+    let mut out = Vec::new();
+    for b in &batches {
+        let arr = b
+            .column(0)
+            .as_any()
+            .downcast_ref::<BooleanArray>()
+            .expect("expected a Boolean column");
+        for i in 0..arr.len() {
+            out.push((!arr.is_null(i)).then(|| arr.value(i)));
+        }
+    }
+    Ok(out)
+}
+
+/// A visibility predicate defaults to `true` (a static catalog treats every object as
+/// visible) and reports the installed resolver's answer otherwise.
+#[tokio::test]
+async fn test_visibility_predicate_default_true_then_resolver() -> DFResult<()> {
+    use datafusion_pg_catalog::{
+        clear_pg_table_is_visible_resolver, set_pg_table_is_visible_resolver,
+    };
+    use std::sync::Arc;
+
+    let ctx = base_ctx().await?;
+
+    clear_pg_table_is_visible_resolver();
+    assert_eq!(
+        bool_column(&ctx, "SELECT pg_table_is_visible(1259)").await?,
+        vec![Some(true)],
+        "visible by default when no resolver is installed"
+    );
+
+    set_pg_table_is_visible_resolver(Arc::new(|oid: i64| Some(oid == 1259)));
+    assert_eq!(
+        bool_column(
+            &ctx,
+            "SELECT pg_table_is_visible(oid) \
+             FROM (VALUES (1259), (42)) AS v(oid) ORDER BY oid DESC"
+        )
+        .await?,
+        vec![Some(true), Some(false)],
+        "resolver answer is reported per row"
+    );
+    clear_pg_table_is_visible_resolver();
+    Ok(())
+}
+
+/// `pg_indexam_progress_phasename(oid, int8)` is NULL with no resolver installed and
+/// reports the installed resolver's phase name otherwise. Exercises the two-argument
+/// hand-written scalar built on the shared DynScalarUdf.
+#[tokio::test]
+async fn test_pg_indexam_progress_phasename_default_null_then_resolver() -> DFResult<()> {
+    use arrow::array::StringArray;
+    use datafusion_pg_catalog::{
+        clear_pg_indexam_progress_phasename_resolver, set_pg_indexam_progress_phasename_resolver,
+    };
+    use std::sync::Arc;
+
+    let ctx = base_ctx().await?;
+
+    let phase = |sql: &str| {
+        let ctx = ctx.clone();
+        let sql = sql.to_string();
+        async move {
+            let batches = ctx.sql(&sql).await?.collect().await?;
+            let arr = batches[0]
+                .column(0)
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .expect("text column")
+                .clone();
+            Ok::<_, datafusion::error::DataFusionError>(
+                (!arr.is_null(0)).then(|| arr.value(0).to_string()),
+            )
+        }
+    };
+
+    clear_pg_indexam_progress_phasename_resolver();
+    assert_eq!(
+        phase("SELECT pg_indexam_progress_phasename(403, 2)").await?,
+        None,
+        "NULL when no resolver is installed"
+    );
+
+    set_pg_indexam_progress_phasename_resolver(Arc::new(|_am: i64, phase: i64| {
+        Some(format!("phase {phase}"))
+    }));
+    assert_eq!(
+        phase("SELECT pg_indexam_progress_phasename(403, 2)").await?,
+        Some("phase 2".to_string()),
+        "resolver phase name is reported"
+    );
+    clear_pg_indexam_progress_phasename_resolver();
+    Ok(())
+}
+
+/// `pg_get_statisticsobjdef_expressions(oid)` is NULL with no resolver installed and
+/// returns the installed resolver's text array otherwise. Exercises the array-returning
+/// hand-written scalar.
+#[tokio::test]
+async fn test_pg_get_statisticsobjdef_expressions_default_null_then_resolver() -> DFResult<()> {
+    use arrow::array::{ListArray, StringArray};
+    use datafusion_pg_catalog::{
+        clear_pg_get_statisticsobjdef_expressions_resolver,
+        set_pg_get_statisticsobjdef_expressions_resolver,
+    };
+    use std::sync::Arc;
+
+    let ctx = base_ctx().await?;
+
+    clear_pg_get_statisticsobjdef_expressions_resolver();
+    let batches = ctx
+        .sql("SELECT pg_get_statisticsobjdef_expressions(7)")
+        .await?
+        .collect()
+        .await?;
+    let list = batches[0]
+        .column(0)
+        .as_any()
+        .downcast_ref::<ListArray>()
+        .expect("list column");
+    assert!(list.is_null(0), "NULL when no resolver is installed");
+
+    set_pg_get_statisticsobjdef_expressions_resolver(Arc::new(|_oid: i64| {
+        Some(vec!["(a + b)".to_string(), "lower(c)".to_string()])
+    }));
+    let batches = ctx
+        .sql("SELECT pg_get_statisticsobjdef_expressions(7)")
+        .await?
+        .collect()
+        .await?;
+    let list = batches[0]
+        .column(0)
+        .as_any()
+        .downcast_ref::<ListArray>()
+        .expect("list column");
+    let items = list.value(0);
+    let items = items
+        .as_any()
+        .downcast_ref::<StringArray>()
+        .expect("text elements");
+    assert_eq!(items.len(), 2);
+    assert_eq!(items.value(0), "(a + b)");
+    assert_eq!(items.value(1), "lower(c)");
+    clear_pg_get_statisticsobjdef_expressions_resolver();
+    Ok(())
+}
+
+/// A record-returning runtime function (`pg_stat_get_archiver`): no rows with no
+/// resolver installed, the resolver's single record otherwise. Exercises the typed
+/// generated row struct and the shared DynTableUdf table-function plumbing.
+#[tokio::test(flavor = "multi_thread")]
+async fn test_record_returning_function_default_empty_then_resolver() -> DFResult<()> {
+    use datafusion_pg_catalog::{
+        clear_pg_stat_get_archiver_resolver, set_pg_stat_get_archiver_resolver,
+        PgStatGetArchiverRow,
+    };
+    use std::sync::Arc;
+
+    let ctx = base_ctx().await?;
+
+    clear_pg_stat_get_archiver_resolver();
+    let count = int64_column(
+        &ctx,
+        "SELECT count(*) FROM pg_stat_get_archiver() \
+         s(archived_count, last_archived_wal, last_archived_time, failed_count, \
+           last_failed_wal, last_failed_time, stats_reset)",
+    )
+    .await?;
+    assert_eq!(count, vec![Some(0)], "no rows when no resolver is installed");
+
+    set_pg_stat_get_archiver_resolver(Arc::new(|| {
+        vec![PgStatGetArchiverRow {
+            archived_count: Some(7),
+            last_archived_wal: Some("000000010000000000000003".to_string()),
+            ..Default::default()
+        }]
+    }));
+    let archived = int64_column(
+        &ctx,
+        "SELECT archived_count FROM pg_stat_get_archiver() \
+         s(archived_count, last_archived_wal, last_archived_time, failed_count, \
+           last_failed_wal, last_failed_time, stats_reset)",
+    )
+    .await?;
+    assert_eq!(archived, vec![Some(7)], "resolver record is reported");
+    clear_pg_stat_get_archiver_resolver();
+    Ok(())
+}

@@ -20,6 +20,68 @@ use sqlparser::dialect::PostgreSqlDialect;
 use sqlparser::parser::Parser;
 use sqlparser::tokenizer::Span;
 
+/// Returns `true` when `obj` names the type `type_name`, either bare
+/// (`type_name`) or qualified as `pg_catalog.type_name`. Comparison is
+/// case-insensitive, matching how PostgreSQL resolves unquoted identifiers.
+fn object_name_matches(obj: &ObjectName, type_name: &str) -> bool {
+    match obj.0.as_slice() {
+        [ObjectNamePart::Identifier(id)] => id.value.eq_ignore_ascii_case(type_name),
+        [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(id)] => {
+            schema.value.eq_ignore_ascii_case("pg_catalog")
+                && id.value.eq_ignore_ascii_case(type_name)
+        }
+        _ => false,
+    }
+}
+
+/// Parse `sql` as PostgreSQL, apply `rewrite` in place to every expression in
+/// every statement (depth-first), and render the statements back to a SQL
+/// string. Returns a parse error if `sql` is not valid PostgreSQL.
+///
+/// This is the shared skeleton for the many single-purpose expression rewriters
+/// below; each supplies only the per-expression transformation.
+fn rewrite_each_expression<F>(sql: &str, mut rewrite: F) -> Result<String>
+where
+    F: FnMut(&mut Expr),
+{
+    let dialect = PostgreSqlDialect {};
+    let mut statements =
+        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
+
+    let _ = visit_statements_mut(&mut statements, |stmt| {
+        let _ = visit_expressions_mut(stmt, |expr| {
+            rewrite(expr);
+            ControlFlow::<()>::Continue(())
+        });
+        ControlFlow::<()>::Continue(())
+    });
+
+    Ok(statements
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join("; "))
+}
+
+/// Rewrite every `expr::type_name` cast (where `type_name` is a custom/unknown
+/// type that DataFusion does not model) into a cast to `target`, leaving all
+/// other casts untouched. `type_name` matches bare or `pg_catalog`-qualified.
+fn rewrite_custom_type_cast_target(
+    sql: &str,
+    type_name: &str,
+    target: DataType,
+) -> Result<String> {
+    rewrite_each_expression(sql, |expr| {
+        if let Expr::Cast { data_type, .. } = expr {
+            if let DataType::Custom(obj, _) = data_type {
+                if object_name_matches(obj, type_name) {
+                    *data_type = target.clone();
+                }
+            }
+        }
+    })
+}
+
 /// Force every FROM-clause table alias to render with an explicit `AS` keyword.
 ///
 /// sqlparser 0.62 added `TableAlias::explicit`, so an alias parsed without `AS`
@@ -1164,8 +1226,8 @@ pub fn rewrite_information_schema_casts(sql: &str) -> Result<String> {
 /// `regclass`/`oid` are display types over an integer OID, so for a non-literal
 /// argument the cast is value-preserving and DataFusion can't plan it; we simply
 /// drop the cast, keeping the inner expression. String-literal casts
-/// (`'pg_class'::regclass`) are left untouched - those need the OID lookup that
-/// the earlier passes perform - as are numeric `::oid` casts (already mapped to
+/// (`'pg_class'::regclass`) are left untouched - those need the OID lookup
+/// `replace_regclass` performs - as are numeric `::oid` casts (already mapped to
 /// BIGINT by `rewrite_oid_cast`).
 pub fn drop_redundant_oid_and_regclass_casts(sql: &str) -> Result<String> {
     use sqlparser::ast::{
@@ -1287,6 +1349,72 @@ pub fn drop_oid_array_cast(sql: &str) -> Result<String> {
         .join(" "))
 }
 
+/// Rewrite casts to catalog types that DataFusion's planner rejects by name into the
+/// concrete types this catalog stores those columns as.
+///
+/// Two catalog type names reach the planner only inside view bodies and are rejected
+/// outright ("Unsupported SQL type"):
+///
+/// * `anyarray` - the `pg_statistic.stavalues*` columns (and the `pg_stats` view's
+///   `NULL::anyarray` branches over them) are stored as `text`, so `::anyarray` becomes
+///   `::text`. This lets the `pg_stats` CASE branches share a common type with the
+///   text-typed `stavalues*` columns.
+/// * `name[]` - name arrays (e.g. the `pg_policies` `::name[]` role lists) are stored as
+///   `text[]`, so `name[]` becomes `text[]`.
+///
+/// `oid[]` is handled separately by [`drop_oid_array_cast`], which removes it where the
+/// underlying column is already an integer array; this rewrite leaves it untouched.
+pub fn rewrite_text_backed_type_casts(sql: &str) -> Result<String> {
+    use sqlparser::ast::{
+        visit_expressions_mut, visit_statements_mut, ArrayElemTypeDef, DataType, Expr,
+    };
+    use sqlparser::dialect::PostgreSqlDialect;
+    use sqlparser::parser::Parser;
+    use std::ops::ControlFlow;
+
+    /// The element type of an array cast (`name[]` parses as `Array(SquareBracket(..))`).
+    fn array_elem(dt: &DataType) -> Option<&DataType> {
+        let DataType::Array(elem) = dt else {
+            return None;
+        };
+        match elem {
+            ArrayElemTypeDef::SquareBracket(inner, _) => Some(inner.as_ref()),
+            ArrayElemTypeDef::AngleBracket(inner) => Some(inner.as_ref()),
+            ArrayElemTypeDef::Parenthesis(inner) => Some(inner.as_ref()),
+            ArrayElemTypeDef::None => None,
+        }
+    }
+
+    let mut stmts = Parser::parse_sql(&PostgreSqlDialect {}, sql)
+        .map_err(|e| DataFusionError::External(Box::new(e)))?;
+
+    let _ = visit_statements_mut(&mut stmts, |stmt| {
+        visit_expressions_mut(stmt, |e| {
+            if let Expr::Cast { data_type, .. } = e {
+                let is_anyarray = matches!(data_type, DataType::Custom(obj, _) if object_name_matches(obj, "anyarray"));
+                let is_name_array = array_elem(data_type)
+                    .is_some_and(|inner| matches!(inner, DataType::Custom(obj, _) if object_name_matches(obj, "name")));
+                if is_anyarray {
+                    *data_type = DataType::Text;
+                } else if is_name_array {
+                    *data_type = DataType::Array(ArrayElemTypeDef::SquareBracket(
+                        Box::new(DataType::Text),
+                        None,
+                    ));
+                }
+            }
+            ControlFlow::<()>::Continue(())
+        })?;
+        ControlFlow::Continue(())
+    });
+
+    Ok(stmts
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join("; "))
+}
+
 /// Expand the whole-row composite arguments of `information_schema._pg_truetypid`
 /// and `_pg_truetypmod` into the individual columns their bodies read.
 ///
@@ -1383,47 +1511,69 @@ pub fn rewrite_pg_truetypid_composite_args(sql: &str) -> Result<String> {
 }
 
 pub fn rewrite_regtype_cast(sql: &str) -> Result<String> {
+    rewrite_custom_type_cast_target(sql, "regtype", DataType::Text)
+}
+
+/// Normalize casts to `pg_catalog.char` by converting them to the
+/// standard `CHAR` type understood by DataFusion.
+pub fn rewrite_char_cast(sql: &str) -> Result<String> {
+    rewrite_custom_type_cast_target(sql, "char", DataType::Char(None))
+}
+
+/// Rename the `pg_available_extension_versions(...)` table-function call to the internal
+/// name `available_extension_versions` it is registered under.
+///
+/// The catalog declares both a *view* `pg_available_extension_versions` and (to back that
+/// view) a table function of the same name. DataFusion resolves a relation and a table
+/// function of the same name ambiguously - the function shadows the view in FROM clauses -
+/// so the function is registered as `available_extension_versions` and this rewrite points
+/// the view body's call there, leaving the view to own its name. Only the call form (a
+/// table factor WITH arguments) is renamed; a bare `FROM pg_available_extension_versions`
+/// (querying the view itself) is left untouched.
+pub fn rewrite_available_extension_versions_source(sql: &str) -> Result<String> {
     use sqlparser::ast::{
-        visit_expressions_mut, visit_statements_mut, DataType, Expr, ObjectName, ObjectNamePart,
+        Ident, ObjectName, ObjectNamePart, TableFactor, VisitMut, VisitorMut,
     };
     use sqlparser::dialect::PostgreSqlDialect;
     use sqlparser::parser::Parser;
     use std::ops::ControlFlow;
 
-    // Return true when the object name represents regtype
-    fn is_regtype(obj: &ObjectName) -> bool {
-        match obj.0.as_slice() {
-            // unqualified: regtype
-            [ObjectNamePart::Identifier(id)] if id.value.eq_ignore_ascii_case("regtype") => true,
-            // qualified: pg_catalog.regtype
-            [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(id)]
-                if schema.value.eq_ignore_ascii_case("pg_catalog")
-                    && id.value.eq_ignore_ascii_case("regtype") =>
-            {
-                true
+    fn is_target(name: &ObjectName) -> bool {
+        match name.0.as_slice() {
+            [ObjectNamePart::Identifier(id)] => {
+                id.value.eq_ignore_ascii_case("pg_available_extension_versions")
+            }
+            [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(id)] => {
+                schema.value.eq_ignore_ascii_case("pg_catalog")
+                    && id.value.eq_ignore_ascii_case("pg_available_extension_versions")
             }
             _ => false,
         }
     }
 
-    let dialect = PostgreSqlDialect {};
-    let mut stmts =
-        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
-
-    let _ = visit_statements_mut(&mut stmts, |stmt| {
-        let _ = visit_expressions_mut(stmt, |e| {
-            if let Expr::Cast { data_type, .. } = e {
-                if let DataType::Custom(obj, _) = data_type {
-                    if is_regtype(obj) {
-                        *data_type = DataType::Text; // regtype  ->  TEXT
-                    }
+    struct Renamer;
+    impl VisitorMut for Renamer {
+        type Break = ();
+        fn pre_visit_table_factor(&mut self, tf: &mut TableFactor) -> ControlFlow<()> {
+            if let TableFactor::Table {
+                name, args: Some(_), ..
+            } = tf
+            {
+                if is_target(name) {
+                    *name = ObjectName(vec![ObjectNamePart::Identifier(Ident::new(
+                        "available_extension_versions",
+                    ))]);
                 }
             }
-            ControlFlow::<()>::Continue(())
-        })?;
-        ControlFlow::Continue(())
-    });
+            ControlFlow::Continue(())
+        }
+    }
 
+    let mut stmts = Parser::parse_sql(&PostgreSqlDialect {}, sql)
+        .map_err(|e| DataFusionError::External(Box::new(e)))?;
+    for stmt in &mut stmts {
+        let _ = stmt.visit(&mut Renamer);
+    }
     Ok(stmts
         .into_iter()
         .map(|s| s.to_string())
@@ -1431,47 +1581,246 @@ pub fn rewrite_regtype_cast(sql: &str) -> Result<String> {
         .join("; "))
 }
 
-/// Normalize casts to `pg_catalog.char` by converting them to the
-/// standard `CHAR` type understood by DataFusion.
-pub fn rewrite_char_cast(sql: &str) -> Result<String> {
+/// Decorrelate a correlated `LEFT JOIN LATERAL (SELECT <aggregates> FROM <tbl> WHERE
+/// <tbl>.<key> = <outer>) <alias> ON true` into a grouped equi-join:
+/// `LEFT JOIN (SELECT <tbl>.<key> AS <k>, <aggregates> FROM <tbl> GROUP BY <tbl>.<key>)
+/// <alias> ON <alias>.<k> = <outer>`.
+///
+/// DataFusion has no physical plan for the correlated `OuterReferenceColumn` such a
+/// LATERAL aggregate leaves in the logical plan (it does not decorrelate aggregate
+/// LATERAL subqueries itself), so `pg_statio_all_tables` - which sums per-table index
+/// block counts this way - cannot otherwise be served as a view. The grouped equi-join is
+/// an exact equivalent the planner handles. Only the precise shape above is rewritten: a
+/// LATERAL derived table joined `ON true` whose subquery is a single aggregating SELECT
+/// over one table with one correlated equality predicate. Anything else is left untouched.
+pub fn decorrelate_lateral_aggregate(sql: &str) -> Result<String> {
     use sqlparser::ast::{
-        visit_expressions_mut, visit_statements_mut, DataType, Expr, ObjectName, ObjectNamePart,
+        BinaryOperator, Expr, GroupByExpr, Ident, Join, JoinConstraint, JoinOperator,
+        ObjectNamePart, Query, Select, SelectItem, SetExpr, TableFactor, Value, ValueWithSpan,
     };
     use sqlparser::dialect::PostgreSqlDialect;
     use sqlparser::parser::Parser;
-    use std::ops::ControlFlow;
 
-    fn is_char_type(obj: &ObjectName) -> bool {
-        match obj.0.as_slice() {
-            [ObjectNamePart::Identifier(id)] if id.value.eq_ignore_ascii_case("char") => true,
-            [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(id)]
-                if schema.value.eq_ignore_ascii_case("pg_catalog")
-                    && id.value.eq_ignore_ascii_case("char") =>
-            {
-                true
+    /// The mutable `ON` constraint of an inner/left equi-join, if the operator has one.
+    fn join_on_constraint(op: &mut JoinOperator) -> Option<&mut JoinConstraint> {
+        match op {
+            JoinOperator::Left(c)
+            | JoinOperator::LeftOuter(c)
+            | JoinOperator::Inner(c)
+            | JoinOperator::Join(c) => Some(c),
+            _ => None,
+        }
+    }
+
+    /// The name a single plain table is referred to by (its alias, else its bare name).
+    fn table_qualifier(tf: &TableFactor) -> Option<String> {
+        if let TableFactor::Table {
+            name,
+            alias,
+            args: None,
+            ..
+        } = tf
+        {
+            if let Some(a) = alias {
+                return Some(a.name.value.clone());
+            }
+            if let Some(ObjectNamePart::Identifier(id)) = name.0.last() {
+                return Some(id.value.clone());
+            }
+        }
+        None
+    }
+
+    /// The table qualifier of a two-part `qual.col` reference.
+    fn ref_qualifier(e: &Expr) -> Option<&str> {
+        match e {
+            Expr::CompoundIdentifier(parts) if parts.len() == 2 => Some(parts[0].value.as_str()),
+            _ => None,
+        }
+    }
+
+    /// True if `e` contains an aggregate call (so grouping is meaningful).
+    fn contains_aggregate(e: &Expr) -> bool {
+        match e {
+            Expr::Function(f) => {
+                let name = f
+                    .name
+                    .0
+                    .last()
+                    .and_then(|p| p.as_ident())
+                    .map(|i| i.value.to_lowercase())
+                    .unwrap_or_default();
+                ["sum", "count", "avg", "min", "max", "array_agg"].contains(&name.as_str())
+            }
+            Expr::Cast { expr, .. } | Expr::Nested(expr) | Expr::UnaryOp { expr, .. } => {
+                contains_aggregate(expr)
+            }
+            Expr::BinaryOp { left, right, .. } => {
+                contains_aggregate(left) || contains_aggregate(right)
             }
             _ => false,
         }
     }
 
-    let dialect = PostgreSqlDialect {};
-    let mut stmts =
-        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
+    /// True if the join operator is an inner/left join constrained by a literal `ON true`.
+    fn is_on_true(op: &JoinOperator) -> bool {
+        let is_true = |c: &JoinConstraint| {
+            matches!(
+                c,
+                JoinConstraint::On(Expr::Value(ValueWithSpan {
+                    value: Value::Boolean(true),
+                    ..
+                }))
+            )
+        };
+        match op {
+            JoinOperator::Left(c)
+            | JoinOperator::LeftOuter(c)
+            | JoinOperator::Inner(c)
+            | JoinOperator::Join(c) => is_true(c),
+            _ => false,
+        }
+    }
 
-    let _ = visit_statements_mut(&mut stmts, |stmt| {
-        visit_expressions_mut(stmt, |e| {
-            if let Expr::Cast { data_type, .. } = e {
-                if let DataType::Custom(obj, _) = data_type {
-                    if is_char_type(obj) {
-                        *data_type = DataType::Char(None);
-                    }
-                }
+    /// Rewrite one join in place if it matches the correlated-LATERAL-aggregate shape.
+    fn decorrelate_join(join: &mut Join, counter: &mut usize) -> bool {
+        // Validate the shape under an immutable borrow, cloning out the two expressions
+        // and the alias the mutation needs; bail (leaving the join untouched) otherwise.
+        let (inner_key, outer_expr, derived_name) = {
+            let TableFactor::Derived {
+                lateral: true,
+                subquery,
+                alias: Some(derived_alias),
+                ..
+            } = &join.relation
+            else {
+                return false;
+            };
+            if !is_on_true(&join.join_operator) {
+                return false;
             }
-            ControlFlow::<()>::Continue(())
-        })?;
-        ControlFlow::Continue(())
-    });
+            let SetExpr::Select(sel) = subquery.body.as_ref() else {
+                return false;
+            };
+            if subquery.with.is_some()
+                || sel.from.len() != 1
+                || !sel.from[0].joins.is_empty()
+                || !matches!(sel.group_by, GroupByExpr::Expressions(ref e, _) if e.is_empty())
+            {
+                return false;
+            }
+            let Some(inner_qual) = table_qualifier(&sel.from[0].relation) else {
+                return false;
+            };
+            let Some(Expr::BinaryOp {
+                left,
+                op: BinaryOperator::Eq,
+                right,
+            }) = sel.selection.as_ref()
+            else {
+                return false;
+            };
+            let (inner_key, outer_expr) = match (
+                ref_qualifier(left) == Some(&inner_qual),
+                ref_qualifier(right) == Some(&inner_qual),
+            ) {
+                (true, false) => ((**left).clone(), (**right).clone()),
+                (false, true) => ((**right).clone(), (**left).clone()),
+                _ => return false,
+            };
+            let has_aggr = sel.projection.iter().any(|item| match item {
+                SelectItem::UnnamedExpr(e) | SelectItem::ExprWithAlias { expr: e, .. } => {
+                    contains_aggregate(e)
+                }
+                _ => false,
+            });
+            if !has_aggr {
+                return false;
+            }
+            (inner_key, outer_expr, derived_alias.name.value.clone())
+        };
 
+        let key_alias = format!("__decorr_key_{counter}");
+        *counter += 1;
+
+        // Apply: turn the LATERAL aggregate subquery into a grouped one and replace the
+        // `ON true` with `<alias>.<key_alias> = <outer>`.
+        if let TableFactor::Derived {
+            lateral, subquery, ..
+        } = &mut join.relation
+        {
+            *lateral = false;
+            if let SetExpr::Select(sel) = subquery.body.as_mut() {
+                sel.projection.insert(
+                    0,
+                    SelectItem::ExprWithAlias {
+                        expr: inner_key.clone(),
+                        alias: Ident::new(&key_alias),
+                    },
+                );
+                sel.group_by = GroupByExpr::Expressions(vec![inner_key], Vec::new());
+                sel.selection = None;
+            }
+        }
+        let on = Expr::BinaryOp {
+            left: Box::new(Expr::CompoundIdentifier(vec![
+                Ident::new(derived_name),
+                Ident::new(key_alias),
+            ])),
+            op: BinaryOperator::Eq,
+            right: Box::new(outer_expr),
+        };
+        if let Some(c) = join_on_constraint(&mut join.join_operator) {
+            *c = JoinConstraint::On(on);
+        }
+        true
+    }
+
+    fn walk_table_factor(tf: &mut TableFactor, counter: &mut usize) {
+        if let TableFactor::Derived { subquery, .. } = tf {
+            walk_query(subquery, counter);
+        }
+    }
+
+    fn walk_select(sel: &mut Select, counter: &mut usize) {
+        for twj in &mut sel.from {
+            walk_table_factor(&mut twj.relation, counter);
+            for join in &mut twj.joins {
+                walk_table_factor(&mut join.relation, counter);
+                decorrelate_join(join, counter);
+            }
+        }
+    }
+
+    fn walk_query(q: &mut Query, counter: &mut usize) {
+        if let Some(with) = &mut q.with {
+            for cte in &mut with.cte_tables {
+                walk_query(&mut cte.query, counter);
+            }
+        }
+        walk_set_expr(&mut q.body, counter);
+    }
+
+    fn walk_set_expr(se: &mut SetExpr, counter: &mut usize) {
+        match se {
+            SetExpr::Select(sel) => walk_select(sel, counter),
+            SetExpr::Query(q) => walk_query(q, counter),
+            SetExpr::SetOperation { left, right, .. } => {
+                walk_set_expr(left, counter);
+                walk_set_expr(right, counter);
+            }
+            _ => {}
+        }
+    }
+
+    let mut stmts = Parser::parse_sql(&PostgreSqlDialect {}, sql)
+        .map_err(|e| DataFusionError::External(Box::new(e)))?;
+    let mut counter = 0usize;
+    for stmt in &mut stmts {
+        if let sqlparser::ast::Statement::Query(q) = stmt {
+            walk_query(q, &mut counter);
+        }
+    }
     Ok(stmts
         .into_iter()
         .map(|s| s.to_string())
@@ -1494,11 +1843,7 @@ pub fn rewrite_schema_qualified_udtfs(sql: &str) -> Result<String> {
         match name.0.as_slice() {
             [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(func)]
                 if schema.value.eq_ignore_ascii_case("pg_catalog")
-                    && [
-                        "pg_get_keywords",
-                        "pg_available_extension_versions",
-                        "pg_postmaster_start_time",
-                    ]
+                    && ["pg_get_keywords", "pg_postmaster_start_time"]
                     .iter()
                     .any(|f| func.value.eq_ignore_ascii_case(f)) =>
             {
@@ -1548,188 +1893,71 @@ pub fn rewrite_schema_qualified_udtfs(sql: &str) -> Result<String> {
 /// Convert casts to `xid` into plain BIGINT casts since transaction IDs
 /// are represented as 64 bit integers in the catalog snapshots.
 pub fn rewrite_xid_cast(sql: &str) -> Result<String> {
-    use sqlparser::ast::{
-        visit_expressions_mut, visit_statements_mut, DataType, Expr, ObjectName, ObjectNamePart,
-    };
-    use sqlparser::dialect::PostgreSqlDialect;
-    use sqlparser::parser::Parser;
-    use std::ops::ControlFlow;
-
-    fn is_xid(obj: &ObjectName) -> bool {
-        match obj.0.as_slice() {
-            [ObjectNamePart::Identifier(id)] if id.value.eq_ignore_ascii_case("xid") => true,
-            [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(id)]
-                if schema.value.eq_ignore_ascii_case("pg_catalog")
-                    && id.value.eq_ignore_ascii_case("xid") =>
-            {
-                true
-            }
-            _ => false,
-        }
-    }
-
-    let dialect = PostgreSqlDialect {};
-    let mut stmts =
-        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
-
-    let _ = visit_statements_mut(&mut stmts, |stmt| {
-        visit_expressions_mut(stmt, |e| {
-            if let Expr::Cast { data_type, .. } = e {
-                if let DataType::Custom(obj, _) = data_type {
-                    if is_xid(obj) {
-                        *data_type = DataType::BigInt(None);
-                    }
-                }
-            }
-            ControlFlow::<()>::Continue(())
-        })?;
-        ControlFlow::Continue(())
-    });
-
-    Ok(stmts
-        .into_iter()
-        .map(|s| s.to_string())
-        .collect::<Vec<_>>()
-        .join("; "))
+    rewrite_custom_type_cast_target(sql, "xid", DataType::BigInt(None))
 }
 
 /// Map casts to the pseudo-type `name` onto plain TEXT since the
 /// planner does not know about PostgreSQL's internal name type.
 pub fn rewrite_name_cast(sql: &str) -> Result<String> {
-    use sqlparser::ast::{
-        visit_expressions_mut, visit_statements_mut, DataType, Expr, ObjectName, ObjectNamePart,
-    };
-    use sqlparser::dialect::PostgreSqlDialect;
-    use sqlparser::parser::Parser;
-    use std::ops::ControlFlow;
-
-    fn is_name(obj: &ObjectName) -> bool {
-        match obj.0.as_slice() {
-            [ObjectNamePart::Identifier(id)] if id.value.eq_ignore_ascii_case("name") => true,
-            [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(id)]
-                if schema.value.eq_ignore_ascii_case("pg_catalog")
-                    && id.value.eq_ignore_ascii_case("name") =>
-            {
-                true
-            }
-            _ => false,
-        }
-    }
-
-    let dialect = PostgreSqlDialect {};
-    let mut stmts =
-        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
-
-    let _ = visit_statements_mut(&mut stmts, |stmt| {
-        visit_expressions_mut(stmt, |e| {
-            if let Expr::Cast { data_type, .. } = e {
-                if let DataType::Custom(obj, _) = data_type {
-                    if is_name(obj) {
-                        *data_type = DataType::Text;
-                    }
-                }
-            }
-            ControlFlow::<()>::Continue(())
-        })?;
-        ControlFlow::Continue(())
-    });
-
-    Ok(stmts
-        .into_iter()
-        .map(|s| s.to_string())
-        .collect::<Vec<_>>()
-        .join("; "))
+    rewrite_custom_type_cast_target(sql, "name", DataType::Text)
 }
 
 /// Convert casts to the OID type into BIGINT since our catalog
 /// represents object identifiers as plain integers.
 pub fn rewrite_oid_cast(sql: &str) -> Result<String> {
-    use sqlparser::ast::{
-        visit_expressions_mut, visit_statements_mut, CastKind, DataType, Expr, Function,
-        FunctionArg, FunctionArgExpr, FunctionArgumentList, FunctionArguments, Ident, ObjectName,
-        ObjectNamePart, Value, ValueWithSpan,
-    };
-    use sqlparser::dialect::PostgreSqlDialect;
-    use sqlparser::parser::Parser;
-    use std::ops::ControlFlow;
-
-    fn is_oid(obj: &ObjectName) -> bool {
-        match obj.0.as_slice() {
-            [ObjectNamePart::Identifier(id)] if id.value.eq_ignore_ascii_case("oid") => true,
-            [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(id)]
-                if schema.value.eq_ignore_ascii_case("pg_catalog")
-                    && id.value.eq_ignore_ascii_case("oid") =>
-            {
-                true
-            }
-            _ => false,
+    rewrite_each_expression(sql, |e| {
+        let Expr::Cast {
+            expr, data_type, ..
+        } = e
+        else {
+            return;
+        };
+        let DataType::Custom(obj, _) = data_type else {
+            return;
+        };
+        if !object_name_matches(obj, "oid") {
+            return;
         }
-    }
 
-    let dialect = PostgreSqlDialect {};
-    let mut stmts =
-        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
+        // A numeric or placeholder operand is a plain integer OID, so cast it to
+        // BIGINT; anything else (e.g. a relation name) goes through the `oid()`
+        // function that resolves a name to its OID.
+        let operand_is_integer = matches!(
+            expr.as_ref(),
+            Expr::Value(ValueWithSpan {
+                value: Value::Number(_, _),
+                ..
+            }) | Expr::Value(ValueWithSpan {
+                value: Value::Placeholder(_),
+                ..
+            })
+        );
 
-    let _ = visit_statements_mut(&mut stmts, |stmt| {
-        visit_expressions_mut(stmt, |e| {
-            if let Expr::Cast {
-                expr, data_type, ..
-            } = e
-            {
-                if let DataType::Custom(obj, _) = data_type {
-                    if is_oid(obj) {
-                        let use_int = matches!(
-                            expr.as_ref(),
-                            Expr::Value(ValueWithSpan {
-                                value: Value::Number(_, _),
-                                ..
-                            }) | Expr::Value(ValueWithSpan {
-                                value: Value::Placeholder(_),
-                                ..
-                            })
-                        );
-
-                        if use_int {
-                            *e = Expr::Cast {
-                                kind: CastKind::DoubleColon,
-                                expr: expr.clone(),
-                                data_type: DataType::BigInt(None),
-                                array: false,
-                                format: None,
-                            };
-                        } else {
-                            *e = Expr::Function(Function {
-                                name: ObjectName(vec![ObjectNamePart::Identifier(Ident::new(
-                                    "oid",
-                                ))]),
-                                args: FunctionArguments::List(FunctionArgumentList {
-                                    duplicate_treatment: None,
-                                    clauses: vec![],
-                                    args: vec![FunctionArg::Unnamed(FunctionArgExpr::Expr(
-                                        *expr.clone(),
-                                    ))],
-                                }),
-                                over: None,
-                                filter: None,
-                                within_group: vec![],
-                                null_treatment: None,
-                                parameters: FunctionArguments::None,
-                                uses_odbc_syntax: false,
-                            });
-                        }
-                    }
-                }
-            }
-            ControlFlow::<()>::Continue(())
-        })?;
-        ControlFlow::Continue(())
-    });
-
-    Ok(stmts
-        .into_iter()
-        .map(|s| s.to_string())
-        .collect::<Vec<_>>()
-        .join("; "))
+        if operand_is_integer {
+            *e = Expr::Cast {
+                kind: CastKind::DoubleColon,
+                expr: expr.clone(),
+                data_type: DataType::BigInt(None),
+                array: false,
+                format: None,
+            };
+        } else {
+            *e = Expr::Function(Function {
+                name: ObjectName(vec![ObjectNamePart::Identifier(Ident::new("oid"))]),
+                args: FunctionArguments::List(FunctionArgumentList {
+                    duplicate_treatment: None,
+                    clauses: vec![],
+                    args: vec![FunctionArg::Unnamed(FunctionArgExpr::Expr(*expr.clone()))],
+                }),
+                over: None,
+                filter: None,
+                within_group: vec![],
+                null_treatment: None,
+                parameters: FunctionArguments::None,
+                uses_odbc_syntax: false,
+            });
+        }
+    })
 }
 
 /// Replace casts to regoper with NULL. Queries sometimes cast the
@@ -1737,198 +1965,33 @@ pub fn rewrite_oid_cast(sql: &str) -> Result<String> {
 /// another type like TEXT. Since the column is always NULL we can
 /// short-circuit this pattern by returning NULL directly.
 pub fn rewrite_regoper_cast(sql: &str) -> Result<String> {
-    use sqlparser::ast::{
-        visit_expressions_mut, visit_statements_mut, DataType, Expr, ObjectName, ObjectNamePart,
-        Value, ValueWithSpan,
-    };
-    use sqlparser::dialect::PostgreSqlDialect;
-    use sqlparser::parser::Parser;
-    use std::ops::ControlFlow;
-
-    fn is_regoper(obj: &ObjectName) -> bool {
-        match obj.0.as_slice() {
-            [ObjectNamePart::Identifier(id)] if id.value.eq_ignore_ascii_case("regoper") => true,
-            [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(id)]
-                if schema.value.eq_ignore_ascii_case("pg_catalog")
-                    && id.value.eq_ignore_ascii_case("regoper") =>
-            {
-                true
-            }
-            _ => false,
-        }
-    }
-
-    let dialect = PostgreSqlDialect {};
-    let mut stmts =
-        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
-
-    let _ = visit_statements_mut(&mut stmts, |stmt| {
-        visit_expressions_mut(stmt, |e| {
-            if let Expr::Cast { data_type, .. } = e {
-                if let DataType::Custom(obj, _) = data_type {
-                    if is_regoper(obj) {
-                        *e = Expr::Value(ValueWithSpan {
-                            value: Value::Null,
-                            span: Span::empty(),
-                        });
-                    }
+    rewrite_each_expression(sql, |expr| {
+        if let Expr::Cast { data_type, .. } = expr {
+            if let DataType::Custom(obj, _) = data_type {
+                if object_name_matches(obj, "regoper") {
+                    *expr = Expr::Value(ValueWithSpan {
+                        value: Value::Null,
+                        span: Span::empty(),
+                    });
                 }
             }
-            ControlFlow::<()>::Continue(())
-        })?;
-        ControlFlow::Continue(())
-    });
-
-    Ok(stmts
-        .into_iter()
-        .map(|s| s.to_string())
-        .collect::<Vec<_>>()
-        .join("; "))
+        }
+    })
 }
 
 /// Replace casts to regoperator with TEXT.
 pub fn rewrite_regoperator_cast(sql: &str) -> Result<String> {
-    use sqlparser::ast::{
-        visit_expressions_mut, visit_statements_mut, DataType, Expr, ObjectName, ObjectNamePart,
-    };
-    use sqlparser::dialect::PostgreSqlDialect;
-    use sqlparser::parser::Parser;
-    use std::ops::ControlFlow;
-
-    fn is_regoperator(obj: &ObjectName) -> bool {
-        match obj.0.as_slice() {
-            [ObjectNamePart::Identifier(id)] if id.value.eq_ignore_ascii_case("regoperator") => {
-                true
-            }
-            [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(id)]
-                if schema.value.eq_ignore_ascii_case("pg_catalog")
-                    && id.value.eq_ignore_ascii_case("regoperator") =>
-            {
-                true
-            }
-            _ => false,
-        }
-    }
-
-    let dialect = PostgreSqlDialect {};
-    let mut stmts =
-        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
-
-    let _ = visit_statements_mut(&mut stmts, |stmt| {
-        visit_expressions_mut(stmt, |e| {
-            if let Expr::Cast { data_type, .. } = e {
-                if let DataType::Custom(obj, _) = data_type {
-                    if is_regoperator(obj) {
-                        *data_type = DataType::Text;
-                    }
-                }
-            }
-            ControlFlow::<()>::Continue(())
-        })?;
-        ControlFlow::Continue(())
-    });
-
-    Ok(stmts
-        .into_iter()
-        .map(|s| s.to_string())
-        .collect::<Vec<_>>()
-        .join("; "))
+    rewrite_custom_type_cast_target(sql, "regoperator", DataType::Text)
 }
 
 /// Replace casts to regprocedure with TEXT.
 pub fn rewrite_regprocedure_cast(sql: &str) -> Result<String> {
-    use sqlparser::ast::{
-        visit_expressions_mut, visit_statements_mut, DataType, Expr, ObjectName, ObjectNamePart,
-    };
-    use sqlparser::dialect::PostgreSqlDialect;
-    use sqlparser::parser::Parser;
-    use std::ops::ControlFlow;
-
-    fn is_regprocedure(obj: &ObjectName) -> bool {
-        match obj.0.as_slice() {
-            [ObjectNamePart::Identifier(id)] if id.value.eq_ignore_ascii_case("regprocedure") => {
-                true
-            }
-            [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(id)]
-                if schema.value.eq_ignore_ascii_case("pg_catalog")
-                    && id.value.eq_ignore_ascii_case("regprocedure") =>
-            {
-                true
-            }
-            _ => false,
-        }
-    }
-
-    let dialect = PostgreSqlDialect {};
-    let mut stmts =
-        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
-
-    let _ = visit_statements_mut(&mut stmts, |stmt| {
-        visit_expressions_mut(stmt, |e| {
-            if let Expr::Cast { data_type, .. } = e {
-                if let DataType::Custom(obj, _) = data_type {
-                    if is_regprocedure(obj) {
-                        *data_type = DataType::Text;
-                    }
-                }
-            }
-            ControlFlow::<()>::Continue(())
-        })?;
-        ControlFlow::Continue(())
-    });
-
-    Ok(stmts
-        .into_iter()
-        .map(|s| s.to_string())
-        .collect::<Vec<_>>()
-        .join("; "))
+    rewrite_custom_type_cast_target(sql, "regprocedure", DataType::Text)
 }
 
 /// Replace casts to regproc with TEXT.
 pub fn rewrite_regproc_cast(sql: &str) -> Result<String> {
-    use sqlparser::ast::{
-        visit_expressions_mut, visit_statements_mut, DataType, Expr, ObjectName, ObjectNamePart,
-    };
-    use sqlparser::dialect::PostgreSqlDialect;
-    use sqlparser::parser::Parser;
-    use std::ops::ControlFlow;
-
-    fn is_regproc(obj: &ObjectName) -> bool {
-        match obj.0.as_slice() {
-            [ObjectNamePart::Identifier(id)] if id.value.eq_ignore_ascii_case("regproc") => true,
-            [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(id)]
-                if schema.value.eq_ignore_ascii_case("pg_catalog")
-                    && id.value.eq_ignore_ascii_case("regproc") =>
-            {
-                true
-            }
-            _ => false,
-        }
-    }
-
-    let dialect = PostgreSqlDialect {};
-    let mut stmts =
-        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
-
-    let _ = visit_statements_mut(&mut stmts, |stmt| {
-        let _ = visit_expressions_mut(stmt, |e| {
-            if let Expr::Cast { data_type, .. } = e {
-                if let DataType::Custom(obj, _) = data_type {
-                    if is_regproc(obj) {
-                        *data_type = DataType::Text;
-                    }
-                }
-            }
-            ControlFlow::<()>::Continue(())
-        })?;
-        ControlFlow::Continue(())
-    });
-
-    Ok(stmts
-        .into_iter()
-        .map(|s| s.to_string())
-        .collect::<Vec<_>>()
-        .join("; "))
+    rewrite_custom_type_cast_target(sql, "regproc", DataType::Text)
 }
 
 /// Replace the available_updates sub-query in pg_extension queries with NULL.
@@ -3171,6 +3234,82 @@ mod tests {
             out.contains("c.oid"),
             "outer correlated ref preserved: {out}"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_decorrelate_lateral_aggregate() -> Result<(), Box<dyn std::error::Error>> {
+        let out = decorrelate_lateral_aggregate(
+            "SELECT c.relname, i.n FROM pg_class c \
+             LEFT JOIN LATERAL (SELECT sum(pg_index.x) AS n FROM pg_index \
+             WHERE pg_index.indrelid = c.oid) i ON true",
+        )?;
+        let lo = out.to_lowercase();
+        assert!(!lo.contains("lateral"), "LATERAL removed: {out}");
+        assert!(lo.contains("group by"), "GROUP BY added: {out}");
+        assert!(
+            lo.contains("__decorr_key_0") && lo.contains("= c.oid"),
+            "equi-join on the decorrelated key: {out}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_decorrelate_lateral_aggregate_leaves_non_aggregate_lateral() -> Result<(), Box<dyn std::error::Error>>
+    {
+        // A LATERAL without an aggregate is not a grouping candidate; leave it untouched.
+        let sql = "SELECT c.relname, i.x FROM pg_class c \
+             LEFT JOIN LATERAL (SELECT pg_index.x FROM pg_index \
+             WHERE pg_index.indrelid = c.oid) i ON true";
+        let out = decorrelate_lateral_aggregate(sql)?;
+        assert!(out.to_lowercase().contains("lateral"), "untouched: {out}");
+        Ok(())
+    }
+
+    #[test]
+    fn test_rewrite_available_extension_versions_source() -> Result<(), Box<dyn std::error::Error>> {
+        // The function-call form (in FROM, with args) is renamed to the internal name...
+        let called = rewrite_available_extension_versions_source(
+            "SELECT * FROM pg_available_extension_versions() e(name)",
+        )?;
+        assert!(
+            called.to_lowercase().contains("available_extension_versions()"),
+            "{called}"
+        );
+        assert!(
+            !called.to_lowercase().contains("pg_available_extension_versions"),
+            "call renamed: {called}"
+        );
+        // ...but a bare reference to the view of that name is left untouched.
+        let view = rewrite_available_extension_versions_source(
+            "SELECT count(*) FROM pg_catalog.pg_available_extension_versions",
+        )?;
+        assert!(
+            view.to_lowercase().contains("pg_available_extension_versions"),
+            "view reference preserved: {view}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_rewrite_text_backed_type_casts() -> Result<(), Box<dyn std::error::Error>> {
+        // `anyarray` becomes scalar `text`; `name[]` becomes `text[]`.
+        let out = rewrite_text_backed_type_casts(
+            "SELECT NULL::anyarray AS a, '{x}'::name[] AS b, x::pg_catalog.anyarray AS c",
+        )?;
+        let up = out.to_uppercase();
+        assert!(!up.contains("ANYARRAY"), "anyarray rewritten away: {out}");
+        assert!(!up.contains("NAME[]"), "name[] rewritten away: {out}");
+        assert!(up.contains("::TEXT[]") || up.contains("TEXT[]"), "name[] -> text[]: {out}");
+        Ok(())
+    }
+
+    #[test]
+    fn test_rewrite_text_backed_type_casts_leaves_oid_array() -> Result<(), Box<dyn std::error::Error>>
+    {
+        // `oid[]` is the job of drop_oid_array_cast; this rewrite must not touch it.
+        let out = rewrite_text_backed_type_casts("SELECT proargtypes::oid[]")?;
+        assert!(out.to_lowercase().contains("oid"), "oid[] left intact: {out}");
         Ok(())
     }
 }

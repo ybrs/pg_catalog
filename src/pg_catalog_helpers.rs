@@ -1,13 +1,13 @@
-use arrow::array::{Array, Int32Array, Int64Array, LargeStringArray, StringArray};
+use arrow::array::{Array, Int32Array, Int64Array, LargeStringArray, RecordBatch, StringArray};
 use datafusion::common::ScalarValue;
 use datafusion::error::{DataFusionError, Result as DFResult};
 use datafusion::execution::context::SessionContext;
 use serde::Deserialize;
 
 use crate::lazy_catalog::{
-    build_index_pg_class_row, build_info_columns_rows, build_info_tables_row, build_pg_attrdef_row,
-    build_pg_attribute_rows, build_pg_class_row, build_pg_constraint_row, build_pg_index_row,
-    build_pg_type_rowtype_row, ColumnSpec, ConstraintDef, ConstraintKind, IndexDef, RelationDef,
+    build_index_pg_class_row, build_pg_attrdef_row, build_pg_attribute_rows, build_pg_class_row,
+    build_pg_constraint_row, build_pg_index_row, build_pg_type_rowtype_row, ColumnSpec,
+    ConstraintDef, ConstraintKind, IndexDef, RelationDef, RelationKind,
 };
 use crate::session::rows_to_record_batch;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -22,7 +22,8 @@ pub struct ColumnDef {
     pub col_type: String,
     pub nullable: bool,
     /// Whether the column has a default expression. Drives `pg_attribute.atthasdef`
-    /// and a `pg_attrdef` row; the default *text* is supplied later (Phase 3).
+    /// and a `pg_attrdef` row; the default *text* is supplied at query time by the
+    /// integration-supplied definition-text resolver (NULL until one is installed).
     /// Defaults to false, so existing callers and wire payloads need not set it.
     #[serde(default)]
     pub has_default: bool,
@@ -220,43 +221,68 @@ fn column_specs_from_defs(columns: &[BTreeMap<String, ColumnDef>]) -> Vec<Column
         .collect()
 }
 
-pub async fn register_user_tables(
+/// Register one user relation of the given [`RelationKind`] (table or view) in the
+/// schema identified by `schema_oid`, writing every structural row both eager and
+/// lazy registration share: a `pg_class` identity row carrying the relkind, its
+/// composite rowtype in `pg_type`, a `pg_attribute` row per column, and a `pg_attrdef`
+/// row per defaulted column. The `information_schema.tables` / `.columns` views
+/// derive from those base-table rows, so they are not written here. Registration is
+/// idempotent within the schema.
+///
+/// `register_user_tables` and `register_user_view` are thin wrappers that fix the
+/// `kind`, so tables and views emit identical metadata except for the relkind.
+///
+/// `_database_name` is accepted to keep the public wrappers' signature stable and
+/// self-documenting; the relation's rows are keyed by schema OID, so the database
+/// name is not needed: the information_schema relations derive from the base-table
+/// rows rather than being written per database here.
+async fn register_user_relation(
     ctx: &SessionContext,
-    database_name: &str,
+    _database_name: &str,
     schema_oid: i32,
-    table_name: &str,
+    relation_name: &str,
+    kind: RelationKind,
     columns: Vec<BTreeMap<String, ColumnDef>>,
 ) -> DFResult<()> {
     // Idempotent: a relation of this name already registered IN THIS SCHEMA is left
     // as is. Scoped by relnamespace (pg_class identity is namespace + name), so the
-    // same table name under a different schema is not mistaken for a duplicate.
+    // same name under a different schema is not mistaken for a duplicate.
     let already_registered = ctx
         .sql(&format!(
             "SELECT 1 FROM pg_catalog.pg_class WHERE relname=$relname AND relnamespace={schema_oid}"
         ))
         .await?
-        .with_param_values(vec![("relname", ScalarValue::from(table_name))])?
+        .with_param_values(vec![("relname", ScalarValue::from(relation_name))])?
         .count()
         .await?
         > 0;
     if already_registered {
-        log::info!("table already exists {table_name}?");
+        log::info!("relation already exists {relation_name}?");
         return Ok(());
     }
 
-    // The schema is identified by OID (see `register_schema`); its name is read back
-    // for the information_schema labels.
-    let Some(schema_name) = get_schema_name(ctx, schema_oid).await? else {
+    // The relation is placed by OID (see `register_schema`); confirm the schema OID
+    // resolves to a real schema before emitting rows that reference it.
+    if get_schema_name(ctx, schema_oid).await?.is_none() {
         return Err(DataFusionError::Execution(format!(
-            "schema oid {schema_oid} not found while registering table '{table_name}'"
+            "schema oid {schema_oid} not found while registering relation '{relation_name}'"
         )));
-    };
-    let schema_name = schema_name.as_str();
+    }
 
-    let table_oid = NEXT_OID.fetch_add(1, Ordering::SeqCst);
+    let relation_oid = NEXT_OID.fetch_add(1, Ordering::SeqCst);
     let type_oid = NEXT_OID.fetch_add(1, Ordering::SeqCst);
     let column_specs = column_specs_from_defs(&columns);
-    let relation = RelationDef::table(table_oid, type_oid, table_name);
+    let relation = RelationDef {
+        oid: relation_oid,
+        reltype_oid: type_oid,
+        name: relation_name.to_string(),
+        kind,
+        owner_oid: None,
+        has_index: false,
+        has_rules: false,
+        has_triggers: false,
+        row_security: false,
+    };
 
     // pg_class identity row, its composite rowtype in pg_type, and one
     // pg_attribute row per column - all from the same builders the lazy
@@ -275,13 +301,14 @@ pub async fn register_user_tables(
         build_pg_type_rowtype_row(&relation, schema_oid),
     )
     .await?;
-    for attribute_row in build_pg_attribute_rows(table_oid, &column_specs) {
+    for attribute_row in build_pg_attribute_rows(relation_oid, &column_specs) {
         append_catalog_row(ctx, "pg_catalog", "pg_attribute", attribute_row).await?;
     }
 
     // One pg_attrdef row per column that has a default (its atthasdef flag is
-    // already set on the pg_attribute row above). The default text is supplied
-    // later (Phase 3); this is the structural handle clients join on.
+    // already set on the pg_attribute row above). The default text is supplied at
+    // call time by the integration-supplied definition-text resolver; this row is
+    // the structural handle clients join on.
     for (idx, col) in column_specs.iter().enumerate() {
         if col.has_default {
             let adnum = (idx + 1) as i32;
@@ -290,27 +317,63 @@ pub async fn register_user_tables(
                 ctx,
                 "pg_catalog",
                 "pg_attrdef",
-                build_pg_attrdef_row(attrdef_oid, table_oid, adnum),
+                build_pg_attrdef_row(attrdef_oid, relation_oid, adnum),
             )
             .await?;
         }
     }
 
-    // Reflect the same relation in information_schema, where ORMs and BI tools
-    // read it - again via the shared builders rather than hand-written INSERTs.
-    append_catalog_row(
-        ctx,
-        "information_schema",
-        "tables",
-        build_info_tables_row(database_name, schema_name, &relation),
-    )
-    .await?;
-    for column_row in build_info_columns_rows(database_name, schema_name, table_name, &column_specs)
-    {
-        append_catalog_row(ctx, "information_schema", "columns", column_row).await?;
-    }
+    // information_schema.tables / .columns are NOT written here: they are SQL views
+    // (see VIEWS_TO_REGISTER in session.rs) that derive from the pg_class /
+    // pg_attribute rows written above. Appending to them directly would target a
+    // view and double-write what the view already derives.
 
     Ok(())
+}
+
+/// Register a user table in the schema identified by `schema_oid`. See
+/// [`register_user_relation`] for the rows written; this fixes the relkind to a
+/// table (`pg_class.relkind = 'r'`).
+pub async fn register_user_tables(
+    ctx: &SessionContext,
+    database_name: &str,
+    schema_oid: i32,
+    table_name: &str,
+    columns: Vec<BTreeMap<String, ColumnDef>>,
+) -> DFResult<()> {
+    register_user_relation(
+        ctx,
+        database_name,
+        schema_oid,
+        table_name,
+        RelationKind::Table,
+        columns,
+    )
+    .await
+}
+
+/// Register a user view in the schema identified by `schema_oid`. See
+/// [`register_user_relation`] for the rows written; this fixes the relkind to a
+/// view (`pg_class.relkind = 'v'`), so the view appears in `pg_class`, `pg_views`,
+/// and `information_schema.views`. Its `definition` text comes from the
+/// integration-supplied view-definition resolver at `pg_get_viewdef` call time
+/// (NULL until one is installed); `columns` are the view's output columns.
+pub async fn register_user_view(
+    ctx: &SessionContext,
+    database_name: &str,
+    schema_oid: i32,
+    view_name: &str,
+    columns: Vec<BTreeMap<String, ColumnDef>>,
+) -> DFResult<()> {
+    register_user_relation(
+        ctx,
+        database_name,
+        schema_oid,
+        view_name,
+        RelationKind::View,
+        columns,
+    )
+    .await
 }
 
 /// Append one row, built as a `column -> JSON value` map, to a catalog table in
@@ -547,13 +610,11 @@ async fn get_schema_name(ctx: &SessionContext, schema_oid: i32) -> DFResult<Opti
         .next())
 }
 
-async fn get_schema_oid(ctx: &SessionContext, schema_name: &str) -> DFResult<Option<i32>> {
-    let df = ctx
-        .sql("SELECT oid FROM pg_catalog.pg_namespace WHERE nspname=$schema")
-        .await?
-        .with_param_values(vec![("schema", ScalarValue::from(schema_name))])?;
-    let batches = df.collect().await?;
-
+/// Read the OID in the first row of a single-column `SELECT oid ...` result,
+/// accepting either an `Int32` or `Int64` column (widened/narrowed to `i32`).
+/// Returns `None` when the result has no rows, and an error when the column is
+/// neither integer type. `kind` names the looked-up object for the error text.
+fn first_oid_cell(batches: &[RecordBatch], kind: &str) -> DFResult<Option<i32>> {
     if batches.is_empty() || batches[0].num_rows() == 0 {
         return Ok(None);
     }
@@ -564,12 +625,24 @@ async fn get_schema_oid(ctx: &SessionContext, schema_name: &str) -> DFResult<Opt
     } else if let Some(arr) = array.as_any().downcast_ref::<Int64Array>() {
         Ok(Some(arr.value(0) as i32))
     } else {
-        Err(DataFusionError::Execution(
-            "unexpected schema oid type".to_string(),
-        ))
+        Err(DataFusionError::Execution(format!(
+            "unexpected {kind} oid type"
+        )))
     }
 }
 
+/// Look up a schema's OID by name from `pg_catalog.pg_namespace`, or `None` when
+/// no schema of that name exists.
+async fn get_schema_oid(ctx: &SessionContext, schema_name: &str) -> DFResult<Option<i32>> {
+    let df = ctx
+        .sql("SELECT oid FROM pg_catalog.pg_namespace WHERE nspname=$schema")
+        .await?
+        .with_param_values(vec![("schema", ScalarValue::from(schema_name))])?;
+    first_oid_cell(&df.collect().await?, "schema")
+}
+
+/// Look up a table's OID by name within a schema from `pg_catalog.pg_class`, or
+/// `None` when no such table exists in that schema.
 async fn get_table_oid(
     ctx: &SessionContext,
     schema_oid: i32,
@@ -581,22 +654,7 @@ async fn get_table_oid(
         ))
         .await?
         .with_param_values(vec![("relname", ScalarValue::from(table_name))])?;
-    let batches = df.collect().await?;
-
-    if batches.is_empty() || batches[0].num_rows() == 0 {
-        return Ok(None);
-    }
-
-    let array = batches[0].column(0);
-    if let Some(arr) = array.as_any().downcast_ref::<Int32Array>() {
-        Ok(Some(arr.value(0)))
-    } else if let Some(arr) = array.as_any().downcast_ref::<Int64Array>() {
-        Ok(Some(arr.value(0) as i32))
-    } else {
-        Err(DataFusionError::Execution(
-            "unexpected table oid type".to_string(),
-        ))
-    }
+    first_oid_cell(&df.collect().await?, "table")
 }
 
 fn collect_string_column(column: &arrow::array::ArrayRef) -> Vec<String> {
@@ -751,6 +809,71 @@ pub async fn unregister_database(ctx: &SessionContext, database_name: &str) -> D
 mod tests {
     use super::*;
     use crate::session::get_base_session_context;
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_register_user_view_creates_view_relation() -> DFResult<()> {
+        // The eager view path writes the same structural rows as a table, but with
+        // relkind 'v', so the view appears in pg_class, information_schema.tables
+        // (as a VIEW), and pg_attribute - the structural half of a view, ready for
+        // the definition resolver to supply its text at pg_get_viewdef call time.
+        let (ctx, _) = get_base_session_context(
+            Some("pg_catalog_data/pg_schema"),
+            "pgtry".to_string(),
+            "public".to_string(),
+            None,
+        )
+        .await?;
+
+        let schema_oid = register_schema(&ctx, "pgtry", "myschema").await?;
+
+        let mut id = BTreeMap::new();
+        id.insert(
+            "id".to_string(),
+            ColumnDef {
+                col_type: "int".to_string(),
+                nullable: false,
+                has_default: false,
+            },
+        );
+        register_user_view(&ctx, "pgtry", schema_oid, "active_users", vec![id]).await?;
+
+        // A relkind 'v' pg_class row in the target schema.
+        let df = ctx
+            .sql(&format!(
+                "SELECT 1 FROM pg_catalog.pg_class \
+                 WHERE relname = 'active_users' AND relkind = 'v' AND relnamespace = {schema_oid}"
+            ))
+            .await?;
+        assert_eq!(
+            df.count().await?,
+            1,
+            "view must be a relkind 'v' pg_class row"
+        );
+
+        // information_schema.tables labels it a VIEW.
+        let df = ctx
+            .sql(
+                "SELECT 1 FROM information_schema.tables \
+                 WHERE table_name = 'active_users' AND table_type = 'VIEW'",
+            )
+            .await?;
+        assert_eq!(
+            df.count().await?,
+            1,
+            "information_schema.tables must report the view as a VIEW"
+        );
+
+        // Its output column is registered in pg_attribute.
+        let df = ctx
+            .sql(
+                "SELECT 1 FROM pg_catalog.pg_attribute \
+                 WHERE attrelid = (SELECT oid FROM pg_catalog.pg_class WHERE relname = 'active_users') \
+                 AND attname = 'id'",
+            )
+            .await?;
+        assert_eq!(df.count().await?, 1, "view column must be in pg_attribute");
+        Ok(())
+    }
 
     #[tokio::test(flavor = "multi_thread")]
     async fn test_register_user_tables_dynamic() -> DFResult<()> {
@@ -1318,37 +1441,37 @@ mod tests {
         let cat = batches[0]
             .column(0)
             .as_any()
-            .downcast_ref::<arrow::array::StringArray>()
+            .downcast_ref::<arrow::array::StringViewArray>()
             .unwrap()
             .value(0);
         let sch = batches[0]
             .column(1)
             .as_any()
-            .downcast_ref::<arrow::array::StringArray>()
+            .downcast_ref::<arrow::array::StringViewArray>()
             .unwrap()
             .value(0);
         let name = batches[0]
             .column(2)
             .as_any()
-            .downcast_ref::<arrow::array::StringArray>()
+            .downcast_ref::<arrow::array::StringViewArray>()
             .unwrap()
             .value(0);
         let typ = batches[0]
             .column(3)
             .as_any()
-            .downcast_ref::<arrow::array::StringArray>()
+            .downcast_ref::<arrow::array::StringViewArray>()
             .unwrap()
             .value(0);
         let insertable = batches[0]
             .column(4)
             .as_any()
-            .downcast_ref::<arrow::array::StringArray>()
+            .downcast_ref::<arrow::array::StringViewArray>()
             .unwrap()
             .value(0);
         let is_typed = batches[0]
             .column(5)
             .as_any()
-            .downcast_ref::<arrow::array::StringArray>()
+            .downcast_ref::<arrow::array::StringViewArray>()
             .unwrap()
             .value(0);
 
@@ -1408,7 +1531,7 @@ mod tests {
         let col0 = batches[0]
             .column(0)
             .as_any()
-            .downcast_ref::<arrow::array::StringArray>()
+            .downcast_ref::<arrow::array::StringViewArray>()
             .unwrap()
             .value(0);
         let pos0 = batches[0]
@@ -1420,20 +1543,20 @@ mod tests {
         let dt0 = batches[0]
             .column(2)
             .as_any()
-            .downcast_ref::<arrow::array::StringArray>()
+            .downcast_ref::<arrow::array::StringViewArray>()
             .unwrap()
             .value(0);
         let nul0 = batches[0]
             .column(3)
             .as_any()
-            .downcast_ref::<arrow::array::StringArray>()
+            .downcast_ref::<arrow::array::StringViewArray>()
             .unwrap()
             .value(0);
 
         let col1 = batches[0]
             .column(0)
             .as_any()
-            .downcast_ref::<arrow::array::StringArray>()
+            .downcast_ref::<arrow::array::StringViewArray>()
             .unwrap()
             .value(1);
         let pos1 = batches[0]
@@ -1445,13 +1568,13 @@ mod tests {
         let dt1 = batches[0]
             .column(2)
             .as_any()
-            .downcast_ref::<arrow::array::StringArray>()
+            .downcast_ref::<arrow::array::StringViewArray>()
             .unwrap()
             .value(1);
         let nul1 = batches[0]
             .column(3)
             .as_any()
-            .downcast_ref::<arrow::array::StringArray>()
+            .downcast_ref::<arrow::array::StringViewArray>()
             .unwrap()
             .value(1);
 

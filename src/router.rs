@@ -179,14 +179,26 @@ fn resolve_schema(ctx: &SessionContext, name: &ObjectName) -> Option<String> {
     }
 }
 
+/// Returns `true` when `schema` names one of the catalog schemas that this
+/// router special-cases (`pg_catalog` or `information_schema`), case-insensitively.
+fn schema_is_catalog(schema: &str) -> bool {
+    schema.eq_ignore_ascii_case("pg_catalog") || schema.eq_ignore_ascii_case("information_schema")
+}
+
+/// Returns `true` when `full` (a `schema.function` name) is registered on `ctx`
+/// as any kind of function: scalar UDF, aggregate, table function, or window UDF.
+fn function_registered(ctx: &SessionContext, full: &str) -> bool {
+    ctx.udf(full).is_ok()
+        || ctx.udaf(full).is_ok()
+        || ctx.table_function(full).is_ok()
+        || ctx.udwf(full).is_ok()
+}
+
 /// Determine if the object belongs to `pg_catalog` or `information_schema`.
 fn object_is_catalog(ctx: &SessionContext, name: &ObjectName) -> bool {
-    if let Some(schema) = resolve_schema(ctx, name) {
-        schema.eq_ignore_ascii_case("pg_catalog")
-            || schema.eq_ignore_ascii_case("information_schema")
-    } else {
-        false
-    }
+    resolve_schema(ctx, name)
+        .map(|schema| schema_is_catalog(&schema))
+        .unwrap_or(false)
 }
 
 /// Determine if the function belongs to `pg_catalog` or `information_schema`.
@@ -198,32 +210,12 @@ fn function_is_catalog(ctx: &SessionContext, name: &ObjectName) -> bool {
         .collect();
 
     match parts.as_slice() {
-        [schema, func] => {
-            let full = format!("{schema}.{func}");
-            (ctx.udf(&full).is_ok()
-                || ctx.udaf(&full).is_ok()
-                || ctx.table_function(&full).is_ok()
-                || ctx.udwf(&full).is_ok())
-                && (schema.eq_ignore_ascii_case("pg_catalog")
-                    || schema.eq_ignore_ascii_case("information_schema"))
+        [schema, func] | [_, schema, func] => {
+            schema_is_catalog(schema) && function_registered(ctx, &format!("{schema}.{func}"))
         }
-        [func] => ["pg_catalog", "information_schema"].iter().any(|schema| {
-            let full = format!("{schema}.{func}");
-
-            ctx.udf(&full).is_ok()
-                || ctx.udaf(&full).is_ok()
-                || ctx.table_function(&full).is_ok()
-                || ctx.udwf(&full).is_ok()
-        }),
-        [_, schema, func] => {
-            let full = format!("{schema}.{func}");
-            (ctx.udf(&full).is_ok()
-                || ctx.udaf(&full).is_ok()
-                || ctx.table_function(&full).is_ok()
-                || ctx.udwf(&full).is_ok())
-                && (schema.eq_ignore_ascii_case("pg_catalog")
-                    || schema.eq_ignore_ascii_case("information_schema"))
-        }
+        [func] => ["pg_catalog", "information_schema"]
+            .iter()
+            .any(|schema| function_registered(ctx, &format!("{schema}.{func}"))),
         _ => false,
     }
 }

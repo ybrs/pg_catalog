@@ -236,8 +236,9 @@ impl IndexDef {
 }
 
 /// The kind of table constraint a [`ConstraintDef`] describes. Check constraints
-/// are excluded: their defining SQL is a node tree we do not deparse, so their
-/// text is integration-supplied (Phase 3) rather than structural.
+/// are excluded: their defining SQL is a node tree we do not deparse, so their text
+/// is supplied by the integration-provided definition-text resolver rather than
+/// derived structurally.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ConstraintKind {
     /// A primary key (`pg_constraint.contype = 'p'`).
@@ -481,9 +482,10 @@ pub struct ColumnSpec {
     pub type_oid: i32,
     /// Whether the column admits NULLs (`pg_attribute.attnotnull` is its negation).
     pub nullable: bool,
-    /// Whether the column has a default expression (`pg_attribute.atthasdef`, and
-    /// a backing `pg_attrdef` row). The default *text* is integration-supplied
-    /// (Phase 3); this flag and the `pg_attrdef` handle are the structural part.
+    /// Whether the column has a default expression (`pg_attribute.atthasdef`, and a
+    /// backing `pg_attrdef` row). The default *text* is supplied by the
+    /// integration-provided definition-text resolver; this flag and the `pg_attrdef`
+    /// handle are the structural part.
     pub has_default: bool,
 }
 
@@ -500,8 +502,8 @@ impl ColumnSpec {
     }
 
     /// Mark this column as having a default expression, so it gets a `pg_attrdef`
-    /// row and `pg_attribute.atthasdef = true`. The default text itself is
-    /// supplied later (Phase 3).
+    /// row and `pg_attribute.atthasdef = true`. The default text itself is supplied
+    /// by the integration-provided definition-text resolver.
     pub fn with_default(mut self) -> Self {
         self.has_default = true;
         self
@@ -994,8 +996,8 @@ pub fn build_pg_index_row(def: &IndexDef) -> Row {
 /// `confmatchtype`) carry real values only for a foreign key; for primary-key and
 /// unique constraints they take PostgreSQL's non-FK sentinels (`confrelid` 0,
 /// `confkey` NULL, and the three type codes a single space). The check-expression
-/// column (`conbin`) is left NULL - these kinds have no expression, and check
-/// text is integration-supplied (Phase 3) anyway.
+/// column (`conbin`) is left NULL - these kinds have no expression, and check text
+/// comes from the integration-provided definition-text resolver anyway.
 pub fn build_pg_constraint_row(def: &ConstraintDef) -> Row {
     let is_foreign_key = def.kind == ConstraintKind::ForeignKey;
     let mut row = Row::new();
@@ -1153,9 +1155,10 @@ const SYNTHETIC_ATTRDEF_OID_BASE: i32 = 900_000;
 /// `adrelid` has a default.
 ///
 /// The compiled default expression (`adbin`, a node tree) is left NULL: we do not
-/// store node trees, and the human-facing default text is integration-supplied
-/// (Phase 3). This row, joined with `pg_attribute.atthasdef`, is the structural
-/// handle that `information_schema.columns` and clients read.
+/// store node trees, and the human-facing default text comes from the
+/// integration-provided definition-text resolver. This row, joined with
+/// `pg_attribute.atthasdef`, is the structural handle that
+/// `information_schema.columns` and clients read.
 pub fn build_pg_attrdef_row(oid: i32, adrelid: i32, adnum: i32) -> Row {
     let mut row = Row::new();
     row.insert("oid".to_string(), json!(oid));
@@ -1551,9 +1554,13 @@ impl LazyCatalogOptions {
                 CatalogTable::PgAttrdef,
                 CatalogTable::PgConfig,
                 CatalogTable::PgSettings,
-                CatalogTable::InformationSchemaTables,
-                CatalogTable::InformationSchemaColumns,
-                CatalogTable::InformationSchemaSchemata,
+                // information_schema.tables / .columns / .schemata are intentionally
+                // omitted: they are SQL views (VIEWS_TO_REGISTER in session.rs) that
+                // derive from the lazily-wrapped pg_class / pg_attribute /
+                // pg_namespace above, so wrapping them as tables here would shadow the
+                // view with a frozen MemTable. The InformationSchema* variants remain
+                // available via `with_tables` for an embedder that wants the
+                // materialized tables instead of the views.
             ],
         }
     }
@@ -1626,6 +1633,13 @@ pub async fn register_lazy_catalog(
         let _ = schema_provider.deregister_table(table_name);
         schema_provider.register_table(table_name.to_string(), provider)?;
     }
+
+    // The catalog views (information_schema.columns and the rest) were planned
+    // against the providers that existed before the swap above; a planned view
+    // keeps reading the provider it was planned from, so without this it would
+    // never see the lazy rows. Re-plan those views so they bind to the lazy
+    // providers just installed.
+    crate::session::replan_registered_views_against_current_providers(ctx).await?;
 
     Ok(())
 }

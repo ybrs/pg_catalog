@@ -287,23 +287,6 @@ impl DatafusionBackend {
         )
     }
 
-    /// Register the `session_user` UDF from the connection's user metadata.
-    fn register_session_user<C>(&self, client: &C) -> datafusion::error::Result<()>
-    where
-        C: ClientInfo + ?Sized,
-    {
-        self.register_constant_text_udf("session_user", pgwire::api::METADATA_USER, false, client)
-    }
-
-    /// Register the `current_user` UDF (and its `pg_catalog` alias) from the
-    /// connection's user metadata.
-    fn register_current_user<C>(&self, client: &C) -> datafusion::error::Result<()>
-    where
-        C: ClientInfo + ?Sized,
-    {
-        self.register_constant_text_udf("current_user", pgwire::api::METADATA_USER, true, client)
-    }
-
     fn show_variable_response(&self, name: &str, format: FieldFormat) -> Option<Response> {
         let state = self.ctx.state();
         let opts = state.config_options().extensions.get::<ClientOpts>()?;
@@ -835,8 +818,9 @@ impl SimpleQueryHandler for DatafusionBackend {
         log::debug!("database: {:?} {:?}", database, user);
 
         let _ = self.register_current_database(client);
-        let _ = self.register_session_user(client);
-        let _ = self.register_current_user(client);
+        if let Some(user) = client.metadata().get(pgwire::api::METADATA_USER) {
+            crate::user_functions::set_session_user(user);
+        }
 
         let dispatch_result =
             dispatch_query(&self.ctx, query, None, None, |ctx, sql, p, t| async move {
@@ -985,8 +969,9 @@ impl ExtendedQueryHandler for DatafusionBackend {
         }
 
         let _ = self.register_current_database(client);
-        let _ = self.register_session_user(client);
-        let _ = self.register_current_user(client);
+        if let Some(user) = client.metadata().get(pgwire::api::METADATA_USER) {
+            crate::user_functions::set_session_user(user);
+        }
 
         let dispatch_result = dispatch_query(
             &self.ctx,

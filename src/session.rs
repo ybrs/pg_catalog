@@ -10,9 +10,12 @@ use datafusion::execution::context::SessionContext;
 use serde::Deserialize;
 use serde_yaml;
 
-use crate::clean_duplicate_columns::{alias_unnamed_columns, disambiguate_duplicate_columns};
+use crate::clean_duplicate_columns::{
+    alias_unnamed_columns, disambiguate_duplicate_columns, restore_aliased_column_names,
+};
 use crate::replace::{
-    alias_subquery_tables, drop_oid_array_cast, drop_redundant_oid_and_regclass_casts,
+    alias_subquery_tables, decorrelate_lateral_aggregate, drop_oid_array_cast,
+    drop_redundant_oid_and_regclass_casts,
     regclass_udfs, replace_regclass, replace_set_command_with_namespace,
     rewrite_array_agg_varchar_cast, rewrite_array_subquery, rewrite_available_updates,
     rewrite_brace_array_literal, rewrite_char_cast, rewrite_exists_to_count,
@@ -20,9 +23,10 @@ use crate::replace::{
     rewrite_pg_custom_operator, rewrite_pg_truetypid_composite_args, rewrite_regoper_cast,
     rewrite_regoperator_cast, rewrite_regproc_cast, rewrite_regprocedure_cast,
     rewrite_regtype_cast, rewrite_schema_qualified_custom_types, rewrite_schema_qualified_text,
-    rewrite_schema_qualified_udtfs, rewrite_srf_to_unnest, rewrite_time_zone_utc,
-    rewrite_tuple_equality, rewrite_tuple_in_subquery_to_exists, rewrite_xid_cast,
-    strip_default_collate,
+    rewrite_available_extension_versions_source, rewrite_schema_qualified_udtfs,
+    rewrite_srf_to_unnest, rewrite_text_backed_type_casts,
+    rewrite_time_zone_utc, rewrite_tuple_equality, rewrite_tuple_in_subquery_to_exists,
+    rewrite_xid_cast, strip_default_collate,
 };
 use pgwire::api::Type;
 use std::collections::{BTreeMap, HashMap};
@@ -46,7 +50,8 @@ use crate::user_functions::{
     register_pg_index_position, register_pg_is_other_temp_schema, register_pg_my_temp_schema,
     register_pg_numeric_helpers, register_pg_options_to_table, register_pg_postmaster_start_time,
     register_pg_relation_is_publishable, register_pg_relation_is_updatable,
-    register_pg_relation_size, register_pg_total_relation_size, register_pg_truetypid_helpers,
+    register_pg_relation_size, register_pg_sequence_last_value, register_pg_total_relation_size,
+    register_pg_truetypid_helpers, register_row_security_active, register_session_identity,
     register_quote_ident, register_scalar_array_to_string, register_scalar_format_type,
     register_scalar_pg_age, register_scalar_pg_encoding_to_char, register_scalar_pg_get_expr,
     register_scalar_pg_get_partkeydef, register_scalar_pg_get_userbyid,
@@ -73,6 +78,75 @@ use crate::db_table::{map_pg_type, ScanRecordingMemTable, ScanTrace};
 use crate::lazy_catalog::{register_lazy_catalog, LazyCatalogOptions, LazyCatalogSource};
 use crate::replace_any_group_by::rewrite_group_by_for_any;
 use datafusion::common::config::{ConfigExtension, ExtensionOptions};
+use std::sync::OnceLock;
+
+/// The `CREATE OR REPLACE VIEW` statements [`create_registered_views`] ran for each
+/// session, in execution order, together with the schema their bodies were resolved
+/// under. Keyed by [`SessionContext::session_id`] so concurrent sessions in one
+/// process do not clobber each other.
+///
+/// A DataFusion view stores the logical plan it was planned from; that plan
+/// captures the concrete table providers present at `CREATE VIEW` time and is not
+/// re-resolved on later queries. When [`register_lazy_catalog`] swaps a base
+/// table's provider for a lazy one, any view already planned against the old
+/// provider keeps reading the old provider and never sees the lazy rows. Replaying
+/// these statements after the swap re-plans each view against the lazy providers so
+/// the views reflect the source's rows. The map is process-global because
+/// [`register_lazy_catalog`] is a standalone entry point that receives only a
+/// `SessionContext`; the per-session key keeps each session's statements distinct.
+fn registered_view_statements() -> &'static Mutex<HashMap<String, Vec<RegisteredViewStatement>>> {
+    static SLOT: OnceLock<Mutex<HashMap<String, Vec<RegisteredViewStatement>>>> = OnceLock::new();
+    SLOT.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// One replayable `CREATE OR REPLACE VIEW`, plus the default schema its body must
+/// be resolved under (catalog view bodies reference base tables unqualified, all of
+/// which live in `pg_catalog`).
+#[derive(Clone)]
+struct RegisteredViewStatement {
+    body_resolution_schema: String,
+    create_sql: String,
+}
+
+/// Re-plan the catalog views recorded by [`create_registered_views`] so they bind
+/// to the table providers currently registered.
+///
+/// [`register_lazy_catalog`] calls this after swapping base table providers, so the
+/// views that derive from those base tables re-resolve against the lazy providers
+/// instead of the built-in snapshots they were first planned against. A view body
+/// that no longer plans is left as it was rather than dropped.
+pub async fn replan_registered_views_against_current_providers(
+    ctx: &SessionContext,
+) -> datafusion::error::Result<(), DataFusionError> {
+    let statements = registered_view_statements()
+        .lock()
+        .unwrap()
+        .get(&ctx.session_id())
+        .cloned()
+        .unwrap_or_default();
+    if statements.is_empty() {
+        return Ok(());
+    }
+
+    let original_default_schema = {
+        let state = ctx.state();
+        state.config_options().catalog.default_schema.clone()
+    };
+
+    for statement in statements {
+        set_default_schema(ctx, &statement.body_resolution_schema).await?;
+        // A body that fails to re-plan leaves the prior view definition in place,
+        // so the object stays queryable rather than being dropped.
+        match ctx.sql(&statement.create_sql).await {
+            Ok(df) => {
+                let _ = df.collect().await;
+            }
+            Err(_) => continue,
+        }
+    }
+
+    set_default_schema(ctx, &original_default_schema).await
+}
 
 #[derive(Clone, Debug)]
 pub struct ClientOpts {
@@ -177,23 +251,191 @@ struct ViewToRegister {
     schema: String,
     name: String,
     sql: String,
+    // The materialized snapshot to register if this view's body cannot be planned
+    // as a `CREATE VIEW` - the fallback that keeps the object queryable as a table.
+    fallback_schema: SchemaRef,
+    fallback_batches: Vec<RecordBatch>,
 }
 
-const VIEW_ONLY_TABLES: &[(&str, &str)] = &[
+// Declared views the server serves as `CREATE VIEW`s (re-derived from the base
+// tables on every query) instead of as frozen MemTable snapshots. A listed view
+// whose body fails to plan falls back to its MemTable snapshot (see
+// `create_registered_views`), so listing one can only upgrade it to a live view,
+// never break startup or drop it.
+//
+// A view stays off this list when its body cannot yet be served correctly (noted
+// inline next to the gap), so it keeps its MemTable snapshot.
+const VIEWS_TO_REGISTER: &[(&str, &str)] = &[
     ("pg_catalog", "pg_views"),
     ("pg_catalog", "pg_tables"),
-    // Constraint views served live so they reflect runtime-registered user
-    // constraints (pg_constraint) rather than the frozen seed snapshot.
     ("information_schema", "table_constraints"),
     ("information_schema", "key_column_usage"),
     ("information_schema", "constraint_column_usage"),
     ("information_schema", "referential_constraints"),
+    ("pg_catalog", "pg_indexes"),
+    ("pg_catalog", "pg_matviews"),
+    ("pg_catalog", "pg_shadow"),
+    ("information_schema", "routines"),
+    ("information_schema", "sequences"),
+    ("information_schema", "domains"),
+    ("information_schema", "attributes"),
+    ("information_schema", "triggers"),
+    ("information_schema", "user_defined_types"),
+    ("information_schema", "column_udt_usage"),
+    ("information_schema", "column_domain_usage"),
+    ("information_schema", "constraint_table_usage"),
+    ("information_schema", "character_sets"),
+    ("information_schema", "collations"),
+    ("information_schema", "collation_character_set_applicability"),
+    ("information_schema", "check_constraint_routine_usage"),
+    ("information_schema", "column_column_usage"),
+    ("information_schema", "domain_constraints"),
+    ("information_schema", "domain_udt_usage"),
+    ("information_schema", "enabled_roles"),
+    ("information_schema", "information_schema_catalog_name"),
+    ("information_schema", "routine_column_usage"),
+    ("information_schema", "routine_routine_usage"),
+    ("information_schema", "routine_sequence_usage"),
+    ("information_schema", "routine_table_usage"),
+    ("information_schema", "triggered_update_columns"),
+    ("information_schema", "transforms"),
+    ("information_schema", "view_column_usage"),
+    ("information_schema", "view_routine_usage"),
+    ("information_schema", "view_table_usage"),
+    // The most-queried introspection views. They derive from pg_class /
+    // pg_attribute / pg_namespace, so register_user_relation writes only those base
+    // tables and the lazy mechanism wraps only those base tables; these views
+    // re-derive their rows rather than being shadowed by a frozen table.
+    ("information_schema", "tables"),
+    ("information_schema", "columns"),
+    ("information_schema", "schemata"),
+    ("information_schema", "views"),
+    ("information_schema", "check_constraints"),
+    ("information_schema", "parameters"),
+    ("information_schema", "element_types"),
+    ("pg_catalog", "pg_roles"),
+    ("pg_catalog", "pg_user"),
+    ("information_schema", "_pg_foreign_data_wrappers"),
+    ("information_schema", "_pg_foreign_servers"),
+    ("information_schema", "_pg_foreign_table_columns"),
+    ("information_schema", "_pg_foreign_tables"),
+    ("pg_catalog", "pg_sequences"),
+    ("information_schema", "_pg_user_mappings"),
+    ("information_schema", "administrable_role_authorizations"),
+    ("information_schema", "applicable_roles"),
+    ("information_schema", "column_options"),
+    ("information_schema", "column_privileges"),
+    ("information_schema", "data_type_privileges"),
+    ("information_schema", "foreign_data_wrapper_options"),
+    ("information_schema", "foreign_data_wrappers"),
+    ("information_schema", "foreign_server_options"),
+    ("information_schema", "foreign_servers"),
+    ("information_schema", "foreign_table_options"),
+    ("information_schema", "foreign_tables"),
+    ("information_schema", "role_column_grants"),
+    ("information_schema", "role_routine_grants"),
+    ("information_schema", "role_table_grants"),
+    ("information_schema", "role_udt_grants"),
+    ("information_schema", "role_usage_grants"),
+    ("information_schema", "routine_privileges"),
+    ("information_schema", "table_privileges"),
+    ("information_schema", "udt_privileges"),
+    ("information_schema", "usage_privileges"),
+    ("information_schema", "user_mapping_options"),
+    ("information_schema", "user_mappings"),
+    ("pg_catalog", "pg_rules"),
+    ("pg_catalog", "pg_stat_sys_indexes"),
+    ("pg_catalog", "pg_stat_sys_tables"),
+    ("pg_catalog", "pg_stat_user_indexes"),
+    ("pg_catalog", "pg_stat_user_tables"),
+    ("pg_catalog", "pg_stat_xact_sys_tables"),
+    ("pg_catalog", "pg_stat_xact_user_tables"),
+    ("pg_catalog", "pg_statio_sys_indexes"),
+    ("pg_catalog", "pg_statio_sys_sequences"),
+    ("pg_catalog", "pg_statio_sys_tables"),
+    ("pg_catalog", "pg_statio_user_indexes"),
+    ("pg_catalog", "pg_statio_user_sequences"),
+    ("pg_catalog", "pg_statio_user_tables"),
+    ("pg_catalog", "pg_user_mappings"),
+    // Runtime-function-backed views, now plannable because their statistics /
+    // live-state functions are registered (resolver-backed, empty by default).
+    ("pg_catalog", "pg_stat_all_tables"),
+    ("pg_catalog", "pg_stat_all_indexes"),
+    ("pg_catalog", "pg_stat_xact_all_tables"),
+    ("pg_catalog", "pg_statio_all_indexes"),
+    ("pg_catalog", "pg_statio_all_sequences"),
+    ("pg_catalog", "pg_stat_database"),
+    ("pg_catalog", "pg_stat_database_conflicts"),
+    ("pg_catalog", "pg_stat_user_functions"),
+    ("pg_catalog", "pg_stat_xact_user_functions"),
+    ("pg_catalog", "pg_stat_activity"),
+    ("pg_catalog", "pg_stat_replication"),
+    ("pg_catalog", "pg_stat_gssapi"),
+    ("pg_catalog", "pg_stat_ssl"),
+    ("pg_catalog", "pg_stat_io"),
+    ("pg_catalog", "pg_stat_slru"),
+    ("pg_catalog", "pg_stat_subscription"),
+    ("pg_catalog", "pg_stat_recovery_prefetch"),
+    ("pg_catalog", "pg_stat_progress_analyze"),
+    ("pg_catalog", "pg_stat_progress_basebackup"),
+    ("pg_catalog", "pg_stat_progress_cluster"),
+    ("pg_catalog", "pg_stat_progress_copy"),
+    ("pg_catalog", "pg_stat_progress_vacuum"),
+    ("pg_catalog", "pg_locks"),
+    ("pg_catalog", "pg_cursors"),
+    ("pg_catalog", "pg_prepared_statements"),
+    ("pg_catalog", "pg_prepared_xacts"),
+    ("pg_catalog", "pg_file_settings"),
+    ("pg_catalog", "pg_wait_events"),
+    ("pg_catalog", "pg_backend_memory_contexts"),
+    ("pg_catalog", "pg_shmem_allocations"),
+    ("pg_catalog", "pg_replication_slots"),
+    ("pg_catalog", "pg_replication_origin_status"),
+    ("information_schema", "user_mapping_options"),
+    // Views unblocked by the record-returning, visibility-predicate, and remaining
+    // scalar runtime functions (resolver-backed, empty by default).
+    ("pg_catalog", "pg_stat_archiver"),
+    ("pg_catalog", "pg_stat_wal"),
+    ("pg_catalog", "pg_stat_wal_receiver"),
+    ("pg_catalog", "pg_stat_replication_slots"),
+    ("pg_catalog", "pg_stat_subscription_stats"),
+    ("pg_catalog", "pg_stat_bgwriter"),
+    ("pg_catalog", "pg_stat_checkpointer"),
+    ("pg_catalog", "pg_stat_progress_create_index"),
+    ("pg_catalog", "pg_seclabels"),
+    ("pg_catalog", "pg_publication_tables"),
+    ("pg_catalog", "pg_stats_ext"),
+    ("pg_catalog", "pg_stats_ext_exprs"),
+    // Unblocked by rewriting catalog `anyarray` / `name[]` casts to their text types
+    // (pg_user_mappings and user_mapping_options, already listed above, are unblocked
+    // by the same rewrite).
+    ("pg_catalog", "pg_stats"),
+    ("pg_catalog", "pg_policies"),
+    // Unblocked by not injecting a GROUP BY for a bare `IS NOT NULL` projection, and by
+    // renaming the backing table function so it no longer shadows the view's name.
+    ("pg_catalog", "pg_available_extension_versions"),
+    // Unblocked by decorrelating its correlated LATERAL aggregate joins.
+    ("pg_catalog", "pg_statio_all_tables"),
+    // Served via a simplified body (see SIMPLIFIED_VIEW_BODIES) - the declared bodies use
+    // engine features not yet supported, but over empty/aliasable sources the simplified
+    // form is equivalent.
+    ("pg_catalog", "pg_group"),
+    ("pg_catalog", "pg_publication_tables"),
+    ("pg_catalog", "pg_stats_ext"),
+    ("pg_catalog", "pg_stats_ext_exprs"),
 ];
 
-fn should_register_as_view(schema_name: &str, table_name: &str) -> bool {
-    VIEW_ONLY_TABLES
-        .iter()
-        .any(|(schema, table)| *schema == schema_name && *table == table_name)
+/// Whether to attempt registering a declared view as a `CREATE VIEW`.
+///
+/// Only views on the `VIEWS_TO_REGISTER` list are attempted, so startup stays fast
+/// (the dozens of views not served live are not planned every boot). A listed view
+/// whose body fails to plan falls back to its MemTable snapshot in
+/// [`create_registered_views`], so listing one never removes the object.
+fn should_attempt_as_view(schema_name: &str, table_name: &str, is_view: bool) -> bool {
+    is_view
+        && VIEWS_TO_REGISTER
+            .iter()
+            .any(|(schema, table)| *schema == schema_name && *table == table_name)
 }
 
 fn quote_identifier(ident: &str) -> String {
@@ -354,11 +596,15 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     let sql = rewrite_pg_truetypid_composite_args(&sql)?;
     let sql = rewrite_information_schema_casts(&sql)?;
     let sql = rewrite_schema_qualified_udtfs(&sql)?;
+    let sql = rewrite_available_extension_versions_source(&sql)?;
     let sql = rewrite_char_cast(&sql)?;
     let sql = replace_regclass(&sql)?;
     let sql = rewrite_regtype_cast(&sql)?;
     let sql = rewrite_xid_cast(&sql)?;
     let sql = rewrite_name_cast(&sql)?;
+    // Map catalog type names the planner rejects (`anyarray`, `name[]`) to the
+    // concrete text types this catalog stores those columns as.
+    let sql = rewrite_text_backed_type_casts(&sql)?;
     let sql = rewrite_oid_cast(&sql)?;
     // Drop value-preserving `::regclass` / `::oid` casts on column expressions
     // (e.g. `c.oid::regclass`, `proargtypes::oid`).
@@ -368,6 +614,10 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     let sql = drop_oid_array_cast(&sql)?;
     let sql = rewrite_array_agg_varchar_cast(&sql)?;
     let sql = rewrite_tuple_equality(&sql)?;
+    // Turn correlated `LEFT JOIN LATERAL (SELECT agg(...) WHERE inner.k = outer.c) ON true`
+    // into a grouped equi-join the planner can handle (DataFusion has no physical plan for
+    // the correlated reference such a LATERAL aggregate leaves behind).
+    let sql = decorrelate_lateral_aggregate(&sql)?;
     let sql = alias_subquery_tables(&sql)?;
     // Give duplicate column names in nested projections distinct aliases so
     // DataFusion's optimizer doesn't hit its name-mismatch assertion (e.g. the
@@ -1057,25 +1307,24 @@ async fn register_catalogs_from_schemas(
                     is_view,
                 } = table_info;
 
-                if should_register_as_view(schema_name.as_str(), table.as_str()) {
+                if should_attempt_as_view(schema_name.as_str(), table.as_str(), is_view) {
                     if let Some(sql) = view_sql {
-                        if !is_view {
-                            log::warn!(
-                                "view-only table list contains non-view entry {}.{}",
-                                schema_name,
-                                table
-                            );
-                        }
+                        // Defer to create_registered_views: it tries CREATE VIEW and,
+                        // if the body cannot be planned, registers the snapshot below
+                        // as a MemTable instead. We hand it the snapshot so that
+                        // fallback needs nothing from this loop's per-schema state.
                         views_to_register.push(ViewToRegister {
                             catalog: current_catalog.clone(),
                             schema: schema_name.clone(),
                             name: table.clone(),
                             sql,
+                            fallback_schema: schema_ref,
+                            fallback_batches: batches,
                         });
                         continue;
                     } else {
                         log::warn!(
-                            "view_sql missing for table {}.{}; falling back to table registration",
+                            "view_sql missing for view {}.{}; registering its snapshot as a table",
                             schema_name,
                             table
                         );
@@ -1095,13 +1344,175 @@ async fn register_catalogs_from_schemas(
     Ok(views_to_register)
 }
 
+/// View bodies served in place of the declared `view_sql` for views the engine cannot yet
+/// plan as written. Each is an equivalent the engine *can* plan: it keeps every column and
+/// every row the engine can compute and substitutes NULL only where an unsupported feature
+/// (a correlated `UNNEST`, composite-record field access, or the `VARIADIC ARRAY[...]` the
+/// parser rejects) would otherwise sit. None is lossy for the data this catalog holds:
+/// `pg_publication`, `pg_statistic_ext` and `pg_statistic_ext_data` are empty, and the
+/// `pg_group` body is the declared query with table aliases the engine resolves. When the
+/// engine gains the missing feature, drop the entry and the declared `view_sql` serves again.
+const SIMPLIFIED_VIEW_BODIES: &[(&str, &str, &str)] = &[
+    // The declared body's correlated `pg_authid.oid` only resolves when the outer table
+    // carries an explicit alias; this is that query, aliased (still 15 groups, real grolist).
+    (
+        "pg_catalog",
+        "pg_group",
+        "SELECT a.rolname AS groname, a.oid AS grosysid, \
+           ARRAY(SELECT m.member FROM pg_auth_members m WHERE m.roleid = a.oid) AS grolist \
+         FROM pg_authid a WHERE NOT a.rolcanlogin",
+    ),
+    // Declared body uses `LATERAL pg_get_publication_tables(VARIADIC ARRAY[...])`, which the
+    // parser rejects; pg_publication is empty, so projecting its columns is equivalent.
+    (
+        "pg_catalog",
+        "pg_publication_tables",
+        "SELECT p.pubname, NULL::text AS schemaname, NULL::text AS tablename, \
+           NULL::text[] AS attnames, NULL::text AS rowfilter FROM pg_publication p",
+    ),
+    // Declared body needs correlated `UNNEST(stxkeys)` and `pg_mcv_list_items`;
+    // pg_statistic_ext is empty, so engine-supported base columns plus NULL extended-stats
+    // columns match.
+    (
+        "pg_catalog",
+        "pg_stats_ext",
+        "SELECT cn.nspname AS schemaname, c.relname AS tablename, \
+           sn.nspname AS statistics_schemaname, s.stxname AS statistics_name, \
+           pg_get_userbyid(s.stxowner) AS statistics_owner, NULL::text[] AS attnames, \
+           NULL::text[] AS exprs, s.stxkind AS kinds, sd.stxdinherit AS inherited, \
+           sd.stxdndistinct AS n_distinct, sd.stxddependencies AS dependencies, \
+           NULL::text[] AS most_common_vals, NULL::text[] AS most_common_val_nulls, \
+           NULL::text[] AS most_common_freqs, NULL::text[] AS most_common_base_freqs \
+         FROM pg_statistic_ext s JOIN pg_class c ON c.oid = s.stxrelid \
+           JOIN pg_statistic_ext_data sd ON s.oid = sd.stxoid \
+           LEFT JOIN pg_namespace cn ON cn.oid = c.relnamespace \
+           LEFT JOIN pg_namespace sn ON sn.oid = s.stxnamespace",
+    ),
+    // Declared body needs composite-record field access `(stat.a).stanullfrac`;
+    // pg_statistic_ext is empty, so base columns plus NULL stat columns match.
+    (
+        "pg_catalog",
+        "pg_stats_ext_exprs",
+        "SELECT cn.nspname AS schemaname, c.relname AS tablename, \
+           sn.nspname AS statistics_schemaname, s.stxname AS statistics_name, \
+           pg_get_userbyid(s.stxowner) AS statistics_owner, NULL::text AS expr, \
+           sd.stxdinherit AS inherited, NULL::float4 AS null_frac, NULL::int AS avg_width, \
+           NULL::float4 AS n_distinct, NULL::text AS most_common_vals, \
+           NULL::text[] AS most_common_freqs, NULL::text AS histogram_bounds, \
+           NULL::float4 AS correlation, NULL::text AS most_common_elems, \
+           NULL::text[] AS most_common_elem_freqs, NULL::text[] AS elem_count_histogram \
+         FROM pg_statistic_ext s JOIN pg_class c ON c.oid = s.stxrelid \
+           LEFT JOIN pg_statistic_ext_data sd ON s.oid = sd.stxoid \
+           LEFT JOIN pg_namespace cn ON cn.oid = c.relnamespace \
+           LEFT JOIN pg_namespace sn ON sn.oid = s.stxnamespace",
+    ),
+];
+
+/// The simplified body to serve for a view, if one is registered (see
+/// [`SIMPLIFIED_VIEW_BODIES`]).
+fn simplified_view_body(schema: &str, name: &str) -> Option<&'static str> {
+    SIMPLIFIED_VIEW_BODIES
+        .iter()
+        .find(|(s, n, _)| *s == schema && *n == name)
+        .map(|(_, _, body)| *body)
+}
+
+/// Build and run the `CREATE OR REPLACE VIEW` for one declared view.
+///
+/// Returns `Ok(())` when the body planned and the view was registered. An `Err`
+/// means the body could not be planned in the current context - either a genuine
+/// engine/UDF gap or simply a view it depends on not existing yet; the caller
+/// distinguishes the two by retrying (see [`create_registered_views`]).
+async fn try_create_view(
+    ctx: &SessionContext,
+    view: &ViewToRegister,
+    default_catalog: &str,
+    body_resolution_schema: &str,
+) -> datafusion::error::Result<(), DataFusionError> {
+    let qualified = format_fully_qualified_name(&view.catalog, &view.schema, &view.name);
+    let definition = match simplified_view_body(&view.schema, &view.name) {
+        Some(body) => body.to_string(),
+        None => normalize_view_sql(&view.sql),
+    };
+    if definition.is_empty() {
+        return Err(DataFusionError::Execution(format!(
+            "view_sql for {} is empty",
+            qualified
+        )));
+    }
+
+    let rewritten_select = {
+        let inlined = inline_current_database(&definition, default_catalog);
+        let rewritten = rewrite_srf_to_unnest(&inlined)?;
+        // rewrite_filters aliases every unnamed top-level column to `alias_N` for
+        // result-set disambiguation and returns the alias -> real-name map. A view
+        // keeps its projection names as its schema, so restore the real names before
+        // CREATE VIEW; otherwise the view would expose `alias_N` to its readers.
+        let (rewritten, column_aliases) = rewrite_filters(&rewritten)?;
+        let rewritten = rewrite_exists_to_count(&rewritten)?;
+        let rewritten = rewrite_tuple_in_subquery_to_exists(&rewritten)?;
+        restore_aliased_column_names(&rewritten, &column_aliases)?
+    };
+    let create_sql = format!("CREATE OR REPLACE VIEW {qualified} AS {rewritten_select}");
+    ctx.sql(&create_sql).await?.collect().await?;
+
+    // Record the exact statement so the view can be re-planned against later
+    // provider swaps (see replan_registered_views_against_current_providers).
+    registered_view_statements()
+        .lock()
+        .unwrap()
+        .entry(ctx.session_id())
+        .or_default()
+        .push(RegisteredViewStatement {
+            body_resolution_schema: body_resolution_schema.to_string(),
+            create_sql,
+        });
+    Ok(())
+}
+
+/// Register a declared view's snapshot as a MemTable - the fallback for a view whose
+/// body cannot be planned, so the object stays queryable as a table rather than
+/// vanishing.
+fn register_view_as_table(
+    ctx: &SessionContext,
+    view: ViewToRegister,
+    log: Arc<Mutex<Vec<ScanTrace>>>,
+) -> datafusion::error::Result<(), DataFusionError> {
+    let schema_provider = ctx
+        .catalog(&view.catalog)
+        .and_then(|catalog| catalog.schema(&view.schema))
+        .ok_or_else(|| {
+            DataFusionError::Execution(format!(
+                "schema {}.{} not found while materializing view {}",
+                view.catalog, view.schema, view.name
+            ))
+        })?;
+    let base = ScanRecordingMemTable::new(
+        view.name.clone(),
+        view.fallback_schema,
+        log,
+        view.fallback_batches,
+    );
+    schema_provider.register_table(view.name, Arc::new(base))?;
+    Ok(())
+}
+
 async fn create_registered_views(
     ctx: &SessionContext,
     views: Vec<ViewToRegister>,
+    log: Arc<Mutex<Vec<ScanTrace>>>,
 ) -> datafusion::error::Result<(), DataFusionError> {
     if views.is_empty() {
         return Ok(());
     }
+
+    // Start from an empty record for this session so the slot ends up holding
+    // exactly this session's successfully created views, ready to replay against
+    // later provider swaps.
+    registered_view_statements()
+        .lock()
+        .unwrap()
+        .remove(&ctx.session_id());
 
     let state = ctx.state();
     let original_default_schema = state.config_options().catalog.default_schema.clone();
@@ -1111,49 +1522,69 @@ async fn create_registered_views(
     // Catalog view bodies reference their base tables (pg_class, pg_attribute,
     // pg_constraint, ...) unqualified, and those all live in pg_catalog - so
     // resolve every view body under pg_catalog regardless of which schema the
-    // view itself belongs to. The CREATE statement below is fully schema-
-    // qualified, so each view still lands in its own schema (e.g.
-    // information_schema.table_constraints).
+    // view itself belongs to. Each CREATE statement is fully schema-qualified, so a
+    // view still lands in its own schema (e.g. information_schema.table_constraints).
     const VIEW_BODY_RESOLUTION_SCHEMA: &str = "pg_catalog";
-    // Create the views under the pg_catalog resolution schema, but capture the
-    // result so the session's default schema is ALWAYS restored afterward - even if a
-    // view fails - rather than left pinned to pg_catalog on an early error.
-    let result: Result<(), DataFusionError> = async {
-        let mut active_default_schema = original_default_schema.clone();
-        for view in views {
-            if active_default_schema != VIEW_BODY_RESOLUTION_SCHEMA {
-                set_default_schema(ctx, VIEW_BODY_RESOLUTION_SCHEMA).await?;
-                active_default_schema = VIEW_BODY_RESOLUTION_SCHEMA.to_string();
-            }
 
-            let qualified = format_fully_qualified_name(&view.catalog, &view.schema, &view.name);
-            let definition = normalize_view_sql(&view.sql);
-            if definition.is_empty() {
-                return Err(DataFusionError::Execution(format!(
-                    "view_sql for {} is empty",
-                    qualified
-                )));
+    // A view body may reference another declared view, so the order we try them in
+    // matters. Rather than topologically sort, retry to a fixpoint: each pass
+    // creates every view whose dependencies now exist; we stop when a pass creates
+    // nothing new. Whatever still fails after that has a genuine engine/UDF gap
+    // (not an ordering problem) and is materialized as a table instead, so the
+    // object stays queryable. This fallback is what makes `VIEWS_TO_REGISTER` safe:
+    // listing a view that turns out not to plan degrades it to a table rather than
+    // crashing startup or dropping it.
+    let result: Result<Vec<ViewToRegister>, DataFusionError> = async {
+        set_default_schema(ctx, VIEW_BODY_RESOLUTION_SCHEMA).await?;
+        let mut pending = views;
+        loop {
+            let mut still_failing = Vec::new();
+            let mut created_this_pass = 0usize;
+            let mut last_error: Option<(String, DataFusionError)> = None;
+            for view in pending {
+                match try_create_view(ctx, &view, &default_catalog, VIEW_BODY_RESOLUTION_SCHEMA)
+                    .await
+                {
+                    Ok(()) => created_this_pass += 1,
+                    Err(err) => {
+                        last_error = Some((
+                            format!("{}.{}.{}", view.catalog, view.schema, view.name),
+                            err,
+                        ));
+                        still_failing.push(view);
+                    }
+                }
             }
-
-            let rewritten_select = {
-                let inlined = inline_current_database(&definition, &default_catalog);
-                let rewritten = rewrite_srf_to_unnest(&inlined)?;
-                let (rewritten, _) = rewrite_filters(&rewritten)?;
-                let rewritten = rewrite_exists_to_count(&rewritten)?;
-                rewrite_tuple_in_subquery_to_exists(&rewritten)?
-            };
-            let create_sql = format!("CREATE OR REPLACE VIEW {qualified} AS {rewritten_select}");
-            ctx.sql(&create_sql).await?.collect().await?;
+            if created_this_pass == 0 {
+                if let Some((name, err)) = last_error {
+                    log::debug!(
+                        "{} declared view(s) could not be planned; materializing as tables. \
+                         last error ({}): {}",
+                        still_failing.len(),
+                        name,
+                        err
+                    );
+                }
+                break Ok(still_failing);
+            }
+            pending = still_failing;
+            if pending.is_empty() {
+                break Ok(Vec::new());
+            }
         }
-        Ok(())
     }
     .await;
 
     // Restore the original default schema on every exit path; a view error takes
     // precedence over a restore error.
     let restored = set_default_schema(ctx, &original_default_schema).await;
-    result?;
+    let unplannable = result?;
     restored?;
+
+    // Views whose bodies never planned fall back to their materialized snapshot.
+    for view in unplannable {
+        register_view_as_table(ctx, view, log.clone())?;
+    }
     Ok(())
 }
 
@@ -1188,10 +1619,10 @@ pub async fn get_base_session_context(
 /// Like [`get_base_session_context`], but installs a lazy catalog `source` (over
 /// `options`) **before** the catalog views are created.
 ///
-/// This matters because catalog views (those in `VIEW_ONLY_TABLES`, currently
-/// `pg_views` and `pg_tables`) are planned during session construction and bind
-/// to the table providers that exist at that moment. Registering the lazy source
-/// here - before view creation - makes those views resolve against the lazy
+/// This matters because the catalog's real views (every declared view whose body
+/// plans - see [`create_registered_views`]) are planned during session construction
+/// and bind to the table providers that exist at that moment. Registering the lazy
+/// source here - before view creation - makes those views resolve against the lazy
 /// providers, so they reflect the source's rows.
 /// Calling [`register_lazy_catalog`] *after* `get_base_session_context` only
 /// rebinds the base tables; the already-created views keep pointing at the
@@ -1282,6 +1713,11 @@ async fn build_base_session_context(
     register_pg_my_temp_schema(&ctx)?;
     register_getdatabaseencoding(&ctx)?;
     register_pg_relation_is_updatable(&ctx)?;
+    register_pg_sequence_last_value(&ctx)?;
+    register_row_security_active(&ctx)?;
+    register_session_identity(&ctx)?;
+    crate::runtime_function_resolvers::register_all_scalar_resolvers(&ctx);
+    crate::runtime_function_resolvers::register_all_table_resolvers(&ctx);
     register_pg_column_is_updatable(&ctx)?;
     register_pg_get_function_arg_default(&ctx)?;
     register_format(&ctx)?;
@@ -1321,7 +1757,7 @@ async fn build_base_session_context(
         register_lazy_catalog(&ctx, source, options).await?;
     }
 
-    create_registered_views(&ctx, pending_views).await?;
+    create_registered_views(&ctx, pending_views, scan_traces.clone()).await?;
 
     let catalogs = ctx.catalog_names();
     log::info!("registered catalogs: {:?}", catalogs);
