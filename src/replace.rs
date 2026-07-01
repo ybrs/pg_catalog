@@ -66,11 +66,7 @@ where
 /// Rewrite every `expr::type_name` cast (where `type_name` is a custom/unknown
 /// type that DataFusion does not model) into a cast to `target`, leaving all
 /// other casts untouched. `type_name` matches bare or `pg_catalog`-qualified.
-fn rewrite_custom_type_cast_target(
-    sql: &str,
-    type_name: &str,
-    target: DataType,
-) -> Result<String> {
+fn rewrite_custom_type_cast_target(sql: &str, type_name: &str, target: DataType) -> Result<String> {
     rewrite_each_expression(sql, |expr| {
         if let Expr::Cast { data_type, .. } = expr {
             if let DataType::Custom(obj, _) = data_type {
@@ -1531,21 +1527,21 @@ pub fn rewrite_char_cast(sql: &str) -> Result<String> {
 /// table factor WITH arguments) is renamed; a bare `FROM pg_available_extension_versions`
 /// (querying the view itself) is left untouched.
 pub fn rewrite_available_extension_versions_source(sql: &str) -> Result<String> {
-    use sqlparser::ast::{
-        Ident, ObjectName, ObjectNamePart, TableFactor, VisitMut, VisitorMut,
-    };
+    use sqlparser::ast::{Ident, ObjectName, ObjectNamePart, TableFactor, VisitMut, VisitorMut};
     use sqlparser::dialect::PostgreSqlDialect;
     use sqlparser::parser::Parser;
     use std::ops::ControlFlow;
 
     fn is_target(name: &ObjectName) -> bool {
         match name.0.as_slice() {
-            [ObjectNamePart::Identifier(id)] => {
-                id.value.eq_ignore_ascii_case("pg_available_extension_versions")
-            }
+            [ObjectNamePart::Identifier(id)] => id
+                .value
+                .eq_ignore_ascii_case("pg_available_extension_versions"),
             [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(id)] => {
                 schema.value.eq_ignore_ascii_case("pg_catalog")
-                    && id.value.eq_ignore_ascii_case("pg_available_extension_versions")
+                    && id
+                        .value
+                        .eq_ignore_ascii_case("pg_available_extension_versions")
             }
             _ => false,
         }
@@ -1556,7 +1552,9 @@ pub fn rewrite_available_extension_versions_source(sql: &str) -> Result<String> 
         type Break = ();
         fn pre_visit_table_factor(&mut self, tf: &mut TableFactor) -> ControlFlow<()> {
             if let TableFactor::Table {
-                name, args: Some(_), ..
+                name,
+                args: Some(_),
+                ..
             } = tf
             {
                 if is_target(name) {
@@ -1844,8 +1842,8 @@ pub fn rewrite_schema_qualified_udtfs(sql: &str) -> Result<String> {
             [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(func)]
                 if schema.value.eq_ignore_ascii_case("pg_catalog")
                     && ["pg_get_keywords", "pg_postmaster_start_time"]
-                    .iter()
-                    .any(|f| func.value.eq_ignore_ascii_case(f)) =>
+                        .iter()
+                        .any(|f| func.value.eq_ignore_ascii_case(f)) =>
             {
                 let ident = name.0.pop().unwrap();
                 name.0.clear();
@@ -3255,8 +3253,8 @@ mod tests {
     }
 
     #[test]
-    fn test_decorrelate_lateral_aggregate_leaves_non_aggregate_lateral() -> Result<(), Box<dyn std::error::Error>>
-    {
+    fn test_decorrelate_lateral_aggregate_leaves_non_aggregate_lateral(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         // A LATERAL without an aggregate is not a grouping candidate; leave it untouched.
         let sql = "SELECT c.relname, i.x FROM pg_class c \
              LEFT JOIN LATERAL (SELECT pg_index.x FROM pg_index \
@@ -3267,17 +3265,22 @@ mod tests {
     }
 
     #[test]
-    fn test_rewrite_available_extension_versions_source() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_rewrite_available_extension_versions_source() -> Result<(), Box<dyn std::error::Error>>
+    {
         // The function-call form (in FROM, with args) is renamed to the internal name...
         let called = rewrite_available_extension_versions_source(
             "SELECT * FROM pg_available_extension_versions() e(name)",
         )?;
         assert!(
-            called.to_lowercase().contains("available_extension_versions()"),
+            called
+                .to_lowercase()
+                .contains("available_extension_versions()"),
             "{called}"
         );
         assert!(
-            !called.to_lowercase().contains("pg_available_extension_versions"),
+            !called
+                .to_lowercase()
+                .contains("pg_available_extension_versions"),
             "call renamed: {called}"
         );
         // ...but a bare reference to the view of that name is left untouched.
@@ -3285,7 +3288,8 @@ mod tests {
             "SELECT count(*) FROM pg_catalog.pg_available_extension_versions",
         )?;
         assert!(
-            view.to_lowercase().contains("pg_available_extension_versions"),
+            view.to_lowercase()
+                .contains("pg_available_extension_versions"),
             "view reference preserved: {view}"
         );
         Ok(())
@@ -3300,16 +3304,22 @@ mod tests {
         let up = out.to_uppercase();
         assert!(!up.contains("ANYARRAY"), "anyarray rewritten away: {out}");
         assert!(!up.contains("NAME[]"), "name[] rewritten away: {out}");
-        assert!(up.contains("::TEXT[]") || up.contains("TEXT[]"), "name[] -> text[]: {out}");
+        assert!(
+            up.contains("::TEXT[]") || up.contains("TEXT[]"),
+            "name[] -> text[]: {out}"
+        );
         Ok(())
     }
 
     #[test]
-    fn test_rewrite_text_backed_type_casts_leaves_oid_array() -> Result<(), Box<dyn std::error::Error>>
-    {
+    fn test_rewrite_text_backed_type_casts_leaves_oid_array(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         // `oid[]` is the job of drop_oid_array_cast; this rewrite must not touch it.
         let out = rewrite_text_backed_type_casts("SELECT proargtypes::oid[]")?;
-        assert!(out.to_lowercase().contains("oid"), "oid[] left intact: {out}");
+        assert!(
+            out.to_lowercase().contains("oid"),
+            "oid[] left intact: {out}"
+        );
         Ok(())
     }
 }

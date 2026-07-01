@@ -523,7 +523,10 @@ pub fn register_pg_relation_is_publishable(ctx: &SessionContext) -> Result<()> {
 /// Register an always-`true` `(object, privilege) -> bool` compatibility stub
 /// under `pg_catalog.<base_name>` (with the bare name as an alias), accepting the
 /// object argument as an OID (`Int32`/`Int64`) or a name (`Utf8`).
-fn register_always_true_object_privilege(ctx: &SessionContext, base_name: &'static str) -> Result<()> {
+fn register_always_true_object_privilege(
+    ctx: &SessionContext,
+    base_name: &'static str,
+) -> Result<()> {
     use arrow::array::{ArrayRef, BooleanBuilder};
     use arrow::datatypes::DataType;
     use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};

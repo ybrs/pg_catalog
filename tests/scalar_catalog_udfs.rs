@@ -206,7 +206,11 @@ async fn test_session_user_reflects_slot() -> DFResult<()> {
     let read = |label: &'static str| {
         let ctx = ctx.clone();
         async move {
-            let batches = ctx.sql("SELECT current_user, session_user").await?.collect().await?;
+            let batches = ctx
+                .sql("SELECT current_user, session_user")
+                .await?
+                .collect()
+                .await?;
             let col = |i: usize| {
                 batches[0]
                     .column(i)
@@ -221,7 +225,10 @@ async fn test_session_user_reflects_slot() -> DFResult<()> {
     };
 
     set_session_user("alice");
-    assert_eq!(read("alice").await?, ("alice".to_string(), "alice".to_string()));
+    assert_eq!(
+        read("alice").await?,
+        ("alice".to_string(), "alice".to_string())
+    );
 
     set_session_user("bob");
     assert_eq!(read("bob").await?, ("bob".to_string(), "bob".to_string()));
@@ -404,7 +411,11 @@ async fn test_record_returning_function_default_empty_then_resolver() -> DFResul
            last_failed_wal, last_failed_time, stats_reset)",
     )
     .await?;
-    assert_eq!(count, vec![Some(0)], "no rows when no resolver is installed");
+    assert_eq!(
+        count,
+        vec![Some(0)],
+        "no rows when no resolver is installed"
+    );
 
     set_pg_stat_get_archiver_resolver(Arc::new(|| {
         vec![PgStatGetArchiverRow {

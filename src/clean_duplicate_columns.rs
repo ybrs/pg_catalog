@@ -510,7 +510,10 @@ mod tests {
             restored.contains("AS rolname") && restored.contains("AS usename"),
             "real names restored: {restored}"
         );
-        assert!(!restored.contains("alias_"), "no alias_N remains: {restored}");
+        assert!(
+            !restored.contains("alias_"),
+            "no alias_N remains: {restored}"
+        );
         Ok(())
     }
 
@@ -520,7 +523,10 @@ mod tests {
         // no-op for it.
         let (aliased, map) = alias_unnamed_columns("SELECT '*'::text AS passwd FROM t")?;
         let restored = restore_aliased_column_names(&aliased, &map)?;
-        assert!(restored.contains("AS passwd"), "explicit alias kept: {restored}");
+        assert!(
+            restored.contains("AS passwd"),
+            "explicit alias kept: {restored}"
+        );
         assert!(!restored.contains("alias_"), "no alias_N: {restored}");
         Ok(())
     }
