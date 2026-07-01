@@ -15,16 +15,15 @@ use crate::clean_duplicate_columns::{
 };
 use crate::replace::{
     alias_subquery_tables, decorrelate_lateral_aggregate, drop_oid_array_cast,
-    drop_redundant_oid_and_regclass_casts,
-    regclass_udfs, replace_regclass, replace_set_command_with_namespace,
-    rewrite_array_agg_varchar_cast, rewrite_array_subquery, rewrite_available_updates,
+    drop_redundant_oid_and_regclass_casts, regclass_udfs, replace_regclass,
+    replace_set_command_with_namespace, rewrite_array_agg_varchar_cast, rewrite_array_subquery,
+    rewrite_available_extension_versions_source, rewrite_available_updates,
     rewrite_brace_array_literal, rewrite_char_cast, rewrite_exists_to_count,
     rewrite_information_schema_casts, rewrite_name_cast, rewrite_oid_cast,
     rewrite_pg_custom_operator, rewrite_pg_truetypid_composite_args, rewrite_regoper_cast,
     rewrite_regoperator_cast, rewrite_regproc_cast, rewrite_regprocedure_cast,
     rewrite_regtype_cast, rewrite_schema_qualified_custom_types, rewrite_schema_qualified_text,
-    rewrite_available_extension_versions_source, rewrite_schema_qualified_udtfs,
-    rewrite_srf_to_unnest, rewrite_text_backed_type_casts,
+    rewrite_schema_qualified_udtfs, rewrite_srf_to_unnest, rewrite_text_backed_type_casts,
     rewrite_time_zone_utc, rewrite_tuple_equality, rewrite_tuple_in_subquery_to_exists,
     rewrite_xid_cast, strip_default_collate,
 };
@@ -51,13 +50,14 @@ use crate::user_functions::{
     register_pg_numeric_helpers, register_pg_options_to_table, register_pg_postmaster_start_time,
     register_pg_relation_is_publishable, register_pg_relation_is_updatable,
     register_pg_relation_size, register_pg_sequence_last_value, register_pg_total_relation_size,
-    register_pg_truetypid_helpers, register_row_security_active, register_session_identity,
-    register_quote_ident, register_scalar_array_to_string, register_scalar_format_type,
-    register_scalar_pg_age, register_scalar_pg_encoding_to_char, register_scalar_pg_get_expr,
+    register_pg_truetypid_helpers, register_quote_ident, register_row_security_active,
+    register_scalar_array_to_string, register_scalar_format_type, register_scalar_pg_age,
+    register_scalar_pg_encoding_to_char, register_scalar_pg_get_expr,
     register_scalar_pg_get_partkeydef, register_scalar_pg_get_userbyid,
     register_scalar_pg_is_in_recovery, register_scalar_pg_table_is_visible,
     register_scalar_pg_tablespace_location, register_scalar_regclass_oid,
-    register_scalar_txid_current, register_translate, register_upper, register_version_fn,
+    register_scalar_txid_current, register_session_identity, register_translate, register_upper,
+    register_version_fn,
 };
 
 use crate::scalar_to_cte::rewrite_subquery_as_cte;
@@ -286,7 +286,10 @@ const VIEWS_TO_REGISTER: &[(&str, &str)] = &[
     ("information_schema", "constraint_table_usage"),
     ("information_schema", "character_sets"),
     ("information_schema", "collations"),
-    ("information_schema", "collation_character_set_applicability"),
+    (
+        "information_schema",
+        "collation_character_set_applicability",
+    ),
     ("information_schema", "check_constraint_routine_usage"),
     ("information_schema", "column_column_usage"),
     ("information_schema", "domain_constraints"),

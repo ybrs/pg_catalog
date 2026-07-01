@@ -226,8 +226,12 @@ macro_rules! scalar_resolvers {
 // NULL) unless a function declares an explicit default (e.g. the visibility predicates
 // default to `true`).
 macro_rules! scalar_default {
-    () => { None };
-    ($default:expr) => { Some($default) };
+    () => {
+        None
+    };
+    ($default:expr) => {
+        Some($default)
+    };
 }
 
 // Map a `(arg) -> ret` shape to the resolver callback type.
@@ -243,16 +247,30 @@ macro_rules! scalar_resolver_ty {
 }
 
 macro_rules! scalar_datatype {
-    (int8) => { DataType::Int64 };
-    (int4) => { DataType::Int32 };
-    (float8) => { DataType::Float64 };
-    (bool) => { DataType::Boolean };
-    (timestamptz) => { timestamptz() };
+    (int8) => {
+        DataType::Int64
+    };
+    (int4) => {
+        DataType::Int32
+    };
+    (float8) => {
+        DataType::Float64
+    };
+    (bool) => {
+        DataType::Boolean
+    };
+    (timestamptz) => {
+        timestamptz()
+    };
 }
 
 macro_rules! scalar_arity {
-    (oid) => { 1 };
-    () => { 0 };
+    (oid) => {
+        1
+    };
+    () => {
+        0
+    };
 }
 
 // Build the eval closure for a `(arg) -> ret` shape, reading `$slot` at call time and
@@ -556,14 +574,19 @@ pub(crate) struct DynTableUdf {
 
 impl std::fmt::Debug for DynTableUdf {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DynTableUdf").field("schema", &self.schema).finish()
+        f.debug_struct("DynTableUdf")
+            .field("schema", &self.schema)
+            .finish()
     }
 }
 
 impl TableFunctionImpl for DynTableUdf {
     fn call(&self, _exprs: &[Expr]) -> Result<Arc<dyn TableProvider>> {
         let batch = (self.build)();
-        Ok(Arc::new(MemTable::try_new(self.schema.clone(), vec![vec![batch]])?))
+        Ok(Arc::new(MemTable::try_new(
+            self.schema.clone(),
+            vec![vec![batch]],
+        )?))
     }
 }
 
@@ -572,26 +595,55 @@ impl TableFunctionImpl for DynTableUdf {
 // represented as text in the row struct (the function is empty by default, so this
 // only has to let the calling view plan).
 macro_rules! col_rust_ty {
-    (text) => { String };
-    (bool) => { bool };
-    (int4) => { i32 };
-    (int8) => { i64 };
-    (float8) => { f64 };
-    (timestamptz) => { i64 };
+    (text) => {
+        String
+    };
+    (bool) => {
+        bool
+    };
+    (int4) => {
+        i32
+    };
+    (int8) => {
+        i64
+    };
+    (float8) => {
+        f64
+    };
+    (timestamptz) => {
+        i64
+    };
 }
 
 macro_rules! col_datatype {
-    (text) => { DataType::Utf8 };
-    (bool) => { DataType::Boolean };
-    (int4) => { DataType::Int32 };
-    (int8) => { DataType::Int64 };
-    (float8) => { DataType::Float64 };
-    (timestamptz) => { timestamptz() };
+    (text) => {
+        DataType::Utf8
+    };
+    (bool) => {
+        DataType::Boolean
+    };
+    (int4) => {
+        DataType::Int32
+    };
+    (int8) => {
+        DataType::Int64
+    };
+    (float8) => {
+        DataType::Float64
+    };
+    (timestamptz) => {
+        timestamptz()
+    };
 }
 
 macro_rules! col_array {
     (text, $rows:ident, $col:ident) => {
-        Arc::new($rows.iter().map(|r| r.$col.clone()).collect::<StringArray>()) as ArrayRef
+        Arc::new(
+            $rows
+                .iter()
+                .map(|r| r.$col.clone())
+                .collect::<StringArray>(),
+        ) as ArrayRef
     };
     (bool, $rows:ident, $col:ident) => {
         Arc::new($rows.iter().map(|r| r.$col).collect::<BooleanArray>()) as ArrayRef

@@ -33,7 +33,6 @@ pub use user_functions::{
     clear_row_security_active_resolver, clear_view_definition_resolver,
     set_index_definition_resolver, set_pg_sequence_last_value_resolver,
     set_row_security_active_resolver, set_session_user, set_view_definition_resolver,
-    DefinitionResolver,
-    IndexDefinitionResolver, IndexIdentity, RowSecurityActiveResolver, SequenceLastValueResolver,
-    ViewDefinitionResolver, ViewIdentity,
+    DefinitionResolver, IndexDefinitionResolver, IndexIdentity, RowSecurityActiveResolver,
+    SequenceLastValueResolver, ViewDefinitionResolver, ViewIdentity,
 };
