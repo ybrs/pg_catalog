@@ -159,61 +159,161 @@ impl TableFunctionImpl for RegClassOidFunc {
     }
 }
 
-/// Look up the OID of the relation named `relname` in `pg_catalog.pg_class`,
-/// returning `None` when no such relation exists or its OID is NULL.
+/// The name PostgreSQL renders for an object reference that points at nothing.
+const ABSENT_OBJECT_NAME: &str = "-";
+
+/// The OID PostgreSQL gives an object reference that points at nothing.
+const ABSENT_OBJECT_OID: i64 = 0;
+
+/// What a catalog column holding an object reference says it points at.
+enum CatalogObjectReference<'a> {
+    /// No object - PostgreSQL reads this back as OID 0.
+    Absent,
+    /// The object with this bare (unqualified) name.
+    Named(&'a str),
+}
+
+/// Read the object reference `raw` the way PostgreSQL reads a `reg*` value.
 ///
-/// Runs `SELECT oid FROM pg_catalog.pg_class WHERE relname = '...'` through the
-/// catalog runtime (single quotes in the name are escaped) and reads column 0 of
-/// the first row via [`oid_at`], which widens whichever integer width the planner
-/// produced for the OID column.
-fn query_relname_oid(ctx: Arc<SessionContext>, relname: &str) -> Result<Option<i64>> {
-    let sql = format!(
-        "SELECT oid FROM pg_catalog.pg_class WHERE relname = '{}'",
-        relname.replace('\'', "''")
-    );
-    run_catalog_query(async move {
-        let batches = ctx.sql(&sql).await?.collect().await?;
-        if batches.is_empty() || batches[0].num_rows() == 0 {
-            return Ok::<Option<i64>, DataFusionError>(None);
-        }
-        oid_at(batches[0].column(0), 0)
+/// Catalog columns holding an object reference render it the way PostgreSQL prints the
+/// matching `reg*` type: a bare name (`boolrecv`) when the object is on the search path,
+/// a schema-qualified one (`pg_catalog.avg`) when it is not, and `-` for no object. The
+/// catalog's `relname` / `proname` columns hold bare names, so the qualifier is dropped
+/// before matching.
+fn parse_catalog_object_reference(raw: &str) -> CatalogObjectReference<'_> {
+    if raw == ABSENT_OBJECT_NAME {
+        return CatalogObjectReference::Absent;
+    }
+    CatalogObjectReference::Named(match raw.rsplit_once('.') {
+        Some((_schema, name)) => name,
+        None => raw,
     })
 }
 
-/// Register `oid(text)` which looks up a table OID from `pg_class`.
-pub fn register_scalar_regclass_oid(ctx: &SessionContext) -> Result<()> {
+/// Resolve object names to their OIDs in `catalog_table` with a SINGLE catalog query.
+///
+/// `name_column` is the column holding the object's name (`pg_class.relname`,
+/// `pg_proc.proname`). Names absent from the catalog are simply missing from the
+/// returned map, and an empty input short-circuits without querying. When a name is
+/// carried by several rows - `proname` is not unique, since PostgreSQL allows
+/// overloads - the lowest OID wins, because the name is all this catalog kept of the
+/// original reference and it cannot tell the overloads apart.
+fn fetch_oids_by_names(
+    ctx: Arc<SessionContext>,
+    catalog_table: &str,
+    name_column: &str,
+    names: &[String],
+) -> Result<HashMap<String, i64>> {
+    let mut out: HashMap<String, i64> = HashMap::new();
+    if names.is_empty() {
+        return Ok(out);
+    }
+
+    let in_list = names
+        .iter()
+        .map(|name| format!("'{}'", name.replace('\'', "''")))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sql = format!(
+        "SELECT {name_column}, oid FROM {catalog_table} WHERE {name_column} IN ({in_list})"
+    );
+    let missing_name_column = format!("{catalog_table}.{name_column} must be text");
+
+    run_catalog_query(async move {
+        let batches = ctx.sql(&sql).await?.collect().await?;
+        for batch in batches {
+            let name_col = batch
+                .column(0)
+                .as_any()
+                .downcast_ref::<arrow::array::StringArray>()
+                .ok_or_else(|| DataFusionError::Execution(missing_name_column.clone()))?;
+            let oid_col = batch.column(1);
+            for i in 0..batch.num_rows() {
+                if name_col.is_null(i) {
+                    continue;
+                }
+                if let Some(oid) = oid_at(oid_col, i)? {
+                    out.entry(name_col.value(i).to_string())
+                        .and_modify(|lowest| *lowest = (*lowest).min(oid))
+                        .or_insert(oid);
+                }
+            }
+        }
+        Ok::<_, DataFusionError>(out)
+    })
+}
+
+/// Register a scalar UDF named `udf_name` that maps an object name to its OID in
+/// `catalog_table`, matching on `name_column`.
+///
+/// A reference to no object (`-`) reads back as OID 0, the way PostgreSQL reads a
+/// `reg*` value; a NULL argument and a name the catalog does not carry both give NULL.
+/// Every row of a column argument is resolved by one shared catalog query.
+fn register_name_to_oid_udf(
+    ctx: &SessionContext,
+    udf_name: &'static str,
+    catalog_table: &'static str,
+    name_column: &'static str,
+) -> Result<()> {
     let ctx_arc = Arc::new(ctx.clone());
 
     let lookup_oid_fn = Arc::new(move |args: &[ColumnarValue]| -> Result<ColumnarValue> {
-        match &args[0] {
-            ColumnarValue::Scalar(ScalarValue::Utf8(Some(name))) => {
-                let opt = query_relname_oid(ctx_arc.clone(), name)?;
-                Ok(ColumnarValue::Scalar(ScalarValue::Int64(opt)))
-            }
-            ColumnarValue::Scalar(ScalarValue::Utf8(None)) => {
-                Ok(ColumnarValue::Scalar(ScalarValue::Int64(None)))
-            }
-            ColumnarValue::Array(arr) => {
-                let arr = as_string_array(arr);
-                let mut builder = Int64Builder::with_capacity(arr.len());
-                for i in 0..arr.len() {
-                    if arr.is_null(i) {
-                        builder.append_null();
-                        continue;
-                    }
-                    match query_relname_oid(ctx_arc.clone(), arr.value(i))? {
-                        Some(v) => builder.append_value(v),
-                        None => builder.append_null(),
-                    }
-                }
-                Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
-            }
-            _ => plan_err!("oid expects text"),
+        let called_with_scalar = matches!(&args[0], ColumnarValue::Scalar(_));
+        let arrays = ColumnarValue::values_to_arrays(args)?;
+        if arrays[0].data_type() == &DataType::Null {
+            return Ok(ColumnarValue::Scalar(ScalarValue::Int64(None)));
         }
+        if arrays[0].data_type() != &DataType::Utf8 {
+            return plan_err!("{udf_name} expects text");
+        }
+        let column = as_string_array(&arrays[0]);
+
+        // Read every row's reference first, then resolve the distinct names together, so
+        // a column argument costs one catalog query instead of one query per row.
+        let references: Vec<Option<CatalogObjectReference>> = (0..column.len())
+            .map(|i| {
+                if column.is_null(i) {
+                    None
+                } else {
+                    Some(parse_catalog_object_reference(column.value(i)))
+                }
+            })
+            .collect();
+
+        let mut distinct: Vec<String> = references
+            .iter()
+            .filter_map(|reference| match reference {
+                Some(CatalogObjectReference::Named(name)) => Some(name.to_string()),
+                _ => None,
+            })
+            .collect();
+        distinct.sort_unstable();
+        distinct.dedup();
+        let oids = fetch_oids_by_names(ctx_arc.clone(), catalog_table, name_column, &distinct)?;
+
+        let resolved = |reference: &Option<CatalogObjectReference>| match reference {
+            None => None,
+            Some(CatalogObjectReference::Absent) => Some(ABSENT_OBJECT_OID),
+            Some(CatalogObjectReference::Named(name)) => oids.get(*name).copied(),
+        };
+
+        if called_with_scalar {
+            return Ok(ColumnarValue::Scalar(ScalarValue::Int64(resolved(
+                &references[0],
+            ))));
+        }
+        let mut builder = Int64Builder::with_capacity(references.len());
+        for reference in &references {
+            match resolved(reference) {
+                Some(oid) => builder.append_value(oid),
+                None => builder.append_null(),
+            }
+        }
+        Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
     });
 
     let udf = create_udf(
-        "oid",
+        udf_name,
         vec![DataType::Utf8],
         DataType::Int64,
         Volatility::Immutable,
@@ -221,6 +321,21 @@ pub fn register_scalar_regclass_oid(ctx: &SessionContext) -> Result<()> {
     );
     ctx.register_udf(udf);
     Ok(())
+}
+
+/// Register `oid(text)` which looks up a table OID from `pg_class`.
+pub fn register_scalar_regclass_oid(ctx: &SessionContext) -> Result<()> {
+    register_name_to_oid_udf(ctx, "oid", "pg_catalog.pg_class", "relname")
+}
+
+/// Register `pg_proc_oid(text)` which looks up a function OID from `pg_proc`.
+///
+/// The catalog stores the columns PostgreSQL types as `regproc` - `pg_type.typreceive`,
+/// `pg_am.amhandler`, ... - as the function's name, so queries that compare one of them
+/// against an OID go through this function first (see
+/// `replace::resolve_regproc_columns_to_oids_in_comparisons`).
+pub fn register_scalar_pg_proc_oid(ctx: &SessionContext) -> Result<()> {
+    register_name_to_oid_udf(ctx, "pg_proc_oid", "pg_catalog.pg_proc", "proname")
 }
 
 /// The current session user reported by `current_user` / `session_user`, read at call

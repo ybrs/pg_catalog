@@ -1900,6 +1900,24 @@ pub fn rewrite_name_cast(sql: &str) -> Result<String> {
     rewrite_custom_type_cast_target(sql, "name", DataType::Text)
 }
 
+/// Build the call expression `name(argument)`.
+fn function_call(name: &str, argument: Expr) -> Expr {
+    Expr::Function(Function {
+        name: ObjectName(vec![ObjectNamePart::Identifier(Ident::new(name))]),
+        args: FunctionArguments::List(FunctionArgumentList {
+            duplicate_treatment: None,
+            clauses: vec![],
+            args: vec![FunctionArg::Unnamed(FunctionArgExpr::Expr(argument))],
+        }),
+        over: None,
+        filter: None,
+        within_group: vec![],
+        null_treatment: None,
+        parameters: FunctionArguments::None,
+        uses_odbc_syntax: false,
+    })
+}
+
 /// Convert casts to the OID type into BIGINT since our catalog
 /// represents object identifiers as plain integers.
 pub fn rewrite_oid_cast(sql: &str) -> Result<String> {
@@ -1918,8 +1936,9 @@ pub fn rewrite_oid_cast(sql: &str) -> Result<String> {
         }
 
         // A numeric or placeholder operand is a plain integer OID, so cast it to
-        // BIGINT; anything else (e.g. a relation name) goes through the `oid()`
-        // function that resolves a name to its OID.
+        // BIGINT; anything else (e.g. a relation name) goes through a function
+        // that resolves a name to its OID - `pg_proc_oid()` for the columns that
+        // hold a function name, `oid()` (a `pg_class` lookup) for the rest.
         let operand_is_integer = matches!(
             expr.as_ref(),
             Expr::Value(ValueWithSpan {
@@ -1939,22 +1958,126 @@ pub fn rewrite_oid_cast(sql: &str) -> Result<String> {
                 array: false,
                 format: None,
             };
+        } else if is_regproc_column(expr) {
+            *e = function_call(PG_PROC_OID_FUNCTION, *expr.clone());
         } else {
-            *e = Expr::Function(Function {
-                name: ObjectName(vec![ObjectNamePart::Identifier(Ident::new("oid"))]),
-                args: FunctionArguments::List(FunctionArgumentList {
-                    duplicate_treatment: None,
-                    clauses: vec![],
-                    args: vec![FunctionArg::Unnamed(FunctionArgExpr::Expr(*expr.clone()))],
-                }),
-                over: None,
-                filter: None,
-                within_group: vec![],
-                null_treatment: None,
-                parameters: FunctionArguments::None,
-                uses_odbc_syntax: false,
-            });
+            *e = function_call("oid", *expr.clone());
         }
+    })
+}
+
+/// Name of the UDF that resolves a function name to its `pg_catalog.pg_proc` OID.
+const PG_PROC_OID_FUNCTION: &str = "pg_proc_oid";
+
+/// The catalog columns PostgreSQL declares as `regproc`.
+///
+/// This catalog stores them the way PostgreSQL *renders* a `regproc` - as the
+/// function's name, so `pg_type.typreceive` reads `boolrecv` rather than 2436 - which
+/// means a client comparing one of them against an OID (`pg_proc.oid = a.typreceive`)
+/// is comparing text against an integer. [`resolve_regproc_columns_to_oids_in_comparisons`]
+/// and [`rewrite_oid_cast`] send those columns through `pg_proc_oid()` to get the
+/// number back.
+///
+/// Mirrors every column marked `pg_types: regproc` in `pg_catalog_data/pg_schema`;
+/// `tests/test_regproc_columns.py` fails if the two drift apart.
+pub const REGPROC_COLUMN_NAMES: &[&str] = &[
+    "aggcombinefn",
+    "aggdeserialfn",
+    "aggfinalfn",
+    "aggfnoid",
+    "aggmfinalfn",
+    "aggminvtransfn",
+    "aggmtransfn",
+    "aggserialfn",
+    "aggtransfn",
+    "amhandler",
+    "amproc",
+    "conproc",
+    "oprcode",
+    "oprjoin",
+    "oprrest",
+    "prosupport",
+    "prsend",
+    "prsheadline",
+    "prslextype",
+    "prsstart",
+    "prstoken",
+    "rngcanonical",
+    "rngsubdiff",
+    "tmplinit",
+    "tmpllexize",
+    "trffromsql",
+    "trftosql",
+    "typanalyze",
+    "typinput",
+    "typmodin",
+    "typmodout",
+    "typoutput",
+    "typreceive",
+    "typsend",
+    "typsubscript",
+];
+
+/// Returns `true` when `expr` reads one of the [`REGPROC_COLUMN_NAMES`], either bare
+/// (`typreceive`) or qualified (`a.typreceive`, `pg_catalog.pg_type.typreceive`).
+fn is_regproc_column(expr: &Expr) -> bool {
+    let column = match expr {
+        Expr::Identifier(ident) => ident,
+        Expr::CompoundIdentifier(parts) => match parts.last() {
+            Some(ident) => ident,
+            None => return false,
+        },
+        _ => return false,
+    };
+    REGPROC_COLUMN_NAMES
+        .iter()
+        .any(|known| known.eq_ignore_ascii_case(&column.value))
+}
+
+/// Returns `true` when `expr` is a text literal, including one wrapped in a cast such
+/// as `'array_in'::regproc`.
+fn is_text_literal(expr: &Expr) -> bool {
+    match expr {
+        Expr::Value(ValueWithSpan {
+            value: Value::SingleQuotedString(_) | Value::DoubleQuotedString(_),
+            ..
+        }) => true,
+        Expr::Cast { expr, .. } => is_text_literal(expr),
+        _ => false,
+    }
+}
+
+/// Compare `regproc` columns as OIDs by sending them through `pg_proc_oid()`.
+///
+/// A client joining `pg_proc.oid = a.typreceive` means "the function this type receives
+/// with"; because this catalog holds the function's name in that column, the comparison
+/// would otherwise ask DataFusion to read `'boolrecv'` as an integer and fail the whole
+/// query. A function name written as a literal (`typinput = 'pg_catalog.array_in'`) is
+/// resolved the same way, so that it matches whether or not the two sides agree on
+/// spelling the schema out - which is how PostgreSQL compares a `regproc` against text.
+/// Comparing two `regproc` columns needs no lookup: their names already line up.
+pub fn resolve_regproc_columns_to_oids_in_comparisons(sql: &str) -> Result<String> {
+    rewrite_each_expression(sql, |e| {
+        let Expr::BinaryOp { left, op, right } = e else {
+            return;
+        };
+        if !matches!(op, BinaryOperator::Eq | BinaryOperator::NotEq) {
+            return;
+        }
+        let (regproc_side, opposite_side) = if is_regproc_column(left) {
+            (left, right)
+        } else if is_regproc_column(right) {
+            (right, left)
+        } else {
+            return;
+        };
+        if is_regproc_column(opposite_side) {
+            return;
+        }
+        if is_text_literal(opposite_side) {
+            *opposite_side = Box::new(function_call(PG_PROC_OID_FUNCTION, *opposite_side.clone()));
+        }
+        *regproc_side = Box::new(function_call(PG_PROC_OID_FUNCTION, *regproc_side.clone()));
     })
 }
 
@@ -1990,6 +2113,95 @@ pub fn rewrite_regprocedure_cast(sql: &str) -> Result<String> {
 /// Replace casts to regproc with TEXT.
 pub fn rewrite_regproc_cast(sql: &str) -> Result<String> {
     rewrite_custom_type_cast_target(sql, "regproc", DataType::Text)
+}
+
+/// The name a SELECT list item is output under, when it has one.
+///
+/// A bare column keeps its own name (`pg_type.oid` is output as `oid`), an aliased
+/// expression takes the alias, and anything else - a function call, a CASE - has no name
+/// a client could sort by.
+fn output_column_name(item: &SelectItem) -> Option<String> {
+    match item {
+        SelectItem::ExprWithAlias { alias, .. } => Some(alias.value.clone()),
+        SelectItem::UnnamedExpr(Expr::Identifier(ident)) => Some(ident.value.clone()),
+        SelectItem::UnnamedExpr(Expr::CompoundIdentifier(parts)) => {
+            parts.last().map(|ident| ident.value.clone())
+        }
+        _ => None,
+    }
+}
+
+/// Sort by the SELECT list column an `ORDER BY` names, by replacing the name with its
+/// position in that list.
+///
+/// PostgreSQL resolves a bare name in ORDER BY against the query's OUTPUT columns before
+/// its input columns, so `SELECT pg_type.oid ... JOIN pg_enum ... ORDER BY oid` sorts by
+/// the selected `pg_type.oid`. DataFusion resolves it against the input instead and fails
+/// the query with "column 'oid' is ambiguous" whenever the FROM clause carries the name
+/// more than once - which every catalog join does, since every catalog table has an `oid`.
+/// A position means the same thing to both.
+///
+/// Only a bare name is resolved this way: a qualified one (`pg_enum.oid`) always means the
+/// input column in PostgreSQL too. Queries whose SELECT list holds a wildcard are left
+/// alone, because the position of anything after `*` is not known before expansion.
+pub fn resolve_order_by_names_to_output_positions(sql: &str) -> Result<String> {
+    use sqlparser::ast::{OrderByKind, Query, SetExpr, VisitMut, VisitorMut};
+
+    struct SortByPosition;
+    impl VisitorMut for SortByPosition {
+        type Break = ();
+
+        fn pre_visit_query(&mut self, query: &mut Query) -> ControlFlow<()> {
+            let Some(order_by) = query.order_by.as_mut() else {
+                return ControlFlow::Continue(());
+            };
+            let OrderByKind::Expressions(order_by_exprs) = &mut order_by.kind else {
+                return ControlFlow::Continue(());
+            };
+            let SetExpr::Select(select) = query.body.as_ref() else {
+                return ControlFlow::Continue(());
+            };
+            if select
+                .projection
+                .iter()
+                .any(|item| matches!(item, SelectItem::Wildcard(_) | SelectItem::QualifiedWildcard(..)))
+            {
+                return ControlFlow::Continue(());
+            }
+
+            let output_names: Vec<Option<String>> =
+                select.projection.iter().map(output_column_name).collect();
+
+            for order_by_expr in order_by_exprs {
+                let Expr::Identifier(ident) = &order_by_expr.expr else {
+                    continue;
+                };
+                let position = output_names.iter().position(|name| {
+                    name.as_deref()
+                        .is_some_and(|name| name.eq_ignore_ascii_case(&ident.value))
+                });
+                if let Some(position) = position {
+                    order_by_expr.expr = Expr::Value(ValueWithSpan {
+                        value: Value::Number((position + 1).to_string(), false),
+                        span: Span::empty(),
+                    });
+                }
+            }
+            ControlFlow::Continue(())
+        }
+    }
+
+    let dialect = PostgreSqlDialect {};
+    let mut statements =
+        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
+    for statement in &mut statements {
+        let _ = statement.visit(&mut SortByPosition);
+    }
+    Ok(statements
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join("; "))
 }
 
 /// Replace the available_updates sub-query in pg_extension queries with NULL.
@@ -3147,6 +3359,122 @@ mod tests {
         for (input, expected) in cases {
             assert_eq!(rewrite_regproc_cast(input).unwrap(), expected);
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_resolve_regproc_columns_to_oids_in_comparisons(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let cases = vec![
+            // The Npgsql type-loading join: the OID side stays, the name side is resolved.
+            (
+                "SELECT 1 FROM pg_type a JOIN pg_proc ON pg_proc.oid = a.typreceive",
+                "SELECT 1 FROM pg_type a JOIN pg_proc ON pg_proc.oid = pg_proc_oid(a.typreceive)",
+            ),
+            // ... whichever side the client writes it on.
+            (
+                "SELECT 1 FROM pg_type a JOIN pg_proc p ON a.typoutput = p.oid",
+                "SELECT 1 FROM pg_type a JOIN pg_proc p ON pg_proc_oid(a.typoutput) = p.oid",
+            ),
+            // A function name written as a literal resolves too, so a schema-qualified
+            // spelling still matches the bare name the catalog stores.
+            (
+                "SELECT typinput = 'pg_catalog.array_in' FROM pg_type",
+                "SELECT pg_proc_oid(typinput) = pg_proc_oid('pg_catalog.array_in') FROM pg_type",
+            ),
+            (
+                "SELECT typreceive <> 0 FROM pg_type",
+                "SELECT pg_proc_oid(typreceive) <> 0 FROM pg_type",
+            ),
+            // Two regproc columns already hold comparable names.
+            (
+                "SELECT 1 FROM pg_type WHERE typinput = typoutput",
+                "SELECT 1 FROM pg_type WHERE typinput = typoutput",
+            ),
+            // Columns that are not regproc, and non-equality operators, are untouched.
+            (
+                "SELECT 1 FROM pg_type a JOIN pg_class c ON c.oid = a.typrelid",
+                "SELECT 1 FROM pg_type a JOIN pg_class c ON c.oid = a.typrelid",
+            ),
+            (
+                "SELECT 1 FROM pg_type WHERE typreceive < 'b'",
+                "SELECT 1 FROM pg_type WHERE typreceive < 'b'",
+            ),
+        ];
+
+        for (input, expected) in cases {
+            assert_eq!(
+                resolve_regproc_columns_to_oids_in_comparisons(input).unwrap(),
+                expected
+            );
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_resolve_order_by_names_to_output_positions() -> Result<(), Box<dyn std::error::Error>> {
+        let cases = vec![
+            // Npgsql's enum query: `oid` is the selected pg_type.oid, but pg_enum has an
+            // `oid` too, so the name has to become the position to stay unambiguous.
+            (
+                "SELECT pg_type.oid, enumlabel FROM pg_enum JOIN pg_type ON pg_type.oid = enumtypid ORDER BY oid, enumsortorder",
+                "SELECT pg_type.oid, enumlabel FROM pg_enum JOIN pg_type ON pg_type.oid = enumtypid ORDER BY 1, enumsortorder",
+            ),
+            // An alias is an output column name as well, and sort options survive.
+            (
+                "SELECT relname AS name FROM pg_class ORDER BY name DESC",
+                "SELECT relname AS name FROM pg_class ORDER BY 1 DESC",
+            ),
+            // A qualified name means the input column in PostgreSQL, so it stays.
+            (
+                "SELECT pg_type.oid FROM pg_type ORDER BY pg_type.oid",
+                "SELECT pg_type.oid FROM pg_type ORDER BY pg_type.oid",
+            ),
+            // A name that is not in the SELECT list stays; it can only be an input column.
+            (
+                "SELECT typname FROM pg_type ORDER BY oid",
+                "SELECT typname FROM pg_type ORDER BY oid",
+            ),
+            // Positions after a wildcard are unknown before expansion, so nothing moves.
+            (
+                "SELECT *, typname FROM pg_type ORDER BY typname",
+                "SELECT *, typname FROM pg_type ORDER BY typname",
+            ),
+            // The ORDER BY of a subquery reads that subquery's own SELECT list.
+            (
+                "SELECT * FROM (SELECT pg_type.oid FROM pg_enum JOIN pg_type ON true ORDER BY oid) t",
+                "SELECT * FROM (SELECT pg_type.oid FROM pg_enum JOIN pg_type ON true ORDER BY 1) t",
+            ),
+        ];
+
+        for (input, expected) in cases {
+            assert_eq!(
+                resolve_order_by_names_to_output_positions(input).unwrap(),
+                expected
+            );
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_rewrite_oid_cast_on_regproc_column() -> Result<(), Box<dyn std::error::Error>> {
+        // A regproc column holds a function name, so `::oid` resolves it in pg_proc;
+        // every other name is a relation name and resolves in pg_class.
+        assert_eq!(
+            rewrite_oid_cast("SELECT amhandler::oid FROM pg_am")?,
+            "SELECT pg_proc_oid(amhandler) FROM pg_am"
+        );
+        assert_eq!(
+            rewrite_oid_cast("SELECT a.typinput::oid FROM pg_type a")?,
+            "SELECT pg_proc_oid(a.typinput) FROM pg_type a"
+        );
+        assert_eq!(
+            rewrite_oid_cast("SELECT relname::oid FROM pg_class")?,
+            "SELECT oid(relname) FROM pg_class"
+        );
 
         Ok(())
     }

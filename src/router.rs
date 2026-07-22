@@ -133,6 +133,29 @@ fn qualify_catalog_tables(ctx: &SessionContext, sql: &str) -> datafusion::error:
         .join("; "))
 }
 
+/// The name PostgreSQL resolves `ident` to: an unquoted identifier folds to lower case,
+/// a quoted one is taken verbatim.
+///
+/// Clients do not all spell catalog objects in lower case - Power BI asks for
+/// `PG_TOTAL_RELATION_SIZE(C.OID) FROM PG_CLASS C JOIN PG_NAMESPACE N` - while the
+/// catalog registers them in lower case. Looking the written spelling up unfolded finds
+/// nothing, and the router then reads the query as one for the user's own tables and
+/// hands it to their engine, which has no `pg_catalog` to answer it.
+fn resolved_identifier(ident: &Ident) -> String {
+    match ident.quote_style {
+        Some(_) => ident.value.clone(),
+        None => ident.value.to_lowercase(),
+    }
+}
+
+/// The parts of `name`, each resolved as PostgreSQL would (see [`resolved_identifier`]).
+fn resolved_name_parts(name: &ObjectName) -> Vec<String> {
+    name.0
+        .iter()
+        .filter_map(|part| part.as_ident().map(resolved_identifier))
+        .collect()
+}
+
 /// Resolve the schema for the provided table [`ObjectName`] taking the session
 /// configuration and search path into account.
 fn resolve_schema(ctx: &SessionContext, name: &ObjectName) -> Option<String> {
@@ -146,11 +169,7 @@ fn resolve_schema(ctx: &SessionContext, name: &ObjectName) -> Option<String> {
         .map(|opts| parse_search_path(&opts.search_path))
         .unwrap_or_else(|| vec!["pg_catalog".to_string(), default_schema.clone()]);
 
-    let parts: Vec<String> = name
-        .0
-        .iter()
-        .filter_map(|p| p.as_ident().map(|i| i.value.clone()))
-        .collect();
+    let parts = resolved_name_parts(name);
     match parts.as_slice() {
         [catalog, schema, table, ..] => {
             if table_exists(ctx, catalog, schema, table) {
@@ -203,11 +222,7 @@ fn object_is_catalog(ctx: &SessionContext, name: &ObjectName) -> bool {
 
 /// Determine if the function belongs to `pg_catalog` or `information_schema`.
 fn function_is_catalog(ctx: &SessionContext, name: &ObjectName) -> bool {
-    let parts: Vec<String> = name
-        .0
-        .iter()
-        .filter_map(|p| p.as_ident().map(|i| i.value.clone()))
-        .collect();
+    let parts = resolved_name_parts(name);
 
     match parts.as_slice() {
         [schema, func] | [_, schema, func] => {
@@ -430,6 +445,63 @@ mod tests {
 
         let _ = dispatch_query(&ctx, "SELECT * FROM pg_class", None, None, handler).await?;
         assert!(!*called.lock().unwrap());
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_dispatch_uppercase_catalog_query_internal() -> datafusion::error::Result<()> {
+        // Power BI writes catalog objects in upper case; PostgreSQL folds unquoted
+        // identifiers, so these are the same objects and the query belongs to the
+        // catalog, not to the user's engine.
+        let ctx = SessionContext::new();
+        register_table(
+            &ctx,
+            "datafusion",
+            "pg_catalog",
+            "pg_class",
+            vec![("oid", DataType::Int32, false)],
+        )?;
+
+        let called = Arc::new(Mutex::new(false));
+        let called_clone = called.clone();
+        let handler = move |_ctx: &SessionContext, _sql: &str, _p, _t| {
+            let called_clone = called_clone.clone();
+            async move {
+                *called_clone.lock().unwrap() = true;
+                Ok((Vec::new(), Arc::new(Schema::empty())))
+            }
+        };
+
+        let _ = dispatch_query(&ctx, "SELECT * FROM PG_CLASS C", None, None, handler).await?;
+        assert!(!*called.lock().unwrap());
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_dispatch_quoted_uppercase_table_calls_handler() -> datafusion::error::Result<()> {
+        // A quoted name is case sensitive in PostgreSQL: "PG_CLASS" is a different
+        // object from pg_class and must not be read as a catalog query.
+        let ctx = SessionContext::new();
+        register_table(
+            &ctx,
+            "datafusion",
+            "pg_catalog",
+            "pg_class",
+            vec![("oid", DataType::Int32, false)],
+        )?;
+
+        let called = Arc::new(Mutex::new(false));
+        let called_clone = called.clone();
+        let handler = move |_ctx: &SessionContext, _sql: &str, _p, _t| {
+            let called_clone = called_clone.clone();
+            async move {
+                *called_clone.lock().unwrap() = true;
+                Ok((Vec::new(), Arc::new(Schema::empty())))
+            }
+        };
+
+        let _ = dispatch_query(&ctx, "SELECT * FROM \"PG_CLASS\"", None, None, handler).await?;
+        assert!(*called.lock().unwrap());
         Ok(())
     }
 

@@ -212,11 +212,114 @@ def test_pg_tablespace_location_alias(server):
 
 
 def test_cast_column_oid(server):
+    """`regproc::oid` resolves the function name the column holds against pg_proc."""
     with psycopg.connect(CONN_STR) as conn:
         cur = conn.cursor()
-        cur.execute("SELECT amhandler::oid FROM pg_catalog.pg_am LIMIT 1")
-        row = cur.fetchone()
-        assert row[0] is None
+        cur.execute(
+            "SELECT amhandler, amhandler::oid FROM pg_catalog.pg_am "
+            "WHERE amname = 'btree'"
+        )
+        assert cur.fetchone() == ("bthandler", 330)
+
+
+def test_join_pg_proc_on_regproc_column(server):
+    """A join from a regproc column to pg_proc.oid finds the named function.
+
+    This is how Npgsql (and so Power BI) loads the type list: it joins
+    `pg_proc.oid = pg_type.typreceive`. The column holds the function's NAME here, so
+    the comparison only works because the rewriter resolves it to an OID first.
+    """
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT p.proname FROM pg_catalog.pg_type AS a "
+            "JOIN pg_catalog.pg_proc AS p ON p.oid = a.typreceive "
+            "WHERE a.typname = 'bool'"
+        )
+        assert cur.fetchone() == ("boolrecv",)
+
+        # Every type except the ones with no receive function ('-') joins to exactly
+        # one row, so the join neither drops nor duplicates types.
+        cur.execute(
+            "SELECT (SELECT count(*) FROM pg_catalog.pg_type AS a "
+            "        JOIN pg_catalog.pg_proc AS p ON p.oid = a.typreceive), "
+            "       (SELECT count(*) FROM pg_catalog.pg_type WHERE typreceive <> '-')"
+        )
+        joined, with_receive_function = cur.fetchone()
+        assert joined == with_receive_function
+
+
+def test_catalog_query_written_in_upper_case(server):
+    """Upper-case catalog names resolve, because PostgreSQL folds unquoted identifiers.
+
+    Power BI asks for table sizes with `PG_TOTAL_RELATION_SIZE(C.OID) FROM PG_CLASS C
+    JOIN PG_NAMESPACE N`. Matching the written spelling against the lower-case names the
+    catalog registers finds nothing, which both leaves the tables unqualified and makes
+    the router hand the query to the embedding engine, which has no pg_catalog.
+    """
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT PG_TOTAL_RELATION_SIZE(C.OID) AS TOTAL_BYTES "
+            "FROM PG_CLASS C JOIN PG_NAMESPACE N ON (N.OID = C.RELNAMESPACE) "
+            "WHERE N.NSPNAME = 'pg_catalog' AND C.RELNAME = 'pg_type'"
+        )
+        assert cur.fetchone() == (0,)
+
+        cur.execute("SELECT RELNAME FROM PG_CATALOG.PG_CLASS WHERE RELNAME = 'pg_type'")
+        assert cur.fetchone() == ("pg_type",)
+
+
+def test_order_by_name_sorts_by_the_selected_column(server):
+    """ORDER BY a bare name sorts by the SELECT list column of that name.
+
+    PostgreSQL resolves an ORDER BY name against the output columns first. Npgsql loads
+    enum labels with `SELECT pg_type.oid ... JOIN pg_enum ... ORDER BY oid`, where both
+    joined tables carry an `oid`, so resolving against the input instead would fail the
+    query as ambiguous.
+    """
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT pg_type.oid, enumlabel FROM pg_catalog.pg_enum "
+            "JOIN pg_catalog.pg_type ON pg_type.oid = enumtypid "
+            "ORDER BY oid, enumsortorder"
+        )
+        assert cur.fetchall() == []
+
+        # An output column of the same name as an input column wins, as in PostgreSQL:
+        # this sorts by relname, not by pg_class.oid.
+        cur.execute(
+            "SELECT relname AS oid FROM pg_catalog.pg_class ORDER BY oid LIMIT 3"
+        )
+        sorted_by_relname = [row[0] for row in cur.fetchall()]
+        assert sorted_by_relname == sorted(sorted_by_relname)
+
+
+def test_regproc_column_still_reads_as_a_function_name(server):
+    """Selecting a regproc column returns the function name, as PostgreSQL renders it."""
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT typreceive, typinput FROM pg_catalog.pg_type WHERE typname = 'bool'"
+        )
+        assert cur.fetchone() == ("boolrecv", "boolin")
+
+
+def test_regproc_column_compared_with_qualified_function_name(server):
+    """A schema-qualified function name matches the bare name the catalog stores.
+
+    The PostgreSQL JDBC driver decides whether a type is an array with
+    `typinput = 'pg_catalog.array_in'::regproc`, while this catalog stores `array_in`.
+    """
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT typinput = 'pg_catalog.array_in'::regproc AS is_array "
+            "FROM pg_catalog.pg_type WHERE typname IN ('_int4', 'int4') "
+            "ORDER BY typname"
+        )
+        assert cur.fetchall() == [(True,), (False,)]
 
 
 def test_oid_parameter(server):

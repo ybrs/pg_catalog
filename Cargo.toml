@@ -37,3 +37,18 @@ paste = "1"
 
 [dev-dependencies]
 tempfile = "3"
+
+# Full debug info makes every binary carry the debug info of DataFusion, Arrow and
+# this crate: test binaries reached 1.3 GB each, and linking eleven of them (one per
+# integration test) took gigabytes of linker memory apiece, so a `cargo test` on a
+# 12-core box thrashed for the better part of an hour. Line tables keep panics and
+# backtraces pointing at file:line - what the test suite actually needs - while
+# `unpacked` leaves the rest beside the binary instead of inside it. Raise this to
+# `debug = true` when stepping through a debugger.
+[profile.dev]
+debug = "line-tables-only"
+split-debuginfo = "unpacked"
+
+[profile.test]
+debug = "line-tables-only"
+split-debuginfo = "unpacked"

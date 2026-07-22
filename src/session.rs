@@ -16,7 +16,9 @@ use crate::clean_duplicate_columns::{
 use crate::replace::{
     alias_subquery_tables, decorrelate_lateral_aggregate, drop_oid_array_cast,
     drop_redundant_oid_and_regclass_casts, regclass_udfs, replace_regclass,
-    replace_set_command_with_namespace, rewrite_array_agg_varchar_cast, rewrite_array_subquery,
+    replace_set_command_with_namespace, resolve_order_by_names_to_output_positions,
+    resolve_regproc_columns_to_oids_in_comparisons, rewrite_array_agg_varchar_cast,
+    rewrite_array_subquery,
     rewrite_available_extension_versions_source, rewrite_available_updates,
     rewrite_brace_array_literal, rewrite_char_cast, rewrite_exists_to_count,
     rewrite_information_schema_casts, rewrite_name_cast, rewrite_oid_cast,
@@ -54,8 +56,9 @@ use crate::user_functions::{
     register_scalar_array_to_string, register_scalar_format_type, register_scalar_pg_age,
     register_scalar_pg_encoding_to_char, register_scalar_pg_get_expr,
     register_scalar_pg_get_partkeydef, register_scalar_pg_get_userbyid,
-    register_scalar_pg_is_in_recovery, register_scalar_pg_table_is_visible,
-    register_scalar_pg_tablespace_location, register_scalar_regclass_oid,
+    register_scalar_pg_is_in_recovery, register_scalar_pg_proc_oid,
+    register_scalar_pg_table_is_visible, register_scalar_pg_tablespace_location,
+    register_scalar_regclass_oid,
     register_scalar_txid_current, register_session_identity, register_translate, register_upper,
     register_version_fn,
 };
@@ -609,6 +612,10 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     // concrete text types this catalog stores those columns as.
     let sql = rewrite_text_backed_type_casts(&sql)?;
     let sql = rewrite_oid_cast(&sql)?;
+    // Resolve the function-name columns PostgreSQL types as `regproc` (`typreceive`,
+    // `amhandler`, ...) to OIDs where a query compares them against one, e.g.
+    // `JOIN pg_proc ON pg_proc.oid = a.typreceive`.
+    let sql = resolve_regproc_columns_to_oids_in_comparisons(&sql)?;
     // Drop value-preserving `::regclass` / `::oid` casts on column expressions
     // (e.g. `c.oid::regclass`, `proargtypes::oid`).
     let sql = drop_redundant_oid_and_regclass_casts(&sql)?;
@@ -621,6 +628,9 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     // into a grouped equi-join the planner can handle (DataFusion has no physical plan for
     // the correlated reference such a LATERAL aggregate leaves behind).
     let sql = decorrelate_lateral_aggregate(&sql)?;
+    // Sort by the selected column when ORDER BY names one, before the passes below
+    // start renaming SELECT list entries.
+    let sql = resolve_order_by_names_to_output_positions(&sql)?;
     let sql = alias_subquery_tables(&sql)?;
     // Give duplicate column names in nested projections distinct aliases so
     // DataFusion's optimizer doesn't hit its name-mismatch assertion (e.g. the
@@ -1686,6 +1696,7 @@ async fn build_base_session_context(
     );
 
     register_scalar_regclass_oid(&ctx)?;
+    register_scalar_pg_proc_oid(&ctx)?;
     register_scalar_pg_tablespace_location(&ctx)?;
     register_scalar_format_type(&ctx).await?;
     ctx.register_udtf(
