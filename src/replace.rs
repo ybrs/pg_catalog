@@ -2161,11 +2161,12 @@ pub fn resolve_order_by_names_to_output_positions(sql: &str) -> Result<String> {
             let SetExpr::Select(select) = query.body.as_ref() else {
                 return ControlFlow::Continue(());
             };
-            if select
-                .projection
-                .iter()
-                .any(|item| matches!(item, SelectItem::Wildcard(_) | SelectItem::QualifiedWildcard(..)))
-            {
+            if select.projection.iter().any(|item| {
+                matches!(
+                    item,
+                    SelectItem::Wildcard(_) | SelectItem::QualifiedWildcard(..)
+                )
+            }) {
                 return ControlFlow::Continue(());
             }
 

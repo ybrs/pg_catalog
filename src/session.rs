@@ -18,8 +18,7 @@ use crate::replace::{
     drop_redundant_oid_and_regclass_casts, regclass_udfs, replace_regclass,
     replace_set_command_with_namespace, resolve_order_by_names_to_output_positions,
     resolve_regproc_columns_to_oids_in_comparisons, rewrite_array_agg_varchar_cast,
-    rewrite_array_subquery,
-    rewrite_available_extension_versions_source, rewrite_available_updates,
+    rewrite_array_subquery, rewrite_available_extension_versions_source, rewrite_available_updates,
     rewrite_brace_array_literal, rewrite_char_cast, rewrite_exists_to_count,
     rewrite_information_schema_casts, rewrite_name_cast, rewrite_oid_cast,
     rewrite_pg_custom_operator, rewrite_pg_truetypid_composite_args, rewrite_regoper_cast,
@@ -58,9 +57,8 @@ use crate::user_functions::{
     register_scalar_pg_get_partkeydef, register_scalar_pg_get_userbyid,
     register_scalar_pg_is_in_recovery, register_scalar_pg_proc_oid,
     register_scalar_pg_table_is_visible, register_scalar_pg_tablespace_location,
-    register_scalar_regclass_oid,
-    register_scalar_txid_current, register_session_identity, register_translate, register_upper,
-    register_version_fn,
+    register_scalar_regclass_oid, register_scalar_txid_current, register_session_identity,
+    register_translate, register_upper, register_version_fn,
 };
 
 use crate::scalar_to_cte::rewrite_subquery_as_cte;
