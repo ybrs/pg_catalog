@@ -279,9 +279,15 @@ pub fn replace_regclass(sql: &str) -> Result<String> {
                             *expr = build_function_call_expr("oid", s);
                         }
                     }
-                    // Handle inner regclass('text') if it already got rewritten
+                    // Handle an inner regclass('text') or oid('text') that a
+                    // deeper visit already produced (expressions are visited
+                    // child-first, so 'text'::regclass becomes oid('text') before
+                    // this outer ::oid cast is reached). Either way the redundant
+                    // ::oid collapses to oid('text').
                     else if let Expr::Function(f) = &mut **inner_outer {
-                        if f.name.to_string().eq_ignore_ascii_case("regclass") {
+                        if f.name.to_string().eq_ignore_ascii_case("regclass")
+                            || f.name.to_string().eq_ignore_ascii_case("oid")
+                        {
                             if let FunctionArguments::List(list) = &f.args {
                                 if let Some(FunctionArg::Unnamed(FunctionArgExpr::Expr(
                                     Expr::Value(ValueWithSpan {
@@ -308,7 +314,13 @@ pub fn replace_regclass(sql: &str) -> Result<String> {
                         ..
                     }) = &**inner
                     {
-                        *expr = build_function_call_expr("regclass", s);
+                        // Resolve a bare 'name'::regclass to the relation's OID
+                        // integer, not the name string. Clients cast a literal to
+                        // regclass to compare it against an oid column (e.g.
+                        // classoid = 'pg_class'::regclass); returning the string
+                        // makes the planner try to cast 'pg_class' to the column's
+                        // Int type and fail. The oid() UDF resolves the name.
+                        *expr = build_function_call_expr("oid", s);
                     }
                 }
                 _ => {}
@@ -1841,7 +1853,7 @@ pub fn rewrite_schema_qualified_udtfs(sql: &str) -> Result<String> {
         match name.0.as_slice() {
             [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(func)]
                 if schema.value.eq_ignore_ascii_case("pg_catalog")
-                    && ["pg_get_keywords", "pg_postmaster_start_time"]
+                    && ["pg_get_keywords", "pg_postmaster_start_time", "generate_series"]
                         .iter()
                         .any(|f| func.value.eq_ignore_ascii_case(f)) =>
             {
@@ -3160,19 +3172,19 @@ mod tests {
         let cases = vec![
             (
                 "SELECT 'pg_namespace'::regclass FROM foo LIMIT 10",
-                "SELECT regclass('pg_namespace') FROM foo LIMIT 10",
+                "SELECT oid('pg_namespace') FROM foo LIMIT 10",
             ),
             (
                 "WITH cte AS (SELECT 'pg_class'::regclass) SELECT * FROM cte",
-                "WITH cte AS (SELECT regclass('pg_class')) SELECT * FROM cte",
+                "WITH cte AS (SELECT oid('pg_class')) SELECT * FROM cte",
             ),
             (
                 "SELECT t.*, 'pg_class'::regclass FROM table1 t JOIN table2 ON true",
-                "SELECT t.*, regclass('pg_class') FROM table1 AS t JOIN table2 ON true",
+                "SELECT t.*, oid('pg_class') FROM table1 AS t JOIN table2 ON true",
             ),
             (
                 "SELECT * FROM (SELECT 'pg_class'::regclass) sub",
-                "SELECT * FROM (SELECT regclass('pg_class')) AS sub",
+                "SELECT * FROM (SELECT oid('pg_class')) AS sub",
             ),
         ];
 

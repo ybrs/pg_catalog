@@ -3473,18 +3473,29 @@ struct PgGetIndexDef {
 
 impl PgGetIndexDef {
     /// Build the UDF over a clone of the session context it queries the catalog
-    /// through, accepting any signed/unsigned 32/64-bit OID argument.
+    /// through, accepting any signed/unsigned 32/64-bit OID argument -- either the
+    /// one-argument `pg_get_indexdef(oid)` form or the three-argument
+    /// `pg_get_indexdef(oid, column_no, pretty)` form the JDBC driver calls.
     fn new(ctx: Arc<SessionContext>) -> Self {
+        let oid_types = [
+            ArrowDataType::Int32,
+            ArrowDataType::Int64,
+            ArrowDataType::UInt32,
+            ArrowDataType::UInt64,
+        ];
+        let mut signatures = Vec::new();
+        for oid in &oid_types {
+            signatures.push(TypeSignature::Exact(vec![oid.clone()]));
+            // column_no is an int and pretty is a bool; the JDBC driver passes
+            // (index_oid, column_no, pretty_bool).
+            signatures.push(TypeSignature::Exact(vec![
+                oid.clone(),
+                ArrowDataType::Int32,
+                ArrowDataType::Boolean,
+            ]));
+        }
         Self {
-            sig: Signature::one_of(
-                vec![
-                    TypeSignature::Exact(vec![ArrowDataType::Int32]),
-                    TypeSignature::Exact(vec![ArrowDataType::Int64]),
-                    TypeSignature::Exact(vec![ArrowDataType::UInt32]),
-                    TypeSignature::Exact(vec![ArrowDataType::UInt64]),
-                ],
-                Volatility::Stable,
-            ),
+            sig: Signature::one_of(signatures, Volatility::Stable),
             ctx,
         }
     }
@@ -3529,9 +3540,12 @@ impl ScalarUDFImpl for PgGetIndexDef {
         Ok(ArrowDataType::Utf8)
     }
 
-    /// Decode every row's index OID, resolve the DISTINCT ones with a small,
-    /// fixed number of catalog queries, then emit the `CREATE INDEX` text per row
-    /// (NULL where the OID is NULL, unknown, or a functional/partial index).
+    /// Decode every row's index OID (the first argument, for both the one- and
+    /// three-argument forms), resolve the DISTINCT ones with a small, fixed
+    /// number of catalog queries, then emit the `CREATE INDEX` text per row
+    /// (NULL where the OID is NULL, unknown, or a functional/partial index). The
+    /// three-argument form's column_no and pretty arguments are accepted but not
+    /// yet used; it returns the whole-index definition.
     fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
         let arrays = ColumnarValue::values_to_arrays(&args.args)?;
         let arr = &arrays[0];
