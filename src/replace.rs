@@ -533,6 +533,201 @@ pub fn rewrite_schema_qualified_custom_types(sql: &str) -> Result<String> {
         .join(" "))
 }
 
+/// Rename `array_upper(<arr>, <dim>)` calls to DataFusion's
+/// `array_length(<arr>, <dim>)`.
+///
+/// PostgreSQL's `array_upper` returns the upper bound of the given array
+/// dimension; DataFusion has no such function (getTypeInfo uses
+/// `array_upper(current_schemas(false), 1)`). For the 1-based arrays these
+/// catalog queries use, the upper bound of a dimension equals that dimension's
+/// length, which `array_length` computes.
+pub fn rewrite_array_upper_to_array_length(sql: &str) -> Result<String> {
+    use sqlparser::ast::{
+        visit_expressions_mut, visit_statements_mut, Expr, Function, Ident, ObjectName,
+        ObjectNamePart,
+    };
+    use sqlparser::dialect::PostgreSqlDialect;
+    use sqlparser::parser::Parser;
+    use std::ops::ControlFlow;
+
+    let dialect = PostgreSqlDialect {};
+
+    // `CAST(NULL AS BIGINT)` template whose inner expression is swapped for the
+    // renamed call: DataFusion's array_length returns an unsigned integer, but
+    // generate_series (which consumes this value in getTypeInfo) requires a
+    // signed integer, so the result is cast to BIGINT.
+    fn bigint_cast(inner: Expr) -> Expr {
+        let tmpl = Parser::parse_sql(&PostgreSqlDialect {}, "SELECT CAST(NULL AS BIGINT)").unwrap();
+        let mut cast = match tmpl.into_iter().next().unwrap() {
+            sqlparser::ast::Statement::Query(q) => match *q.body {
+                sqlparser::ast::SetExpr::Select(s) => match s.projection.into_iter().next().unwrap()
+                {
+                    sqlparser::ast::SelectItem::UnnamedExpr(e) => e,
+                    _ => unreachable!(),
+                },
+                _ => unreachable!(),
+            },
+            _ => unreachable!(),
+        };
+        if let Expr::Cast { expr, .. } = &mut cast {
+            *expr = Box::new(inner);
+        }
+        cast
+    }
+
+    let mut stmts =
+        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
+
+    let _ = visit_statements_mut(&mut stmts, |stmt| {
+        let _ = visit_expressions_mut(stmt, |e| {
+            let is_array_upper = matches!(
+                e,
+                Expr::Function(Function { name, .. })
+                    if matches!(name.0.last(), Some(ObjectNamePart::Identifier(i))
+                        if i.value.eq_ignore_ascii_case("array_upper"))
+            );
+            if is_array_upper {
+                if let Expr::Function(f) = e {
+                    // array_length is a DataFusion built-in; call it unqualified.
+                    f.name = ObjectName(vec![ObjectNamePart::Identifier(Ident::new(
+                        "array_length",
+                    ))]);
+                    let renamed = e.clone();
+                    *e = bigint_cast(renamed);
+                }
+            }
+            ControlFlow::<()>::Continue(())
+        });
+        ControlFlow::<()>::Continue(())
+    });
+
+    Ok(stmts
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join(" "))
+}
+
+/// Rewrite a correlated boolean scalar subquery used as a predicate --
+/// `(SELECT <a> <cmp> <b> FROM t WHERE <corr>)` -- into
+/// `EXISTS (SELECT 1 FROM t WHERE (<corr>) AND (<a> <cmp> <b>))`.
+///
+/// pgjdbc's getTypeInfo filters with
+/// `typrelid = 0 OR (SELECT c.relkind = 'c' FROM pg_class c WHERE c.oid = t.typrelid)`.
+/// That non-aggregated correlated scalar subquery is rejected by DataFusion
+/// ("Correlated scalar subquery must be aggregated to return at most one row").
+/// Because the subquery's value is a boolean consumed as a predicate, it is
+/// equivalent to an `EXISTS` whose body carries that boolean as an extra filter
+/// (the correlation key is unique, so at most one row can match); the following
+/// [`rewrite_exists_to_count`] pass then turns the `EXISTS` into a
+/// `(SELECT count(*) ...) > 0` scalar DataFusion can plan.
+///
+/// Only a simple `SELECT` whose single projection is a comparison, with no
+/// `GROUP BY` / `HAVING` / `DISTINCT` / set operation, is transformed; anything
+/// else is left untouched. Must run before [`rewrite_exists_to_count`].
+pub fn rewrite_boolean_scalar_subquery_to_exists(sql: &str) -> Result<String> {
+    use sqlparser::ast::{
+        visit_expressions_mut, visit_statements_mut, BinaryOperator, Expr, GroupByExpr, SelectItem,
+        SetExpr, Statement, Value,
+    };
+    use sqlparser::dialect::PostgreSqlDialect;
+    use sqlparser::parser::Parser;
+    use std::ops::ControlFlow;
+
+    // Is `expr` a comparison whose value is boolean (so the scalar subquery
+    // projecting it is a predicate, not a data value)?
+    fn is_boolean_comparison(expr: &Expr) -> bool {
+        matches!(
+            expr,
+            Expr::BinaryOp {
+                op: BinaryOperator::Eq
+                    | BinaryOperator::NotEq
+                    | BinaryOperator::Lt
+                    | BinaryOperator::LtEq
+                    | BinaryOperator::Gt
+                    | BinaryOperator::GtEq,
+                ..
+            }
+        )
+    }
+
+    // If `select` is a simple single-comparison-projection SELECT, return a clone
+    // of that comparison expression (the predicate to fold into the EXISTS body).
+    fn projection_predicate(select: &sqlparser::ast::Select) -> Option<Expr> {
+        if select.projection.len() != 1 || select.having.is_some() || select.distinct.is_some() {
+            return None;
+        }
+        if !matches!(&select.group_by, GroupByExpr::Expressions(g, _) if g.is_empty()) {
+            return None;
+        }
+        let expr = match &select.projection[0] {
+            SelectItem::UnnamedExpr(e) | SelectItem::ExprWithAlias { expr: e, .. } => e,
+            _ => return None,
+        };
+        if is_boolean_comparison(expr) {
+            Some(expr.clone())
+        } else {
+            None
+        }
+    }
+
+    let dialect = PostgreSqlDialect {};
+    let mut stmts =
+        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
+
+    // `SELECT 1` projection item, borrowed from a parsed template.
+    let one_item: SelectItem = {
+        let tmpl = Parser::parse_sql(&dialect, "SELECT 1").unwrap();
+        match tmpl.into_iter().next().unwrap() {
+            Statement::Query(q) => match *q.body {
+                SetExpr::Select(s) => s.projection.into_iter().next().unwrap(),
+                _ => unreachable!(),
+            },
+            _ => unreachable!(),
+        }
+    };
+
+    let _ = visit_statements_mut(&mut stmts, |stmt| {
+        let _ = visit_expressions_mut(stmt, |e| {
+            let predicate = match e {
+                Expr::Subquery(subquery) => match subquery.body.as_ref() {
+                    SetExpr::Select(select) => projection_predicate(select),
+                    _ => None,
+                },
+                _ => None,
+            };
+            if let Some(pred) = predicate {
+                let placeholder = Expr::Value(Value::Null.into());
+                if let Expr::Subquery(mut subquery) = std::mem::replace(e, placeholder) {
+                    if let SetExpr::Select(select) = subquery.body.as_mut() {
+                        select.projection = vec![one_item.clone()];
+                        select.selection = Some(match select.selection.take() {
+                            Some(existing) => Expr::BinaryOp {
+                                left: Box::new(Expr::Nested(Box::new(existing))),
+                                op: BinaryOperator::And,
+                                right: Box::new(Expr::Nested(Box::new(pred))),
+                            },
+                            None => pred,
+                        });
+                    }
+                    *e = Expr::Exists {
+                        subquery,
+                        negated: false,
+                    };
+                }
+            }
+            ControlFlow::<()>::Continue(())
+        });
+        ControlFlow::<()>::Continue(())
+    });
+
+    Ok(stmts
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join(" "))
+}
+
 /// Rewrite `EXISTS (<subquery>)` predicates into `(<subquery-with-count>) > 0`
 /// (and `NOT EXISTS` into `... = 0`).
 ///
@@ -3121,6 +3316,59 @@ mod tests {
             grouped.to_lowercase().contains("exists"),
             "grouped EXISTS must be left as-is: {grouped}"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_rewrite_boolean_scalar_subquery_to_exists() -> Result<(), Box<dyn std::error::Error>> {
+        // getTypeInfo's predicate: a boolean scalar subquery becomes EXISTS with
+        // the projected comparison folded into the WHERE.
+        let out = rewrite_boolean_scalar_subquery_to_exists(
+            "SELECT t.typname FROM pg_type t WHERE t.typrelid = 0 \
+             OR (SELECT c.relkind = 'c' FROM pg_class c WHERE c.oid = t.typrelid)",
+        )?;
+        let lo = out.to_lowercase();
+        assert!(lo.contains("exists"), "expected EXISTS: {out}");
+        assert!(
+            lo.contains("c.relkind = 'c'"),
+            "comparison should be folded into the body: {out}"
+        );
+        assert!(
+            lo.contains("c.oid = t.typrelid"),
+            "original correlation must be kept: {out}"
+        );
+
+        // Chained with rewrite_exists_to_count, the whole thing becomes a
+        // count(*) > 0 scalar DataFusion can plan.
+        let counted = rewrite_exists_to_count(&out)?;
+        let clo = counted.to_lowercase();
+        assert!(!clo.contains("exists"), "EXISTS should be reduced: {counted}");
+        assert!(clo.contains("count(*)"), "expected count(*): {counted}");
+
+        // A scalar subquery that projects a data value (not a comparison) is
+        // left untouched.
+        let untouched = rewrite_boolean_scalar_subquery_to_exists(
+            "SELECT (SELECT c.relname FROM pg_class c WHERE c.oid = t.typrelid) FROM pg_type t",
+        )?;
+        assert!(
+            !untouched.to_lowercase().contains("exists"),
+            "value subquery must be left as-is: {untouched}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_rewrite_array_upper_to_array_length() -> Result<(), Box<dyn std::error::Error>> {
+        let out = rewrite_array_upper_to_array_length(
+            "SELECT generate_series(1, array_upper(current_schemas(false), 1))",
+        )?;
+        let lo = out.to_lowercase();
+        assert!(!lo.contains("array_upper"), "array_upper should be gone: {out}");
+        assert!(lo.contains("array_length"), "expected array_length: {out}");
+        // A schema-qualified call is renamed too.
+        let qualified =
+            rewrite_array_upper_to_array_length("SELECT pg_catalog.array_upper(a, 1)")?;
+        assert!(qualified.to_lowercase().contains("array_length"), "{qualified}");
         Ok(())
     }
 

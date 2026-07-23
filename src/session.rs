@@ -19,6 +19,7 @@ use crate::replace::{
     replace_set_command_with_namespace, resolve_order_by_names_to_output_positions,
     resolve_regproc_columns_to_oids_in_comparisons, rewrite_array_agg_varchar_cast,
     rewrite_array_subquery, rewrite_available_extension_versions_source, rewrite_available_updates,
+    rewrite_array_upper_to_array_length, rewrite_boolean_scalar_subquery_to_exists,
     rewrite_brace_array_literal, rewrite_char_cast, rewrite_exists_to_count,
     rewrite_information_schema_casts, rewrite_name_cast, rewrite_oid_cast,
     rewrite_pg_custom_operator, rewrite_pg_truetypid_composite_args, rewrite_regoper_cast,
@@ -602,6 +603,7 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     let sql = rewrite_schema_qualified_udtfs(&sql)?;
     let sql = rewrite_available_extension_versions_source(&sql)?;
     let sql = rewrite_char_cast(&sql)?;
+    let sql = rewrite_array_upper_to_array_length(&sql)?;
     let sql = replace_regclass(&sql)?;
     let sql = rewrite_regtype_cast(&sql)?;
     let sql = rewrite_xid_cast(&sql)?;
@@ -697,6 +699,12 @@ pub async fn rewrite_and_execute_sql(
     let sql = rewrite_srf_to_unnest(&sql)?;
 
     let (sql, aliases) = rewrite_filters(&sql)?;
+
+    // Turn a correlated boolean scalar subquery used as a predicate
+    // (getTypeInfo's `... OR (SELECT c.relkind = 'c' FROM pg_class c WHERE
+    // c.oid = t.typrelid)`) into an equivalent EXISTS, so the pass below can
+    // reduce it to a count DataFusion plans. Must run before rewrite_exists_to_count.
+    let sql = rewrite_boolean_scalar_subquery_to_exists(&sql)?;
 
     // DataFusion 54 decorrelates correlated subqueries natively; the one gap is
     // `EXISTS` used as a scalar value (e.g. inside CASE), which we convert to a
