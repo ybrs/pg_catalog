@@ -2300,6 +2300,129 @@ pub fn resolve_regproc_columns_to_oids_in_comparisons(sql: &str) -> Result<Strin
     })
 }
 
+/// Catalog columns of PostgreSQL type `boolean`. Clients (and the ODBC driver's
+/// SQLPrimaryKeys query) compare these to a character boolean literal such as
+/// `indisprimary = 't'`; DataFusion will not coerce `Boolean = Utf8`, so
+/// [`rewrite_boolean_column_char_comparisons`] turns the literal into a boolean.
+///
+/// Only unambiguously boolean columns are listed. Character columns that clients
+/// also compare to single-letter literals (`relkind = 'r'`, `contype = 't'`,
+/// `relpersistence = 't'`) are deliberately excluded.
+pub const BOOLEAN_COLUMN_NAMES: &[&str] = &[
+    // pg_index
+    "indisunique",
+    "indisprimary",
+    "indisexclusion",
+    "indimmediate",
+    "indisclustered",
+    "indisvalid",
+    "indcheckxmin",
+    "indisready",
+    "indislive",
+    "indisreplident",
+    "indnullsnotdistinct",
+    // pg_class
+    "relhasindex",
+    "relhasrules",
+    "relhastriggers",
+    "relhassubclass",
+    "relrowsecurity",
+    "relforcerowsecurity",
+    "relispopulated",
+    "relisshared",
+    "relispartition",
+    // pg_attribute
+    "attnotnull",
+    "atthasdef",
+    "atthasmissing",
+    "attisdropped",
+    "attislocal",
+    "attbyval",
+    // pg_type
+    "typbyval",
+    "typisdefined",
+    "typnotnull",
+    "typispreferred",
+    // pg_constraint
+    "condeferrable",
+    "condeferred",
+    "convalidated",
+    "conislocal",
+    "connoinherit",
+    // pg_proc
+    "proisstrict",
+    "proretset",
+    "prosecdef",
+    "proleakproof",
+    // pg_database
+    "datistemplate",
+    "datallowconn",
+    // pg_authid / pg_roles
+    "rolsuper",
+    "rolinherit",
+    "rolcreaterole",
+    "rolcreatedb",
+    "rolcanlogin",
+    "rolreplication",
+    "rolbypassrls",
+];
+
+/// Return true when `expr` names one of [`BOOLEAN_COLUMN_NAMES`] (bare or
+/// qualified, e.g. `i.indisprimary`).
+fn is_boolean_column(expr: &Expr) -> bool {
+    let column = match expr {
+        Expr::Identifier(ident) => ident,
+        Expr::CompoundIdentifier(parts) => match parts.last() {
+            Some(ident) => ident,
+            None => return false,
+        },
+        _ => return false,
+    };
+    BOOLEAN_COLUMN_NAMES
+        .iter()
+        .any(|known| known.eq_ignore_ascii_case(&column.value))
+}
+
+/// Interpret a PostgreSQL character boolean literal.
+fn char_boolean_literal(text: &str) -> Option<bool> {
+    match text.trim().to_ascii_lowercase().as_str() {
+        "t" | "true" | "y" | "yes" | "1" | "on" => Some(true),
+        "f" | "false" | "n" | "no" | "0" | "off" => Some(false),
+        _ => None,
+    }
+}
+
+/// Rewrite `<boolean-column> = '<char-bool>'` (and `<>`) so the string literal
+/// becomes a boolean literal, e.g. `indisprimary = 't'` -> `indisprimary = true`.
+/// PostgreSQL coerces the character form; DataFusion rejects `Boolean = Utf8`.
+pub fn rewrite_boolean_column_char_comparisons(sql: &str) -> Result<String> {
+    rewrite_each_expression(sql, |e| {
+        let Expr::BinaryOp { left, op, right } = e else {
+            return;
+        };
+        if !matches!(op, BinaryOperator::Eq | BinaryOperator::NotEq) {
+            return;
+        }
+        let literal_side = if is_boolean_column(left) {
+            right
+        } else if is_boolean_column(right) {
+            left
+        } else {
+            return;
+        };
+        let replacement = match literal_side.as_ref() {
+            Expr::Value(ValueWithSpan {
+                value: Value::SingleQuotedString(s) | Value::DoubleQuotedString(s),
+                ..
+            }) => char_boolean_literal(s),
+            _ => None,
+        };
+        if let Some(boolean) = replacement {
+            *literal_side = Box::new(Expr::Value(Value::Boolean(boolean).into()));
+        }
+    })
+}
+
 /// Replace casts to regoper with NULL. Queries sometimes cast the
 /// `conexclop` column (stored as `_text`) to `regoper` and then to
 /// another type like TEXT. Since the column is always NULL we can
@@ -3369,6 +3492,27 @@ mod tests {
         let qualified =
             rewrite_array_upper_to_array_length("SELECT pg_catalog.array_upper(a, 1)")?;
         assert!(qualified.to_lowercase().contains("array_length"), "{qualified}");
+        Ok(())
+    }
+
+    #[test]
+    fn test_rewrite_boolean_column_char_comparisons() -> Result<(), Box<dyn std::error::Error>> {
+        // A boolean column compared to a char literal becomes a boolean literal.
+        let out = rewrite_boolean_column_char_comparisons(
+            "SELECT 1 FROM pg_index i WHERE i.indisprimary = 't' AND i.indisunique = 'f'",
+        )?;
+        let lo = out.to_lowercase();
+        assert!(lo.contains("indisprimary = true"), "expected = true: {out}");
+        assert!(lo.contains("indisunique = false"), "expected = false: {out}");
+
+        // A character column that happens to compare to 't' is left untouched
+        // (contype = 't' means a trigger constraint, not a boolean).
+        let untouched =
+            rewrite_boolean_column_char_comparisons("SELECT 1 FROM pg_constraint WHERE contype = 't'")?;
+        assert!(
+            untouched.to_lowercase().contains("contype = 't'"),
+            "char column must be left as-is: {untouched}"
+        );
         Ok(())
     }
 

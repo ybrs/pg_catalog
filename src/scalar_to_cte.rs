@@ -648,6 +648,14 @@ mod rewriter {
             for item in &sel.projection {
                 if let SelectItem::UnnamedExpr(expr) | SelectItem::ExprWithAlias { expr, .. } = item
                 {
+                    // A bare constant (e.g. the literal `0` in the ODBC
+                    // SQLStatistics query) is neither a column nor an aggregate,
+                    // so it must not count toward the projection tally -- otherwise
+                    // it makes cols.len() < projection_expr_count and fabricates a
+                    // GROUP BY for a query that has no aggregate at all.
+                    if matches!(expr, Expr::Value(_)) {
+                        continue;
+                    }
                     projection_expr_count += 1;
                     Self::collect_group_by_columns(expr, false, &mut has_aggr, &mut cols);
                 }
@@ -1645,6 +1653,23 @@ mod tests {
         // sanity: the scalar sub-query must still have been lifted to a CTE
         assert!(rewritten.starts_with("with __cte1"), "CTE missing");
 
+        Ok(())
+    }
+
+    #[test]
+    fn literal_projection_does_not_inject_group_by() -> Result<()> {
+        // A bare literal in the projection (the ODBC SQLStatistics query selects
+        // a constant `0`) alongside plain columns and no aggregate must NOT get a
+        // synthetic GROUP BY.
+        let sql = "SELECT c.relname, i.indkey, 0, i.indoption \
+                   FROM pg_catalog.pg_index i, pg_catalog.pg_class c \
+                   WHERE i.indexrelid = c.oid";
+        let out = rewrite_scalar_subqueries_to_ctes(sql)?;
+        assert!(
+            !out.sql.to_lowercase().contains("group by"),
+            "no GROUP BY should be injected for a literal projection: {}",
+            out.sql
+        );
         Ok(())
     }
 

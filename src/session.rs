@@ -18,6 +18,7 @@ use crate::replace::{
     drop_redundant_oid_and_regclass_casts, regclass_udfs, replace_regclass,
     replace_set_command_with_namespace, resolve_order_by_names_to_output_positions,
     resolve_regproc_columns_to_oids_in_comparisons, rewrite_array_agg_varchar_cast,
+    rewrite_boolean_column_char_comparisons,
     rewrite_array_subquery, rewrite_available_extension_versions_source, rewrite_available_updates,
     rewrite_array_upper_to_array_length, rewrite_boolean_scalar_subquery_to_exists,
     rewrite_brace_array_literal, rewrite_char_cast, rewrite_exists_to_count,
@@ -616,6 +617,9 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     // `amhandler`, ...) to OIDs where a query compares them against one, e.g.
     // `JOIN pg_proc ON pg_proc.oid = a.typreceive`.
     let sql = resolve_regproc_columns_to_oids_in_comparisons(&sql)?;
+    // Turn `<bool-column> = 't'` (the ODBC SQLPrimaryKeys form) into
+    // `<bool-column> = true`; DataFusion does not coerce Boolean = Utf8.
+    let sql = rewrite_boolean_column_char_comparisons(&sql)?;
     // Drop value-preserving `::regclass` / `::oid` casts on column expressions
     // (e.g. `c.oid::regclass`, `proargtypes::oid`).
     let sql = drop_redundant_oid_and_regclass_casts(&sql)?;
