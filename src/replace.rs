@@ -922,24 +922,7 @@ fn rewrite_select(select: &mut Box<sqlparser::ast::Select>) {
         false
     }
 
-    // Aliased mode: `srf(x) AS alias` -> `unnest(srf(x)) AS alias`, in place. The
-    // outer query's `(alias).field` access becomes `alias['field']` via the final
-    // dot->subscript pass. This is the form the `_pg_expandarray` views use.
-    let mut wrapped_bare = false;
-    for item in &mut select.projection {
-        if let Some(expr) = item_expr_mut(item) {
-            if is_bare_srf(expr) {
-                let inner = expr.clone();
-                *expr = wrap_in_unnest(inner);
-                wrapped_bare = true;
-            }
-        }
-    }
-    if wrapped_bare {
-        return; // handled the aliased form; no inline wrap needed here
-    }
-
-    // Collect the distinct srf(x) calls referenced in the projection.
+    // Collect the distinct inline `(srf(x)).field` accesses in the projection.
     let mut found: Option<Expr> = None;
     let mut has_multiple_srfs = false;
     for item in &mut select.projection {
@@ -959,10 +942,31 @@ fn rewrite_select(select: &mut Box<sqlparser::ast::Select>) {
         }
     }
 
+    // With no inline field access, handle the simple bare-aliased form in place
+    // (`srf(x) AS alias` -> `unnest(srf(x)) AS alias`), the shape the internal
+    // _pg_expandarray views use; the outer query's `(alias).field` then becomes
+    // `alias['field']` via the final dot->subscript pass. When an inline access
+    // IS present (as in the driver's getPrimaryKeys query, which both aliases the
+    // SRF and accesses its fields inline), fall through to the derived-table
+    // rewrite below, which routes both through one unnested column -- the in-place
+    // wrap cannot, because a bare `unnest(...) AS alias` leaves an inline
+    // `(srf(x)).field` in the same SELECT unrewritten on a List(Struct) value.
+    if found.is_none() {
+        for item in &mut select.projection {
+            if let Some(expr) = item_expr_mut(item) {
+                if is_bare_srf(expr) {
+                    let inner = expr.clone();
+                    *expr = wrap_in_unnest(inner);
+                }
+            }
+        }
+        return;
+    }
+
     let srf = match found {
         Some(_) if has_multiple_srfs => return, // >1 distinct SRF: leave unchanged
         Some(s) => s,
-        None => return,
+        None => unreachable!(),
     };
     let srf_text_key = srf.to_string();
 
@@ -992,9 +996,17 @@ fn rewrite_select(select: &mut Box<sqlparser::ast::Select>) {
         }
     }
 
-    // Replace each `(srf(x)).field` with `__srf_unnest['field']`.
+    // Replace each `(srf(x)).field` with `__srf_unnest['field']`, and each bare
+    // `srf(x)` projection of the same call (e.g. `srf(x) AS keys`) with the
+    // unnested column `__srf_unnest`, so a SELECT that both aliases the SRF and
+    // accesses its fields inline reads them from the one unnested value rather
+    // than leaving the alias as a raw List(Struct).
     for item in &mut select.projection {
         if let Some(expr) = item_expr_mut(item) {
+            if is_bare_srf(expr) && expr.to_string() == srf_text_key {
+                *expr = Expr::Identifier(sqlparser::ast::Ident::new("__srf_unnest"));
+                continue;
+            }
             let _ = visit_expressions_mut(expr, |e| {
                 if let Some(call) = srf_field_access(e) {
                     if call.to_string() == srf_text_key {
