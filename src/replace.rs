@@ -821,6 +821,255 @@ pub fn rewrite_exists_to_count(sql: &str) -> Result<String> {
         .join(" "))
 }
 
+/// Rewrite a correlated `(SELECT c FROM t WHERE p LIMIT 1)` into
+/// `(SELECT max(c) FROM t WHERE p)`, which decorrelates correctly.
+///
+/// DataFusion decorrelates a correlated scalar subquery by pulling its
+/// correlation predicate up into a join, but for a scalar subquery it leaves an
+/// inner `LIMIT` where it is (`PullUpCorrelatedExpr` strips the limit only for
+/// `EXISTS` subqueries). The limit then applies to the subquery relation as a
+/// whole instead of per outer row, so the join keeps one row overall and every
+/// other outer row gets NULL. That is a wrong answer rather than an error,
+/// which is why this is rewritten rather than left to fail loudly.
+///
+/// `max(c)` is equivalent here: with at most one matching row it returns that
+/// row's value, and with none it returns NULL, exactly as `LIMIT 1` does. Where
+/// several rows match, `LIMIT 1` without `ORDER BY` already picks an arbitrary
+/// one, so choosing the largest is a narrowing of unspecified behaviour rather
+/// than a change of defined behaviour.
+///
+/// Deliberately narrow, because each condition is load-bearing:
+/// - Only correlated subqueries. An uncorrelated `LIMIT 1` subquery plans and
+///   answers correctly today, and `max` would change which row it returns.
+/// - Only `LIMIT 1`, no `ORDER BY`. `ORDER BY ... LIMIT 1` means "the first by
+///   that ordering", which `max` does not express unless the ordering and the
+///   projection are the same column. Those are left alone; they hit the same
+///   DataFusion bug, so they are a known remaining gap rather than something
+///   this silently mistranslates.
+/// - Only a single non-aggregate projection with no `GROUP BY`, `HAVING`, or
+///   `DISTINCT`, since `max` is equivalent only for that shape.
+pub fn rewrite_correlated_limit_one_subquery_to_max(sql: &str) -> Result<String> {
+    use sqlparser::ast::{
+        visit_expressions_mut, visit_statements_mut, Expr, SelectItem, SetExpr,
+    };
+    use sqlparser::dialect::PostgreSqlDialect;
+    use sqlparser::parser::Parser;
+    use std::ops::ControlFlow;
+
+    let dialect = PostgreSqlDialect {};
+    let mut stmts =
+        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
+
+    let _ = visit_statements_mut(&mut stmts, |stmt| {
+        let _ = visit_expressions_mut(stmt, |e| {
+            if let Expr::Subquery(query) = e {
+                if let Some(projection) = correlated_limit_one_projection(query) {
+                    let wrapped = wrap_in_max(&projection);
+                    if let SetExpr::Select(select) = query.body.as_mut() {
+                        select.projection = vec![SelectItem::UnnamedExpr(wrapped)];
+                    }
+                    // The limit has to go: keeping it would leave the same
+                    // wrong-answer plan the aggregate is here to avoid.
+                    query.limit_clause = None;
+                }
+            }
+            ControlFlow::<()>::Continue(())
+        });
+        ControlFlow::<()>::Continue(())
+    });
+
+    Ok(stmts
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join(" "))
+}
+
+/// Return the projected expression of a correlated `LIMIT 1` scalar subquery.
+///
+/// Returns None unless every condition in
+/// [`rewrite_correlated_limit_one_subquery_to_max`] holds, so the caller can
+/// treat Some as "safe to rewrite".
+fn correlated_limit_one_projection(query: &sqlparser::ast::Query) -> Option<sqlparser::ast::Expr> {
+    use sqlparser::ast::{GroupByExpr, SelectItem, SetExpr};
+
+    if !limits_to_one_row_unordered(query) {
+        return None;
+    }
+
+    let select = match query.body.as_ref() {
+        SetExpr::Select(select) => select,
+        _ => return None,
+    };
+
+    if select.having.is_some() || select.distinct.is_some() || select.projection.len() != 1 {
+        return None;
+    }
+    if !matches!(&select.group_by, GroupByExpr::Expressions(g, _) if g.is_empty()) {
+        return None;
+    }
+
+    let projected = match &select.projection[0] {
+        SelectItem::UnnamedExpr(e) | SelectItem::ExprWithAlias { expr: e, .. } => e,
+        _ => return None,
+    };
+    if contains_aggregate_call(projected) {
+        return None;
+    }
+    if !references_outer_column(select) {
+        return None;
+    }
+    Some(projected.clone())
+}
+
+/// Report whether `query` is exactly `LIMIT 1` with no `ORDER BY` or `OFFSET`.
+fn limits_to_one_row_unordered(query: &sqlparser::ast::Query) -> bool {
+    use sqlparser::ast::{Expr, LimitClause, Value};
+
+    if query.order_by.is_some() {
+        return false;
+    }
+    match &query.limit_clause {
+        Some(LimitClause::LimitOffset {
+            limit: Some(Expr::Value(value)),
+            offset,
+            limit_by,
+        }) => {
+            if offset.is_some() || !limit_by.is_empty() {
+                return false;
+            }
+            matches!(&value.value, Value::Number(n, _) if n == "1")
+        }
+        _ => false,
+    }
+}
+
+/// Report whether `expr` contains an aggregate function call.
+///
+/// A projection that already aggregates decorrelates correctly on its own, and
+/// wrapping it in another `max` would change what it computes.
+fn contains_aggregate_call(expr: &sqlparser::ast::Expr) -> bool {
+    use sqlparser::ast::{visit_expressions, Expr, ObjectNamePart};
+    use std::ops::ControlFlow;
+
+    const AGGREGATES: &[&str] = &[
+        "min", "max", "sum", "count", "avg", "array_agg", "string_agg", "bool_and", "bool_or",
+    ];
+
+    let mut found = false;
+    let _ = visit_expressions(expr, |e| {
+        if let Expr::Function(f) = e {
+            let name = f
+                .name
+                .0
+                .last()
+                .and_then(|part| match part {
+                    ObjectNamePart::Identifier(i) => Some(i.value.to_lowercase()),
+                    _ => None,
+                })
+                .unwrap_or_default();
+            if AGGREGATES.contains(&name.as_str()) {
+                found = true;
+                return ControlFlow::Break(());
+            }
+        }
+        ControlFlow::<()>::Continue(())
+    });
+    found
+}
+
+/// Report whether `select` references a column qualified by a name its own
+/// `FROM` does not define, which is what makes a subquery correlated.
+///
+/// Unqualified columns are treated as local: without full name resolution they
+/// cannot be attributed to an outer query, and assuming they are local keeps
+/// this rewrite from firing on uncorrelated subqueries it must leave alone.
+fn references_outer_column(select: &sqlparser::ast::Select) -> bool {
+    use sqlparser::ast::{visit_expressions, Expr, ObjectNamePart, TableFactor};
+    use std::collections::HashSet;
+    use std::ops::ControlFlow;
+
+    let mut local: HashSet<String> = HashSet::new();
+    for table in &select.from {
+        let mut relations = vec![&table.relation];
+        for join in &table.joins {
+            relations.push(&join.relation);
+        }
+        for relation in relations {
+            match relation {
+                TableFactor::Table { name, alias, .. } => {
+                    if let Some(alias) = alias {
+                        local.insert(alias.name.value.to_lowercase());
+                    } else if let Some(ObjectNamePart::Identifier(i)) = name.0.last() {
+                        local.insert(i.value.to_lowercase());
+                    }
+                }
+                TableFactor::Derived { alias, .. } | TableFactor::NestedJoin { alias, .. } => {
+                    if let Some(alias) = alias {
+                        local.insert(alias.name.value.to_lowercase());
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    let mut correlated = false;
+    let mut inspect = |expr: &Expr| {
+        let _ = visit_expressions(expr, |e| {
+            if let Expr::CompoundIdentifier(parts) = e {
+                if let Some(first) = parts.first() {
+                    if !local.contains(&first.value.to_lowercase()) {
+                        correlated = true;
+                        return ControlFlow::Break(());
+                    }
+                }
+            }
+            ControlFlow::<()>::Continue(())
+        });
+    };
+
+    if let Some(selection) = &select.selection {
+        inspect(selection);
+    }
+    for item in &select.projection {
+        if let sqlparser::ast::SelectItem::UnnamedExpr(e)
+        | sqlparser::ast::SelectItem::ExprWithAlias { expr: e, .. } = item
+        {
+            inspect(e);
+        }
+    }
+    correlated
+}
+
+/// Wrap `expr` in a `max(...)` call, built by parsing a template so no
+/// version-specific function AST has to be hand-constructed.
+fn wrap_in_max(expr: &sqlparser::ast::Expr) -> sqlparser::ast::Expr {
+    use sqlparser::ast::{Expr, FunctionArg, FunctionArgExpr, FunctionArguments, SetExpr};
+    use sqlparser::dialect::PostgreSqlDialect;
+    use sqlparser::parser::Parser;
+
+    let template = Parser::parse_sql(&PostgreSqlDialect {}, "SELECT max(x)")
+        .expect("max() template parses");
+    let mut call = match template.into_iter().next() {
+        Some(sqlparser::ast::Statement::Query(q)) => match *q.body {
+            SetExpr::Select(mut s) => match s.projection.remove(0) {
+                sqlparser::ast::SelectItem::UnnamedExpr(e) => e,
+                _ => unreachable!("template projection is an expression"),
+            },
+            _ => unreachable!("template body is a SELECT"),
+        },
+        _ => unreachable!("template is a query"),
+    };
+
+    if let Expr::Function(function) = &mut call {
+        if let FunctionArguments::List(list) = &mut function.args {
+            list.args = vec![FunctionArg::Unnamed(FunctionArgExpr::Expr(expr.clone()))];
+        }
+    }
+    call
+}
+
 /// Rewrite a multi-column (row-constructor) `IN`-subquery into a correlated
 /// `EXISTS`, which DataFusion can plan (it rejects multi-column `IN` subqueries
 /// with "the subquery should only return one column").
