@@ -1494,3 +1494,102 @@ async fn test_pg_get_indexdef_uses_index_resolver_for_expression_index() -> DFRe
     clear_index_definition_resolver();
     outcome
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_source_public_schema_replaces_the_builtin_one() -> DFResult<()> {
+    // The built-in catalog carries `public` at PostgreSQL's canonical oid 2200.
+    // A source-supplied `public` gets a generated oid instead, because a
+    // flattened catalog cannot give every database's public the same oid. Those
+    // oids never match, so shadowing built-ins by oid left both rows in place:
+    // the built-in one owning nothing while holding the oid clients treat as
+    // canonical, which hid every table from anything resolving public to 2200.
+    let (ctx, _log) = get_base_session_context_with_lazy_catalog(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
+        None,
+        Arc::new(FakeSource),
+        LazyCatalogOptions::all(),
+    )
+    .await?;
+
+    let oids = text_column(
+        &ctx,
+        "SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = 'public' ORDER BY oid",
+    )
+    .await?;
+
+    // FakeSource models two databases, each with its own public schema, so two
+    // rows are correct here -- but neither may be the built-in 2200.
+    assert_eq!(
+        oids,
+        vec![SCHEMA1_OID.to_string(), SCHEMA2_OID.to_string()],
+        "expected only the source's public schemas, got {oids:?}"
+    );
+    assert!(
+        !oids.contains(&"2200".to_string()),
+        "the built-in public@2200 must be shadowed, got {oids:?}"
+    );
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_same_schema_name_in_two_databases_stays_two_rows() -> DFResult<()> {
+    // Shadowing built-ins by name must not collapse the flattened catalog's
+    // legitimate case: one `public` per database, each with its own oid and its
+    // own relations. Identity is still keyed by oid, so these stay distinct.
+    let (ctx, _log) = get_base_session_context_with_lazy_catalog(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
+        None,
+        Arc::new(FakeSource),
+        LazyCatalogOptions::all(),
+    )
+    .await?;
+
+    let count = text_column(
+        &ctx,
+        "SELECT count(*) FROM pg_catalog.pg_namespace WHERE nspname = 'public'",
+    )
+    .await?;
+    assert_eq!(count, vec!["2".to_string()]);
+
+    // Each database's public still owns its own relation, which is what the
+    // separate oids are for.
+    let relations = string_column(
+        &ctx,
+        "SELECT c.relname FROM pg_catalog.pg_class c \
+         JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace \
+         WHERE n.nspname = 'public' AND c.relkind = 'r' ORDER BY c.relname",
+    )
+    .await?;
+    assert_eq!(
+        relations,
+        vec!["events".to_string(), "users".to_string()],
+        "each database's public should keep its own relation"
+    );
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_builtin_public_survives_without_a_lazy_source() -> DFResult<()> {
+    // With no source supplying schemas there is nothing to shadow it with, so
+    // the built-in public must remain -- otherwise a plain context would have
+    // no public schema at all.
+    let (ctx, _log) = get_base_session_context(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
+        None,
+    )
+    .await?;
+
+    let names = string_column(
+        &ctx,
+        "SELECT nspname FROM pg_catalog.pg_namespace WHERE nspname = 'public'",
+    )
+    .await?;
+    assert_eq!(names, vec!["public".to_string()]);
+    Ok(())
+}

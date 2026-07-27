@@ -652,9 +652,8 @@ impl CatalogTable {
         }
     }
 
-    /// The columns that identify one row of this catalog table, used to merge
-    /// user rows with built-in rows: a user row replaces any built-in row sharing
-    /// the same key, and two user rows sharing a key are a source error.
+    /// The columns that identify one row of this catalog table, used to detect
+    /// a source defining the same object twice, which is a source error.
     ///
     /// Keys are scoped so that legitimately distinct objects never collide:
     /// relations/types/attributes are keyed by their *parent OID* plus name
@@ -662,6 +661,9 @@ impl CatalogTable {
     /// schemas is not a duplicate. `pg_namespace` is keyed by `oid` (its true
     /// identity) because the flattened catalog intentionally allows the same
     /// schema name - e.g. `public` - under several databases.
+    ///
+    /// Which built-in rows a user row *replaces* is a separate question; see
+    /// [`Self::builtin_shadow_key_columns`].
     pub fn key_columns(&self) -> &'static [&'static str] {
         match self {
             CatalogTable::PgDatabase => &["datname"],
@@ -681,6 +683,33 @@ impl CatalogTable {
                 &["table_catalog", "table_schema", "table_name", "column_name"]
             }
             CatalogTable::InformationSchemaSchemata => &["catalog_name", "schema_name"],
+        }
+    }
+
+    /// The columns that decide which built-in rows a user row replaces.
+    ///
+    /// Usually a row replaces the built-in row with the same identity, so this
+    /// is [`Self::key_columns`]. `pg_namespace` is the exception, because its
+    /// identity and its name deliberately disagree.
+    ///
+    /// PostgreSQL gives `public` the fixed OID 2200 in every database: each
+    /// database owns a private catalog, so the same OID in two databases never
+    /// collides. A flattened catalog has one shared `pg_namespace`, so it
+    /// cannot give every database's `public` that OID and assigns generated
+    /// ones instead. Matching built-ins by OID therefore never matched, and the
+    /// built-in `public` survived beside the real one - owning no relations,
+    /// yet holding the very OID clients treat as canonical, so anything
+    /// resolving `public` to 2200 and listing its tables by OID saw an empty
+    /// schema.
+    ///
+    /// Shadowing by `nspname` instead means a source-supplied schema replaces
+    /// the built-in row of that name whatever OID it was given, while
+    /// [`Self::key_columns`] still keys identity by OID so the same schema name
+    /// under several databases remains several rows.
+    pub fn builtin_shadow_key_columns(&self) -> &'static [&'static str] {
+        match self {
+            CatalogTable::PgNamespace => &["nspname"],
+            table => table.key_columns(),
         }
     }
 }
@@ -1512,15 +1541,25 @@ impl TableProvider for LazyCatalogTableProvider {
 
         let user_batch = rows_to_record_batch(&self.schema, &user_rows)?;
 
-        // Merge: a user row replaces any built-in row with the same identity, so
-        // a user-supplied object always wins over the one it shadows.
+        // Which built-ins a user row replaces is asked separately from what
+        // makes two user rows the same object: pg_namespace identifies rows by
+        // oid but must shadow the built-in schema of the same NAME, whose oid
+        // it can never match. See CatalogTable::builtin_shadow_key_columns.
+        let shadow_cols = self.table.builtin_shadow_key_columns();
+        let shadow_keys: HashSet<Vec<String>> = user_rows
+            .iter()
+            .map(|row| user_row_key(row, shadow_cols))
+            .collect();
+
+        // Merge: a user row replaces any built-in row it shadows, so a
+        // user-supplied object always wins over the one it shadows.
         let mut batches = Vec::with_capacity(self.builtin_batches.len() + 1);
         for builtin in &self.builtin_batches {
             batches.push(drop_builtin_rows_shadowed_by_users(
                 builtin,
                 &self.schema,
-                key_cols,
-                &user_keys,
+                shadow_cols,
+                &shadow_keys,
             )?);
         }
         batches.push(user_batch);
