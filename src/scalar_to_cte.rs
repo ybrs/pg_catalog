@@ -1166,12 +1166,82 @@ mod rewriter {
         }
 
         fn visit_query_mut(&mut self, q: &mut Box<Query>) {
-            if let SetExpr::Select(sel) = q.body.as_mut() {
-                self.visit_select_mut(&mut q.with, sel);
+            match q.body.as_mut() {
+                SetExpr::Select(sel) => self.visit_select_mut(&mut q.with, sel),
+                // A set operation's branches are ordinary queries, each with
+                // its own projection that may hold a correlated scalar.
+                SetExpr::SetOperation { left, right, .. } => {
+                    self.visit_setexpr_mut(left);
+                    self.visit_setexpr_mut(right);
+                }
+                SetExpr::Query(inner) => self.visit_query_mut(inner),
+                _ => {}
+            }
+        }
+
+        /// Recurse into a set-expression branch, which may itself be a SELECT,
+        /// a nested query, or a further set operation.
+        fn visit_setexpr_mut(&mut self, body: &mut SetExpr) {
+            match body {
+                SetExpr::Select(sel) => {
+                    // A branch of a set operation has no WITH of its own to
+                    // hang a CTE on, so any CTE this produces would have
+                    // nowhere valid to go. Recurse into its FROM only.
+                    let mut no_with = None;
+                    self.visit_select_mut(&mut no_with, sel);
+                }
+                SetExpr::SetOperation { left, right, .. } => {
+                    self.visit_setexpr_mut(left);
+                    self.visit_setexpr_mut(right);
+                }
+                SetExpr::Query(inner) => self.visit_query_mut(inner),
+                _ => {}
+            }
+        }
+
+        /// Rewrite correlated scalars inside every derived table of a FROM
+        /// clause.
+        ///
+        /// Each derived table is a complete query with its own WITH clause, so
+        /// recursing into it lets the CTE this rewriter builds attach to the
+        /// derived table itself rather than leaking into the enclosing query,
+        /// where its correlation would no longer resolve.
+        fn visit_from_mut(&mut self, from: &mut Vec<TableWithJoins>) {
+            fn relations(twj: &mut TableWithJoins) -> Vec<&mut TableFactor> {
+                let mut out = vec![&mut twj.relation];
+                for join in &mut twj.joins {
+                    out.push(&mut join.relation);
+                }
+                out
+            }
+
+            for twj in from.iter_mut() {
+                for relation in relations(twj) {
+                    match relation {
+                        TableFactor::Derived { subquery, .. } => {
+                            self.visit_query_mut(subquery);
+                        }
+                        TableFactor::NestedJoin {
+                            table_with_joins, ..
+                        } => {
+                            let mut nested = vec![(**table_with_joins).clone()];
+                            self.visit_from_mut(&mut nested);
+                            **table_with_joins = nested.remove(0);
+                        }
+                        _ => {}
+                    }
+                }
             }
         }
 
         fn visit_select_mut(&mut self, w: &mut Option<With>, sel: &mut Select) {
+            // Derived tables are rewritten before this SELECT's own projection,
+            // so an inner correlated scalar is already resolved by the time the
+            // analysis below runs over the outer one. Without this, a scalar
+            // inside a derived table was never rewritten at all and reached
+            // DataFusion, which refuses to plan it.
+            self.visit_from_mut(&mut sel.from);
+
             // ---------- outer alias (very first table name / alias) ----------
             // gather aliases from FROM clause (main table and joins)
             let mut outer_aliases: Vec<Ident> = Vec::new();
