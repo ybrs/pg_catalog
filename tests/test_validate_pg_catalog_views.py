@@ -2,7 +2,7 @@ from pathlib import Path
 
 import psycopg
 
-from test_functional import CONN_STR, server  # noqa: F401
+from test_functional import CONN_STR
 from validate_pg_catalog_views import (
     ViewDefinition,
     collect_view_definitions,
@@ -16,7 +16,7 @@ def test_collect_view_definitions_finds_pg_tables():
     assert "pg_catalog.pg_tables" in qualified_names
 
 
-def test_run_view_query_success(server):  # noqa: F811
+def test_run_view_query_success(server):
     with psycopg.connect(CONN_STR, autocommit=True) as conn:
         view = ViewDefinition(
             catalog="pgtry",
@@ -29,7 +29,7 @@ def test_run_view_query_success(server):  # noqa: F811
     assert result.status == "success"
 
 
-def test_run_view_query_missing_function(server):  # noqa: F811
+def test_run_view_query_missing_function(server):
     with psycopg.connect(CONN_STR, autocommit=True) as conn:
         view = ViewDefinition(
             catalog="pgtry",

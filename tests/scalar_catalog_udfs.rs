@@ -167,7 +167,7 @@ async fn test_row_security_active_default_false_then_resolver() -> DFResult<()> 
 
 /// A macro-generated `pg_stat_get_*` resolver: NULL by default, the installed
 /// callback's value otherwise. Exercises the generated explicit setter and the
-/// shared DynScalarUdf plumbing in one go.
+/// shared `DynScalarUdf` plumbing in one go.
 #[tokio::test]
 async fn test_generated_stat_resolver_default_null_then_resolver() -> DFResult<()> {
     use datafusion_pg_catalog::{
@@ -296,7 +296,7 @@ async fn test_visibility_predicate_default_true_then_resolver() -> DFResult<()> 
 
 /// `pg_indexam_progress_phasename(oid, int8)` is NULL with no resolver installed and
 /// reports the installed resolver's phase name otherwise. Exercises the two-argument
-/// hand-written scalar built on the shared DynScalarUdf.
+/// hand-written scalar built on the shared `DynScalarUdf`.
 #[tokio::test]
 async fn test_pg_indexam_progress_phasename_default_null_then_resolver() -> DFResult<()> {
     use arrow::array::StringArray;
@@ -397,7 +397,7 @@ async fn test_pg_get_statisticsobjdef_expressions_default_null_then_resolver() -
 
 /// A record-returning runtime function (`pg_stat_get_archiver`): no rows with no
 /// resolver installed, the resolver's single record otherwise. Exercises the typed
-/// generated row struct and the shared DynTableUdf table-function plumbing.
+/// generated row struct and the shared `DynTableUdf` table-function plumbing.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_record_returning_function_default_empty_then_resolver() -> DFResult<()> {
     use datafusion_pg_catalog::{

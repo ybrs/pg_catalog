@@ -1,3 +1,9 @@
+//! Helper for putting an empty, schema-only table into a session.
+//!
+//! Tests and embedders need a table that exists and has the right column types but
+//! holds no data, so a catalog query can be planned against it without materializing
+//! any rows.
+
 use std::sync::Arc;
 
 use arrow::datatypes::{DataType, Field, Schema};
@@ -29,6 +35,12 @@ use datafusion::execution::context::SessionContext;
 /// })
 /// .await?;
 /// ```
+///
+/// # Errors
+///
+/// Returns an error if the schema cannot be registered under the catalog, or if the
+/// table name is already taken in that schema - both are reported by the underlying
+/// `MemoryCatalogProvider`/`MemorySchemaProvider`.
 pub fn register_table(
     ctx: &SessionContext,
     catalog_name: &str,
@@ -71,6 +83,8 @@ mod tests {
     use super::*;
     use arrow::datatypes::DataType;
 
+    /// A registered table is queryable, holds no rows, and keeps the per-column
+    /// nullability it was declared with.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_register_table() -> Result<()> {
         let config = datafusion::execution::context::SessionConfig::new()

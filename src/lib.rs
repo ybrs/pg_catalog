@@ -1,5 +1,13 @@
-// Library module for pg_catalog functionality.
-// Exposes modules so the crate can be used as a library as well as a binary.
+//! A `PostgreSQL` catalog compatibility layer over `DataFusion`.
+//!
+//! The crate answers `pg_catalog` and `information_schema` queries so that
+//! `PostgreSQL` clients and BI tools can introspect a `DataFusion` session as if it
+//! were a `PostgreSQL` server. Modules are public so the crate can be embedded as a
+//! library as well as run as the binary in `main.rs`.
+//!
+//! Start at [`dispatch_query`], which routes a statement either to the internal
+//! catalog or to the embedder's own query handler, and at
+//! [`get_base_session_context`], which builds a session with the catalog loaded.
 
 pub mod clean_duplicate_columns;
 pub mod db_table;
@@ -32,7 +40,7 @@ pub use user_functions::{
     clear_index_definition_resolver, clear_pg_sequence_last_value_resolver,
     clear_row_security_active_resolver, clear_view_definition_resolver,
     set_index_definition_resolver, set_pg_sequence_last_value_resolver,
-    set_row_security_active_resolver, set_view_definition_resolver,
-    DefinitionResolver, IndexDefinitionResolver, IndexIdentity, RowSecurityActiveResolver,
-    SequenceLastValueResolver, ViewDefinitionResolver, ViewIdentity,
+    set_row_security_active_resolver, set_view_definition_resolver, DefinitionResolver,
+    IndexDefinitionResolver, IndexIdentity, RowSecurityActiveResolver, SequenceLastValueResolver,
+    ViewDefinitionResolver, ViewIdentity,
 };

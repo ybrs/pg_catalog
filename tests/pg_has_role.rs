@@ -1,7 +1,7 @@
 //! Tests for the `pg_has_role()` compatibility stub.
 //!
 //! It always returns `true` (the emulated superuser is a member of every role),
-//! but it must be callable in every form the information_schema views use: the
+//! but it must be callable in every form the `information_schema` views use: the
 //! 2-arg `pg_has_role(role, privilege)` and 3-arg
 //! `pg_has_role(user, role, privilege)` shapes, with role/user as an OID or a
 //! name, bare or `pg_catalog`-qualified.

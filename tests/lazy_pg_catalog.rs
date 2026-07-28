@@ -201,7 +201,13 @@ async fn ctx_with_fake_source(
         "public".to_string(),
     )
     .await?;
-    register_lazy_catalog(&ctx, Arc::new(FakeSource), LazyCatalogOptions::all(), database).await?;
+    register_lazy_catalog(
+        &ctx,
+        Arc::new(FakeSource),
+        LazyCatalogOptions::all(),
+        database,
+    )
+    .await?;
     Ok(ctx)
 }
 
@@ -241,7 +247,10 @@ async fn test_lazy_register_pg_database_on_scan() -> DFResult<()> {
     let batches = df.collect().await?;
 
     // Expect rows for both databases.
-    let total_rows: usize = batches.iter().map(|b| b.num_rows()).sum();
+    let total_rows: usize = batches
+        .iter()
+        .map(arrow::array::RecordBatch::num_rows)
+        .sum();
     assert_eq!(total_rows, 2);
     assert!(calls.load(Ordering::SeqCst) >= 1);
 
@@ -264,7 +273,7 @@ async fn test_lazy_merges_pg_database_rows() -> DFResult<()> {
         .collect()
         .await?
         .iter()
-        .map(|b| b.num_rows())
+        .map(arrow::array::RecordBatch::num_rows)
         .sum();
     assert!(
         pre_rows >= 3,
@@ -391,7 +400,13 @@ async fn test_lazy_catalog_information_schema_columns() -> DFResult<()> {
         .collect()
         .await?;
 
-    assert_eq!(batches.iter().map(|b| b.num_rows()).sum::<usize>(), 2);
+    assert_eq!(
+        batches
+            .iter()
+            .map(arrow::array::RecordBatch::num_rows)
+            .sum::<usize>(),
+        2
+    );
     let b = &batches[0];
     let name = b
         .column(0)
@@ -573,8 +588,13 @@ async fn test_lazy_registered_after_session_rebinds_views() -> DFResult<()> {
         "public".to_string(),
     )
     .await?;
-    register_lazy_catalog(&ctx, Arc::new(FakeSource), LazyCatalogOptions::all(), "lazydb1")
-        .await?;
+    register_lazy_catalog(
+        &ctx,
+        Arc::new(FakeSource),
+        LazyCatalogOptions::all(),
+        "lazydb1",
+    )
+    .await?;
 
     // The base table reflects the lazy rows ...
     let base = count_rows(
@@ -650,10 +670,20 @@ async fn test_lazy_catalog_double_registration_is_idempotent() -> DFResult<()> {
         "public".to_string(),
     )
     .await?;
-    register_lazy_catalog(&ctx, Arc::new(FakeSource), LazyCatalogOptions::all(), "lazydb1")
-        .await?;
-    register_lazy_catalog(&ctx, Arc::new(FakeSource), LazyCatalogOptions::all(), "lazydb1")
-        .await?;
+    register_lazy_catalog(
+        &ctx,
+        Arc::new(FakeSource),
+        LazyCatalogOptions::all(),
+        "lazydb1",
+    )
+    .await?;
+    register_lazy_catalog(
+        &ctx,
+        Arc::new(FakeSource),
+        LazyCatalogOptions::all(),
+        "lazydb1",
+    )
+    .await?;
 
     // The user relation appears exactly once ...
     let users = count_rows(
@@ -687,7 +717,7 @@ async fn test_lazy_catalog_double_registration_is_idempotent() -> DFResult<()> {
     Ok(())
 }
 
-/// A source with one indexed table, to prove the relation flags reach pg_tables.
+/// A source with one indexed table, to prove the relation flags reach `pg_tables`.
 struct IndexedSource;
 
 impl LazyCatalogSource for IndexedSource {
@@ -1672,7 +1702,9 @@ async fn test_registering_a_database_the_source_does_not_report_is_an_error() ->
     )
     .await;
 
-    let message = result.expect_err("an unknown database must fail registration").to_string();
+    let message = result
+        .expect_err("an unknown database must fail registration")
+        .to_string();
     assert!(
         message.contains("lazydb3") && message.contains("lazydb1"),
         "the error must name the database asked for and those available, got: {message}"
@@ -1700,7 +1732,9 @@ async fn test_lazy_catalog_error_surfaces_at_registration() -> DFResult<()> {
     )
     .await;
 
-    let message = result.expect_err("a failing source must fail registration").to_string();
+    let message = result
+        .expect_err("a failing source must fail registration")
+        .to_string();
     assert!(
         message.contains("boom from source"),
         "expected the source's own error, got: {message}"

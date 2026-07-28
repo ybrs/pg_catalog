@@ -1,4 +1,4 @@
-//! Tests for the small scalar compatibility functions used by information_schema
+//! Tests for the small scalar compatibility functions used by `information_schema`
 //! views: the `pg_my_temp_schema`, `getdatabaseencoding`,
 //! `pg_relation_is_updatable`, and `_pg_index_position` stubs, plus the computed
 //! `information_schema._pg_*` type-precision/length helpers.
@@ -57,7 +57,7 @@ async fn test_pg_relation_is_updatable() -> DFResult<()> {
         .as_any()
         .downcast_ref::<Int32Array>()
         .unwrap();
-    assert!(a.len() > 0 && (0..a.len()).all(|i| a.value(i) == 0));
+    assert!(!a.is_empty() && (0..a.len()).all(|i| a.value(i) == 0));
     Ok(())
 }
 
@@ -143,7 +143,7 @@ async fn test_pg_column_is_updatable_is_false() -> DFResult<()> {
         .as_any()
         .downcast_ref::<BooleanArray>()
         .unwrap();
-    assert!(a.len() > 0 && (0..a.len()).all(|i| !a.value(i)));
+    assert!(!a.is_empty() && (0..a.len()).all(|i| !a.value(i)));
     Ok(())
 }
 

@@ -1,3 +1,11 @@
+//! Database-only entry point onto the lazy catalog.
+//!
+//! `pg_catalog.pg_database` is the one catalog table that is not scoped to a single
+//! database, so an embedder that only knows which databases exist has nothing else to
+//! supply. This module adapts a plain `Fn() -> Vec<LazyDatabaseRow>` callback to the
+//! generic lazy catalog source so those embedders do not have to implement the whole
+//! [`LazyCatalogSource`] trait.
+
 use std::sync::Arc;
 
 use datafusion::error::Result as DFResult;
@@ -10,7 +18,7 @@ use crate::lazy_catalog::{
 
 /// A single database row for lazy population of `pg_catalog.pg_database`.
 ///
-/// Columns follow PostgreSQL semantics and types closely. `oid`, `datname`,
+/// Columns follow `PostgreSQL` semantics and types closely. `oid`, `datname`,
 /// and `datdba` are mandatory (TODO: Make `datdba` optional in the future);
 /// the rest are optional and will fall back to sensible defaults.
 ///
@@ -99,8 +107,14 @@ struct DatabaseOnlySource {
     fetch: Arc<dyn Fn() -> Vec<LazyDatabaseRow> + Send + Sync>,
 }
 
+/// Answers the database question from the wrapped callback and every other question
+/// with nothing, which is what makes this source safe to merge with the built-in rows.
 impl LazyCatalogSource for DatabaseOnlySource {
     /// Yield the databases produced by the wrapped callback.
+    ///
+    /// # Errors
+    ///
+    /// Never fails: the callback owns the rows and cannot report an error.
     fn databases(&self, callback: &mut dyn FnMut(Vec<DatabaseDef>)) -> DFResult<()> {
         callback((self.fetch)());
         Ok(())
@@ -147,8 +161,14 @@ impl LazyCatalogSource for DatabaseOnlySource {
 /// Unlike [`register_lazy_catalog`], this takes no database to serve. It
 /// registers `pg_database` and nothing else, and `pg_database` is the one
 /// catalog table that is not scoped to a database - every database on the
-/// server is visible from every other, as PostgreSQL does it. So there is no
+/// server is visible from every other, as `PostgreSQL` does it. So there is no
 /// database for the caller to name here.
+///
+/// # Errors
+///
+/// Returns an error if registering the lazy `pg_database` table on `ctx` fails - for
+/// instance when the catalog or `pg_catalog` schema cannot be created, or a table of
+/// that name is already registered there.
 pub async fn register_user_database_with_callback(
     ctx: &SessionContext,
     fetch_databases: Arc<dyn Fn() -> Vec<LazyDatabaseRow> + Send + Sync>,

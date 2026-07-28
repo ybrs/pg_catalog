@@ -122,7 +122,7 @@ async fn test_pg_get_userbyid_dedups_repeated_oids() -> DFResult<()> {
         .column(0)
         .as_any()
         .downcast_ref::<arrow::array::Int32Array>()
-        .map(|a| a.value(0) as i64)
+        .map(|a| i64::from(a.value(0)))
         .or_else(|| {
             role[0]
                 .column(0)

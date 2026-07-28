@@ -6,7 +6,7 @@ import subprocess
 import psycopg
 import pytest
 
-from conftest import SHARED_PORT, conn_str, load_yaml, pg_server, server  # noqa: F401
+from conftest import SHARED_PORT, conn_str, load_yaml, pg_server  # noqa: F401
 
 CONN_STR = conn_str(SHARED_PORT)
 
@@ -14,12 +14,14 @@ CONN_STR = conn_str(SHARED_PORT)
 ERROR_LOGGING_PORT = 5445
 CAPTURE_OPTION_PORT = 5446
 
+
 def test_query_returns_text(server):
     with psycopg.connect(CONN_STR) as conn:
         cur = conn.cursor()
         cur.execute("SELECT relname FROM pg_catalog.pg_class LIMIT 1")
         row = cur.fetchone()
         assert isinstance(row[0], str)
+
 
 def test_query_returns_int(server):
     with psycopg.connect(CONN_STR) as conn:
@@ -52,6 +54,7 @@ def test_text_array_return(server):
         row = cur.fetchone()
         assert row[0] == ["=Tc/dbuser", "dbuser=CTc/dbuser"]
 
+
 def test_parameter_query(server):
     with psycopg.connect(CONN_STR) as conn:
         cur = conn.cursor()
@@ -62,12 +65,14 @@ def test_parameter_query(server):
         row = cur.fetchone()
         assert row[0] >= 1
 
+
 def test_pg_get_one_subquery(server):
     with psycopg.connect(CONN_STR) as conn:
         cur = conn.cursor()
         cur.execute("SELECT pg_get_one((select relname FROM pg_catalog.pg_class LIMIT 1))")
         row = cur.fetchone()
         assert row[0] is not None
+
 
 def test_pg_get_array_subquery(server):
     with psycopg.connect(CONN_STR) as conn:
@@ -84,6 +89,7 @@ def test_pg_get_array_subquery(server):
         assert raw.startswith("{") and raw.endswith("}")
         items = raw[1:-1].split(',') if raw != '{}' else []
         assert items == [expected]
+
 
 def test_empty_result_schema(server):
     """Ensure that queries returning no rows still expose column metadata."""
@@ -160,6 +166,7 @@ def test_discard_all(server):
         cur.execute("DISCARD ALL")
         assert cur.statusmessage == "DISCARD ALL"
 
+
 def test_discard_all_semicolon(server):
     """DISCARD ALL with a trailing semicolon should be accepted."""
     with psycopg.connect(CONN_STR) as conn:
@@ -167,12 +174,14 @@ def test_discard_all_semicolon(server):
         cur.execute("DISCARD ALL;")
         assert cur.statusmessage == "DISCARD ALL"
 
+
 def test_system_columns_virtual(server):
     with psycopg.connect(CONN_STR) as conn:
         cur = conn.cursor()
         cur.execute("SELECT xmin FROM pg_catalog.pg_namespace LIMIT 1")
         row = cur.fetchone()
         assert row[0] == 1
+
 
 def test_system_columns_hidden_from_star(server):
     with psycopg.connect(CONN_STR) as conn:
@@ -196,7 +205,8 @@ def test_conexclop_regoper_cast(server):
     with psycopg.connect(CONN_STR) as conn:
         cur = conn.cursor()
         cur.execute(
-            "select array(select unnest::regoper::varchar from unnest(C.conexclop)) from pg_catalog.pg_constraint C limit 1"
+            "select array(select unnest::regoper::varchar from unnest(C.conexclop)) "
+            "from pg_catalog.pg_constraint C limit 1"
         )
         row = cur.fetchone()
         assert row[0] is None
@@ -344,7 +354,8 @@ def test_information_schema_tables(server):
     with psycopg.connect(CONN_STR) as conn:
         cur = conn.cursor()
         cur.execute(
-            "SELECT table_name FROM information_schema.tables WHERE table_schema = 'pg_catalog' AND table_name = 'pg_type'"
+            "SELECT table_name FROM information_schema.tables "
+            "WHERE table_schema = 'pg_catalog' AND table_name = 'pg_type'"
         )
         row = cur.fetchone()
         assert row == ("pg_type",)
@@ -402,6 +413,7 @@ def test_getdef_functions(server):
         row = cur.fetchone()
         assert row == (None,)
 
+
 def test_misc_missing_functions(server):
     with psycopg.connect(CONN_STR) as conn:
         cur = conn.cursor()
@@ -422,6 +434,7 @@ def test_misc_missing_functions(server):
         row = cur.fetchone()
         assert row == (None,)
 
+
 def test_encode_bytea_column(server):
     with psycopg.connect(CONN_STR) as conn:
         cur = conn.cursor()
@@ -430,6 +443,7 @@ def test_encode_bytea_column(server):
             "FROM pg_catalog.pg_trigger T LIMIT 0"
         )
         assert cur.fetchall() == []
+
 
 def test_pg_get_expr_int64(server):
     """pg_get_expr should accept BIGINT arguments produced by ::oid casts."""
@@ -490,7 +504,8 @@ def test_pg_index_access_method(server):
             where tab.relnamespace = %s::oid
               and tab.relkind in ('r','m','v','p')
               and ind_stor.relkind in ('i','I')
-              and pg_catalog.age(ind_stor.xmin) <= coalesce(nullif(greatest(pg_catalog.age(%s::varchar::xid), -1), -1), 2147483647)
+              and pg_catalog.age(ind_stor.xmin)
+                  <= coalesce(nullif(greatest(pg_catalog.age(%s::varchar::xid), -1), -1), 2147483647)
             limit 1
             """,
             (11, 0),
@@ -526,7 +541,8 @@ def test_pg_opclass_any(server):
             where tab.relnamespace = %s::oid
               and tab.relkind in ('r','m','v','p')
               and ind_stor.relkind in ('i','I')
-              and pg_catalog.age(ind_stor.xmin) <= coalesce(nullif(greatest(pg_catalog.age(%s::varchar::xid), -1), -1), 2147483647)
+              and pg_catalog.age(ind_stor.xmin)
+                  <= coalesce(nullif(greatest(pg_catalog.age(%s::varchar::xid), -1), -1), 2147483647)
             limit 1
             """,
             (11, 0),
@@ -569,11 +585,13 @@ def test_rewrite_multiple_correlated_aliases(server):
         cur.execute(sql)
         cur.fetchone()
 
+
 def test_rewrite_trigger_counts(server):
     sql = (
         "SELECT rel.oid, "
         "(SELECT count(*) FROM pg_trigger WHERE tgrelid=rel.oid AND tgisinternal = FALSE) AS triggercount, "
-        "(SELECT count(*) FROM pg_trigger WHERE tgrelid=rel.oid AND tgisinternal = FALSE AND tgenabled = 'O') AS has_enable_triggers, "
+        "(SELECT count(*) FROM pg_trigger WHERE tgrelid=rel.oid "
+        "AND tgisinternal = FALSE AND tgenabled = 'O') AS has_enable_triggers, "
         "(CASE WHEN rel.relkind = 'p' THEN true ELSE false END) AS is_partitioned, "
         "nsp.nspname AS schema, "
         "nsp.oid AS schemaoid, "
@@ -589,9 +607,6 @@ def test_rewrite_trigger_counts(server):
         cur = conn.cursor()
         cur.execute(sql)
         cur.fetchone()
-
-
-
 
 
 def test_error_logging():

@@ -1,5 +1,5 @@
-//! Tests for the set-returning-function support that lets information_schema
-//! views using `(srf(x)).field` run on DataFusion: the SRFs are scalar functions
+//! Tests for the set-returning-function support that lets `information_schema`
+//! views using `(srf(x)).field` run on `DataFusion`: the SRFs are scalar functions
 //! returning `List<Struct>` and `rewrite_srf_to_unnest` turns the projection
 //! access into an `unnest` + struct-subscript form.
 
@@ -43,7 +43,13 @@ async fn test_pg_options_to_table_unnest_executes() -> DFResult<()> {
     )
     .unwrap();
     let batches = ctx.sql(&sql).await?.collect().await?;
-    assert_eq!(batches.iter().map(|b| b.num_rows()).sum::<usize>(), 2);
+    assert_eq!(
+        batches
+            .iter()
+            .map(arrow::array::RecordBatch::num_rows)
+            .sum::<usize>(),
+        2
+    );
     let n = batches[0]
         .column_by_name("n")
         .unwrap()
@@ -74,7 +80,13 @@ async fn test_foreign_data_wrapper_options_view_runs() -> DFResult<()> {
         FROM information_schema._pg_foreign_data_wrappers w";
     let (batches, _schema) = execute_sql(&ctx, raw, None, None).await?;
     // Executes without error; row count is 0 (no FDWs).
-    assert_eq!(batches.iter().map(|b| b.num_rows()).sum::<usize>(), 0);
+    assert_eq!(
+        batches
+            .iter()
+            .map(arrow::array::RecordBatch::num_rows)
+            .sum::<usize>(),
+        0
+    );
     Ok(())
 }
 
@@ -104,7 +116,13 @@ async fn test_triggered_update_columns_view_runs() -> DFResult<()> {
         FROM ( SELECT information_schema._pg_expandarray(ARRAY['1','2']) AS x ) ss";
     let (batches, _schema) = execute_sql(&ctx, raw, None, None).await?;
     // unnest fans the 2-element array to 2 rows.
-    assert_eq!(batches.iter().map(|b| b.num_rows()).sum::<usize>(), 2);
+    assert_eq!(
+        batches
+            .iter()
+            .map(arrow::array::RecordBatch::num_rows)
+            .sum::<usize>(),
+        2
+    );
     Ok(())
 }
 
@@ -119,7 +137,13 @@ async fn test_pg_expandarray_integer_array_yields_integer_x() -> DFResult<()> {
         FROM ( SELECT information_schema._pg_expandarray(ARRAY[7, 9]) AS x ) ss \
         ORDER BY ordinal_position";
     let (batches, _schema) = execute_sql(&ctx, raw, None, None).await?;
-    assert_eq!(batches.iter().map(|b| b.num_rows()).sum::<usize>(), 2);
+    assert_eq!(
+        batches
+            .iter()
+            .map(arrow::array::RecordBatch::num_rows)
+            .sum::<usize>(),
+        2
+    );
     let attnum = batches[0]
         .column(0)
         .as_any()
@@ -138,7 +162,13 @@ async fn test_aclexplode_stub_empty() -> DFResult<()> {
     let raw = "SELECT (aclexplode(acldefault('r', 10))).grantee AS grantee \
         FROM (SELECT 1) d";
     let (batches, _schema) = execute_sql(&ctx, raw, None, None).await?;
-    assert_eq!(batches.iter().map(|b| b.num_rows()).sum::<usize>(), 0);
+    assert_eq!(
+        batches
+            .iter()
+            .map(arrow::array::RecordBatch::num_rows)
+            .sum::<usize>(),
+        0
+    );
     Ok(())
 }
 
@@ -152,6 +182,12 @@ async fn test_table_privileges_view_runs() -> DFResult<()> {
         FROM pg_catalog.pg_class) c(oid, relname, grantee)";
     let (batches, _schema) = execute_sql(&ctx, raw, None, None).await?;
     // No grants -> aclexplode empty -> 0 rows.
-    assert_eq!(batches.iter().map(|b| b.num_rows()).sum::<usize>(), 0);
+    assert_eq!(
+        batches
+            .iter()
+            .map(arrow::array::RecordBatch::num_rows)
+            .sum::<usize>(),
+        0
+    );
     Ok(())
 }

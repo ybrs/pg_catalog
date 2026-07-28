@@ -3,12 +3,22 @@
 // Included so result sets match PostgreSQL naming expectations.
 
 use datafusion::error::{DataFusionError, Result};
-use sqlparser::ast::*;
+use sqlparser::ast::{
+    visit_statements_mut, DataType, Expr, Ident, Query, Select, SelectItem, SetExpr, Statement,
+    TableFactor,
+};
 use sqlparser::dialect::PostgreSqlDialect;
 use sqlparser::parser::Parser;
 use std::collections::HashMap;
+use std::hash::BuildHasher;
 use std::ops::ControlFlow;
 
+/// Give every projected expression in `select` a unique `alias_N` name and record
+/// the name `PostgreSQL` would have reported for it in `alias_map`.
+///
+/// `counter` is threaded through the whole statement so aliases stay unique across
+/// every projection that gets rewritten. Wildcards are left untouched because their
+/// column list is only known after planning, so there is nothing to alias.
 fn alias_projection(
     select: &mut Select,
     counter: &mut usize,
@@ -44,8 +54,7 @@ fn alias_projection(
                             .0
                             .last()
                             .and_then(|part| part.as_ident())
-                            .map(|ident| ident.value.clone())
-                            .unwrap_or_else(|| "?column?".to_string());
+                            .map_or_else(|| "?column?".to_string(), |ident| ident.value.clone());
 
                         // here obj is
                         // obj: ObjectName([Identifier(Ident { value: "oid", quote_style: None, span: Span(Location(1,35)..Location(1,38)) })])
@@ -89,8 +98,7 @@ fn alias_projection(
                     let name = match expr {
                         Expr::CompoundIdentifier(segments) => segments
                             .last()
-                            .map(|id| id.value.clone())
-                            .unwrap_or("?column?".to_string()),
+                            .map_or("?column?".to_string(), |id| id.value.clone()),
                         Expr::Identifier(id) => id.value.clone(),
                         _ => "?column?".to_string(),
                     };
@@ -109,6 +117,12 @@ fn alias_projection(
     select.projection = aliased_projection;
 }
 
+/// Alias the projection of a set expression, and descend into any derived tables
+/// it selects from.
+///
+/// Only `depth == 0` projections are aliased: those are the columns the client
+/// sees and whose names [`restore_aliased_column_names`] can map back. Renaming
+/// nested projections would break references to them from the enclosing query.
 fn alias_columns_in_set_expr(
     expr: &mut SetExpr,
     counter: &mut usize,
@@ -121,11 +135,8 @@ fn alias_columns_in_set_expr(
                 alias_projection(select, counter, alias_map);
             }
             for table_with_joins in &mut select.from {
-                match &mut table_with_joins.relation {
-                    TableFactor::Derived { subquery, .. } => {
-                        alias_columns_in_query(subquery, counter, alias_map, depth + 1);
-                    }
-                    _ => {}
+                if let TableFactor::Derived { subquery, .. } = &mut table_with_joins.relation {
+                    alias_columns_in_query(subquery, counter, alias_map, depth + 1);
                 }
             }
         }
@@ -141,6 +152,8 @@ fn alias_columns_in_set_expr(
     }
 }
 
+/// Run [`alias_columns_in_set_expr`] over a query's body and over each of its CTE
+/// bodies, which are one level deeper than the query that defines them.
 fn alias_columns_in_query(
     query: &mut Query,
     counter: &mut usize,
@@ -236,14 +249,19 @@ fn dedup_in_query(query: &mut Query, depth: usize) {
 
 /// Disambiguate duplicate column names inside *nested* SELECT projections.
 ///
-/// DataFusion's optimizer asserts a column's name matches its projection
-/// expression and panics ("Internal error: Assertion failed: col.name() ==
-/// matching_name") when a derived table projects two columns with the same name
-/// - e.g. `SELECT nr.nspname, ..., nc.nspname` in `constraint_column_usage`. The
-/// top-level projection is already disambiguated by [`alias_unnamed_columns`];
-/// this covers the nested case it skips. Inner names aren't client-visible
-/// (they're under a column-alias list, or a duplicate name was unreferenceable
-/// anyway), so no rename-back is needed.
+/// `DataFusion`'s optimizer asserts a column's name matches its projection
+/// expression and panics ("Internal error: Assertion failed: `col.name()` ==
+/// `matching_name`") when a derived table projects two columns with the same
+/// name, for example `SELECT nr.nspname, ..., nc.nspname` in
+/// `constraint_column_usage`. The top-level projection is already disambiguated
+/// by [`alias_unnamed_columns`]; this covers the nested case it skips. Inner
+/// names aren't client-visible (they're under a column-alias list, or a duplicate
+/// name was unreferenceable anyway), so no rename-back is needed.
+///
+/// # Errors
+///
+/// Returns [`DataFusionError::External`] if `sql` does not parse as `PostgreSQL`
+/// dialect SQL.
 pub fn disambiguate_duplicate_columns(sql: &str) -> Result<String> {
     let dialect = PostgreSqlDialect {};
     let mut statements =
@@ -264,6 +282,11 @@ pub fn disambiguate_duplicate_columns(sql: &str) -> Result<String> {
 /// Assign unique aliases to every projected column and return a map
 /// of alias to original name so duplicate column names do not confuse
 /// clients.
+///
+/// # Errors
+///
+/// Returns [`DataFusionError::External`] if `sql` does not parse as `PostgreSQL`
+/// dialect SQL.
 pub fn alias_unnamed_columns(sql: &str) -> Result<(String, HashMap<String, String>)> {
     let dialect = PostgreSqlDialect {};
     let mut statements =
@@ -285,7 +308,7 @@ pub fn alias_unnamed_columns(sql: &str) -> Result<(String, HashMap<String, Strin
         .collect::<Vec<_>>()
         .join(" ");
 
-    log::debug!("result: {:?} alias_map: {:?}", res, alias_map);
+    log::debug!("result: {res:?} alias_map: {alias_map:?}");
 
     Ok((res, alias_map))
 }
@@ -294,16 +317,21 @@ pub fn alias_unnamed_columns(sql: &str) -> Result<(String, HashMap<String, Strin
 /// using the map [`alias_unnamed_columns`] produced.
 ///
 /// `alias_unnamed_columns` renames every unnamed top-level column to a unique
-/// `alias_N` so duplicate names cannot confuse DataFusion, and the real names are
+/// `alias_N` so duplicate names cannot confuse `DataFusion`, and the real names are
 /// restored on the result schema sent to the client. A `CREATE VIEW` body keeps its
 /// projection names as the view's schema, so a view built from the aliased SQL would
 /// expose `alias_N` to everyone reading it. Applying this before `CREATE VIEW` gives
-/// the view its real PostgreSQL column names. Aliases happen only at the top level
+/// the view its real `PostgreSQL` column names. Aliases happen only at the top level
 /// (`alias_columns_in_set_expr` aliases at `depth == 0`), so only the outermost
 /// projection - and each branch of a top-level set operation - is restored.
-pub fn restore_aliased_column_names(
+///
+/// # Errors
+///
+/// Returns [`DataFusionError::External`] if `sql` does not parse as `PostgreSQL`
+/// dialect SQL.
+pub fn restore_aliased_column_names<S: BuildHasher>(
     sql: &str,
-    alias_map: &HashMap<String, String>,
+    alias_map: &HashMap<String, String, S>,
 ) -> Result<String> {
     let dialect = PostgreSqlDialect {};
     let mut statements =
@@ -324,7 +352,7 @@ pub fn restore_aliased_column_names(
 /// Restore the real name of each top-level projection column whose alias is an
 /// `alias_N` key in `alias_map`, recursing only into the branches of a top-level
 /// set operation (where the aliases also live).
-fn restore_in_set_expr(expr: &mut SetExpr, alias_map: &HashMap<String, String>) {
+fn restore_in_set_expr<S: BuildHasher>(expr: &mut SetExpr, alias_map: &HashMap<String, String, S>) {
     match expr {
         SetExpr::Select(select) => {
             for item in &mut select.projection {
@@ -349,6 +377,8 @@ mod tests {
     use super::*;
     use std::error::Error;
 
+    /// A derived table projecting the same name twice gets its second occurrence
+    /// aliased, while the outer projection keeps its client-facing names.
     #[test]
     fn test_disambiguate_duplicate_columns_in_derived_table() -> Result<(), Box<dyn Error>> {
         // Two `nspname`s in a derived table -> the second becomes `nspname_2`,
@@ -368,6 +398,8 @@ mod tests {
         Ok(())
     }
 
+    /// A nested projection whose names are already unique is passed through
+    /// unchanged, so no query pays for aliases it does not need.
     #[test]
     fn test_disambiguate_leaves_unique_columns_untouched() -> Result<(), Box<dyn Error>> {
         let sql = "SELECT x FROM (SELECT a.p, b.q FROM a, b) t";
@@ -379,6 +411,8 @@ mod tests {
         Ok(())
     }
 
+    /// Build the alias map `alias_unnamed_columns` is expected to produce, mapping
+    /// `alias_1`, `alias_2`, ... to the given original column names in order.
     fn alias_maps(nums: &[&str]) -> HashMap<String, String> {
         let mut map = HashMap::new();
         for (i, &val) in nums.iter().enumerate() {
@@ -388,9 +422,14 @@ mod tests {
         map
     }
 
-    #[test]
-    fn test_alias_unnamed_columns() -> Result<(), Box<dyn Error>> {
-        let cases = vec![
+    /// One `alias_unnamed_columns` expectation: the input SQL, the substrings the
+    /// rewritten SQL must contain, and the alias map the rewrite must return.
+    type AliasCase = (&'static str, Vec<&'static str>, HashMap<String, String>);
+
+    /// The cases exercised by `test_alias_unnamed_columns`, kept next to the test
+    /// but out of its body so each new case does not grow the test itself.
+    fn alias_unnamed_columns_cases() -> Vec<AliasCase> {
+        vec![
             (
                 "SELECT t.id FROM foo",
                 vec!["SELECT t.id AS alias_1", "FROM foo"],
@@ -476,29 +515,31 @@ mod tests {
                 vec!["SELECT SUBSTR('foo', 1, 2) AS "],
                 alias_maps(&["?column?"]),
             ),
-        ];
+        ]
+    }
 
-        for (input, expected_substrings, expected_alias_map) in cases {
+    /// Every projected expression that carries no explicit alias is renamed to a
+    /// unique `alias_N`, and the returned map reports the name `PostgreSQL` would
+    /// have given it. Wildcards and already-aliased columns are left alone.
+    #[test]
+    fn test_alias_unnamed_columns() {
+        for (input, expected_substrings, expected_alias_map) in alias_unnamed_columns_cases() {
             let (transformed, aliases) = alias_unnamed_columns(input).unwrap();
             for expected in expected_substrings {
                 assert!(
                     transformed.contains(expected),
-                    "Expected substring not found:\ninput: {}\nexpected: {}\nactual: {}",
-                    input,
-                    expected,
-                    transformed
+                    "Expected substring not found:\ninput: {input}\nexpected: {expected}\nactual: {transformed}"
                 );
                 assert_eq!(
                     aliases, expected_alias_map,
-                    "alias maps failed input: {} expected {:?} actual {:?}",
-                    input, expected_alias_map, aliases
+                    "alias maps failed input: {input} expected {expected_alias_map:?} actual {aliases:?}"
                 );
             }
         }
-
-        Ok(())
     }
 
+    /// Aliasing then restoring round-trips back to the original column names, so a
+    /// view created from the rewritten SQL exposes the names clients expect.
     #[test]
     fn test_restore_aliased_column_names_recovers_real_names() -> Result<(), Box<dyn Error>> {
         // A qualified ref and an unqualified ref both lose their name to alias_N;
@@ -517,6 +558,8 @@ mod tests {
         Ok(())
     }
 
+    /// A column the query already named with `AS` never gets an `alias_N`, so
+    /// restoring must leave that name exactly as written.
     #[test]
     fn test_restore_leaves_explicit_aliases_untouched() -> Result<(), Box<dyn Error>> {
         // A column the body already named with AS is never aliased, so restore is a

@@ -28,7 +28,6 @@ report and that regression test never disagree about what passes.
 """
 
 import argparse
-import glob
 import json
 import re
 from collections import Counter

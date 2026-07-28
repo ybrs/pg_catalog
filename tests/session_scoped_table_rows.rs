@@ -2,7 +2,7 @@
 //!
 //! The catalog is currently either flattened into a single context (the lazy
 //! path, where every database's schemas are visible at once and so cannot all
-//! use PostgreSQL's canonical oids) or rebuilt per database (the eager path,
+//! use `PostgreSQL`'s canonical oids) or rebuilt per database (the eager path,
 //! which costs a full context each). Unifying them on a single shared context
 //! depends on one mechanism: a table provider reading the connected database
 //! from session config at scan time, so each connection sees only its own
@@ -10,13 +10,13 @@
 //!
 //! That is easy to believe for a direct table scan. The load-bearing question
 //! is whether it still holds through a VIEW, because the catalog's 136 views
-//! are planned once at startup and shared by every connection. If DataFusion
+//! are planned once at startup and shared by every connection. If `DataFusion`
 //! resolved anything about those scans at plan time rather than scan time, a
 //! view would freeze whichever session created it and the whole design would
 //! collapse back to per-database contexts.
 //!
 //! These tests answer that with the real machinery: a provider that reads a
-//! ClientOpts value at scan time, a view planned once over it, and contexts
+//! `ClientOpts` value at scan time, a view planned once over it, and contexts
 //! cloned per connection the way riffq clones them.
 
 use std::sync::Arc;
@@ -36,7 +36,7 @@ use datafusion_pg_catalog::session::ClientOpts;
 /// A table whose single row is whatever the session's `search_path` says.
 ///
 /// `search_path` stands in for "the connected database": it is an existing
-/// per-session ClientOpts value, so this exercises the real config plumbing
+/// per-session `ClientOpts` value, so this exercises the real config plumbing
 /// rather than a mechanism invented for the test.
 #[derive(Debug)]
 struct SessionScopedTable {
@@ -46,7 +46,11 @@ struct SessionScopedTable {
 impl SessionScopedTable {
     fn new() -> Self {
         Self {
-            schema: Arc::new(Schema::new(vec![Field::new("scope", DataType::Utf8, false)])),
+            schema: Arc::new(Schema::new(vec![Field::new(
+                "scope",
+                DataType::Utf8,
+                false,
+            )])),
         }
     }
 }
@@ -74,8 +78,10 @@ impl TableProvider for SessionScopedTable {
             .config_options()
             .extensions
             .get::<ClientOpts>()
-            .map(|opts| opts.search_path.clone())
-            .unwrap_or_else(|| "<no client opts>".to_string());
+            .map_or_else(
+                || "<no client opts>".to_string(),
+                |opts| opts.search_path.clone(),
+            );
 
         let batch = RecordBatch::try_new(
             self.schema.clone(),
@@ -130,8 +136,14 @@ async fn test_direct_scan_sees_the_scanning_session() -> DFResult<()> {
     let first = connection_with_scope(&base, "db_one").await?;
     let second = connection_with_scope(&base, "db_two").await?;
 
-    assert_eq!(scope_of(&first, "SELECT scope FROM scoped_rows").await?, "db_one");
-    assert_eq!(scope_of(&second, "SELECT scope FROM scoped_rows").await?, "db_two");
+    assert_eq!(
+        scope_of(&first, "SELECT scope FROM scoped_rows").await?,
+        "db_one"
+    );
+    assert_eq!(
+        scope_of(&second, "SELECT scope FROM scoped_rows").await?,
+        "db_two"
+    );
     Ok(())
 }
 
@@ -144,8 +156,14 @@ async fn test_view_planned_once_still_sees_the_scanning_session() -> DFResult<()
     let first = connection_with_scope(&base, "db_one").await?;
     let second = connection_with_scope(&base, "db_two").await?;
 
-    assert_eq!(scope_of(&first, "SELECT scope FROM scoped_view").await?, "db_one");
-    assert_eq!(scope_of(&second, "SELECT scope FROM scoped_view").await?, "db_two");
+    assert_eq!(
+        scope_of(&first, "SELECT scope FROM scoped_view").await?,
+        "db_one"
+    );
+    assert_eq!(
+        scope_of(&second, "SELECT scope FROM scoped_view").await?,
+        "db_two"
+    );
     Ok(())
 }
 
@@ -159,7 +177,10 @@ async fn test_connections_do_not_leak_scope_into_each_other() -> DFResult<()> {
     let _second = connection_with_scope(&base, "db_two").await?;
 
     // Re-read the first after the second has been set.
-    assert_eq!(scope_of(&first, "SELECT scope FROM scoped_view").await?, "db_one");
+    assert_eq!(
+        scope_of(&first, "SELECT scope FROM scoped_view").await?,
+        "db_one"
+    );
 
     // And the base itself is unaffected by either connection.
     let base_scope = scope_of(&base, "SELECT scope FROM scoped_view").await?;
@@ -174,12 +195,18 @@ async fn test_scope_change_is_visible_without_replanning_the_view() -> DFResult<
     // through the same shared view plan.
     let base = base_context_with_view().await?;
     let ctx = connection_with_scope(&base, "db_one").await?;
-    assert_eq!(scope_of(&ctx, "SELECT scope FROM scoped_view").await?, "db_one");
+    assert_eq!(
+        scope_of(&ctx, "SELECT scope FROM scoped_view").await?,
+        "db_one"
+    );
 
     ctx.sql("SET pg_catalog.search_path = 'db_three'")
         .await?
         .collect()
         .await?;
-    assert_eq!(scope_of(&ctx, "SELECT scope FROM scoped_view").await?, "db_three");
+    assert_eq!(
+        scope_of(&ctx, "SELECT scope FROM scoped_view").await?,
+        "db_three"
+    );
     Ok(())
 }

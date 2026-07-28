@@ -4,7 +4,7 @@ import glob
 import psycopg
 import pytest
 
-from conftest import SHARED_PORT, conn_str, load_yaml, server  # noqa: F401
+from conftest import SHARED_PORT, conn_str, load_yaml
 
 logging.basicConfig(
     level=getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), logging.INFO)
@@ -59,8 +59,8 @@ def replay_captured_queries(queries):
             query = entry["query"]
             params = entry.get("parameters") or []
             """
-            We convert $1 to %s queries, because psycopg3 wants that. 
-            It sends them as parameters to the server - as it should. 
+            We convert $1 to %s queries, because psycopg3 wants that.
+            It sends them as parameters to the server - as it should.
             pyscopg3 doesn't do string interpolation
             """
             query = query.replace("%", "%%")
@@ -86,20 +86,16 @@ def replay_captured_queries(queries):
                         row,
                         expected_row,
                     )
-                    assert(row == expected_row)
+                    assert (row == expected_row)
                     # import ipdb; ipdb.set_trace()
-
-
-
 
 
 @pytest.mark.skip(reason="capture replay not stable")
 def test_captured_queries(server):
     capture_files = sorted(glob.glob("captures/*.yaml"))
     assert capture_files, "no capture files found"
-    
+
     for file in capture_files:
         print("running capture", file)
         data = load_yaml(file)
         replay_captured_queries(data)
-

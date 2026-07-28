@@ -23,19 +23,29 @@ use datafusion::physical_plan::collect;
 use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
+/// Translate a `PostgreSQL` type name (as written in a catalog table definition)
+/// into the Arrow type used to store that column.
+///
+/// Matching is case-insensitive. Unknown type names fall back to `Utf8` so a
+/// catalog column with an exotic type still round-trips as text rather than
+/// failing to build.
+#[must_use]
 pub fn map_pg_type(pg_type: &str) -> DataType {
     let lower = pg_type.to_lowercase();
     match lower.as_str() {
-        "oidvector" => DataType::List(Arc::new(Field::new("item", DataType::Int64, true))),
-        "int2vector" => DataType::List(Arc::new(Field::new("item", DataType::Int32, true))),
-        // Integer arrays. Match our scalar widths (int2/int4/oid scalars are Int32,
+        // Integer vectors and arrays. These arms keep the element width equal to
+        // the width of the matching scalar type (int2/int4 scalars are Int32,
         // int8 is Int64) so `intcol = ANY(array)` compares like-with-like - e.g.
         // `pg_attribute.attnum = ANY(pg_constraint.conkey)`. `_oid` follows
-        // oidvector (Int64) since oid values can exceed Int32. Without these arms
-        // these arrays fell to the `_`-prefix text-array rule below and the
-        // integer values silently became unmatchable text.
-        "_int2" | "_int4" => DataType::List(Arc::new(Field::new("item", DataType::Int32, true))),
-        "_int8" | "_oid" => DataType::List(Arc::new(Field::new("item", DataType::Int64, true))),
+        // oidvector at Int64 since oid values can exceed Int32. Without these
+        // arms the names match the `_`-prefix text-array rule below and the
+        // integer values become unmatchable text.
+        "int2vector" | "_int2" | "_int4" => {
+            DataType::List(Arc::new(Field::new("item", DataType::Int32, true)))
+        }
+        "oidvector" | "_int8" | "_oid" => {
+            DataType::List(Arc::new(Field::new("item", DataType::Int64, true)))
+        }
         _ if lower.ends_with("[]") || lower.starts_with('_') => {
             DataType::List(Arc::new(Field::new("item", DataType::Utf8, true)))
         }
@@ -57,11 +67,24 @@ pub fn map_pg_type(pg_type: &str) -> DataType {
     }
 }
 
+/// Gives a recorded scan a schema to look column names up in.
+///
+/// A [`ScanTrace`] keeps column names and type names as plain strings rather
+/// than holding a `SchemaRef`, so the schema is rebuilt on demand when a
+/// projection index has to be resolved back to a column name.
 trait SchemaAccess {
+    /// Build the Arrow schema described by this value.
     fn schema(&self) -> SchemaRef;
 }
 
 impl SchemaAccess for ScanTrace {
+    /// Rebuild a schema from the recorded column names, in the order they are
+    /// stored in `column_types`.
+    ///
+    /// Only the field names are consumed by callers; the field types are
+    /// whatever [`map_pg_type`] makes of the recorded type name, which is an
+    /// Arrow type name rather than a `PostgreSQL` one, so they are indicative
+    /// only.
     fn schema(&self) -> SchemaRef {
         Arc::new(Schema::new(
             self.column_types
@@ -72,23 +95,52 @@ impl SchemaAccess for ScanTrace {
     }
 }
 
+/// One recorded scan of a catalog table: which table was read, which columns
+/// were projected, and which filters were pushed down.
+///
+/// Tests assert on these traces to check that a query only touches the catalog
+/// tables and columns it is supposed to.
 #[derive(Debug, Clone)]
 pub struct ScanTrace {
+    /// Name of the table that was scanned.
     table: String,
+    /// Column indexes `DataFusion` asked for, or `None` for "all columns".
     projection: Option<Vec<usize>>,
+    /// Filter expressions `DataFusion` offered to the provider.
     filters: Vec<Expr>,
+    /// Column name -> Arrow type name of the scanned table, kept in a `BTreeMap`
+    /// so the recorded trace has a stable, name-sorted order across runs.
     column_types: BTreeMap<String, String>,
 }
 
+/// An in-memory table provider that appends a [`ScanTrace`] to a shared log on
+/// every scan.
+///
+/// It delegates all real work to an inner [`MemTable`]; the only added
+/// behaviour is the recording, which is what lets tests observe catalog access
+/// patterns without a real `PostgreSQL` server.
 #[derive(Debug)]
 pub struct ScanRecordingMemTable {
+    /// Schema of the table, shared with the inner `MemTable`.
     schema: SchemaRef,
+    /// Inner provider holding the rows and executing the scans.
     mem: Arc<MemTable>,
+    /// Scan log shared by every table in a session.
     scan_traces: Arc<Mutex<Vec<ScanTrace>>>,
+    /// Table name reported in each recorded trace.
     table_name: String,
 }
 
 impl ScanRecordingMemTable {
+    /// Build a provider serving `data` for `table_name` and recording its scans
+    /// into the shared `scan_traces` log.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any batch in `data` does not match `schema`, which is what
+    /// `MemTable::try_new` rejects. Catalog tables are built from the same
+    /// schema that produced their batches, so a mismatch is a bug in the
+    /// caller rather than a runtime condition to recover from.
     pub fn new(
         table_name: String,
         schema: SchemaRef,
@@ -107,14 +159,25 @@ impl ScanRecordingMemTable {
 
 #[async_trait]
 impl TableProvider for ScanRecordingMemTable {
+    /// Schema of the rows this provider serves.
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 
+    /// Catalog tables served from memory are ordinary base tables; views are
+    /// registered separately as view providers.
     fn table_type(&self) -> TableType {
         TableType::Base
     }
 
+    /// Accept every filter as inexact, so `DataFusion` still re-applies it after
+    /// the scan. The provider does not evaluate filters itself - it only
+    /// records them - so claiming exact pushdown would drop the predicate.
+    ///
+    /// # Errors
+    ///
+    /// Never returns an error; the `Result` is part of the `TableProvider`
+    /// contract.
     fn supports_filters_pushdown(
         &self,
         filters: &[&Expr],
@@ -122,6 +185,18 @@ impl TableProvider for ScanRecordingMemTable {
         Ok(vec![TableProviderFilterPushDown::Inexact; filters.len()])
     }
 
+    /// Record the scan (table, projection, filters, column types) in the shared
+    /// log, then delegate execution to the inner `MemTable`.
+    ///
+    /// # Errors
+    ///
+    /// Returns whatever error the inner `MemTable` scan produces, for instance
+    /// a projection index outside the schema.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the shared scan log mutex is poisoned by a thread that
+    /// panicked while holding it.
     async fn scan(
         &self,
         state: &dyn datafusion::catalog::Session,
@@ -146,6 +221,19 @@ impl TableProvider for ScanRecordingMemTable {
         self.mem.scan(state, projection, filters, limit).await
     }
 
+    /// Materialize `input` and store it in the inner `MemTable`'s single
+    /// partition, either replacing the existing rows (`InsertOp::Overwrite`) or
+    /// appending to them.
+    ///
+    /// The rows are concatenated into one batch so the partition always holds
+    /// at most a single batch, which keeps the append path a plain read of
+    /// `batches[0]`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if executing `input` fails, or if the produced batches
+    /// cannot be concatenated because their schema differs from this table's
+    /// schema.
     async fn insert_into(
         &self,
         state: &dyn Session,
@@ -160,17 +248,16 @@ impl TableProvider for ScanRecordingMemTable {
             };
 
         let mut new_batches = collect(input, task_ctx).await?;
-        let merged = match insert_op {
-            InsertOp::Overwrite => concat_batches(&self.schema, &new_batches)?,
-            _ => {
-                let guard = self.mem.batches[0].write().await;
-                if !guard.is_empty() {
-                    let mut all = vec![guard[0].clone()];
-                    all.append(&mut new_batches);
-                    concat_batches(&self.schema, &all)?
-                } else {
-                    concat_batches(&self.schema, &new_batches)?
-                }
+        let merged = if insert_op == InsertOp::Overwrite {
+            concat_batches(&self.schema, &new_batches)?
+        } else {
+            let guard = self.mem.batches[0].write().await;
+            if guard.is_empty() {
+                concat_batches(&self.schema, &new_batches)?
+            } else {
+                let mut all = vec![guard[0].clone()];
+                all.append(&mut new_batches);
+                concat_batches(&self.schema, &all)?
             }
         };
 
@@ -186,7 +273,15 @@ impl TableProvider for ScanRecordingMemTable {
 
 /// Serialize the recorded scan traces to JSON and emit them via `log::info!`,
 /// so tests and debugging can see which tables/columns/filters were scanned.
-pub fn log_scan_traces(scan_traces: Arc<Mutex<Vec<ScanTrace>>>) {
+///
+/// Projections are resolved back to column names using the trace's own schema,
+/// so the output names columns rather than opaque indexes.
+///
+/// # Panics
+///
+/// Panics if the scan log mutex is poisoned by a thread that panicked while
+/// holding it.
+pub fn log_scan_traces(scan_traces: &Arc<Mutex<Vec<ScanTrace>>>) {
     let serialized: Vec<_> = scan_traces
         .lock()
         .unwrap()
@@ -202,7 +297,7 @@ pub fn log_scan_traces(scan_traces: Arc<Mutex<Vec<ScanTrace>>>) {
             json!({
                 "table": trace.table,
                 "columns": columns,
-                "filters": trace.filters.iter().map(|f| f.to_string()).collect::<Vec<_>>(),
+                "filters": trace.filters.iter().map(std::string::ToString::to_string).collect::<Vec<_>>(),
                 "types": trace.column_types,
             })
         })
@@ -214,6 +309,8 @@ pub fn log_scan_traces(scan_traces: Arc<Mutex<Vec<ScanTrace>>>) {
 mod tests {
     use super::*;
 
+    /// Scalar type names map to their Arrow counterparts, and an unknown name
+    /// falls back to `Utf8`.
     #[test]
     fn test_map_pg_type() {
         assert_eq!(map_pg_type("int"), DataType::Int32);
@@ -224,6 +321,8 @@ mod tests {
         assert_eq!(map_pg_type("unknown"), DataType::Utf8);
     }
 
+    /// Every spelling of the `PostgreSQL` float types maps to the Arrow width
+    /// that matches the advertised wire type.
     #[test]
     fn test_map_pg_float_types() {
         // Float types map to the matching Arrow width (faithful wire OID), not
@@ -245,6 +344,8 @@ mod tests {
         }
     }
 
+    /// Array and vector type names map to lists whose element width matches the
+    /// corresponding scalar type, and text arrays keep the `Utf8` default.
     #[test]
     fn test_map_pg_array_type() {
         match map_pg_type("int[]") {

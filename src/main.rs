@@ -1,6 +1,8 @@
-// Entry point for the pg_catalog compatibility server.
-// Parses CLI arguments, builds a SessionContext and starts the pgwire server.
-// Provides a simple way to run the DataFusion-backed PostgreSQL emulator.
+//! Entry point for the `pg_catalog` compatibility server.
+//!
+//! Parses CLI arguments, builds a `SessionContext` and starts the pgwire server,
+//! providing a simple way to run the `DataFusion`-backed `PostgreSQL` emulator.
+use datafusion_pg_catalog::pg_catalog_helpers::ColumnDef;
 use datafusion_pg_catalog::{pg_catalog_helpers, register_user_database};
 use std::collections::BTreeMap;
 use std::env;
@@ -9,6 +11,18 @@ use std::sync::Arc;
 use datafusion_pg_catalog::server::start_server;
 use datafusion_pg_catalog::session::get_base_session_context;
 
+/// Build the demo server from the command line and serve it until the process ends.
+///
+/// Reads the schema directory from the first argument and the optional
+/// `--default-catalog` / `--default-schema` / `--host` / `--port` / `--capture`
+/// flags, seeds a small `pgtry` database so a client has something to query, and
+/// hands the context to [`start_server`].
+///
+/// # Errors
+///
+/// Returns an error if the schema directory cannot be loaded into a session context,
+/// if seeding the demo database, schema or tables fails, or if the server cannot bind
+/// and serve the requested address.
 async fn run() -> anyhow::Result<()> {
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
@@ -49,7 +63,7 @@ async fn run() -> anyhow::Result<()> {
         .unwrap_or(&"5433".to_string())
         .clone();
 
-    let address = format!("{}:{}", host, port);
+    let address = format!("{host}:{port}");
 
     let capture_file = args
         .iter()
@@ -66,7 +80,6 @@ async fn run() -> anyhow::Result<()> {
 
     register_user_database(&ctx, "pgtry").await?;
     let public_oid = pg_catalog_helpers::register_schema(&ctx, "pgtry", "public").await?;
-    use pg_catalog_helpers::ColumnDef;
     let mut c1 = BTreeMap::new();
     c1.insert(
         "id".to_string(),
@@ -93,19 +106,29 @@ async fn run() -> anyhow::Result<()> {
         &address,
         &default_catalog,
         &default_schema,
-        capture_file.map(|p| p.into()),
+        capture_file.map(std::convert::Into::into),
     )
     .await?;
 
     Ok(())
 }
 
+/// Start the async runtime and run the server, logging a crash instead of propagating it.
+///
+/// A failure is logged rather than returned so the process exits 0 after printing the
+/// cause, which keeps the message visible instead of letting the runtime print a bare
+/// `Error: ...` debug dump.
+///
+/// # Errors
+///
+/// Never returns an error: [`run`]'s failure is logged and swallowed. The `Result`
+/// return type is kept so `?` stays available inside `main`.
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     env_logger::init();
 
     if let Err(e) = run().await {
-        log::error!("server crashed: {:?}", e);
+        log::error!("server crashed: {e:?}");
     }
     Ok(())
 }
@@ -117,6 +140,8 @@ mod tests {
     use datafusion_pg_catalog::router::dispatch_query;
     use std::sync::Arc;
 
+    /// The binary can reach `dispatch_query` through the library crate: a non-catalog
+    /// query is routed to the supplied handler.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_dispatch_in_main() -> anyhow::Result<()> {
         let ctx = SessionContext::new();

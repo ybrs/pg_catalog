@@ -1,6 +1,6 @@
 //! A correlated scalar subquery with `LIMIT 1` must return the matching value.
 //!
-//! DataFusion decorrelates such a subquery by pulling its correlation predicate
+//! `DataFusion` decorrelates such a subquery by pulling its correlation predicate
 //! up into a join while leaving the `LIMIT` in place, which limits the subquery
 //! relation as a whole instead of each outer row. The plan is accepted and
 //! every row comes back NULL, so this fails silently rather than loudly --
@@ -113,7 +113,7 @@ async fn test_correlated_limit_one_returns_the_matching_value() -> DFResult<()> 
     let values = string_column(&ctx, sql, 1).await?;
     assert!(!values.is_empty(), "expected rows");
     assert!(
-        values.iter().all(|v| v.is_some()),
+        values.iter().all(std::option::Option::is_some),
         "correlated LIMIT 1 subquery returned NULLs: {values:?}"
     );
     Ok(())
@@ -145,6 +145,9 @@ async fn test_uncorrelated_limit_one_still_executes() -> DFResult<()> {
                FROM pg_catalog.pg_type t LIMIT 3";
     let values = string_column(&ctx, sql, 0).await?;
     assert_eq!(values.len(), 3);
-    assert!(values.iter().all(|v| v.is_some()), "got {values:?}");
+    assert!(
+        values.iter().all(std::option::Option::is_some),
+        "got {values:?}"
+    );
     Ok(())
 }

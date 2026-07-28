@@ -17,7 +17,6 @@ It is idempotent and is run by `regenerate-catalog.sh` after generation.
 
 Usage:  python patch_views.py pg_catalog_data/pg_schema
 """
-import glob
 import re
 import sys
 

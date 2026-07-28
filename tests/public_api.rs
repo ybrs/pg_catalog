@@ -9,6 +9,8 @@ use std::sync::{Arc, Mutex};
 use zip::write::FileOptions;
 use zip::ZipWriter;
 
+/// `dispatch_query` is usable through the crate root: a non-catalog query reaches the
+/// caller-supplied handler.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_dispatch_query_public() -> datafusion::error::Result<()> {
     let ctx = SessionContext::new();
@@ -28,6 +30,8 @@ async fn test_dispatch_query_public() -> datafusion::error::Result<()> {
     Ok(())
 }
 
+/// `get_base_session_context` accepts a schema zip built at runtime, the path an
+/// embedder takes when it ships its own catalog dump.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_get_base_session_context_public() -> datafusion::error::Result<()> {
     let dir = tempfile::tempdir().unwrap();
@@ -42,6 +46,7 @@ async fn test_get_base_session_context_public() -> datafusion::error::Result<()>
     Ok(())
 }
 
+/// The embedded schema zip loads and carries correct column types.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_get_base_session_context_embedded() -> datafusion::error::Result<()> {
     // `None` loads the embedded postgres-schema-nightly.zip (the path riffq uses).
@@ -65,6 +70,8 @@ async fn test_get_base_session_context_embedded() -> datafusion::error::Result<(
     Ok(())
 }
 
+/// Catalog views are registered as views, not as base tables, so clients that inspect
+/// `pg_views` and `TableType` see what `PostgreSQL` would report.
 #[tokio::test(flavor = "multi_thread")]
 async fn test_pg_views_registered_as_view() -> datafusion::error::Result<()> {
     let (ctx, _log) = get_base_session_context(
@@ -78,7 +85,10 @@ async fn test_pg_views_registered_as_view() -> datafusion::error::Result<()> {
         .sql("SELECT viewname FROM pg_catalog.pg_views WHERE viewname = 'pg_views'")
         .await?;
     let batches = df.collect().await?;
-    let total_rows: usize = batches.iter().map(|b| b.num_rows()).sum();
+    let total_rows: usize = batches
+        .iter()
+        .map(arrow::array::RecordBatch::num_rows)
+        .sum();
     assert!(
         total_rows >= 1,
         "expected pg_views view to return at least one row"
@@ -102,6 +112,14 @@ async fn test_pg_views_registered_as_view() -> datafusion::error::Result<()> {
     Ok(())
 }
 
+/// Zip every YAML file of the on-disk catalog schema into `path`, producing the same
+/// artifact shape `get_base_session_context` loads from disk.
+///
+/// # Panics
+///
+/// Panics if the file cannot be created, the schema directory cannot be read, a YAML
+/// file cannot be read, or the zip cannot be written - all of which mean the test
+/// fixture is broken rather than the code under test.
 fn create_zip(path: &Path) {
     let file = File::create(path).unwrap();
     let mut zip = ZipWriter::new(file);
@@ -123,7 +141,10 @@ fn create_zip(path: &Path) {
     zip.finish().unwrap();
 }
 
+/// `start_server` is reachable from the crate root. There is nothing to run: naming the
+/// item is the assertion, and the test stops compiling if the re-export is dropped.
+/// `black_box` keeps the reference from being treated as a no-op expression.
 #[test]
 fn test_start_server_public() {
-    let _f = start_server;
+    std::hint::black_box(start_server);
 }

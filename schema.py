@@ -57,6 +57,7 @@ def map_pg_type(pg_type):
         return pg_type  # keep oidvector/int2vector -> integer arrays
     return PG_TYPE_MAPPING.get(pg_type, "varchar(256)")
 
+
 # Tables/views whose contents are runtime/session state (statistics, locks,
 # activity, memory, prepared statements). Their rows change on every server
 # start, so we emit them with an empty `rows:` to keep the generated catalog
@@ -70,8 +71,10 @@ VOLATILE_TABLE_NAMES = {
     "pg_shmem_allocations",
 }
 
+
 def is_volatile_table(name: str) -> bool:
     return name.startswith("pg_stat") or name in VOLATILE_TABLE_NAMES
+
 
 def fetch_objects(conn, schema):
     with conn.cursor() as cur:
@@ -85,6 +88,7 @@ def fetch_objects(conn, schema):
         """, (schema,))
         return cur.fetchall()
 
+
 def safe_value(value):
     if isinstance(value, (int, float, bool)) or value is None:
         return value
@@ -95,6 +99,7 @@ def safe_value(value):
     if isinstance(value, (datetime.datetime, datetime.date)):
         return value.isoformat()
     return str(value)
+
 
 def fetch_table_schema_and_rows(conn, schema, table):
     with conn.cursor() as cur:
@@ -123,6 +128,7 @@ def fetch_table_schema_and_rows(conn, schema, table):
 
         return schema_info, raw_pg_types, rows
 
+
 def fetch_view_definition(conn, schema, view):
     with conn.cursor() as cur:
         cur.execute("""
@@ -131,9 +137,11 @@ def fetch_view_definition(conn, schema, view):
         result = cur.fetchone()
         return result[0] if result else None
 
+
 def ensure_dir(path):
     if not os.path.exists(path):
         os.makedirs(path)
+
 
 def generate(output_dir):
     ensure_dir(output_dir)
@@ -178,11 +186,13 @@ def generate(output_dir):
 
     logger.info("Saved schemas to %s", output_dir)
 
+
 def find_schema_file(output_dir, table_name):
     for fname in os.listdir(output_dir):
         if fname.endswith(".yaml") and f"__{table_name}.yaml" in fname:
             return os.path.join(output_dir, fname)
     return None
+
 
 def show(output_dir, specific_table=None):
     if specific_table:
@@ -227,6 +237,7 @@ def show(output_dir, specific_table=None):
                 for row in example_rows:
                     logger.info("    %s", row)
 
+
 if __name__ == "__main__":
     if len(sys.argv) < 3:
         logger.info("Usage:")
@@ -239,7 +250,6 @@ if __name__ == "__main__":
     # Connect as the fixed bootstrap superuser created by run-postgres.sh
     # (-U sysuser), so catalog ownership/ACLs read "sysuser" everywhere.
     conn = psycopg.connect("host=localhost port=5434 dbname=postgres user=sysuser")
-
 
     if cmd == "generate":
         output_dir = sys.argv[2]

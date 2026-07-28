@@ -8,8 +8,8 @@
 //! pass. Retrying at startup remains only as a backstop for a stale file.
 //!
 //! There is deliberately no fallback for a view that cannot be planned. It used
-//! to be registered as a MemTable holding the view's snapshot from the embedded
-//! PostgreSQL dump, which served another server's rows as though they were this
+//! to be registered as a `MemTable` holding the view's snapshot from the embedded
+//! `PostgreSQL` dump, which served another server's rows as though they were this
 //! one's. These views ship with the project, so a body that does not plan is a
 //! bug here and must fail loudly.
 
@@ -84,7 +84,10 @@ async fn test_discovered_order_is_stable_across_runs() -> DFResult<()> {
     // every regeneration and its diffs would be unreadable.
     let first = discover_view_creation_order().await?;
     let second = discover_view_creation_order().await?;
-    assert_eq!(first, second, "the discovered view order is not reproducible");
+    assert_eq!(
+        first, second,
+        "the discovered view order is not reproducible"
+    );
     Ok(())
 }
 

@@ -10,8 +10,11 @@ use std::ops::ControlFlow;
 use datafusion::error::{DataFusionError, Result};
 use datafusion::prelude::SessionContext;
 use sqlparser::ast::Statement;
-use sqlparser::ast::*;
 use sqlparser::ast::{visit_expressions_mut, visit_statements_mut, ValueWithSpan};
+use sqlparser::ast::{
+    Array, BinaryOperator, CastKind, DataType, FunctionArgumentList, Query, SelectItem, SetExpr,
+    TableAlias, TableFactor, TableWithJoins,
+};
 use sqlparser::ast::{
     Expr, Function, FunctionArg, FunctionArgExpr, FunctionArguments, Ident, ObjectName,
     ObjectNamePart, Value,
@@ -22,7 +25,7 @@ use sqlparser::tokenizer::Span;
 
 /// Returns `true` when `obj` names the type `type_name`, either bare
 /// (`type_name`) or qualified as `pg_catalog.type_name`. Comparison is
-/// case-insensitive, matching how PostgreSQL resolves unquoted identifiers.
+/// case-insensitive, matching how `PostgreSQL` resolves unquoted identifiers.
 fn object_name_matches(obj: &ObjectName, type_name: &str) -> bool {
     match obj.0.as_slice() {
         [ObjectNamePart::Identifier(id)] => id.value.eq_ignore_ascii_case(type_name),
@@ -34,12 +37,16 @@ fn object_name_matches(obj: &ObjectName, type_name: &str) -> bool {
     }
 }
 
-/// Parse `sql` as PostgreSQL, apply `rewrite` in place to every expression in
+/// Parse `sql` as `PostgreSQL`, apply `rewrite` in place to every expression in
 /// every statement (depth-first), and render the statements back to a SQL
-/// string. Returns a parse error if `sql` is not valid PostgreSQL.
+/// string. Returns a parse error if `sql` is not valid `PostgreSQL`.
 ///
 /// This is the shared skeleton for the many single-purpose expression rewriters
 /// below; each supplies only the per-expression transformation.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 fn rewrite_each_expression<F>(sql: &str, mut rewrite: F) -> Result<String>
 where
     F: FnMut(&mut Expr),
@@ -64,9 +71,17 @@ where
 }
 
 /// Rewrite every `expr::type_name` cast (where `type_name` is a custom/unknown
-/// type that DataFusion does not model) into a cast to `target`, leaving all
+/// type that `DataFusion` does not model) into a cast to `target`, leaving all
 /// other casts untouched. `type_name` matches bare or `pg_catalog`-qualified.
-fn rewrite_custom_type_cast_target(sql: &str, type_name: &str, target: DataType) -> Result<String> {
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
+fn rewrite_custom_type_cast_target(
+    sql: &str,
+    type_name: &str,
+    target: &DataType,
+) -> Result<String> {
     rewrite_each_expression(sql, |expr| {
         if let Expr::Cast { data_type, .. } = expr {
             if let DataType::Custom(obj, _) = data_type {
@@ -88,12 +103,15 @@ fn rewrite_custom_type_cast_target(sql: &str, type_name: &str, target: DataType)
 /// CTE name aliases (`WITH c AS (...)`) are intentionally left untouched: their
 /// `AS` is rendered by the CTE itself, so forcing it here would duplicate it.
 fn force_explicit_aliases(stmts: &mut [Statement]) {
+    /// Mark one optional table alias as spelled with `AS`.
     fn force_explicit_alias(alias: &mut Option<TableAlias>) {
         if let Some(a) = alias {
             a.explicit = true;
         }
     }
 
+    /// Normalise the alias of one FROM item, descending into derived tables and
+    /// nested joins so aliases at every depth are reached.
     fn walk_factor(tf: &mut TableFactor) {
         match tf {
             TableFactor::Table { alias, .. } => force_explicit_alias(alias),
@@ -115,6 +133,7 @@ fn force_explicit_aliases(stmts: &mut [Statement]) {
         }
     }
 
+    /// Normalise the aliases of a FROM item and everything joined to it.
     fn walk_table_with_joins(twj: &mut TableWithJoins) {
         walk_factor(&mut twj.relation);
         for join in &mut twj.joins {
@@ -122,6 +141,8 @@ fn force_explicit_aliases(stmts: &mut [Statement]) {
         }
     }
 
+    /// Normalise the aliases in one query body, including both sides of a set
+    /// operation.
     fn walk_setexpr(se: &mut SetExpr) {
         match se {
             SetExpr::Select(select) => {
@@ -138,6 +159,7 @@ fn force_explicit_aliases(stmts: &mut [Statement]) {
         }
     }
 
+    /// Normalise the aliases in one query, including the bodies of its CTEs.
     fn walk_query(q: &mut Query) {
         if let Some(with) = &mut q.with {
             for cte in &mut with.cte_tables {
@@ -159,6 +181,7 @@ fn force_explicit_aliases(stmts: &mut [Statement]) {
 ///
 /// The function simply returns the passed string value so that
 /// casts such as `'foo'::regclass` can be emulated.
+#[must_use]
 pub fn regclass_udfs(_ctx: &SessionContext) -> Vec<ScalarUDF> {
     let regclass = create_udf(
         "regclass",
@@ -179,6 +202,8 @@ pub fn regclass_udfs(_ctx: &SessionContext) -> Vec<ScalarUDF> {
     vec![regclass]
 }
 
+/// Qualify an unqualified `SET` variable name with the `pg_catalog` schema,
+/// leaving an already qualified name (`pg_catalog.work_mem`) as it is.
 fn add_namespace_to_set_command(obj: &mut ObjectName) {
     if obj.0.len() == 1 {
         let ident = obj.0.remove(0);
@@ -190,6 +215,10 @@ fn add_namespace_to_set_command(obj: &mut ObjectName) {
 
 /// Prefix `SET` command variables with `pg_catalog` when they are
 /// unqualified so that clients using bare names still work.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn replace_set_command_with_namespace(sql: &str) -> Result<String> {
     let dialect = PostgreSqlDialect {};
     let mut statements =
@@ -209,7 +238,7 @@ pub fn replace_set_command_with_namespace(sql: &str) -> Result<String> {
                     }
                 }
                 _ => {}
-            };
+            }
         }
         ControlFlow::<()>::Continue(())
     });
@@ -222,8 +251,13 @@ pub fn replace_set_command_with_namespace(sql: &str) -> Result<String> {
 }
 
 /// Rewrite casts from text to `regclass` (and optionally `oid`) into
-/// explicit function calls so they can be executed by DataFusion.
+/// explicit function calls so they can be executed by `DataFusion`.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn replace_regclass(sql: &str) -> Result<String> {
+    /// Build the call `name('lit')` that resolves a catalog name at run time.
     fn build_function_call_expr(name: &str, lit: &str) -> Expr {
         Expr::Function(Function {
             name: ObjectName(vec![ObjectNamePart::Identifier(Ident::new(name))]),
@@ -294,7 +328,7 @@ pub fn replace_regclass(sql: &str) -> Result<String> {
                                         value: Value::SingleQuotedString(s),
                                         ..
                                     }),
-                                ))) = list.args.get(0)
+                                ))) = list.args.first()
                                 {
                                     *expr = build_function_call_expr("oid", s);
                                 }
@@ -339,8 +373,12 @@ pub fn replace_regclass(sql: &str) -> Result<String> {
 }
 
 /// Rewrite casts like `array_agg(...)::varchar` into calls to
-/// `pg_catalog.array_to_string(array_agg(...), ',')` so that DataFusion
+/// `pg_catalog.array_to_string(array_agg(...), ',')` so that `DataFusion`
 /// doesn't have to cast an Arrow list array to Utf8 directly.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn rewrite_array_agg_varchar_cast(sql: &str) -> Result<String> {
     let dialect = PostgreSqlDialect {};
     let mut statements =
@@ -360,18 +398,18 @@ pub fn rewrite_array_agg_varchar_cast(sql: &str) -> Result<String> {
                         if let Some(last) = fun.name.0.last() {
                             if last
                                 .as_ident()
-                                .map(|ident| ident.value.eq_ignore_ascii_case("array_agg"))
-                                .unwrap_or(false)
+                                .is_some_and(|ident| ident.value.eq_ignore_ascii_case("array_agg"))
                             {
                                 let agg_expr = inner.as_ref().clone();
-                                let mut args = Vec::new();
-                                args.push(FunctionArg::Unnamed(FunctionArgExpr::Expr(agg_expr)));
-                                args.push(FunctionArg::Unnamed(FunctionArgExpr::Expr(
-                                    Expr::Value(ValueWithSpan {
-                                        value: Value::SingleQuotedString(",".into()),
-                                        span: Span::empty(),
-                                    }),
-                                )));
+                                let args = vec![
+                                    FunctionArg::Unnamed(FunctionArgExpr::Expr(agg_expr)),
+                                    FunctionArg::Unnamed(FunctionArgExpr::Expr(Expr::Value(
+                                        ValueWithSpan {
+                                            value: Value::SingleQuotedString(",".into()),
+                                            span: Span::empty(),
+                                        },
+                                    ))),
+                                ];
 
                                 *expr = Expr::Function(Function {
                                     name: ObjectName(vec![
@@ -409,6 +447,10 @@ pub fn rewrite_array_agg_varchar_cast(sql: &str) -> Result<String> {
 
 /// Replace custom operator syntax like `OPERATOR(pg_catalog.~)` with the
 /// plain operator so regex comparisons can be parsed.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn rewrite_pg_custom_operator(sql: &str) -> Result<String> {
     use sqlparser::ast::{visit_expressions_mut, visit_statements_mut, BinaryOperator, Expr};
     use sqlparser::dialect::PostgreSqlDialect;
@@ -446,7 +488,12 @@ pub fn rewrite_pg_custom_operator(sql: &str) -> Result<String> {
 
 /// Drop the `pg_catalog.` prefix from text casts such as
 /// `pg_catalog.text` so they become plain `TEXT` casts.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn rewrite_schema_qualified_text(sql: &str) -> Result<String> {
+    /// Does `name` spell the built-in text type as `pg_catalog.text`?
     fn is_pg_text(name: &ObjectName) -> bool {
         name.0.len() == 2
             && matches!((&name.0[0], &name.0[1]),
@@ -483,7 +530,11 @@ pub fn rewrite_schema_qualified_text(sql: &str) -> Result<String> {
 }
 
 /// Treat schema qualified casts to built-in types (regclass, regtype,
-/// regnamespace, ...) as plain `TEXT` casts so DataFusion can parse them.
+/// regnamespace, ...) as plain `TEXT` casts so `DataFusion` can parse them.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn rewrite_schema_qualified_custom_types(sql: &str) -> Result<String> {
     use sqlparser::ast::{
         visit_expressions_mut, visit_statements_mut, DataType, Expr, ObjectName, ObjectNamePart,
@@ -492,6 +543,7 @@ pub fn rewrite_schema_qualified_custom_types(sql: &str) -> Result<String> {
     use sqlparser::parser::Parser;
     use std::ops::ControlFlow;
 
+    /// Does `name` spell the built-in type `t` as `pg_catalog.<t>`?
     fn is_pg_type(name: &ObjectName, t: &str) -> bool {
         name.0.len() == 2
             && matches!(
@@ -509,7 +561,7 @@ pub fn rewrite_schema_qualified_custom_types(sql: &str) -> Result<String> {
         Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
 
     let _ = visit_statements_mut(&mut stmts, |stmt| {
-        let _ = visit_expressions_mut(stmt, |e| {
+        let () = visit_expressions_mut(stmt, |e| {
             if let Expr::Cast { data_type, .. } = e {
                 if let DataType::Custom(obj, _) = data_type {
                     if is_pg_type(obj, "text")
@@ -533,14 +585,18 @@ pub fn rewrite_schema_qualified_custom_types(sql: &str) -> Result<String> {
         .join(" "))
 }
 
-/// Rename `array_upper(<arr>, <dim>)` calls to DataFusion's
+/// Rename `array_upper(<arr>, <dim>)` calls to `DataFusion`'s
 /// `array_length(<arr>, <dim>)`.
 ///
-/// PostgreSQL's `array_upper` returns the upper bound of the given array
-/// dimension; DataFusion has no such function (getTypeInfo uses
+/// `PostgreSQL`'s `array_upper` returns the upper bound of the given array
+/// dimension; `DataFusion` has no such function (getTypeInfo uses
 /// `array_upper(current_schemas(false), 1)`). For the 1-based arrays these
 /// catalog queries use, the upper bound of a dimension equals that dimension's
 /// length, which `array_length` computes.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn rewrite_array_upper_to_array_length(sql: &str) -> Result<String> {
     use sqlparser::ast::{
         visit_expressions_mut, visit_statements_mut, Expr, Function, Ident, ObjectName,
@@ -550,31 +606,33 @@ pub fn rewrite_array_upper_to_array_length(sql: &str) -> Result<String> {
     use sqlparser::parser::Parser;
     use std::ops::ControlFlow;
 
-    let dialect = PostgreSqlDialect {};
-
-    // `CAST(NULL AS BIGINT)` template whose inner expression is swapped for the
-    // renamed call: DataFusion's array_length returns an unsigned integer, but
-    // generate_series (which consumes this value in getTypeInfo) requires a
-    // signed integer, so the result is cast to BIGINT.
+    /// Wrap `inner` in `CAST(<inner> AS BIGINT)`, built from a parsed
+    /// `CAST(NULL AS BIGINT)` template.
+    ///
+    /// `DataFusion`'s `array_length` returns an unsigned integer, but
+    /// `generate_series` (which consumes this value in getTypeInfo) requires a
+    /// signed integer, so the result is cast to BIGINT.
     fn bigint_cast(inner: Expr) -> Expr {
         let tmpl = Parser::parse_sql(&PostgreSqlDialect {}, "SELECT CAST(NULL AS BIGINT)").unwrap();
         let mut cast = match tmpl.into_iter().next().unwrap() {
             sqlparser::ast::Statement::Query(q) => match *q.body {
-                sqlparser::ast::SetExpr::Select(s) => match s.projection.into_iter().next().unwrap()
-                {
-                    sqlparser::ast::SelectItem::UnnamedExpr(e) => e,
-                    _ => unreachable!(),
-                },
+                sqlparser::ast::SetExpr::Select(s) => {
+                    match s.projection.into_iter().next().unwrap() {
+                        sqlparser::ast::SelectItem::UnnamedExpr(e) => e,
+                        _ => unreachable!(),
+                    }
+                }
                 _ => unreachable!(),
             },
             _ => unreachable!(),
         };
         if let Expr::Cast { expr, .. } = &mut cast {
-            *expr = Box::new(inner);
+            **expr = inner;
         }
         cast
     }
 
+    let dialect = PostgreSqlDialect {};
     let mut stmts =
         Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
 
@@ -589,9 +647,8 @@ pub fn rewrite_array_upper_to_array_length(sql: &str) -> Result<String> {
             if is_array_upper {
                 if let Expr::Function(f) = e {
                     // array_length is a DataFusion built-in; call it unqualified.
-                    f.name = ObjectName(vec![ObjectNamePart::Identifier(Ident::new(
-                        "array_length",
-                    ))]);
+                    f.name =
+                        ObjectName(vec![ObjectNamePart::Identifier(Ident::new("array_length"))]);
                     let renamed = e.clone();
                     *e = bigint_cast(renamed);
                 }
@@ -614,17 +671,27 @@ pub fn rewrite_array_upper_to_array_length(sql: &str) -> Result<String> {
 ///
 /// pgjdbc's getTypeInfo filters with
 /// `typrelid = 0 OR (SELECT c.relkind = 'c' FROM pg_class c WHERE c.oid = t.typrelid)`.
-/// That non-aggregated correlated scalar subquery is rejected by DataFusion
+/// That non-aggregated correlated scalar subquery is rejected by `DataFusion`
 /// ("Correlated scalar subquery must be aggregated to return at most one row").
 /// Because the subquery's value is a boolean consumed as a predicate, it is
 /// equivalent to an `EXISTS` whose body carries that boolean as an extra filter
 /// (the correlation key is unique, so at most one row can match); the following
 /// [`rewrite_exists_to_count`] pass then turns the `EXISTS` into a
-/// `(SELECT count(*) ...) > 0` scalar DataFusion can plan.
+/// `(SELECT count(*) ...) > 0` scalar `DataFusion` can plan.
 ///
 /// Only a simple `SELECT` whose single projection is a comparison, with no
 /// `GROUP BY` / `HAVING` / `DISTINCT` / set operation, is transformed; anything
 /// else is left untouched. Must run before [`rewrite_exists_to_count`].
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
+///
+/// # Panics
+///
+/// Panics if the built-in `SELECT 1` template this borrows its replacement
+/// projection from stops parsing, which would mean the bundled `sqlparser` no
+/// longer accepts trivial `PostgreSQL`.
 pub fn rewrite_boolean_scalar_subquery_to_exists(sql: &str) -> Result<String> {
     use sqlparser::ast::{
         visit_expressions_mut, visit_statements_mut, BinaryOperator, Expr, GroupByExpr, SelectItem,
@@ -634,8 +701,8 @@ pub fn rewrite_boolean_scalar_subquery_to_exists(sql: &str) -> Result<String> {
     use sqlparser::parser::Parser;
     use std::ops::ControlFlow;
 
-    // Is `expr` a comparison whose value is boolean (so the scalar subquery
-    // projecting it is a predicate, not a data value)?
+    /// Is `expr` a comparison whose value is boolean (so the scalar subquery
+    /// projecting it is a predicate, not a data value)?
     fn is_boolean_comparison(expr: &Expr) -> bool {
         matches!(
             expr,
@@ -651,8 +718,8 @@ pub fn rewrite_boolean_scalar_subquery_to_exists(sql: &str) -> Result<String> {
         )
     }
 
-    // If `select` is a simple single-comparison-projection SELECT, return a clone
-    // of that comparison expression (the predicate to fold into the EXISTS body).
+    /// If `select` is a simple single-comparison-projection SELECT, return a clone
+    /// of that comparison expression (the predicate to fold into the EXISTS body).
     fn projection_predicate(select: &sqlparser::ast::Select) -> Option<Expr> {
         if select.projection.len() != 1 || select.having.is_some() || select.distinct.is_some() {
             return None;
@@ -660,9 +727,10 @@ pub fn rewrite_boolean_scalar_subquery_to_exists(sql: &str) -> Result<String> {
         if !matches!(&select.group_by, GroupByExpr::Expressions(g, _) if g.is_empty()) {
             return None;
         }
-        let expr = match &select.projection[0] {
-            SelectItem::UnnamedExpr(e) | SelectItem::ExprWithAlias { expr: e, .. } => e,
-            _ => return None,
+        let (SelectItem::UnnamedExpr(expr) | SelectItem::ExprWithAlias { expr, .. }) =
+            &select.projection[0]
+        else {
+            return None;
         };
         if is_boolean_comparison(expr) {
             Some(expr.clone())
@@ -731,19 +799,23 @@ pub fn rewrite_boolean_scalar_subquery_to_exists(sql: &str) -> Result<String> {
 /// Rewrite `EXISTS (<subquery>)` predicates into `(<subquery-with-count>) > 0`
 /// (and `NOT EXISTS` into `... = 0`).
 ///
-/// DataFusion 54 decorrelates correlated `EXISTS` only when it sits as a
+/// `DataFusion` 54 decorrelates correlated `EXISTS` only when it sits as a
 /// top-level WHERE filter; it cannot physically plan the `EXISTS` operator when
 /// it appears as a scalar value (inside `CASE WHEN EXISTS(...)`, a `SELECT`
-/// list, etc.) - exactly how the information_schema views use it. It *can*,
+/// list, etc.) - exactly how the `information_schema` views use it. It *can*,
 /// however, decorrelate an equivalent correlated **scalar** subquery. So we turn
 /// the EXISTS subquery's projection into `count(*)` and compare it against zero,
-/// which DataFusion handles natively in any expression position. This replaces
-/// the old `df_subquery_udf` rewrite for the one pattern DataFusion still can't
+/// which `DataFusion` handles natively in any expression position. This replaces
+/// the old `df_subquery_udf` rewrite for the one pattern `DataFusion` still can't
 /// do on its own.
 ///
 /// Only simple `SELECT` subqueries are transformed (no `GROUP BY`, `HAVING`, or
 /// set operation), since `count(*)` is existence-equivalent only there; other
 /// shapes - which the catalog views don't use - are left untouched.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn rewrite_exists_to_count(sql: &str) -> Result<String> {
     use sqlparser::ast::{
         visit_expressions_mut, visit_statements_mut, BinaryOperator, Expr, GroupByExpr, SelectItem,
@@ -824,7 +896,7 @@ pub fn rewrite_exists_to_count(sql: &str) -> Result<String> {
 /// Rewrite a correlated `(SELECT c FROM t WHERE p LIMIT 1)` into
 /// `(SELECT max(c) FROM t WHERE p)`, which decorrelates correctly.
 ///
-/// DataFusion decorrelates a correlated scalar subquery by pulling its
+/// `DataFusion` decorrelates a correlated scalar subquery by pulling its
 /// correlation predicate up into a join, but for a scalar subquery it leaves an
 /// inner `LIMIT` where it is (`PullUpCorrelatedExpr` strips the limit only for
 /// `EXISTS` subqueries). The limit then applies to the subquery relation as a
@@ -844,14 +916,16 @@ pub fn rewrite_exists_to_count(sql: &str) -> Result<String> {
 /// - Only `LIMIT 1`, no `ORDER BY`. `ORDER BY ... LIMIT 1` means "the first by
 ///   that ordering", which `max` does not express unless the ordering and the
 ///   projection are the same column. Those are left alone; they hit the same
-///   DataFusion bug, so they are a known remaining gap rather than something
+///   `DataFusion` bug, so they are a known remaining gap rather than something
 ///   this silently mistranslates.
 /// - Only a single non-aggregate projection with no `GROUP BY`, `HAVING`, or
 ///   `DISTINCT`, since `max` is equivalent only for that shape.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn rewrite_correlated_limit_one_subquery_to_max(sql: &str) -> Result<String> {
-    use sqlparser::ast::{
-        visit_expressions_mut, visit_statements_mut, Expr, SelectItem, SetExpr,
-    };
+    use sqlparser::ast::{visit_expressions_mut, visit_statements_mut, Expr, SelectItem, SetExpr};
     use sqlparser::dialect::PostgreSqlDialect;
     use sqlparser::parser::Parser;
     use std::ops::ControlFlow;
@@ -897,9 +971,8 @@ fn correlated_limit_one_projection(query: &sqlparser::ast::Query) -> Option<sqlp
         return None;
     }
 
-    let select = match query.body.as_ref() {
-        SetExpr::Select(select) => select,
-        _ => return None,
+    let SetExpr::Select(select) = query.body.as_ref() else {
+        return None;
     };
 
     if select.having.is_some() || select.distinct.is_some() || select.projection.len() != 1 {
@@ -909,9 +982,12 @@ fn correlated_limit_one_projection(query: &sqlparser::ast::Query) -> Option<sqlp
         return None;
     }
 
-    let projected = match &select.projection[0] {
-        SelectItem::UnnamedExpr(e) | SelectItem::ExprWithAlias { expr: e, .. } => e,
-        _ => return None,
+    let (SelectItem::UnnamedExpr(projected)
+    | SelectItem::ExprWithAlias {
+        expr: projected, ..
+    }) = &select.projection[0]
+    else {
+        return None;
     };
     if contains_aggregate_call(projected) {
         return None;
@@ -952,8 +1028,17 @@ fn contains_aggregate_call(expr: &sqlparser::ast::Expr) -> bool {
     use sqlparser::ast::{visit_expressions, Expr, ObjectNamePart};
     use std::ops::ControlFlow;
 
+    /// The aggregate function names a projection can be built from.
     const AGGREGATES: &[&str] = &[
-        "min", "max", "sum", "count", "avg", "array_agg", "string_agg", "bool_and", "bool_or",
+        "min",
+        "max",
+        "sum",
+        "count",
+        "avg",
+        "array_agg",
+        "string_agg",
+        "bool_and",
+        "bool_or",
     ];
 
     let mut found = false;
@@ -965,7 +1050,7 @@ fn contains_aggregate_call(expr: &sqlparser::ast::Expr) -> bool {
                 .last()
                 .and_then(|part| match part {
                     ObjectNamePart::Identifier(i) => Some(i.value.to_lowercase()),
-                    _ => None,
+                    ObjectNamePart::Function(_) => None,
                 })
                 .unwrap_or_default();
             if AGGREGATES.contains(&name.as_str()) {
@@ -1049,8 +1134,8 @@ fn wrap_in_max(expr: &sqlparser::ast::Expr) -> sqlparser::ast::Expr {
     use sqlparser::dialect::PostgreSqlDialect;
     use sqlparser::parser::Parser;
 
-    let template = Parser::parse_sql(&PostgreSqlDialect {}, "SELECT max(x)")
-        .expect("max() template parses");
+    let template =
+        Parser::parse_sql(&PostgreSqlDialect {}, "SELECT max(x)").expect("max() template parses");
     let mut call = match template.into_iter().next() {
         Some(sqlparser::ast::Statement::Query(q)) => match *q.body {
             SetExpr::Select(mut s) => match s.projection.remove(0) {
@@ -1071,18 +1156,28 @@ fn wrap_in_max(expr: &sqlparser::ast::Expr) -> sqlparser::ast::Expr {
 }
 
 /// Rewrite a multi-column (row-constructor) `IN`-subquery into a correlated
-/// `EXISTS`, which DataFusion can plan (it rejects multi-column `IN` subqueries
+/// `EXISTS`, which `DataFusion` can plan (it rejects multi-column `IN` subqueries
 /// with "the subquery should only return one column").
 ///
 /// `(a, b, c) IN (SELECT p, q, r FROM t WHERE w)` becomes
 /// `EXISTS (SELECT 1 FROM t WHERE w AND p = a AND q = b AND r = c)` (and `NOT IN`
-/// -> `NOT EXISTS`). Single-column `IN` is left alone - DataFusion handles it.
+/// -> `NOT EXISTS`). Single-column `IN` is left alone - `DataFusion` handles it.
 /// Used by `information_schema.element_types`, whose visibility filter is a
 /// 4-column `IN (SELECT ... FROM data_type_privileges)`.
 ///
 /// MUST run after [`rewrite_exists_to_count`] so the `EXISTS` it produces reaches
-/// DataFusion as a native `WHERE` predicate rather than being turned into a
+/// `DataFusion` as a native `WHERE` predicate rather than being turned into a
 /// `(SELECT count(*) ...) > 0` scalar subquery.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
+///
+/// # Panics
+///
+/// The per-column rewrite unwraps each projected expression, which is sound
+/// because the subquery is left untouched unless every projection item was
+/// already checked to be a plain expression.
 pub fn rewrite_tuple_in_subquery_to_exists(sql: &str) -> Result<String> {
     use sqlparser::ast::{
         visit_expressions_mut, visit_statements_mut, BinaryOperator, Expr, SelectItem, SetExpr,
@@ -1103,7 +1198,7 @@ pub fn rewrite_tuple_in_subquery_to_exists(sql: &str) -> Result<String> {
     let mut stmts = Parser::parse_sql(&PostgreSqlDialect {}, sql)
         .map_err(|e| DataFusionError::External(Box::new(e)))?;
     let _ = visit_statements_mut(&mut stmts, |stmt| {
-        let _ = visit_expressions_mut(stmt, |e| {
+        let () = visit_expressions_mut(stmt, |e| {
             if let Expr::InSubquery {
                 expr,
                 subquery,
@@ -1170,10 +1265,10 @@ pub fn rewrite_tuple_in_subquery_to_exists(sql: &str) -> Result<String> {
 const PROJECTION_SRFS: &[&str] = &["aclexplode", "_pg_expandarray", "pg_options_to_table"];
 
 /// Rewrite `(srf(x)).field` projections (set-returning function used as a scalar
-/// value, which DataFusion can't plan) into an `unnest`-of-`List<Struct>` form
+/// value, which `DataFusion` can't plan) into an `unnest`-of-`List<Struct>` form
 /// that it can.
 ///
-/// PostgreSQL's information_schema views call SRFs like `aclexplode` directly in
+/// `PostgreSQL`'s `information_schema` views call SRFs like `aclexplode` directly in
 /// the SELECT list: `(aclexplode(acl)).grantee`. We register those SRFs as scalar
 /// functions returning `List<Struct{...}>` (see `register_pg_options_to_table`
 /// etc.), then transform
@@ -1187,15 +1282,21 @@ const PROJECTION_SRFS: &[&str] = &["aclexplode", "_pg_expandarray", "pg_options_
 /// FROM (SELECT *, unnest(srf(x)) AS __srf_unnest FROM t WHERE w) AS __srf_src
 /// ```
 ///
-/// which DataFusion executes (unnest in projection + `struct['field']` access).
+/// which `DataFusion` executes (unnest in projection + `struct['field']` access).
 /// Only the simple shape the catalog views use is handled: a single distinct
 /// `srf(x)` per `SELECT`, accessed in the projection. Other shapes are left
 /// unchanged. `UNION` branches are each rewritten independently.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`, or if the rendered
+/// result does not parse again for the closing dot-to-subscript pass.
 pub fn rewrite_srf_to_unnest(sql: &str) -> Result<String> {
     use sqlparser::ast::{Query, SetExpr, Statement, TableFactor};
     use sqlparser::dialect::PostgreSqlDialect;
     use sqlparser::parser::Parser;
 
+    /// Rewrite the SRF projections of one query and of every CTE it defines.
     fn walk_query(q: &mut Query) {
         if let Some(with) = q.with.as_mut() {
             for cte in &mut with.cte_tables {
@@ -1205,12 +1306,15 @@ pub fn rewrite_srf_to_unnest(sql: &str) -> Result<String> {
         walk_setexpr(q.body.as_mut());
     }
 
+    /// Rewrite the SRF projections inside a FROM item that is a subquery.
     fn recurse_into_derived_subquery(tf: &mut TableFactor) {
         if let TableFactor::Derived { subquery, .. } = tf {
             walk_query(subquery);
         }
     }
 
+    /// Rewrite the SRF projections of one query body, both sides of a set
+    /// operation included.
     fn walk_setexpr(body: &mut SetExpr) {
         match body {
             SetExpr::Select(select) => {
@@ -1254,9 +1358,13 @@ pub fn rewrite_srf_to_unnest(sql: &str) -> Result<String> {
 }
 
 /// Convert composite field access `(<expr>).<field>` into the struct-subscript
-/// form `(<expr>)['<field>']` that DataFusion supports. Inline-SRF accesses have
+/// form `(<expr>)['<field>']` that `DataFusion` supports. Inline-SRF accesses have
 /// already been replaced with `__srf_unnest['field']` by the time this runs, so
 /// the remaining `.field` Dot accesses are column/struct references.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 fn convert_dot_field_to_subscript(sql: &str) -> Result<String> {
     use sqlparser::ast::{visit_expressions_mut, visit_statements_mut, AccessExpr, Expr, Value};
     use sqlparser::dialect::PostgreSqlDialect;
@@ -1266,7 +1374,7 @@ fn convert_dot_field_to_subscript(sql: &str) -> Result<String> {
     let mut stmts = Parser::parse_sql(&PostgreSqlDialect {}, sql)
         .map_err(|e| DataFusionError::External(Box::new(e)))?;
     let _ = visit_statements_mut(&mut stmts, |stmt| {
-        let _ = visit_expressions_mut(stmt, |e| {
+        let () = visit_expressions_mut(stmt, |e| {
             if let Expr::CompoundFieldAccess { root, access_chain } = e {
                 // Only treat a `.field` access as a *struct field* (-> `['field']`)
                 // when the root is a genuine composite-typed value: a parenthesized
@@ -1313,7 +1421,7 @@ fn srf_field_access(e: &sqlparser::ast::Expr) -> Option<sqlparser::ast::Expr> {
                             .last()
                             .and_then(|p| match p {
                                 ObjectNamePart::Identifier(i) => Some(i.value.to_lowercase()),
-                                _ => None,
+                                ObjectNamePart::Function(_) => None,
                             })
                             .unwrap_or_default();
                         if PROJECTION_SRFS.contains(&name.as_str())
@@ -1329,54 +1437,60 @@ fn srf_field_access(e: &sqlparser::ast::Expr) -> Option<sqlparser::ast::Expr> {
     None
 }
 
-/// Rewrite one `SELECT` that uses `(srf(x)).field` in its projection. See
-/// [`rewrite_srf_to_unnest`].
-fn rewrite_select(select: &mut Box<sqlparser::ast::Select>) {
-    use sqlparser::ast::{
-        visit_expressions_mut, AccessExpr, Expr, SelectItem, TableFactor, TableWithJoins,
-    };
-    use sqlparser::dialect::PostgreSqlDialect;
-    use sqlparser::parser::Parser;
-    use std::ops::ControlFlow;
-
-    fn item_expr_mut(item: &mut SelectItem) -> Option<&mut Expr> {
-        match item {
-            SelectItem::UnnamedExpr(e) | SelectItem::ExprWithAlias { expr: e, .. } => Some(e),
-            _ => None,
-        }
+/// The expression a `SELECT` list item projects, mutably, or `None` for a
+/// wildcard item that projects no single expression.
+fn projection_item_expr_mut(item: &mut SelectItem) -> Option<&mut Expr> {
+    match item {
+        SelectItem::UnnamedExpr(e) | SelectItem::ExprWithAlias { expr: e, .. } => Some(e),
+        _ => None,
     }
+}
 
-    // Is `e` a bare call to a projection SRF (e.g. `_pg_expandarray(c.conkey)`),
-    // not field-accessed? Such aliased SRFs are wrapped in `unnest(...)` in place.
-    fn is_bare_srf(e: &Expr) -> bool {
-        use sqlparser::ast::{FunctionArguments, ObjectNamePart};
-        if let Expr::Function(f) = e {
-            let name = f
-                .name
-                .0
-                .last()
-                .and_then(|p| match p {
-                    ObjectNamePart::Identifier(i) => Some(i.value.to_lowercase()),
-                    _ => None,
-                })
-                .unwrap_or_default();
-            return PROJECTION_SRFS.contains(&name.as_str())
-                && matches!(f.args, FunctionArguments::List(_));
-        }
-        false
+/// Is `e` a bare call to a projection SRF (e.g. `_pg_expandarray(c.conkey)`),
+/// not field-accessed? Such aliased SRFs are wrapped in `unnest(...)` in place.
+fn is_bare_projection_srf_call(e: &Expr) -> bool {
+    if let Expr::Function(f) = e {
+        let name = f
+            .name
+            .0
+            .last()
+            .and_then(|p| match p {
+                ObjectNamePart::Identifier(i) => Some(i.value.to_lowercase()),
+                ObjectNamePart::Function(_) => None,
+            })
+            .unwrap_or_default();
+        return PROJECTION_SRFS.contains(&name.as_str())
+            && matches!(f.args, FunctionArguments::List(_));
     }
+    false
+}
 
-    // Collect the distinct inline `(srf(x)).field` accesses in the projection.
+/// Which inline `(srf(x)).field` accesses a single `SELECT` projection makes.
+///
+/// Only a projection that accesses exactly one distinct call can be served from
+/// one unnested column, so the three cases have to be told apart.
+enum ProjectionSrfUsage {
+    /// The projection field-accesses no set-returning function.
+    Absent,
+    /// Every field access is on this one set-returning function call. The call
+    /// is boxed because an `Expr` dwarfs the empty variants.
+    Single(Box<Expr>),
+    /// The projection field-accesses two or more different calls.
+    Several,
+}
+
+/// Classify the inline `(srf(x)).field` accesses in `select`'s projection.
+fn projection_srf_usage(select: &mut sqlparser::ast::Select) -> ProjectionSrfUsage {
     let mut found: Option<Expr> = None;
     let mut has_multiple_srfs = false;
     for item in &mut select.projection {
-        if let Some(expr) = item_expr_mut(item) {
+        if let Some(expr) = projection_item_expr_mut(item) {
             let _ = visit_expressions_mut(expr, |e| {
                 if let Some(call) = srf_field_access(e) {
                     match &found {
                         None => found = Some(call),
                         Some(prev) if prev.to_string() != call.to_string() => {
-                            has_multiple_srfs = true
+                            has_multiple_srfs = true;
                         }
                         _ => {}
                     }
@@ -1385,75 +1499,60 @@ fn rewrite_select(select: &mut Box<sqlparser::ast::Select>) {
             });
         }
     }
-
-    // With no inline field access, handle the simple bare-aliased form in place
-    // (`srf(x) AS alias` -> `unnest(srf(x)) AS alias`), the shape the internal
-    // _pg_expandarray views use; the outer query's `(alias).field` then becomes
-    // `alias['field']` via the final dot->subscript pass. When an inline access
-    // IS present (as in the driver's getPrimaryKeys query, which both aliases the
-    // SRF and accesses its fields inline), fall through to the derived-table
-    // rewrite below, which routes both through one unnested column -- the in-place
-    // wrap cannot, because a bare `unnest(...) AS alias` leaves an inline
-    // `(srf(x)).field` in the same SELECT unrewritten on a List(Struct) value.
-    if found.is_none() {
-        for item in &mut select.projection {
-            if let Some(expr) = item_expr_mut(item) {
-                if is_bare_srf(expr) {
-                    let inner = expr.clone();
-                    *expr = wrap_in_unnest(inner);
-                }
-            }
-        }
-        return;
+    match found {
+        Some(_) if has_multiple_srfs => ProjectionSrfUsage::Several,
+        Some(call) => ProjectionSrfUsage::Single(Box::new(call)),
+        None => ProjectionSrfUsage::Absent,
     }
+}
 
-    let srf = match found {
-        Some(_) if has_multiple_srfs => return, // >1 distinct SRF: leave unchanged
-        Some(s) => s,
-        None => unreachable!(),
-    };
-    let srf_text_key = srf.to_string();
-
-    // Templates: `unnest(<srf>) AS __srf_unnest` and `__srf_unnest['<field>']`.
-    let dialect = PostgreSqlDialect {};
-    let mut unnest_item = {
-        let q = Parser::parse_sql(&dialect, "SELECT unnest(NULL) AS __srf_unnest").unwrap();
-        match q.into_iter().next().unwrap() {
-            sqlparser::ast::Statement::Query(q) => match *q.body {
-                sqlparser::ast::SetExpr::Select(s) => s.projection.into_iter().next().unwrap(),
-                _ => unreachable!(),
-            },
+/// Build the projection item `unnest(<srf>) AS __srf_unnest` from a parsed
+/// template, so no version-specific function AST has to be hand-built.
+fn unnest_projection_item(srf: &Expr) -> SelectItem {
+    let template = Parser::parse_sql(&PostgreSqlDialect {}, "SELECT unnest(NULL) AS __srf_unnest")
+        .expect("unnest template parses");
+    let mut item = match template.into_iter().next().unwrap() {
+        Statement::Query(q) => match *q.body {
+            SetExpr::Select(s) => s.projection.into_iter().next().unwrap(),
             _ => unreachable!(),
-        }
+        },
+        _ => unreachable!(),
     };
     // Substitute the real srf call for the NULL placeholder argument.
-    if let SelectItem::ExprWithAlias { expr, .. } = &mut unnest_item {
-        if let Expr::Function(f) = expr {
-            if let sqlparser::ast::FunctionArguments::List(list) = &mut f.args {
-                if let Some(sqlparser::ast::FunctionArg::Unnamed(
-                    sqlparser::ast::FunctionArgExpr::Expr(arg),
-                )) = list.args.first_mut()
-                {
-                    *arg = srf.clone();
-                }
+    if let SelectItem::ExprWithAlias {
+        expr: Expr::Function(f),
+        ..
+    } = &mut item
+    {
+        if let FunctionArguments::List(list) = &mut f.args {
+            if let Some(FunctionArg::Unnamed(FunctionArgExpr::Expr(arg))) = list.args.first_mut() {
+                *arg = srf.clone();
             }
         }
     }
+    item
+}
 
-    // Replace each `(srf(x)).field` with `__srf_unnest['field']`, and each bare
-    // `srf(x)` projection of the same call (e.g. `srf(x) AS keys`) with the
-    // unnested column `__srf_unnest`, so a SELECT that both aliases the SRF and
-    // accesses its fields inline reads them from the one unnested value rather
-    // than leaving the alias as a raw List(Struct).
+/// Point every projection reference to the SRF call `srf_text` at the unnested
+/// `__srf_unnest` column: an inline `(srf(x)).field` becomes
+/// `__srf_unnest['field']`, and a bare `srf(x)` projection (e.g. `srf(x) AS
+/// keys`) becomes `__srf_unnest` itself.
+///
+/// Routing both forms through the one unnested value is what lets a `SELECT`
+/// that aliases the SRF and also accesses its fields inline be planned; the
+/// alias would otherwise stay a raw `List(Struct)`.
+fn read_srf_projections_from_unnested_column(select: &mut sqlparser::ast::Select, srf_text: &str) {
+    use sqlparser::ast::AccessExpr;
+
     for item in &mut select.projection {
-        if let Some(expr) = item_expr_mut(item) {
-            if is_bare_srf(expr) && expr.to_string() == srf_text_key {
-                *expr = Expr::Identifier(sqlparser::ast::Ident::new("__srf_unnest"));
+        if let Some(expr) = projection_item_expr_mut(item) {
+            if is_bare_projection_srf_call(expr) && expr.to_string() == srf_text {
+                *expr = Expr::Identifier(Ident::new("__srf_unnest"));
                 continue;
             }
             let _ = visit_expressions_mut(expr, |e| {
                 if let Some(call) = srf_field_access(e) {
-                    if call.to_string() == srf_text_key {
+                    if call.to_string() == srf_text {
                         if let Expr::CompoundFieldAccess { access_chain, .. } = e {
                             if let AccessExpr::Dot(Expr::Identifier(field)) = &access_chain[0] {
                                 *e = bracket_access("__srf_unnest", &field.value);
@@ -1465,44 +1564,55 @@ fn rewrite_select(select: &mut Box<sqlparser::ast::Select>) {
             });
         }
     }
+}
 
-    // Collect the table qualifiers used in the original FROM (e.g. `pg_class`,
-    // or an alias). The wrap turns the FROM into a single derived table aliased
-    // `__srf_src`, so outer references like `pg_class.oid` must be re-qualified.
-    let mut original_from_qualifiers: std::collections::HashSet<String> =
-        std::collections::HashSet::new();
-    {
-        use sqlparser::ast::{ObjectNamePart, TableFactor};
-        for twj in &select.from {
-            let mut record_table_qualifier = |tf: &TableFactor| {
-                if let TableFactor::Table { name, alias, .. } = tf {
-                    if let Some(a) = alias {
-                        original_from_qualifiers.insert(a.name.value.to_lowercase());
-                    } else if let Some(ObjectNamePart::Identifier(i)) = name.0.last() {
-                        original_from_qualifiers.insert(i.value.to_lowercase());
-                    }
+/// The table qualifiers `select`'s FROM clause defines: each plain table's
+/// alias, or its bare name when it has none, lowercased.
+fn from_clause_qualifiers(select: &sqlparser::ast::Select) -> std::collections::HashSet<String> {
+    let mut qualifiers = std::collections::HashSet::new();
+    for twj in &select.from {
+        let mut record_table_qualifier = |tf: &TableFactor| {
+            if let TableFactor::Table { name, alias, .. } = tf {
+                if let Some(a) = alias {
+                    qualifiers.insert(a.name.value.to_lowercase());
+                } else if let Some(ObjectNamePart::Identifier(i)) = name.0.last() {
+                    qualifiers.insert(i.value.to_lowercase());
                 }
-            };
-            record_table_qualifier(&twj.relation);
-            for j in &twj.joins {
-                record_table_qualifier(&j.relation);
             }
+        };
+        record_table_qualifier(&twj.relation);
+        for j in &twj.joins {
+            record_table_qualifier(&j.relation);
         }
     }
+    qualifiers
+}
 
-    // Inner subquery carries the original FROM/WHERE plus the unnest.
+/// Move `select`'s FROM and WHERE into a derived table aliased `__srf_src` that
+/// also projects `unnest_item`, leaving the outer `SELECT` to read the unnested
+/// column from it.
+///
+/// The inner query carries only the source and the unnest; grouping, ordering
+/// and distinctness stay on the outer `SELECT`, which still owns them.
+fn move_source_into_unnesting_derived_table(
+    select: &mut sqlparser::ast::Select,
+    unnest_item: SelectItem,
+) {
     let mut inner = select.clone();
-    inner.projection = vec![SelectItem::Wildcard(Default::default()), unnest_item];
-    inner.selection = select.selection.clone();
+    inner.projection = vec![
+        SelectItem::Wildcard(sqlparser::ast::WildcardAdditionalOptions::default()),
+        unnest_item,
+    ];
+    inner.selection.clone_from(&select.selection);
     inner.group_by = sqlparser::ast::GroupByExpr::Expressions(vec![], vec![]);
     inner.having = None;
     inner.distinct = None;
     inner.sort_by = vec![];
     inner.qualify = None;
 
-    let inner_query = sqlparser::ast::Query {
+    let inner_query = Query {
         with: None,
-        body: Box::new(sqlparser::ast::SetExpr::Select(inner)),
+        body: Box::new(SetExpr::Select(Box::new(inner))),
         order_by: None,
         limit_clause: None,
         fetch: None,
@@ -1516,44 +1626,93 @@ fn rewrite_select(select: &mut Box<sqlparser::ast::Select>) {
     // Build a `FROM (SELECT 1) AS __srf_src` template, then swap the placeholder
     // subquery for our inner query (avoids enumerating sqlparser's struct fields).
     let mut derived: TableWithJoins = {
-        let q = Parser::parse_sql(&dialect, "SELECT 1 FROM (SELECT 1) AS __srf_src").unwrap();
-        match q.into_iter().next().unwrap() {
-            sqlparser::ast::Statement::Query(q) => match *q.body {
-                sqlparser::ast::SetExpr::Select(s) => s.from.into_iter().next().unwrap(),
+        let template = Parser::parse_sql(
+            &PostgreSqlDialect {},
+            "SELECT 1 FROM (SELECT 1) AS __srf_src",
+        )
+        .expect("derived table template parses");
+        match template.into_iter().next().unwrap() {
+            Statement::Query(q) => match *q.body {
+                SetExpr::Select(s) => s.from.into_iter().next().unwrap(),
                 _ => unreachable!(),
             },
             _ => unreachable!(),
         }
     };
     if let TableFactor::Derived { subquery, .. } = &mut derived.relation {
-        *subquery = Box::new(inner_query);
+        **subquery = inner_query;
     }
 
     // The outer SELECT keeps its (rewritten) projection and post-FROM clauses,
     // but its FROM is now the derived subquery and its WHERE moved inward.
     select.from = vec![derived];
     select.selection = None;
+}
 
-    // Re-qualify outer references from the original FROM tables to `__srf_src`
-    // (e.g. `pg_class.oid` -> `__srf_src.oid`), since the original tables are now
-    // hidden behind the derived table.
-    if !original_from_qualifiers.is_empty() {
-        use sqlparser::ast::{Expr, Ident};
-        for item in &mut select.projection {
-            if let Some(expr) = item_expr_mut(item) {
-                let _ = visit_expressions_mut(expr, |e| {
-                    if let Expr::CompoundIdentifier(parts) = e {
-                        if parts.len() == 2
-                            && original_from_qualifiers.contains(&parts[0].value.to_lowercase())
-                        {
-                            parts[0] = Ident::new("__srf_src");
-                        }
+/// Re-qualify projection references from the tables the original FROM named to
+/// the derived table `__srf_src` that now hides them (e.g. `pg_class.oid` ->
+/// `__srf_src.oid`).
+fn requalify_projection_to_srf_source(
+    select: &mut sqlparser::ast::Select,
+    original_from_qualifiers: &std::collections::HashSet<String>,
+) {
+    if original_from_qualifiers.is_empty() {
+        return;
+    }
+    for item in &mut select.projection {
+        if let Some(expr) = projection_item_expr_mut(item) {
+            let _ = visit_expressions_mut(expr, |e| {
+                if let Expr::CompoundIdentifier(parts) = e {
+                    if parts.len() == 2
+                        && original_from_qualifiers.contains(&parts[0].value.to_lowercase())
+                    {
+                        parts[0] = Ident::new("__srf_src");
                     }
-                    ControlFlow::<()>::Continue(())
-                });
-            }
+                }
+                ControlFlow::<()>::Continue(())
+            });
         }
     }
+}
+
+/// Rewrite one `SELECT` that uses `(srf(x)).field` in its projection. See
+/// [`rewrite_srf_to_unnest`].
+fn rewrite_select(select: &mut sqlparser::ast::Select) {
+    let srf = match projection_srf_usage(select) {
+        // With no inline field access, handle the simple bare-aliased form in place
+        // (`srf(x) AS alias` -> `unnest(srf(x)) AS alias`), the shape the internal
+        // _pg_expandarray views use; the outer query's `(alias).field` then becomes
+        // `alias['field']` via the final dot->subscript pass. When an inline access
+        // IS present (as in the driver's getPrimaryKeys query, which both aliases the
+        // SRF and accesses its fields inline), fall through to the derived-table
+        // rewrite below, which routes both through one unnested column -- the in-place
+        // wrap cannot, because a bare `unnest(...) AS alias` leaves an inline
+        // `(srf(x)).field` in the same SELECT unrewritten on a List(Struct) value.
+        ProjectionSrfUsage::Absent => {
+            for item in &mut select.projection {
+                if let Some(expr) = projection_item_expr_mut(item) {
+                    if is_bare_projection_srf_call(expr) {
+                        let inner = expr.clone();
+                        *expr = wrap_in_unnest(inner);
+                    }
+                }
+            }
+            return;
+        }
+        // More than one distinct SRF cannot share a single unnested column, so
+        // such a SELECT is left unchanged.
+        ProjectionSrfUsage::Several => return,
+        ProjectionSrfUsage::Single(call) => *call,
+    };
+
+    let srf_text_key = srf.to_string();
+    let unnest_item = unnest_projection_item(&srf);
+    read_srf_projections_from_unnested_column(select, &srf_text_key);
+    // The qualifiers have to be read before the FROM is replaced, since the
+    // tables they name disappear behind the derived table.
+    let original_from_qualifiers = from_clause_qualifiers(select);
+    move_source_into_unnesting_derived_table(select, unnest_item);
+    requalify_projection_to_srf_source(select, &original_from_qualifiers);
 }
 
 /// Build the expression `<root>['<field>']` (struct field access) via a parsed
@@ -1610,13 +1769,17 @@ fn wrap_in_unnest(inner: sqlparser::ast::Expr) -> sqlparser::ast::Expr {
     expr
 }
 
-/// Rewrite casts to the information_schema standard domain types
+/// Rewrite casts to the `information_schema` standard domain types
 /// (`sql_identifier`, `character_data`, `cardinal_number`, `yes_or_no`,
 /// `time_stamp`) into their underlying base types. Those domains are thin,
 /// value-preserving wrappers over base types that exist only for SQL-standard
-/// conformance, but DataFusion doesn't know them - so every
-/// `expr::information_schema.<domain>` cast in the information_schema views
+/// conformance, but `DataFusion` doesn't know them - so every
+/// `expr::information_schema.<domain>` cast in the `information_schema` views
 /// fails to plan. Mapping them to the base type makes the views executable.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn rewrite_information_schema_casts(sql: &str) -> Result<String> {
     use sqlparser::ast::{
         visit_expressions_mut, visit_statements_mut, DataType, Expr, ObjectName, ObjectNamePart,
@@ -1626,14 +1789,15 @@ pub fn rewrite_information_schema_casts(sql: &str) -> Result<String> {
     use sqlparser::parser::Parser;
     use std::ops::ControlFlow;
 
-    // Map an `information_schema.<domain>` cast target to its base DataType.
+    /// Map an `information_schema.<domain>` cast target to its base `DataType`.
     fn base_type(name: &ObjectName) -> Option<DataType> {
         if name.0.len() != 2 {
             return None;
         }
-        let (schema, ty) = match (&name.0[0], &name.0[1]) {
-            (ObjectNamePart::Identifier(a), ObjectNamePart::Identifier(b)) => (a, b),
-            _ => return None,
+        let (ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(ty)) =
+            (&name.0[0], &name.0[1])
+        else {
+            return None;
         };
         if !schema.value.eq_ignore_ascii_case("information_schema") {
             return None;
@@ -1651,7 +1815,7 @@ pub fn rewrite_information_schema_casts(sql: &str) -> Result<String> {
         Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
 
     let _ = visit_statements_mut(&mut stmts, |stmt| {
-        let _ = visit_expressions_mut(stmt, |e| {
+        let () = visit_expressions_mut(stmt, |e| {
             if let Expr::Cast { data_type, .. } = e {
                 match data_type {
                     DataType::Custom(obj, _) => {
@@ -1664,7 +1828,7 @@ pub fn rewrite_information_schema_casts(sql: &str) -> Result<String> {
                     // DataFusion can't plan a cast to unbounded varchar, so map it
                     // to TEXT. Length-qualified varchar(n) is left as-is.
                     DataType::CharacterVarying(None) | DataType::Varchar(None) => {
-                        *data_type = DataType::Text
+                        *data_type = DataType::Text;
                     }
                     _ => {}
                 }
@@ -1681,18 +1845,22 @@ pub fn rewrite_information_schema_casts(sql: &str) -> Result<String> {
         .join(" "))
 }
 
-/// Replace casts to regtype / pg_catalog.regtype with TEXT,
+/// Replace casts to regtype / `pg_catalog.regtype` with TEXT,
 /// or drop them entirely if they are immediately followed by a TEXT cast.
 /// Neutralize the remaining `<expr>::regclass` and `<expr>::oid` casts that the
 /// literal-oriented `replace_regclass` / `rewrite_oid_cast` passes don't cover
 /// (e.g. `c.oid::regclass`, `proargtypes::oid`).
 ///
 /// `regclass`/`oid` are display types over an integer OID, so for a non-literal
-/// argument the cast is value-preserving and DataFusion can't plan it; we simply
+/// argument the cast is value-preserving and `DataFusion` can't plan it; we simply
 /// drop the cast, keeping the inner expression. String-literal casts
 /// (`'pg_class'::regclass`) are left untouched - those need the OID lookup
 /// `replace_regclass` performs - as are numeric `::oid` casts (already mapped to
 /// BIGINT by `rewrite_oid_cast`).
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn drop_redundant_oid_and_regclass_casts(sql: &str) -> Result<String> {
     use sqlparser::ast::{
         visit_expressions_mut, visit_statements_mut, DataType, Expr, ObjectNamePart, Value,
@@ -1702,6 +1870,8 @@ pub fn drop_redundant_oid_and_regclass_casts(sql: &str) -> Result<String> {
     use sqlparser::parser::Parser;
     use std::ops::ControlFlow;
 
+    /// Is `e` a single-quoted string literal, the operand shape that needs the
+    /// name-to-OID lookup rather than a dropped cast?
     fn is_string_literal(e: &Expr) -> bool {
         matches!(
             e,
@@ -1711,6 +1881,7 @@ pub fn drop_redundant_oid_and_regclass_casts(sql: &str) -> Result<String> {
             })
         )
     }
+    /// Is `e` a numeric literal, i.e. already the integer an OID is stored as?
     fn is_number(e: &Expr) -> bool {
         matches!(
             e,
@@ -1720,6 +1891,7 @@ pub fn drop_redundant_oid_and_regclass_casts(sql: &str) -> Result<String> {
             })
         )
     }
+    /// Is `dt` the unqualified custom type name `oid`?
     fn is_oid_custom(dt: &DataType) -> bool {
         matches!(dt, DataType::Custom(obj, _)
             if obj.0.len() == 1
@@ -1729,7 +1901,7 @@ pub fn drop_redundant_oid_and_regclass_casts(sql: &str) -> Result<String> {
     let mut stmts = Parser::parse_sql(&PostgreSqlDialect {}, sql)
         .map_err(|e| DataFusionError::External(Box::new(e)))?;
     let _ = visit_statements_mut(&mut stmts, |stmt| {
-        let _ = visit_expressions_mut(stmt, |e| {
+        let () = visit_expressions_mut(stmt, |e| {
             if let Expr::Cast {
                 expr, data_type, ..
             } = e
@@ -1761,10 +1933,14 @@ pub fn drop_redundant_oid_and_regclass_casts(sql: &str) -> Result<String> {
 /// `proallargtypes` (`_oid`) both map to `List<Int64>` (see
 /// [`crate::db_table::map_pg_type`]). So in `COALESCE(proallargtypes,
 /// proargtypes::oid[])` both arms are already `List<Int64>` and the `::oid[]`
-/// cast is a value-preserving no-op that DataFusion still can't plan (it doesn't
+/// cast is a value-preserving no-op that `DataFusion` still can't plan (it doesn't
 /// know the `oid` element type). Dropping the cast leaves a clean
 /// `COALESCE(List<Int64>, List<Int64>)`. Used by the `element_types` and
-/// `parameters` information_schema views.
+/// `parameters` `information_schema` views.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn drop_oid_array_cast(sql: &str) -> Result<String> {
     use sqlparser::ast::{
         visit_expressions_mut, visit_statements_mut, ArrayElemTypeDef, DataType, Expr,
@@ -1781,8 +1957,9 @@ pub fn drop_oid_array_cast(sql: &str) -> Result<String> {
             return false;
         };
         let inner = match elem {
-            ArrayElemTypeDef::SquareBracket(inner, _) => Some(inner.as_ref()),
-            ArrayElemTypeDef::AngleBracket(inner) => Some(inner.as_ref()),
+            ArrayElemTypeDef::SquareBracket(inner, _) | ArrayElemTypeDef::AngleBracket(inner) => {
+                Some(inner.as_ref())
+            }
             _ => None,
         };
         matches!(inner, Some(DataType::Custom(obj, _))
@@ -1793,7 +1970,7 @@ pub fn drop_oid_array_cast(sql: &str) -> Result<String> {
     let mut stmts = Parser::parse_sql(&PostgreSqlDialect {}, sql)
         .map_err(|e| DataFusionError::External(Box::new(e)))?;
     let _ = visit_statements_mut(&mut stmts, |stmt| {
-        let _ = visit_expressions_mut(stmt, |e| {
+        let () = visit_expressions_mut(stmt, |e| {
             if let Expr::Cast {
                 data_type, expr, ..
             } = e
@@ -1813,7 +1990,7 @@ pub fn drop_oid_array_cast(sql: &str) -> Result<String> {
         .join(" "))
 }
 
-/// Rewrite casts to catalog types that DataFusion's planner rejects by name into the
+/// Rewrite casts to catalog types that `DataFusion`'s planner rejects by name into the
 /// concrete types this catalog stores those columns as.
 ///
 /// Two catalog type names reach the planner only inside view bodies and are rejected
@@ -1828,6 +2005,10 @@ pub fn drop_oid_array_cast(sql: &str) -> Result<String> {
 ///
 /// `oid[]` is handled separately by [`drop_oid_array_cast`], which removes it where the
 /// underlying column is already an integer array; this rewrite leaves it untouched.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn rewrite_text_backed_type_casts(sql: &str) -> Result<String> {
     use sqlparser::ast::{
         visit_expressions_mut, visit_statements_mut, ArrayElemTypeDef, DataType, Expr,
@@ -1842,9 +2023,9 @@ pub fn rewrite_text_backed_type_casts(sql: &str) -> Result<String> {
             return None;
         };
         match elem {
-            ArrayElemTypeDef::SquareBracket(inner, _) => Some(inner.as_ref()),
-            ArrayElemTypeDef::AngleBracket(inner) => Some(inner.as_ref()),
-            ArrayElemTypeDef::Parenthesis(inner) => Some(inner.as_ref()),
+            ArrayElemTypeDef::SquareBracket(inner, _)
+            | ArrayElemTypeDef::AngleBracket(inner)
+            | ArrayElemTypeDef::Parenthesis(inner) => Some(inner.as_ref()),
             ArrayElemTypeDef::None => None,
         }
     }
@@ -1882,8 +2063,8 @@ pub fn rewrite_text_backed_type_casts(sql: &str) -> Result<String> {
 /// Expand the whole-row composite arguments of `information_schema._pg_truetypid`
 /// and `_pg_truetypmod` into the individual columns their bodies read.
 ///
-/// PostgreSQL declares these as `_pg_truetypid(pg_attribute, pg_type)` and the
-/// catalog views call them as `_pg_truetypid(a.*, t.*)`. DataFusion cannot pass a
+/// `PostgreSQL` declares these as `_pg_truetypid(pg_attribute, pg_type)` and the
+/// catalog views call them as `_pg_truetypid(a.*, t.*)`. `DataFusion` cannot pass a
 /// whole row (`a.*`) as a single scalar argument, so we rewrite each call into
 /// the three columns the function actually touches:
 ///
@@ -1895,6 +2076,10 @@ pub fn rewrite_text_backed_type_casts(sql: &str) -> Result<String> {
 /// rewrite works regardless of the aliases a view chose. Calls that aren't in the
 /// `(x.*, y.*)` shape are left untouched. Pairs with
 /// [`crate::user_functions::register_pg_truetypid_helpers`].
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn rewrite_pg_truetypid_composite_args(sql: &str) -> Result<String> {
     use sqlparser::ast::{
         visit_expressions_mut, visit_statements_mut, Expr, FunctionArg, FunctionArgExpr,
@@ -1923,7 +2108,7 @@ pub fn rewrite_pg_truetypid_composite_args(sql: &str) -> Result<String> {
         if let FunctionArg::Unnamed(FunctionArgExpr::QualifiedWildcard(obj)) = arg {
             obj.0.last().and_then(|p| match p {
                 ObjectNamePart::Identifier(id) => Some(id.value.clone()),
-                _ => None,
+                ObjectNamePart::Function(_) => None,
             })
         } else {
             None
@@ -1933,11 +2118,11 @@ pub fn rewrite_pg_truetypid_composite_args(sql: &str) -> Result<String> {
     let mut stmts = Parser::parse_sql(&PostgreSqlDialect {}, sql)
         .map_err(|e| DataFusionError::External(Box::new(e)))?;
     let _ = visit_statements_mut(&mut stmts, |stmt| {
-        let _ = visit_expressions_mut(stmt, |e| {
+        let () = visit_expressions_mut(stmt, |e| {
             if let Expr::Function(f) = e {
                 let bare = f.name.0.last().and_then(|p| match p {
                     ObjectNamePart::Identifier(id) => Some(id.value.clone()),
-                    _ => None,
+                    ObjectNamePart::Function(_) => None,
                 });
                 if let Some(fields) = bare.as_deref().and_then(fields_for) {
                     if let FunctionArguments::List(list) = &mut f.args {
@@ -1974,32 +2159,48 @@ pub fn rewrite_pg_truetypid_composite_args(sql: &str) -> Result<String> {
         .join(" "))
 }
 
+/// Map casts to `regtype` (bare or `pg_catalog`-qualified) onto TEXT, since this
+/// catalog stores type references by name and `DataFusion` has no `regtype`.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn rewrite_regtype_cast(sql: &str) -> Result<String> {
-    rewrite_custom_type_cast_target(sql, "regtype", DataType::Text)
+    rewrite_custom_type_cast_target(sql, "regtype", &DataType::Text)
 }
 
 /// Normalize casts to `pg_catalog.char` by converting them to the
-/// standard `CHAR` type understood by DataFusion.
+/// standard `CHAR` type understood by `DataFusion`.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn rewrite_char_cast(sql: &str) -> Result<String> {
-    rewrite_custom_type_cast_target(sql, "char", DataType::Char(None))
+    rewrite_custom_type_cast_target(sql, "char", &DataType::Char(None))
 }
 
 /// Rename the `pg_available_extension_versions(...)` table-function call to the internal
 /// name `available_extension_versions` it is registered under.
 ///
 /// The catalog declares both a *view* `pg_available_extension_versions` and (to back that
-/// view) a table function of the same name. DataFusion resolves a relation and a table
+/// view) a table function of the same name. `DataFusion` resolves a relation and a table
 /// function of the same name ambiguously - the function shadows the view in FROM clauses -
 /// so the function is registered as `available_extension_versions` and this rewrite points
 /// the view body's call there, leaving the view to own its name. Only the call form (a
 /// table factor WITH arguments) is renamed; a bare `FROM pg_available_extension_versions`
 /// (querying the view itself) is left untouched.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn rewrite_available_extension_versions_source(sql: &str) -> Result<String> {
     use sqlparser::ast::{Ident, ObjectName, ObjectNamePart, TableFactor, VisitMut, VisitorMut};
     use sqlparser::dialect::PostgreSqlDialect;
     use sqlparser::parser::Parser;
     use std::ops::ControlFlow;
 
+    /// Does `name` refer to `pg_available_extension_versions`, bare or
+    /// `pg_catalog`-qualified?
     fn is_target(name: &ObjectName) -> bool {
         match name.0.as_slice() {
             [ObjectNamePart::Identifier(id)] => id
@@ -2015,9 +2216,13 @@ pub fn rewrite_available_extension_versions_source(sql: &str) -> Result<String> 
         }
     }
 
+    /// Visitor that points every `pg_available_extension_versions(...)` table
+    /// function call at the internal name the function is registered under.
     struct Renamer;
     impl VisitorMut for Renamer {
         type Break = ();
+
+        /// Rename one FROM item when it calls the view's backing table function.
         fn pre_visit_table_factor(&mut self, tf: &mut TableFactor) -> ControlFlow<()> {
             if let TableFactor::Table {
                 name,
@@ -2047,217 +2252,240 @@ pub fn rewrite_available_extension_versions_source(sql: &str) -> Result<String> 
         .join("; "))
 }
 
+/// The mutable `ON` constraint of an inner/left equi-join, if the operator has one.
+fn join_on_constraint(
+    op: &mut sqlparser::ast::JoinOperator,
+) -> Option<&mut sqlparser::ast::JoinConstraint> {
+    use sqlparser::ast::JoinOperator;
+
+    match op {
+        JoinOperator::Left(c)
+        | JoinOperator::LeftOuter(c)
+        | JoinOperator::Inner(c)
+        | JoinOperator::Join(c) => Some(c),
+        _ => None,
+    }
+}
+
+/// The name a single plain table is referred to by (its alias, else its bare name).
+fn plain_table_qualifier(tf: &TableFactor) -> Option<String> {
+    if let TableFactor::Table {
+        name,
+        alias,
+        args: None,
+        ..
+    } = tf
+    {
+        if let Some(a) = alias {
+            return Some(a.name.value.clone());
+        }
+        if let Some(ObjectNamePart::Identifier(id)) = name.0.last() {
+            return Some(id.value.clone());
+        }
+    }
+    None
+}
+
+/// The table qualifier of a two-part `qual.col` reference.
+fn compound_reference_qualifier(e: &Expr) -> Option<&str> {
+    match e {
+        Expr::CompoundIdentifier(parts) if parts.len() == 2 => Some(parts[0].value.as_str()),
+        _ => None,
+    }
+}
+
+/// True if `e` computes an aggregate (so grouping the rows feeding it is
+/// meaningful), looking through casts, parentheses and arithmetic.
+///
+/// Deliberately narrower than [`contains_aggregate_call`]: this decides whether
+/// a LATERAL subquery may be turned into a grouped join, so it only recognises
+/// the aggregate spellings the catalog views actually join on.
+fn expression_computes_aggregate(e: &Expr) -> bool {
+    match e {
+        Expr::Function(f) => {
+            let name = f
+                .name
+                .0
+                .last()
+                .and_then(|p| p.as_ident())
+                .map(|i| i.value.to_lowercase())
+                .unwrap_or_default();
+            ["sum", "count", "avg", "min", "max", "array_agg"].contains(&name.as_str())
+        }
+        Expr::Cast { expr, .. } | Expr::Nested(expr) | Expr::UnaryOp { expr, .. } => {
+            expression_computes_aggregate(expr)
+        }
+        Expr::BinaryOp { left, right, .. } => {
+            expression_computes_aggregate(left) || expression_computes_aggregate(right)
+        }
+        _ => false,
+    }
+}
+
+/// True if the join operator is an inner/left join constrained by a literal `ON true`.
+fn is_joined_on_literal_true(op: &sqlparser::ast::JoinOperator) -> bool {
+    use sqlparser::ast::{JoinConstraint, JoinOperator};
+
+    let is_true = |c: &JoinConstraint| {
+        matches!(
+            c,
+            JoinConstraint::On(Expr::Value(ValueWithSpan {
+                value: Value::Boolean(true),
+                ..
+            }))
+        )
+    };
+    match op {
+        JoinOperator::Left(c)
+        | JoinOperator::LeftOuter(c)
+        | JoinOperator::Inner(c)
+        | JoinOperator::Join(c) => is_true(c),
+        _ => false,
+    }
+}
+
+/// Rewrite one join in place if it matches the correlated-LATERAL-aggregate shape,
+/// reporting whether it did. See [`decorrelate_lateral_aggregate`] for the shape and
+/// why the equivalence holds. `counter` names each decorrelated key uniquely.
+fn decorrelate_lateral_aggregate_join(
+    join: &mut sqlparser::ast::Join,
+    counter: &mut usize,
+) -> bool {
+    use sqlparser::ast::{GroupByExpr, JoinConstraint};
+
+    // Validate the shape under an immutable borrow, cloning out the two expressions
+    // and the alias the mutation needs; bail (leaving the join untouched) otherwise.
+    let (inner_key, outer_expr, derived_name) = {
+        let TableFactor::Derived {
+            lateral: true,
+            subquery,
+            alias: Some(derived_alias),
+            ..
+        } = &join.relation
+        else {
+            return false;
+        };
+        if !is_joined_on_literal_true(&join.join_operator) {
+            return false;
+        }
+        let SetExpr::Select(sel) = subquery.body.as_ref() else {
+            return false;
+        };
+        if subquery.with.is_some()
+            || sel.from.len() != 1
+            || !sel.from[0].joins.is_empty()
+            || !matches!(sel.group_by, GroupByExpr::Expressions(ref e, _) if e.is_empty())
+        {
+            return false;
+        }
+        let Some(inner_qual) = plain_table_qualifier(&sel.from[0].relation) else {
+            return false;
+        };
+        let Some(Expr::BinaryOp {
+            left,
+            op: BinaryOperator::Eq,
+            right,
+        }) = sel.selection.as_ref()
+        else {
+            return false;
+        };
+        let (inner_key, outer_expr) = match (
+            compound_reference_qualifier(left) == Some(&inner_qual),
+            compound_reference_qualifier(right) == Some(&inner_qual),
+        ) {
+            (true, false) => ((**left).clone(), (**right).clone()),
+            (false, true) => ((**right).clone(), (**left).clone()),
+            _ => return false,
+        };
+        let has_aggr = sel.projection.iter().any(|item| match item {
+            SelectItem::UnnamedExpr(e) | SelectItem::ExprWithAlias { expr: e, .. } => {
+                expression_computes_aggregate(e)
+            }
+            _ => false,
+        });
+        if !has_aggr {
+            return false;
+        }
+        (inner_key, outer_expr, derived_alias.name.value.clone())
+    };
+
+    let key_alias = format!("__decorr_key_{counter}");
+    *counter += 1;
+
+    // Apply: turn the LATERAL aggregate subquery into a grouped one and replace the
+    // `ON true` with `<alias>.<key_alias> = <outer>`.
+    if let TableFactor::Derived {
+        lateral, subquery, ..
+    } = &mut join.relation
+    {
+        *lateral = false;
+        if let SetExpr::Select(sel) = subquery.body.as_mut() {
+            sel.projection.insert(
+                0,
+                SelectItem::ExprWithAlias {
+                    expr: inner_key.clone(),
+                    alias: Ident::new(&key_alias),
+                },
+            );
+            sel.group_by = GroupByExpr::Expressions(vec![inner_key], Vec::new());
+            sel.selection = None;
+        }
+    }
+    let on = Expr::BinaryOp {
+        left: Box::new(Expr::CompoundIdentifier(vec![
+            Ident::new(derived_name),
+            Ident::new(key_alias),
+        ])),
+        op: BinaryOperator::Eq,
+        right: Box::new(outer_expr),
+    };
+    if let Some(c) = join_on_constraint(&mut join.join_operator) {
+        *c = JoinConstraint::On(on);
+    }
+    true
+}
+
 /// Decorrelate a correlated `LEFT JOIN LATERAL (SELECT <aggregates> FROM <tbl> WHERE
 /// <tbl>.<key> = <outer>) <alias> ON true` into a grouped equi-join:
 /// `LEFT JOIN (SELECT <tbl>.<key> AS <k>, <aggregates> FROM <tbl> GROUP BY <tbl>.<key>)
 /// <alias> ON <alias>.<k> = <outer>`.
 ///
-/// DataFusion has no physical plan for the correlated `OuterReferenceColumn` such a
+/// `DataFusion` has no physical plan for the correlated `OuterReferenceColumn` such a
 /// LATERAL aggregate leaves in the logical plan (it does not decorrelate aggregate
 /// LATERAL subqueries itself), so `pg_statio_all_tables` - which sums per-table index
 /// block counts this way - cannot otherwise be served as a view. The grouped equi-join is
 /// an exact equivalent the planner handles. Only the precise shape above is rewritten: a
 /// LATERAL derived table joined `ON true` whose subquery is a single aggregating SELECT
 /// over one table with one correlated equality predicate. Anything else is left untouched.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn decorrelate_lateral_aggregate(sql: &str) -> Result<String> {
-    use sqlparser::ast::{
-        BinaryOperator, Expr, GroupByExpr, Ident, Join, JoinConstraint, JoinOperator,
-        ObjectNamePart, Query, Select, SelectItem, SetExpr, TableFactor, Value, ValueWithSpan,
-    };
+    use sqlparser::ast::{Query, Select, SetExpr, TableFactor};
     use sqlparser::dialect::PostgreSqlDialect;
     use sqlparser::parser::Parser;
 
-    /// The mutable `ON` constraint of an inner/left equi-join, if the operator has one.
-    fn join_on_constraint(op: &mut JoinOperator) -> Option<&mut JoinConstraint> {
-        match op {
-            JoinOperator::Left(c)
-            | JoinOperator::LeftOuter(c)
-            | JoinOperator::Inner(c)
-            | JoinOperator::Join(c) => Some(c),
-            _ => None,
-        }
-    }
-
-    /// The name a single plain table is referred to by (its alias, else its bare name).
-    fn table_qualifier(tf: &TableFactor) -> Option<String> {
-        if let TableFactor::Table {
-            name,
-            alias,
-            args: None,
-            ..
-        } = tf
-        {
-            if let Some(a) = alias {
-                return Some(a.name.value.clone());
-            }
-            if let Some(ObjectNamePart::Identifier(id)) = name.0.last() {
-                return Some(id.value.clone());
-            }
-        }
-        None
-    }
-
-    /// The table qualifier of a two-part `qual.col` reference.
-    fn ref_qualifier(e: &Expr) -> Option<&str> {
-        match e {
-            Expr::CompoundIdentifier(parts) if parts.len() == 2 => Some(parts[0].value.as_str()),
-            _ => None,
-        }
-    }
-
-    /// True if `e` contains an aggregate call (so grouping is meaningful).
-    fn contains_aggregate(e: &Expr) -> bool {
-        match e {
-            Expr::Function(f) => {
-                let name = f
-                    .name
-                    .0
-                    .last()
-                    .and_then(|p| p.as_ident())
-                    .map(|i| i.value.to_lowercase())
-                    .unwrap_or_default();
-                ["sum", "count", "avg", "min", "max", "array_agg"].contains(&name.as_str())
-            }
-            Expr::Cast { expr, .. } | Expr::Nested(expr) | Expr::UnaryOp { expr, .. } => {
-                contains_aggregate(expr)
-            }
-            Expr::BinaryOp { left, right, .. } => {
-                contains_aggregate(left) || contains_aggregate(right)
-            }
-            _ => false,
-        }
-    }
-
-    /// True if the join operator is an inner/left join constrained by a literal `ON true`.
-    fn is_on_true(op: &JoinOperator) -> bool {
-        let is_true = |c: &JoinConstraint| {
-            matches!(
-                c,
-                JoinConstraint::On(Expr::Value(ValueWithSpan {
-                    value: Value::Boolean(true),
-                    ..
-                }))
-            )
-        };
-        match op {
-            JoinOperator::Left(c)
-            | JoinOperator::LeftOuter(c)
-            | JoinOperator::Inner(c)
-            | JoinOperator::Join(c) => is_true(c),
-            _ => false,
-        }
-    }
-
-    /// Rewrite one join in place if it matches the correlated-LATERAL-aggregate shape.
-    fn decorrelate_join(join: &mut Join, counter: &mut usize) -> bool {
-        // Validate the shape under an immutable borrow, cloning out the two expressions
-        // and the alias the mutation needs; bail (leaving the join untouched) otherwise.
-        let (inner_key, outer_expr, derived_name) = {
-            let TableFactor::Derived {
-                lateral: true,
-                subquery,
-                alias: Some(derived_alias),
-                ..
-            } = &join.relation
-            else {
-                return false;
-            };
-            if !is_on_true(&join.join_operator) {
-                return false;
-            }
-            let SetExpr::Select(sel) = subquery.body.as_ref() else {
-                return false;
-            };
-            if subquery.with.is_some()
-                || sel.from.len() != 1
-                || !sel.from[0].joins.is_empty()
-                || !matches!(sel.group_by, GroupByExpr::Expressions(ref e, _) if e.is_empty())
-            {
-                return false;
-            }
-            let Some(inner_qual) = table_qualifier(&sel.from[0].relation) else {
-                return false;
-            };
-            let Some(Expr::BinaryOp {
-                left,
-                op: BinaryOperator::Eq,
-                right,
-            }) = sel.selection.as_ref()
-            else {
-                return false;
-            };
-            let (inner_key, outer_expr) = match (
-                ref_qualifier(left) == Some(&inner_qual),
-                ref_qualifier(right) == Some(&inner_qual),
-            ) {
-                (true, false) => ((**left).clone(), (**right).clone()),
-                (false, true) => ((**right).clone(), (**left).clone()),
-                _ => return false,
-            };
-            let has_aggr = sel.projection.iter().any(|item| match item {
-                SelectItem::UnnamedExpr(e) | SelectItem::ExprWithAlias { expr: e, .. } => {
-                    contains_aggregate(e)
-                }
-                _ => false,
-            });
-            if !has_aggr {
-                return false;
-            }
-            (inner_key, outer_expr, derived_alias.name.value.clone())
-        };
-
-        let key_alias = format!("__decorr_key_{counter}");
-        *counter += 1;
-
-        // Apply: turn the LATERAL aggregate subquery into a grouped one and replace the
-        // `ON true` with `<alias>.<key_alias> = <outer>`.
-        if let TableFactor::Derived {
-            lateral, subquery, ..
-        } = &mut join.relation
-        {
-            *lateral = false;
-            if let SetExpr::Select(sel) = subquery.body.as_mut() {
-                sel.projection.insert(
-                    0,
-                    SelectItem::ExprWithAlias {
-                        expr: inner_key.clone(),
-                        alias: Ident::new(&key_alias),
-                    },
-                );
-                sel.group_by = GroupByExpr::Expressions(vec![inner_key], Vec::new());
-                sel.selection = None;
-            }
-        }
-        let on = Expr::BinaryOp {
-            left: Box::new(Expr::CompoundIdentifier(vec![
-                Ident::new(derived_name),
-                Ident::new(key_alias),
-            ])),
-            op: BinaryOperator::Eq,
-            right: Box::new(outer_expr),
-        };
-        if let Some(c) = join_on_constraint(&mut join.join_operator) {
-            *c = JoinConstraint::On(on);
-        }
-        true
-    }
-
+    /// Decorrelate the LATERAL aggregates in a FROM item that is a subquery.
     fn walk_table_factor(tf: &mut TableFactor, counter: &mut usize) {
         if let TableFactor::Derived { subquery, .. } = tf {
             walk_query(subquery, counter);
         }
     }
 
+    /// Decorrelate the LATERAL aggregates joined into one `SELECT`, and those
+    /// nested in the subqueries it selects from.
     fn walk_select(sel: &mut Select, counter: &mut usize) {
         for twj in &mut sel.from {
             walk_table_factor(&mut twj.relation, counter);
             for join in &mut twj.joins {
                 walk_table_factor(&mut join.relation, counter);
-                decorrelate_join(join, counter);
+                decorrelate_lateral_aggregate_join(join, counter);
             }
         }
     }
 
+    /// Decorrelate the LATERAL aggregates of one query and of its CTEs.
     fn walk_query(q: &mut Query, counter: &mut usize) {
         if let Some(with) = &mut q.with {
             for cte in &mut with.cte_tables {
@@ -2267,6 +2495,8 @@ pub fn decorrelate_lateral_aggregate(sql: &str) -> Result<String> {
         walk_set_expr(&mut q.body, counter);
     }
 
+    /// Decorrelate the LATERAL aggregates in one query body, both sides of a
+    /// set operation included.
     fn walk_set_expr(se: &mut SetExpr, counter: &mut usize) {
         match se {
             SetExpr::Select(sel) => walk_select(sel, counter),
@@ -2296,6 +2526,10 @@ pub fn decorrelate_lateral_aggregate(sql: &str) -> Result<String> {
 
 /// Remove the `pg_catalog.` prefix from known table functions such as
 /// `pg_get_keywords` so unqualified calls work inside user queries.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn rewrite_schema_qualified_udtfs(sql: &str) -> Result<String> {
     use sqlparser::ast::{
         visit_expressions_mut, visit_relations_mut, visit_statements_mut, Expr, Function,
@@ -2305,13 +2539,19 @@ pub fn rewrite_schema_qualified_udtfs(sql: &str) -> Result<String> {
     use sqlparser::parser::Parser;
     use std::ops::ControlFlow;
 
+    /// Drop the `pg_catalog.` prefix from one of the known table functions,
+    /// reporting whether the name was changed.
     fn strip_name(name: &mut ObjectName) -> bool {
         match name.0.as_slice() {
             [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(func)]
                 if schema.value.eq_ignore_ascii_case("pg_catalog")
-                    && ["pg_get_keywords", "pg_postmaster_start_time", "generate_series"]
-                        .iter()
-                        .any(|f| func.value.eq_ignore_ascii_case(f)) =>
+                    && [
+                        "pg_get_keywords",
+                        "pg_postmaster_start_time",
+                        "generate_series",
+                    ]
+                    .iter()
+                    .any(|f| func.value.eq_ignore_ascii_case(f)) =>
             {
                 let ident = name.0.pop().unwrap();
                 name.0.clear();
@@ -2358,14 +2598,22 @@ pub fn rewrite_schema_qualified_udtfs(sql: &str) -> Result<String> {
 
 /// Convert casts to `xid` into plain BIGINT casts since transaction IDs
 /// are represented as 64 bit integers in the catalog snapshots.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn rewrite_xid_cast(sql: &str) -> Result<String> {
-    rewrite_custom_type_cast_target(sql, "xid", DataType::BigInt(None))
+    rewrite_custom_type_cast_target(sql, "xid", &DataType::BigInt(None))
 }
 
 /// Map casts to the pseudo-type `name` onto plain TEXT since the
-/// planner does not know about PostgreSQL's internal name type.
+/// planner does not know about `PostgreSQL`'s internal name type.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn rewrite_name_cast(sql: &str) -> Result<String> {
-    rewrite_custom_type_cast_target(sql, "name", DataType::Text)
+    rewrite_custom_type_cast_target(sql, "name", &DataType::Text)
 }
 
 /// Build the call expression `name(argument)`.
@@ -2388,6 +2636,10 @@ fn function_call(name: &str, argument: Expr) -> Expr {
 
 /// Convert casts to the OID type into BIGINT since our catalog
 /// represents object identifiers as plain integers.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn rewrite_oid_cast(sql: &str) -> Result<String> {
     rewrite_each_expression(sql, |e| {
         let Expr::Cast {
@@ -2409,13 +2661,15 @@ pub fn rewrite_oid_cast(sql: &str) -> Result<String> {
         // hold a function name, `oid()` (a `pg_class` lookup) for the rest.
         let operand_is_integer = matches!(
             expr.as_ref(),
-            Expr::Value(ValueWithSpan {
-                value: Value::Number(_, _),
-                ..
-            }) | Expr::Value(ValueWithSpan {
-                value: Value::Placeholder(_),
-                ..
-            })
+            Expr::Value(
+                ValueWithSpan {
+                    value: Value::Number(_, _),
+                    ..
+                } | ValueWithSpan {
+                    value: Value::Placeholder(_),
+                    ..
+                }
+            )
         );
 
         if operand_is_integer {
@@ -2437,9 +2691,9 @@ pub fn rewrite_oid_cast(sql: &str) -> Result<String> {
 /// Name of the UDF that resolves a function name to its `pg_catalog.pg_proc` OID.
 const PG_PROC_OID_FUNCTION: &str = "pg_proc_oid";
 
-/// The catalog columns PostgreSQL declares as `regproc`.
+/// The catalog columns `PostgreSQL` declares as `regproc`.
 ///
-/// This catalog stores them the way PostgreSQL *renders* a `regproc` - as the
+/// This catalog stores them the way `PostgreSQL` *renders* a `regproc` - as the
 /// function's name, so `pg_type.typreceive` reads `boolrecv` rather than 2436 - which
 /// means a client comparing one of them against an OID (`pg_proc.oid = a.typreceive`)
 /// is comparing text against an integer. [`resolve_regproc_columns_to_oids_in_comparisons`]
@@ -2519,11 +2773,15 @@ fn is_text_literal(expr: &Expr) -> bool {
 ///
 /// A client joining `pg_proc.oid = a.typreceive` means "the function this type receives
 /// with"; because this catalog holds the function's name in that column, the comparison
-/// would otherwise ask DataFusion to read `'boolrecv'` as an integer and fail the whole
+/// would otherwise ask `DataFusion` to read `'boolrecv'` as an integer and fail the whole
 /// query. A function name written as a literal (`typinput = 'pg_catalog.array_in'`) is
 /// resolved the same way, so that it matches whether or not the two sides agree on
-/// spelling the schema out - which is how PostgreSQL compares a `regproc` against text.
+/// spelling the schema out - which is how `PostgreSQL` compares a `regproc` against text.
 /// Comparing two `regproc` columns needs no lookup: their names already line up.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn resolve_regproc_columns_to_oids_in_comparisons(sql: &str) -> Result<String> {
     rewrite_each_expression(sql, |e| {
         let Expr::BinaryOp { left, op, right } = e else {
@@ -2543,15 +2801,15 @@ pub fn resolve_regproc_columns_to_oids_in_comparisons(sql: &str) -> Result<Strin
             return;
         }
         if is_text_literal(opposite_side) {
-            *opposite_side = Box::new(function_call(PG_PROC_OID_FUNCTION, *opposite_side.clone()));
+            **opposite_side = function_call(PG_PROC_OID_FUNCTION, *opposite_side.clone());
         }
-        *regproc_side = Box::new(function_call(PG_PROC_OID_FUNCTION, *regproc_side.clone()));
+        **regproc_side = function_call(PG_PROC_OID_FUNCTION, *regproc_side.clone());
     })
 }
 
-/// Catalog columns of PostgreSQL type `boolean`. Clients (and the ODBC driver's
-/// SQLPrimaryKeys query) compare these to a character boolean literal such as
-/// `indisprimary = 't'`; DataFusion will not coerce `Boolean = Utf8`, so
+/// Catalog columns of `PostgreSQL` type `boolean`. Clients (and the ODBC driver's
+/// `SQLPrimaryKeys` query) compare these to a character boolean literal such as
+/// `indisprimary = 't'`; `DataFusion` will not coerce `Boolean = Utf8`, so
 /// [`rewrite_boolean_column_char_comparisons`] turns the literal into a boolean.
 ///
 /// Only unambiguously boolean columns are listed. Character columns that clients
@@ -2632,7 +2890,7 @@ fn is_boolean_column(expr: &Expr) -> bool {
         .any(|known| known.eq_ignore_ascii_case(&column.value))
 }
 
-/// Interpret a PostgreSQL character boolean literal.
+/// Interpret a `PostgreSQL` character boolean literal.
 fn char_boolean_literal(text: &str) -> Option<bool> {
     match text.trim().to_ascii_lowercase().as_str() {
         "t" | "true" | "y" | "yes" | "1" | "on" => Some(true),
@@ -2643,7 +2901,11 @@ fn char_boolean_literal(text: &str) -> Option<bool> {
 
 /// Rewrite `<boolean-column> = '<char-bool>'` (and `<>`) so the string literal
 /// becomes a boolean literal, e.g. `indisprimary = 't'` -> `indisprimary = true`.
-/// PostgreSQL coerces the character form; DataFusion rejects `Boolean = Utf8`.
+/// `PostgreSQL` coerces the character form; `DataFusion` rejects `Boolean = Utf8`.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn rewrite_boolean_column_char_comparisons(sql: &str) -> Result<String> {
     rewrite_each_expression(sql, |e| {
         let Expr::BinaryOp { left, op, right } = e else {
@@ -2667,7 +2929,7 @@ pub fn rewrite_boolean_column_char_comparisons(sql: &str) -> Result<String> {
             _ => None,
         };
         if let Some(boolean) = replacement {
-            *literal_side = Box::new(Expr::Value(Value::Boolean(boolean).into()));
+            **literal_side = Expr::Value(Value::Boolean(boolean).into());
         }
     })
 }
@@ -2676,34 +2938,52 @@ pub fn rewrite_boolean_column_char_comparisons(sql: &str) -> Result<String> {
 /// `conexclop` column (stored as `_text`) to `regoper` and then to
 /// another type like TEXT. Since the column is always NULL we can
 /// short-circuit this pattern by returning NULL directly.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn rewrite_regoper_cast(sql: &str) -> Result<String> {
     rewrite_each_expression(sql, |expr| {
-        if let Expr::Cast { data_type, .. } = expr {
-            if let DataType::Custom(obj, _) = data_type {
-                if object_name_matches(obj, "regoper") {
-                    *expr = Expr::Value(ValueWithSpan {
-                        value: Value::Null,
-                        span: Span::empty(),
-                    });
-                }
+        if let Expr::Cast {
+            data_type: DataType::Custom(obj, _),
+            ..
+        } = expr
+        {
+            if object_name_matches(obj, "regoper") {
+                *expr = Expr::Value(ValueWithSpan {
+                    value: Value::Null,
+                    span: Span::empty(),
+                });
             }
         }
     })
 }
 
 /// Replace casts to regoperator with TEXT.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn rewrite_regoperator_cast(sql: &str) -> Result<String> {
-    rewrite_custom_type_cast_target(sql, "regoperator", DataType::Text)
+    rewrite_custom_type_cast_target(sql, "regoperator", &DataType::Text)
 }
 
 /// Replace casts to regprocedure with TEXT.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn rewrite_regprocedure_cast(sql: &str) -> Result<String> {
-    rewrite_custom_type_cast_target(sql, "regprocedure", DataType::Text)
+    rewrite_custom_type_cast_target(sql, "regprocedure", &DataType::Text)
 }
 
 /// Replace casts to regproc with TEXT.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn rewrite_regproc_cast(sql: &str) -> Result<String> {
-    rewrite_custom_type_cast_target(sql, "regproc", DataType::Text)
+    rewrite_custom_type_cast_target(sql, "regproc", &DataType::Text)
 }
 
 /// The name a SELECT list item is output under, when it has one.
@@ -2725,23 +3005,30 @@ fn output_column_name(item: &SelectItem) -> Option<String> {
 /// Sort by the SELECT list column an `ORDER BY` names, by replacing the name with its
 /// position in that list.
 ///
-/// PostgreSQL resolves a bare name in ORDER BY against the query's OUTPUT columns before
+/// `PostgreSQL` resolves a bare name in ORDER BY against the query's OUTPUT columns before
 /// its input columns, so `SELECT pg_type.oid ... JOIN pg_enum ... ORDER BY oid` sorts by
-/// the selected `pg_type.oid`. DataFusion resolves it against the input instead and fails
+/// the selected `pg_type.oid`. `DataFusion` resolves it against the input instead and fails
 /// the query with "column 'oid' is ambiguous" whenever the FROM clause carries the name
 /// more than once - which every catalog join does, since every catalog table has an `oid`.
 /// A position means the same thing to both.
 ///
 /// Only a bare name is resolved this way: a qualified one (`pg_enum.oid`) always means the
-/// input column in PostgreSQL too. Queries whose SELECT list holds a wildcard are left
+/// input column in `PostgreSQL` too. Queries whose SELECT list holds a wildcard are left
 /// alone, because the position of anything after `*` is not known before expansion.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn resolve_order_by_names_to_output_positions(sql: &str) -> Result<String> {
     use sqlparser::ast::{OrderByKind, Query, SetExpr, VisitMut, VisitorMut};
 
+    /// Visitor that replaces each `ORDER BY <name>` that names an output column
+    /// with that column's position.
     struct SortByPosition;
     impl VisitorMut for SortByPosition {
         type Break = ();
 
+        /// Resolve the `ORDER BY` names of one query against its SELECT list.
         fn pre_visit_query(&mut self, query: &mut Query) -> ControlFlow<()> {
             let Some(order_by) = query.order_by.as_mut() else {
                 return ControlFlow::Continue(());
@@ -2796,10 +3083,14 @@ pub fn resolve_order_by_names_to_output_positions(sql: &str) -> Result<String> {
         .join("; "))
 }
 
-/// Replace the available_updates sub-query in pg_extension queries with NULL.
-/// IntelliJ issues a correlated ARRAY sub-query over `available_versions`
+/// Replace the `available_updates` sub-query in `pg_extension` queries with NULL.
+/// `IntelliJ` issues a correlated ARRAY sub-query over `available_versions`
 /// which our planner cannot resolve. Returning NULL keeps the column shape
 /// without failing the query.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn rewrite_available_updates(sql: &str) -> Result<String> {
     use sqlparser::ast::{
         visit_expressions_mut, visit_statements_mut, BinaryOperator, Expr, Function,
@@ -2880,8 +3171,12 @@ pub fn rewrite_available_updates(sql: &str) -> Result<String> {
     }
 }
 
-/// Drop `COLLATE pg_catalog.default` clauses since DataFusion has no
+/// Drop `COLLATE pg_catalog.default` clauses since `DataFusion` has no
 /// notion of collations and the default adds no semantics.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn strip_default_collate(sql: &str) -> Result<String> {
     use sqlparser::ast::{
         visit_expressions_mut, visit_statements_mut, Expr, ObjectName, ObjectNamePart,
@@ -2890,6 +3185,7 @@ pub fn strip_default_collate(sql: &str) -> Result<String> {
     use sqlparser::parser::Parser;
     use std::ops::ControlFlow;
 
+    /// Is `coll` the collation `pg_catalog.default`?
     fn is_default(coll: &ObjectName) -> bool {
         coll.0.len() == 2
             && matches!(
@@ -2925,7 +3221,12 @@ pub fn strip_default_collate(sql: &str) -> Result<String> {
         .collect::<Vec<_>>()
         .join("; "))
 }
-// Normalize utc timezone case
+/// Spell an `AT TIME ZONE 'utc'` literal as `'UTC'`, whatever case the client
+/// wrote it in, since `DataFusion` matches time zone names exactly.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn rewrite_time_zone_utc(sql: &str) -> Result<String> {
     use sqlparser::ast::{visit_expressions_mut, visit_statements_mut, Expr, Value, ValueWithSpan};
     use sqlparser::dialect::PostgreSqlDialect;
@@ -2967,13 +3268,117 @@ pub fn rewrite_time_zone_utc(sql: &str) -> Result<String> {
     }
 }
 
-/// Re-write  ARRAY( <sub-query> )
-///        ->  pg_catalog.pg_get_array( ( <sub-query> ) )
+/// The single argument of an `array(...)` call, taken from either the list form
+/// `array(x)` or the sub-query form `array(SELECT ...)`.
 ///
-/// - no regexes - uses `sqlparser` AST  
-/// - only the `array( ... )` form with ONE argument is accepted  
-/// - any other shape causes an explicit `Err(DataFusionError::Plan(..))`  
+/// # Errors
+///
+/// Returns a plan error when the call carries more than one argument, when its
+/// argument is a named argument or a wildcard rather than an expression, or when
+/// it carries no argument list at all - none of which `ARRAY()` can mean.
+fn single_array_call_argument(args: &FunctionArguments) -> Result<Expr> {
+    match args {
+        FunctionArguments::List(FunctionArgumentList { args, .. }) => {
+            if args.len() != 1 {
+                return Err(DataFusionError::Plan(
+                    "ARRAY() must have exactly one argument".into(),
+                ));
+            }
+            match &args[0] {
+                FunctionArg::Unnamed(FunctionArgExpr::Expr(e)) => Ok(e.clone()),
+                _ => Err(DataFusionError::Plan(
+                    "ARRAY() argument must be an expression".into(),
+                )),
+            }
+        }
+        FunctionArguments::Subquery(q) => Ok(Expr::Subquery(Box::new((**q).clone()))),
+        FunctionArguments::None => Err(DataFusionError::Plan(
+            "ARRAY() with unsupported argument form".into(),
+        )),
+    }
+}
+
+/// The expression an `array(<sub-query>)` collapses to when the sub-query only
+/// round-trips a value through `UNNEST`, or `None` for every other shape.
+///
+/// `PostgreSQL` allows `ARRAY(SELECT unnest FROM UNNEST(col))` to effectively
+/// return the original array. The generic rewrite would turn it into
+/// `pg_catalog.pg_get_array((SELECT unnest FROM UNNEST(col)))`, which later fails
+/// when the scalar sub-query is converted into a CTE because it references the
+/// outer table; so this yields `col` itself. The sibling shape that projects NULL
+/// instead of `unnest` yields `CAST(NULL AS TEXT)`.
+fn unnest_roundtrip_replacement(arg_expr: &Expr) -> Option<Expr> {
+    let Expr::Subquery(subquery) = arg_expr else {
+        return None;
+    };
+    let SetExpr::Select(inner_sel) = subquery.body.as_ref() else {
+        return None;
+    };
+    let from_is_unnest = inner_sel.from.len() == 1
+        && matches!(inner_sel.from[0].relation, TableFactor::UNNEST { .. });
+    if !from_is_unnest || inner_sel.selection.is_some() {
+        return None;
+    }
+
+    let projects_unnest = inner_sel.projection.len() == 1
+        && matches!(
+            inner_sel.projection[0],
+            SelectItem::UnnamedExpr(Expr::Identifier(ref id))
+            if id.value.to_lowercase() == "unnest"
+        );
+    if projects_unnest {
+        if let TableFactor::UNNEST {
+            ref array_exprs, ..
+        } = inner_sel.from[0].relation
+        {
+            if array_exprs.len() == 1 {
+                return Some(array_exprs[0].clone());
+            }
+        }
+        return None;
+    }
+
+    let projects_null = inner_sel.projection.len() == 1
+        && match &inner_sel.projection[0] {
+            SelectItem::UnnamedExpr(Expr::Value(ValueWithSpan {
+                value: Value::Null, ..
+            })) => true,
+            SelectItem::UnnamedExpr(Expr::Cast { expr, .. }) => matches!(
+                **expr,
+                Expr::Value(ValueWithSpan {
+                    value: Value::Null,
+                    ..
+                })
+            ),
+            _ => false,
+        };
+    if projects_null {
+        return Some(Expr::Cast {
+            kind: CastKind::Cast,
+            expr: Box::new(Expr::Value(ValueWithSpan {
+                value: Value::Null,
+                span: Span::empty(),
+            })),
+            data_type: DataType::Text,
+            array: false,
+            format: None,
+        });
+    }
+    None
+}
+
+/// Re-write  ARRAY( <sub-query> )
+///        ->  `pg_catalog.pg_get_array`( ( <sub-query> ) )
+///
+/// - no regexes - uses `sqlparser` AST
+/// - only the `array( ... )` form with ONE argument is accepted
+/// - any other shape causes an explicit `Err(DataFusionError::Plan(..))`
 /// - **if nothing matches we just pass the SQL back untouched**
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`, or if an `array(...)`
+/// call does not have exactly one expression argument.
 pub fn rewrite_array_subquery(sql: &str) -> Result<String> {
     use sqlparser::ast::{
         visit_expressions_mut, visit_statements_mut, Expr, Function, FunctionArg, FunctionArgExpr,
@@ -3009,96 +3414,17 @@ pub fn rewrite_array_subquery(sql: &str) -> Result<String> {
 
                 if base_name == "array" {
                     /* extract exactly one argument */
-                    let arg_expr: Expr = match &func.args {
-                        /* list form */
-                        FunctionArguments::List(FunctionArgumentList { args, .. }) => {
-                            if args.len() != 1 {
-                                return ControlFlow::Break(DataFusionError::Plan(
-                                    "ARRAY() must have exactly one argument".into(),
-                                ));
-                            }
-                            match &args[0] {
-                                FunctionArg::Unnamed(FunctionArgExpr::Expr(e)) => (*e).clone(),
-                                _ => {
-                                    return ControlFlow::Break(DataFusionError::Plan(
-                                        "ARRAY() argument must be an expression".into(),
-                                    ))
-                                }
-                            }
-                        }
-                        /* sub-query form */
-                        FunctionArguments::Subquery(q) => Expr::Subquery(Box::new((**q).clone())),
-                        _ => {
-                            return ControlFlow::Break(DataFusionError::Plan(
-                                "ARRAY() with unsupported argument form".into(),
-                            ))
-                        }
+                    let arg_expr: Expr = match single_array_call_argument(&func.args) {
+                        Ok(arg) => arg,
+                        Err(err) => return ControlFlow::Break(err),
                     };
 
-                    // -----------------------------------------------------------------
-                    // Special case: ARRAY(SELECT unnest FROM UNNEST(col))
-                    // -------------------------------------------------
-                    // PostgreSQL allows this construct to effectively
-                    // return the original array. The generic rewrite
-                    // below would turn it into:
-                    //      pg_catalog.pg_get_array((SELECT unnest FROM
-                    //          UNNEST(col)))
-                    // which later fails when the scalar sub-query is
-                    // converted into a CTE because it references the
-                    // outer table.  Detect this exact shape here and
-                    // simply replace the whole expression with `col`.
-
-                    if let Expr::Subquery(subq) = &arg_expr {
-                        if let SetExpr::Select(inner_sel) = subq.body.as_ref() {
-                            let from_ok = inner_sel.from.len() == 1
-                                && matches!(inner_sel.from[0].relation, TableFactor::UNNEST { .. });
-                            let proj_unnest = inner_sel.projection.len() == 1
-                                && matches!(
-                                    inner_sel.projection[0],
-                                    SelectItem::UnnamedExpr(Expr::Identifier(ref id))
-                                    if id.value.to_lowercase() == "unnest"
-                                );
-                            let proj_null = inner_sel.projection.len() == 1
-                                && match &inner_sel.projection[0] {
-                                    SelectItem::UnnamedExpr(Expr::Value(ValueWithSpan {
-                                        value: Value::Null,
-                                        ..
-                                    })) => true,
-                                    SelectItem::UnnamedExpr(Expr::Cast { expr, .. }) => matches!(
-                                        **expr,
-                                        Expr::Value(ValueWithSpan {
-                                            value: Value::Null,
-                                            ..
-                                        })
-                                    ),
-                                    _ => false,
-                                };
-                            if from_ok && proj_unnest && inner_sel.selection.is_none() {
-                                if let TableFactor::UNNEST {
-                                    ref array_exprs, ..
-                                } = inner_sel.from[0].relation
-                                {
-                                    if array_exprs.len() == 1 {
-                                        *expr = array_exprs[0].clone();
-                                        rewritten_any = true;
-                                        return ControlFlow::Continue(());
-                                    }
-                                }
-                            } else if from_ok && proj_null && inner_sel.selection.is_none() {
-                                *expr = Expr::Cast {
-                                    kind: sqlparser::ast::CastKind::Cast,
-                                    expr: Box::new(Expr::Value(ValueWithSpan {
-                                        value: Value::Null,
-                                        span: Span::empty(),
-                                    })),
-                                    data_type: DataType::Text,
-                                    array: false,
-                                    format: None,
-                                };
-                                rewritten_any = true;
-                                return ControlFlow::Continue(());
-                            }
-                        }
+                    // Collapse the UNNEST round-trip shapes before the generic
+                    // rewrite, which cannot be planned for them.
+                    if let Some(replacement) = unnest_roundtrip_replacement(&arg_expr) {
+                        *expr = replacement;
+                        rewritten_any = true;
+                        return ControlFlow::Continue(());
                     }
 
                     /* add parentheses only when necessary */
@@ -3163,6 +3489,10 @@ pub fn rewrite_array_subquery(sql: &str) -> Result<String> {
 ///  * pure-AST rewrite - no regexes
 ///  * if *nothing* matches we pass SQL back unchanged
 ///  * malformed literals raise `DataFusionError::Plan`
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn rewrite_brace_array_literal(sql: &str) -> Result<String> {
     use sqlparser::ast::{visit_expressions_mut, visit_statements_mut, Expr, Value, ValueWithSpan};
     use sqlparser::dialect::PostgreSqlDialect;
@@ -3236,9 +3566,19 @@ pub fn rewrite_brace_array_literal(sql: &str) -> Result<String> {
 
 /// Replace tuple equality `(a, b) = (c, d)` with `a = c AND b = d`.
 ///
-/// DataFusion does not support tuple comparisons, so we decompose them
+/// `DataFusion` does not support tuple comparisons, so we decompose them
 /// into a conjunction of element comparisons. Only equality is handled;
 /// all other expressions are left untouched.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
+///
+/// # Panics
+///
+/// The first element pair is unwrapped out of the zipped iterator, which is
+/// sound because the decomposition only runs for tuples of equal, non-zero
+/// length.
 pub fn rewrite_tuple_equality(sql: &str) -> Result<String> {
     use sqlparser::ast::{visit_expressions_mut, visit_statements_mut, BinaryOperator, Expr};
     use sqlparser::dialect::PostgreSqlDialect;
@@ -3266,7 +3606,7 @@ pub fn rewrite_tuple_equality(sql: &str) -> Result<String> {
                     };
 
                     if l_elems.len() == r_elems.len() && !l_elems.is_empty() {
-                        let mut pairs = l_elems.into_iter().zip(r_elems.into_iter());
+                        let mut pairs = l_elems.into_iter().zip(r_elems);
                         let (l_first, r_first) = pairs.next().unwrap();
                         let mut new_expr = Expr::BinaryOp {
                             left: Box::new(l_first),
@@ -3305,6 +3645,10 @@ pub fn rewrite_tuple_equality(sql: &str) -> Result<String> {
 
 /// Ensure tables referenced inside subqueries are schema qualified and
 /// given aliases so the planner can resolve them unambiguously.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn alias_subquery_tables(sql: &str) -> Result<String> {
     use sqlparser::ast::{
         visit_expressions_mut, visit_statements_mut, Expr, Ident, Query, TableAlias, TableFactor,
@@ -3313,6 +3657,8 @@ pub fn alias_subquery_tables(sql: &str) -> Result<String> {
     use sqlparser::parser::Parser;
     use std::ops::ControlFlow;
 
+    /// Schema-qualify and alias the tables one subquery selects from, then point
+    /// the subquery's own column references at the aliases.
     fn alias_tables(query: &mut Query, counter: &mut usize) {
         use sqlparser::ast::{SetExpr, TableWithJoins};
 
@@ -3347,6 +3693,9 @@ pub fn alias_subquery_tables(sql: &str) -> Result<String> {
         }
     }
 
+    /// Qualify one FROM item with `pg_catalog` and give it a synthetic alias when
+    /// it has none, recording the (original name -> alias) pair so the body's
+    /// references to that name can follow.
     fn alias_table_factor(
         tf: &mut TableFactor,
         counter: &mut usize,
@@ -3356,14 +3705,14 @@ pub fn alias_subquery_tables(sql: &str) -> Result<String> {
             // The bare table name the subquery body refers to (last name part).
             let bare = name.0.last().and_then(|p| match p {
                 ObjectNamePart::Identifier(i) => Some(i.value.clone()),
-                _ => None,
+                ObjectNamePart::Function(_) => None,
             });
             if name.0.len() == 1 {
                 name.0
                     .insert(0, ObjectNamePart::Identifier(Ident::new("pg_catalog")));
             }
             if alias.is_none() {
-                let new_alias = format!("subq{}_t", counter);
+                let new_alias = format!("subq{counter}_t");
                 if let Some(bare) = bare {
                     table_alias_pairs.push((bare, new_alias.clone()));
                 }
@@ -3389,9 +3738,9 @@ pub fn alias_subquery_tables(sql: &str) -> Result<String> {
             // `IN (...)` subqueries - the latter become scalar subqueries via the
             // later EXISTS->count rewrite, but their tables must be qualified here.
             match expr {
-                Expr::Subquery(subq) => alias_tables(subq, &mut counter),
-                Expr::Exists { subquery, .. } => alias_tables(subquery, &mut counter),
-                Expr::InSubquery { subquery, .. } => alias_tables(subquery, &mut counter),
+                Expr::Subquery(subquery)
+                | Expr::Exists { subquery, .. }
+                | Expr::InSubquery { subquery, .. } => alias_tables(subquery, &mut counter),
                 _ => {}
             }
             ControlFlow::<()>::Continue(())
@@ -3406,13 +3755,15 @@ pub fn alias_subquery_tables(sql: &str) -> Result<String> {
         .join("; "))
 }
 
+/// Unit tests for the SQL rewrites, each pinning the exact text one rewrite
+/// produces for the client queries it exists to serve.
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::error::Error;
 
+    /// Casts to `regtype`, bare or `pg_catalog`-qualified, become TEXT casts.
     #[test]
-    fn test_rewrite_regtype_cast() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_rewrite_regtype_cast() {
         let cases = vec![
             ("SELECT x::regtype", "SELECT x::TEXT"),
             ("SELECT x::pg_catalog.regtype", "SELECT x::TEXT"),
@@ -3421,11 +3772,12 @@ mod tests {
         for (input, expected) in cases {
             assert_eq!(rewrite_regtype_cast(input).unwrap(), expected);
         }
-        Ok(())
     }
 
+    /// `array_agg(...)::varchar` becomes an `array_to_string` call, while a cast
+    /// to another text type is left alone.
     #[test]
-    fn test_rewrite_array_agg_varchar_cast() -> Result<(), Box<dyn Error>> {
+    fn test_rewrite_array_agg_varchar_cast() {
         let input =
             "SELECT array_agg(inhparent::bigint ORDER BY inhseqno)::varchar FROM pg_catalog.pg_inherits";
         let expected = "SELECT pg_catalog.array_to_string(array_agg(inhparent::BIGINT ORDER BY inhseqno), ',') FROM pg_catalog.pg_inherits";
@@ -3436,11 +3788,12 @@ mod tests {
             rewrite_array_agg_varchar_cast(untouched).unwrap(),
             "SELECT array_agg(inhparent)::TEXT FROM pg_catalog.pg_inherits"
         );
-        Ok(())
     }
 
+    /// Schema-qualified catalog type casts become TEXT, in both the `::` and the
+    /// `CAST(... AS ...)` spelling.
     #[test]
-    fn test_rewrite_pg_custom_types() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_rewrite_pg_custom_types() {
         let cases = vec![
             // literal keeps ::
             ("SELECT 'a'::pg_catalog.text", "SELECT 'a'::TEXT"),
@@ -3458,15 +3811,15 @@ mod tests {
             assert_eq!(
                 rewrite_schema_qualified_custom_types(input).unwrap(),
                 expected,
-                "Failed for input: {}",
-                input
+                "Failed for input: {input}"
             );
         }
-        Ok(())
     }
 
+    /// A `'name'::regclass::oid` literal collapses to a single `oid('name')`
+    /// lookup, at statement level, inside a CTE and beside a wildcard.
     #[test]
-    fn test_regclass_with_oid() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_regclass_with_oid() {
         let cases = vec![
             (
                 "SELECT 'pg_constraint'::regclass::oid",
@@ -3484,13 +3837,13 @@ mod tests {
 
         for (input, expected) in cases {
             let transformed = replace_regclass(input).unwrap();
-            assert_eq!(transformed, expected, "Failed for input: {}", input);
+            assert_eq!(transformed, expected, "Failed for input: {input}");
         }
-        Ok(())
     }
 
+    /// `pg_catalog.text` casts lose the schema prefix and become plain TEXT.
     #[test]
-    fn test_rewrite_schema_qualified_text() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_rewrite_schema_qualified_text() {
         let cases = vec![
             ("SELECT 'a'::pg_catalog.text", "SELECT 'a'::TEXT"),
             (
@@ -3505,9 +3858,10 @@ mod tests {
         for (input, expected) in cases {
             assert_eq!(rewrite_schema_qualified_text(input).unwrap(), expected);
         }
-        Ok(())
     }
 
+    /// Non-literal `::regclass` and `::oid` casts are dropped, while the literal
+    /// and numeric forms are left to the passes that resolve them.
     #[test]
     fn test_drop_redundant_oid_and_regclass_casts() -> Result<(), Box<dyn std::error::Error>> {
         // Non-literal `::regclass` / `::oid` casts are dropped (value preserved).
@@ -3539,6 +3893,8 @@ mod tests {
         Ok(())
     }
 
+    /// `::oid[]` casts are dropped because the column is already an integer
+    /// array, while a scalar `::oid` cast is not this pass's business.
     #[test]
     fn test_drop_oid_array_cast() -> Result<(), Box<dyn std::error::Error>> {
         // `proargtypes::oid[]` (element_types/parameters) drops its cast - the
@@ -3557,6 +3913,8 @@ mod tests {
         Ok(())
     }
 
+    /// The whole-row arguments of `_pg_truetypid` / `_pg_truetypmod` expand into
+    /// the columns each function reads, keeping the call site's aliases.
     #[test]
     fn test_rewrite_pg_truetypid_composite_args() -> Result<(), Box<dyn std::error::Error>> {
         // The whole-row wildcard args expand into the columns each function reads,
@@ -3582,6 +3940,8 @@ mod tests {
         Ok(())
     }
 
+    /// Every `information_schema` domain cast becomes its base type, unbounded
+    /// `character varying` becomes TEXT, and `varchar(n)` stays as written.
     #[test]
     fn test_rewrite_information_schema_casts() -> Result<(), Box<dyn std::error::Error>> {
         // Each information_schema domain cast becomes its base type.
@@ -3624,6 +3984,8 @@ mod tests {
         Ok(())
     }
 
+    /// A multi-column `IN` subquery becomes a correlated `EXISTS` with one
+    /// equality per column, while a single-column `IN` is left to `DataFusion`.
     #[test]
     fn test_rewrite_tuple_in_subquery_to_exists() -> Result<(), Box<dyn std::error::Error>> {
         // Multi-column IN -> correlated EXISTS, with one equality per column,
@@ -3662,6 +4024,8 @@ mod tests {
         Ok(())
     }
 
+    /// `EXISTS` becomes `count(*) > 0` and `NOT EXISTS` becomes `count(*) = 0`,
+    /// except over a grouped subquery where the two are not equivalent.
     #[test]
     fn test_rewrite_exists_to_count() -> Result<(), Box<dyn std::error::Error>> {
         // EXISTS in a CASE position -> (SELECT count(*) ...) > 0
@@ -3691,6 +4055,8 @@ mod tests {
         Ok(())
     }
 
+    /// A boolean scalar subquery becomes an `EXISTS` carrying the comparison,
+    /// chains into the count rewrite, and leaves value subqueries alone.
     #[test]
     fn test_rewrite_boolean_scalar_subquery_to_exists() -> Result<(), Box<dyn std::error::Error>> {
         // getTypeInfo's predicate: a boolean scalar subquery becomes EXISTS with
@@ -3714,7 +4080,10 @@ mod tests {
         // count(*) > 0 scalar DataFusion can plan.
         let counted = rewrite_exists_to_count(&out)?;
         let clo = counted.to_lowercase();
-        assert!(!clo.contains("exists"), "EXISTS should be reduced: {counted}");
+        assert!(
+            !clo.contains("exists"),
+            "EXISTS should be reduced: {counted}"
+        );
         assert!(clo.contains("count(*)"), "expected count(*): {counted}");
 
         // A scalar subquery that projects a data value (not a comparison) is
@@ -3729,21 +4098,30 @@ mod tests {
         Ok(())
     }
 
+    /// `array_upper` is renamed to `array_length`, whether the call is bare or
+    /// `pg_catalog`-qualified.
     #[test]
     fn test_rewrite_array_upper_to_array_length() -> Result<(), Box<dyn std::error::Error>> {
         let out = rewrite_array_upper_to_array_length(
             "SELECT generate_series(1, array_upper(current_schemas(false), 1))",
         )?;
         let lo = out.to_lowercase();
-        assert!(!lo.contains("array_upper"), "array_upper should be gone: {out}");
+        assert!(
+            !lo.contains("array_upper"),
+            "array_upper should be gone: {out}"
+        );
         assert!(lo.contains("array_length"), "expected array_length: {out}");
         // A schema-qualified call is renamed too.
-        let qualified =
-            rewrite_array_upper_to_array_length("SELECT pg_catalog.array_upper(a, 1)")?;
-        assert!(qualified.to_lowercase().contains("array_length"), "{qualified}");
+        let qualified = rewrite_array_upper_to_array_length("SELECT pg_catalog.array_upper(a, 1)")?;
+        assert!(
+            qualified.to_lowercase().contains("array_length"),
+            "{qualified}"
+        );
         Ok(())
     }
 
+    /// A boolean column compared to `'t'` / `'f'` gets a boolean literal, while a
+    /// character column compared to the same text keeps it.
     #[test]
     fn test_rewrite_boolean_column_char_comparisons() -> Result<(), Box<dyn std::error::Error>> {
         // A boolean column compared to a char literal becomes a boolean literal.
@@ -3752,12 +4130,16 @@ mod tests {
         )?;
         let lo = out.to_lowercase();
         assert!(lo.contains("indisprimary = true"), "expected = true: {out}");
-        assert!(lo.contains("indisunique = false"), "expected = false: {out}");
+        assert!(
+            lo.contains("indisunique = false"),
+            "expected = false: {out}"
+        );
 
         // A character column that happens to compare to 't' is left untouched
         // (contype = 't' means a trigger constraint, not a boolean).
-        let untouched =
-            rewrite_boolean_column_char_comparisons("SELECT 1 FROM pg_constraint WHERE contype = 't'")?;
+        let untouched = rewrite_boolean_column_char_comparisons(
+            "SELECT 1 FROM pg_constraint WHERE contype = 't'",
+        )?;
         assert!(
             untouched.to_lowercase().contains("contype = 't'"),
             "char column must be left as-is: {untouched}"
@@ -3765,8 +4147,9 @@ mod tests {
         Ok(())
     }
 
+    /// `OPERATOR(pg_catalog.~)` becomes the plain regex-match operator.
     #[test]
-    fn test_rewrite_pg_custom_operator() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_rewrite_pg_custom_operator() {
         let cases = vec![
             ("SELECT 'b' OPERATOR(pg_catalog.~) 'a'", "SELECT 'b' ~ 'a'"),
             (
@@ -3778,11 +4161,12 @@ mod tests {
             let transformed = rewrite_pg_custom_operator(input).unwrap();
             assert_eq!(transformed, expected);
         }
-        Ok(())
     }
 
+    /// `COLLATE pg_catalog.default` is stripped wherever it appears, leaving the
+    /// collated expression itself untouched.
     #[test]
-    fn test_strip_default_collate() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_strip_default_collate() {
         let cases = vec![
             (
                 "SELECT 'a' COLLATE pg_catalog.default",
@@ -3804,24 +4188,26 @@ mod tests {
 
         for (input, expected) in cases {
             let transformed = strip_default_collate(input).unwrap();
-            assert_eq!(transformed, expected, "Failed for input: {}", input);
+            assert_eq!(transformed, expected, "Failed for input: {input}");
         }
-        Ok(())
     }
 
+    /// A lower-case `utc` time zone literal is normalised, and an already
+    /// upper-case one is returned verbatim.
     #[test]
-    fn test_rewrite_time_zone_utc() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_rewrite_time_zone_utc() {
         let input = "SELECT pg_postmaster_start_time() AT TIME ZONE 'utc'";
         let expected = "SELECT pg_postmaster_start_time() AT TIME ZONE 'UTC'";
         assert_eq!(rewrite_time_zone_utc(input).unwrap(), expected);
 
         let unchanged = "SELECT pg_postmaster_start_time() AT TIME ZONE 'UTC'";
         assert_eq!(rewrite_time_zone_utc(unchanged).unwrap(), unchanged);
-        Ok(())
     }
 
+    /// `'name'::regclass` becomes an `oid('name')` lookup in a plain query, a
+    /// CTE, a join and a derived table.
     #[test]
-    fn test_various_sql_cases() -> Result<(), Box<dyn Error>> {
+    fn test_various_sql_cases() {
         let cases = vec![
             (
                 "SELECT 'pg_namespace'::regclass FROM foo LIMIT 10",
@@ -3843,14 +4229,14 @@ mod tests {
 
         for (input, expected) in cases {
             let transformed = replace_regclass(input).unwrap();
-            assert_eq!(transformed, expected, "Failed for input: {}", input);
+            assert_eq!(transformed, expected, "Failed for input: {input}");
         }
-
-        Ok(())
     }
 
+    /// `SET` variables are qualified with `pg_catalog`, including the `SET LOCAL
+    /// ... TO` spelling, while a plain query is passed through.
     #[test]
-    fn test_set_show_query_rewrite() -> Result<(), Box<dyn Error>> {
+    fn test_set_show_query_rewrite() {
         assert_eq!(
             replace_set_command_with_namespace("SET application_name = 'x'").unwrap(),
             "SET pg_catalog.application_name = 'x'"
@@ -3864,17 +4250,18 @@ mod tests {
             replace_set_command_with_namespace("SET LOCAL work_mem TO '4MB'").unwrap(),
             "SET LOCAL pg_catalog.work_mem = '4MB'"
         );
-        Ok(())
     }
 
+    /// `array(<sub-query>)` becomes a `pg_get_array` call, a multi-argument
+    /// `array(...)` is rejected, and `ARRAY[...]` literals are left alone.
     #[test]
-    fn test_rewrite_array_subquery() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_rewrite_array_subquery() {
         /* basic happy-path */
         let in_sql = "SELECT array(SELECT rolname FROM pg_catalog.pg_roles ORDER BY 1)";
         let expect =
             "SELECT pg_catalog.pg_get_array((SELECT rolname FROM pg_catalog.pg_roles ORDER BY 1))";
         let out_sql = rewrite_array_subquery(in_sql).unwrap();
-        log::debug!("test_rewrite_array_subquery {}", out_sql);
+        log::debug!("test_rewrite_array_subquery {out_sql}");
         assert_eq!(out_sql, expect);
 
         let in_sql = "select 1";
@@ -3889,12 +4276,12 @@ mod tests {
         let lit_sql = "SELECT ARRAY[1,2,3]";
         let out_sql = rewrite_array_subquery(lit_sql).unwrap();
         assert_eq!(lit_sql, out_sql);
-
-        Ok(())
     }
 
+    /// A `'{...}'` brace literal becomes an array literal, and SQL without one
+    /// comes back verbatim.
     #[test]
-    fn test_rewrite_brace_array_literal() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_rewrite_brace_array_literal() {
         let in_sql = "SELECT pol.polroles = '{0}' FROM pg_catalog.pg_policy pol";
         let expect = "SELECT pol.polroles = ['0'] FROM pg_catalog.pg_policy AS pol";
         assert_eq!(rewrite_brace_array_literal(in_sql).unwrap(), expect);
@@ -3902,12 +4289,11 @@ mod tests {
         // nothing to do -> echoes input
         let plain = "SELECT 1";
         assert_eq!(rewrite_brace_array_literal(plain).unwrap(), plain);
-
-        Ok(())
     }
 
+    /// A `regoper` cast collapses to NULL, keeping any cast layered on top of it.
     #[test]
-    fn test_rewrite_regoper_cast() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_rewrite_regoper_cast() {
         let input = "SELECT conexclop::regoper::text FROM pg_catalog.pg_constraint";
         let expected = "SELECT NULL::TEXT FROM pg_catalog.pg_constraint";
         assert_eq!(rewrite_regoper_cast(input).unwrap(), expected);
@@ -3919,12 +4305,11 @@ mod tests {
         let input = "SELECT conexclop::regoper FROM pg_catalog.pg_constraint";
         let expected = "SELECT NULL FROM pg_catalog.pg_constraint";
         assert_eq!(rewrite_regoper_cast(input).unwrap(), expected);
-
-        Ok(())
     }
 
+    /// Casts to the quoted `"char"` type become plain `CHAR`.
     #[test]
-    fn test_rewrite_char_cast() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_rewrite_char_cast() {
         let cases = vec![
             ("SELECT 'c'::\"char\"", "SELECT 'c'::CHAR"),
             ("SELECT CAST('a' AS \"char\")", "SELECT CAST('a' AS CHAR)"),
@@ -3934,12 +4319,11 @@ mod tests {
         for (input, expected) in cases {
             assert_eq!(rewrite_char_cast(input).unwrap(), expected);
         }
-
-        Ok(())
     }
 
+    /// Casts to `xid` become BIGINT, the type transaction ids are stored as.
     #[test]
-    fn test_rewrite_xid_cast() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_rewrite_xid_cast() {
         let cases = vec![
             ("SELECT x::xid", "SELECT x::BIGINT"),
             ("SELECT x::pg_catalog.xid::text", "SELECT x::BIGINT::TEXT"),
@@ -3948,12 +4332,11 @@ mod tests {
         for (input, expected) in cases {
             assert_eq!(rewrite_xid_cast(input).unwrap(), expected);
         }
-
-        Ok(())
     }
 
+    /// Casts to the `name` pseudo-type become TEXT.
     #[test]
-    fn test_rewrite_name_cast() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_rewrite_name_cast() {
         let cases = vec![
             ("SELECT '_RETURN'::name", "SELECT '_RETURN'::TEXT"),
             (
@@ -3965,21 +4348,20 @@ mod tests {
         for (input, expected) in cases {
             assert_eq!(rewrite_name_cast(input).unwrap(), expected);
         }
-
-        Ok(())
     }
 
+    /// The `available_updates` correlated ARRAY sub-query collapses to NULL.
     #[test]
-    fn test_rewrite_available_updates() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_rewrite_available_updates() {
         let input =
             "SELECT array(select unnest from unnest(available_versions) where unnest > extversion)";
         let expected = "SELECT NULL";
         assert_eq!(rewrite_available_updates(input).unwrap(), expected);
-        Ok(())
     }
 
+    /// Casts to `regoperator` become TEXT.
     #[test]
-    fn test_rewrite_regoperator_cast() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_rewrite_regoperator_cast() {
         let cases = vec![
             ("SELECT x::regoperator", "SELECT x::TEXT"),
             (
@@ -3991,12 +4373,11 @@ mod tests {
         for (input, expected) in cases {
             assert_eq!(rewrite_regoperator_cast(input).unwrap(), expected);
         }
-
-        Ok(())
     }
 
+    /// Casts to `regprocedure` become TEXT.
     #[test]
-    fn test_rewrite_regprocedure_cast() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_rewrite_regprocedure_cast() {
         let cases = vec![
             ("SELECT x::regprocedure", "SELECT x::TEXT"),
             (
@@ -4008,12 +4389,11 @@ mod tests {
         for (input, expected) in cases {
             assert_eq!(rewrite_regprocedure_cast(input).unwrap(), expected);
         }
-
-        Ok(())
     }
 
+    /// Casts to `regproc` become TEXT.
     #[test]
-    fn test_rewrite_regproc_cast() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_rewrite_regproc_cast() {
         let cases = vec![
             ("SELECT x::regproc", "SELECT x::TEXT"),
             (
@@ -4025,13 +4405,13 @@ mod tests {
         for (input, expected) in cases {
             assert_eq!(rewrite_regproc_cast(input).unwrap(), expected);
         }
-
-        Ok(())
     }
 
+    /// A `regproc` column compared against an OID is sent through
+    /// `pg_proc_oid()`, on whichever side it is written, and comparisons that
+    /// need no lookup are left alone.
     #[test]
-    fn test_resolve_regproc_columns_to_oids_in_comparisons(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn test_resolve_regproc_columns_to_oids_in_comparisons() {
         let cases = vec![
             // The Npgsql type-loading join: the OID side stays, the name side is resolved.
             (
@@ -4075,12 +4455,13 @@ mod tests {
                 expected
             );
         }
-
-        Ok(())
     }
 
+    /// A bare `ORDER BY` name that matches an output column becomes that
+    /// column's position; qualified names, unknown names and wildcard SELECT
+    /// lists are left as written.
     #[test]
-    fn test_resolve_order_by_names_to_output_positions() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_resolve_order_by_names_to_output_positions() {
         let cases = vec![
             // Npgsql's enum query: `oid` is the selected pg_type.oid, but pg_enum has an
             // `oid` too, so the name has to become the position to stay unambiguous.
@@ -4121,10 +4502,10 @@ mod tests {
                 expected
             );
         }
-
-        Ok(())
     }
 
+    /// `::oid` on a `regproc` column resolves through `pg_proc`, and on any
+    /// other name through `pg_class`.
     #[test]
     fn test_rewrite_oid_cast_on_regproc_column() -> Result<(), Box<dyn std::error::Error>> {
         // A regproc column holds a function name, so `::oid` resolves it in pg_proc;
@@ -4145,19 +4526,21 @@ mod tests {
         Ok(())
     }
 
+    /// A `pg_catalog`-qualified table function call loses the prefix, and SQL
+    /// without one is returned verbatim.
     #[test]
-    fn test_rewrite_schema_qualified_udtfs() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_rewrite_schema_qualified_udtfs() {
         let input = "SELECT * FROM pg_catalog.pg_get_keywords()";
         let expected = "SELECT * FROM pg_get_keywords()";
         assert_eq!(rewrite_schema_qualified_udtfs(input).unwrap(), expected);
 
         let plain = "SELECT 1";
         assert_eq!(rewrite_schema_qualified_udtfs(plain).unwrap(), plain);
-        Ok(())
     }
 
+    /// Tuple equality decomposes into one `AND`-ed comparison per element.
     #[test]
-    fn test_rewrite_tuple_equality() -> Result<(), Box<dyn std::error::Error>> {
+    fn test_rewrite_tuple_equality() {
         let input = "SELECT * FROM t JOIN u ON (t.a, t.b) = (u.c, u.d)";
         let expected = "SELECT * FROM t JOIN u ON t.a = u.c AND t.b = u.d";
         assert_eq!(rewrite_tuple_equality(input).unwrap(), expected);
@@ -4165,9 +4548,10 @@ mod tests {
         // unchanged if no tuples
         let plain = "SELECT 1";
         assert_eq!(rewrite_tuple_equality(plain).unwrap(), plain);
-        Ok(())
     }
 
+    /// A subquery's table is schema-qualified and aliased, while the outer
+    /// correlated reference keeps its own qualifier.
     #[test]
     fn test_alias_subquery_tables() -> Result<(), Box<dyn std::error::Error>> {
         let sql =
@@ -4182,6 +4566,8 @@ mod tests {
         Ok(())
     }
 
+    /// Aliasing a subquery's table also re-qualifies the subquery's own
+    /// references to that table, which would otherwise stop resolving.
     #[test]
     fn test_alias_subquery_tables_requalifies_self_refs() -> Result<(), Box<dyn std::error::Error>>
     {
@@ -4206,6 +4592,8 @@ mod tests {
         Ok(())
     }
 
+    /// Tables inside `EXISTS` subqueries are qualified and aliased too, and the
+    /// outer correlated reference survives.
     #[test]
     fn test_alias_subquery_tables_handles_exists() -> Result<(), Box<dyn std::error::Error>> {
         // Tables inside EXISTS (and IN) subqueries must also be qualified to
@@ -4229,6 +4617,8 @@ mod tests {
         Ok(())
     }
 
+    /// A correlated LATERAL aggregate becomes a grouped equi-join on a
+    /// synthesised key column.
     #[test]
     fn test_decorrelate_lateral_aggregate() -> Result<(), Box<dyn std::error::Error>> {
         let out = decorrelate_lateral_aggregate(
@@ -4246,6 +4636,8 @@ mod tests {
         Ok(())
     }
 
+    /// A LATERAL subquery without an aggregate is no grouping candidate, so it
+    /// stays a LATERAL join.
     #[test]
     fn test_decorrelate_lateral_aggregate_leaves_non_aggregate_lateral(
     ) -> Result<(), Box<dyn std::error::Error>> {
@@ -4258,6 +4650,8 @@ mod tests {
         Ok(())
     }
 
+    /// The table function call is renamed to the internal name, while a bare
+    /// reference to the view of the same name is left alone.
     #[test]
     fn test_rewrite_available_extension_versions_source() -> Result<(), Box<dyn std::error::Error>>
     {
@@ -4289,6 +4683,8 @@ mod tests {
         Ok(())
     }
 
+    /// `anyarray` becomes scalar TEXT and `name[]` becomes `text[]`, matching
+    /// how those columns are stored.
     #[test]
     fn test_rewrite_text_backed_type_casts() -> Result<(), Box<dyn std::error::Error>> {
         // `anyarray` becomes scalar `text`; `name[]` becomes `text[]`.
@@ -4305,6 +4701,8 @@ mod tests {
         Ok(())
     }
 
+    /// `oid[]` belongs to [`drop_oid_array_cast`], so this rewrite must not
+    /// touch it.
     #[test]
     fn test_rewrite_text_backed_type_casts_leaves_oid_array(
     ) -> Result<(), Box<dyn std::error::Error>> {

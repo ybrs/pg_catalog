@@ -11,7 +11,7 @@
 //!   1. Does the function BODY run at SELECT time, so that state it reads is
 //!      read fresh on every query? (If not, no call-time mechanism works.)
 //!   2. If a DIFFERENT function is registered under the same name after the
-//!      view exists, does the view pick up the new one? DataFusion's CREATE
+//!      view exists, does the view pick up the new one? `DataFusion`'s CREATE
 //!      VIEW stores a resolved logical plan rather than the SQL text, so this
 //!      is not obviously the same question.
 
@@ -20,7 +20,7 @@ use std::sync::{Arc, RwLock};
 use arrow::array::StringArray;
 use arrow::datatypes::DataType;
 use datafusion::error::Result as DFResult;
-use datafusion::logical_expr::{ColumnarValue, Volatility, create_udf};
+use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
 use datafusion::prelude::SessionContext;
 use datafusion::scalar::ScalarValue;
 
@@ -53,7 +53,11 @@ fn register_constant(ctx: &SessionContext, name: &str, value: &str) {
         vec![],
         DataType::Utf8,
         Volatility::Stable,
-        Arc::new(move |_args| Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(value.clone()))))),
+        Arc::new(move |_args| {
+            Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(
+                value.clone(),
+            ))))
+        }),
     );
     ctx.register_udf(udf);
 }

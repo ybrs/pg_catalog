@@ -33,7 +33,7 @@ import duckdb
 import psycopg
 
 from build_snapshot_db import DB_PATH, SCHEMA_DIR, build
-from conftest import SHARED_PORT, conn_str, load_yaml, server  # noqa: F401
+from conftest import SHARED_PORT, conn_str, load_yaml
 from yaml_loader import find_in_doc
 
 CONN_STR = conn_str(SHARED_PORT)
@@ -63,6 +63,7 @@ def _live_db(conn):
     cur = conn.cursor()
     cur.execute("SELECT current_database()")
     return cur.fetchone()[0]
+
 
 # The test server (src/main.rs) registers exactly one demo table at startup,
 # public.users (id int, name text). It is the ONLY object beyond the seed, so it is

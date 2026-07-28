@@ -1,12 +1,12 @@
 //! A correlated scalar subquery must work inside a derived table, not only at
 //! the top level of a SELECT.
 //!
-//! DataFusion refuses to plan a correlated scalar subquery unless it is
-//! aggregated or provably single-row (datafusion-expr, logical_plan/invariants.rs).
-//! pg_catalog avoids that by rewriting such subqueries into a CTE plus a LEFT
+//! `DataFusion` refuses to plan a correlated scalar subquery unless it is
+//! aggregated or provably single-row (datafusion-expr, `logical_plan/invariants.rs`).
+//! `pg_catalog` avoids that by rewriting such subqueries into a CTE plus a LEFT
 //! JOIN in `scalar_to_cte`. That rewriter used to walk only the outermost
 //! SELECT's projection, so a subquery inside a derived table was never
-//! converted and reached DataFusion, which rejected the whole query with
+//! converted and reached `DataFusion`, which rejected the whole query with
 //! "Invalid (non-executable) plan after Analyzer".
 //!
 //! Npgsql's startup type query is exactly that shape -- its correlated
@@ -84,7 +84,10 @@ async fn test_derived_table_subquery_plans_and_returns_values() -> DFResult<()> 
                ) AS s ORDER BY s.typname LIMIT 5";
     let values = string_column(&ctx, sql, 1).await?;
     assert!(!values.is_empty(), "expected rows");
-    assert!(values.iter().all(|v| v.is_some()), "got {values:?}");
+    assert!(
+        values.iter().all(std::option::Option::is_some),
+        "got {values:?}"
+    );
     Ok(())
 }
 
@@ -140,7 +143,10 @@ async fn test_two_levels_of_derived_tables_plan() -> DFResult<()> {
                ) AS o ORDER BY o.typname LIMIT 5";
     let values = string_column(&ctx, sql, 1).await?;
     assert!(!values.is_empty(), "expected rows");
-    assert!(values.iter().all(|v| v.is_some()), "got {values:?}");
+    assert!(
+        values.iter().all(std::option::Option::is_some),
+        "got {values:?}"
+    );
     Ok(())
 }
 
@@ -152,6 +158,9 @@ async fn test_top_level_subquery_still_returns_values() -> DFResult<()> {
                WHERE n.oid = t.typnamespace) AS ns \
                FROM pg_catalog.pg_type t ORDER BY t.typname LIMIT 5";
     let values = string_column(&ctx, sql, 1).await?;
-    assert!(values.iter().all(|v| v.is_some()), "got {values:?}");
+    assert!(
+        values.iter().all(std::option::Option::is_some),
+        "got {values:?}"
+    );
     Ok(())
 }

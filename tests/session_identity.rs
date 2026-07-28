@@ -27,10 +27,7 @@ fn context_with_client_opts() -> SessionContext {
 /// The single value a one-row, one-column text query returns.
 async fn single_text(ctx: &SessionContext, sql: &str) -> DFResult<String> {
     let batches = ctx.sql(sql).await?.collect().await?;
-    let column = arrow::compute::cast(
-        batches[0].column(0),
-        &arrow::datatypes::DataType::Utf8,
-    )?;
+    let column = arrow::compute::cast(batches[0].column(0), &arrow::datatypes::DataType::Utf8)?;
     let array = column
         .as_any()
         .downcast_ref::<arrow::array::StringArray>()
@@ -76,7 +73,10 @@ async fn test_current_database_reports_the_sessions_catalog() -> DFResult<()> {
     let ctx = SessionContext::new_with_config(config);
     register_current_database(&ctx)?;
 
-    assert_eq!(single_text(&ctx, "SELECT current_database()").await?, "sales");
+    assert_eq!(
+        single_text(&ctx, "SELECT current_database()").await?,
+        "sales"
+    );
     Ok(())
 }
 
@@ -214,7 +214,10 @@ async fn test_the_role_is_not_folded_away_at_planning_time() -> DFResult<()> {
         .await?;
     // Plan and run it once as the planning role, so any folding that is going
     // to happen has happened.
-    assert_eq!(single_text(&base, "SELECT role FROM whoami").await?, "planner");
+    assert_eq!(
+        single_text(&base, "SELECT role FROM whoami").await?,
+        "planner"
+    );
 
     let later = SessionContext::new_with_state(base.state().clone());
     set_session_user(&later, "alice")?;

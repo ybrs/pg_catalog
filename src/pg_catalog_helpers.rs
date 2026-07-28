@@ -6,20 +6,29 @@ use serde::Deserialize;
 
 use crate::lazy_catalog::{
     build_index_pg_class_row, build_pg_attrdef_row, build_pg_attribute_rows, build_pg_class_row,
-    build_pg_constraint_row, build_pg_index_row, build_pg_type_rowtype_row, ColumnSpec, FIRST_USER_OID,
+    build_pg_constraint_row, build_pg_index_row, build_pg_type_rowtype_row, ColumnSpec,
     ConstraintDef, ConstraintKind, IndexDef, RelationDef, RelationKind, DEFAULT_OWNER_ROLE_OID,
+    FIRST_USER_OID,
 };
 use crate::session::rows_to_record_batch;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
-use once_cell::sync::Lazy;
-
+/// One column of a user relation as the integration describes it on the wire.
+///
+/// The column NAME is not a field: callers pass each column as a single-entry
+/// `name -> ColumnDef` map, so the name lives in the map key and this struct
+/// carries only the column's properties.
 #[derive(Debug, Clone, Deserialize)]
 pub struct ColumnDef {
+    /// Declared type text exactly as the integration writes it (`int`,
+    /// `varchar(64)`, `text`, ...). Resolved to a `pg_type` OID by
+    /// [`map_type_to_oid`]; unrecognized text falls back to `text`.
     #[serde(rename = "type")]
     pub col_type: String,
+    /// Whether the column accepts NULL. Drives `pg_attribute.attnotnull` and the
+    /// `information_schema.columns.is_nullable` flag derived from it.
     pub nullable: bool,
     /// Whether the column has a default expression. Drives `pg_attribute.atthasdef`
     /// and a `pg_attrdef` row; the default *text* is supplied at query time by the
@@ -33,24 +42,51 @@ pub struct ColumnDef {
 /// concurrent appends can't collide on a shared register/deregister name.
 static APPEND_STAGING_SEQ: AtomicU64 = AtomicU64::new(0);
 
-static DATABASE_SCHEMAS: Lazy<Mutex<HashMap<String, HashSet<String>>>> =
-    Lazy::new(|| Mutex::new(HashMap::new()));
+/// Which schema names each database registered, keyed by database name.
+///
+/// `pg_namespace` is flattened across databases, so a namespace row alone does
+/// not say which database asked for it. Dropping a database has to drop exactly
+/// the schemas that database registered, and this map is what remembers them.
+static DATABASE_SCHEMAS: std::sync::LazyLock<Mutex<HashMap<String, HashSet<String>>>> =
+    std::sync::LazyLock::new(|| Mutex::new(HashMap::new()));
 
+/// Give `database_name` an entry in the schema registry, empty if it had none.
+///
+/// Called on paths that may run before any schema is registered, so that a later
+/// drop of the database sees a known database with no schemas rather than an
+/// unknown one.
+///
+/// # Panics
+///
+/// Panics if the registry mutex was poisoned by a thread that panicked while
+/// holding it.
 fn ensure_database_registry(database_name: &str) {
     let mut registry = DATABASE_SCHEMAS.lock().unwrap();
-    registry
-        .entry(database_name.to_string())
-        .or_insert_with(HashSet::new);
+    registry.entry(database_name.to_string()).or_default();
 }
 
+/// Record that `database_name` owns `schema_name`, creating the database's entry
+/// if this is its first schema.
+///
+/// # Panics
+///
+/// Panics if the registry mutex was poisoned by a thread that panicked while
+/// holding it.
 fn add_schema_to_registry(database_name: &str, schema_name: &str) {
     let mut registry = DATABASE_SCHEMAS.lock().unwrap();
     registry
         .entry(database_name.to_string())
-        .or_insert_with(HashSet::new)
+        .or_default()
         .insert(schema_name.to_string());
 }
 
+/// Forget that `database_name` owns `schema_name`, dropping the database's entry
+/// once its last schema is gone. Unknown names are ignored.
+///
+/// # Panics
+///
+/// Panics if the registry mutex was poisoned by a thread that panicked while
+/// holding it.
 fn remove_schema_from_registry(database_name: &str, schema_name: &str) {
     let mut registry = DATABASE_SCHEMAS.lock().unwrap();
     if let Some(schemas) = registry.get_mut(database_name) {
@@ -61,6 +97,14 @@ fn remove_schema_from_registry(database_name: &str, schema_name: &str) {
     }
 }
 
+/// Remove `database_name` from the registry and return the schema names it owned
+/// (empty when it owned none). Taking and returning in one locked step means the
+/// caller can drop those schemas without holding the lock across `await` points.
+///
+/// # Panics
+///
+/// Panics if the registry mutex was poisoned by a thread that panicked while
+/// holding it.
 fn take_schemas_from_registry(database_name: &str) -> Vec<String> {
     let mut registry = DATABASE_SCHEMAS.lock().unwrap();
     registry
@@ -70,7 +114,7 @@ fn take_schemas_from_registry(database_name: &str) -> Vec<String> {
 }
 
 /// Resolve a column's declared type string (as the integration writes it, e.g.
-/// `int`, `varchar(64)`, `text`) to its PostgreSQL `pg_type` OID. The OID is the
+/// `int`, `varchar(64)`, `text`) to its `PostgreSQL` `pg_type` OID. The OID is the
 /// single source of truth for both `pg_attribute.atttypid` and the
 /// `information_schema.columns` type names (via [`oid_to_type_names`]), so the
 /// two never disagree. Unrecognized types fall back to `text` (OID 25), the
@@ -86,7 +130,7 @@ pub(crate) fn map_type_to_oid(t: &str) -> i32 {
     }
 }
 
-/// Map a PostgreSQL type OID back to its `(data_type, udt_name)` pair as used in
+/// Map a `PostgreSQL` type OID back to its `(data_type, udt_name)` pair as used in
 /// `information_schema.columns`.
 ///
 /// This is the inverse of [`map_type_to_oid`] and lets both the eager and lazy
@@ -99,7 +143,8 @@ pub(crate) fn oid_to_type_names(oid: i32) -> (String, String) {
         20 => ("bigint".to_string(), "int8".to_string()),
         16 => ("boolean".to_string(), "bool".to_string()),
         1043 => ("character varying".to_string(), "varchar".to_string()),
-        25 => ("text".to_string(), "text".to_string()),
+        // OID 25 is text itself, and every unrecognized OID falls back to text,
+        // so both land on the same names.
         _ => ("text".to_string(), "text".to_string()),
     }
 }
@@ -113,7 +158,7 @@ pub(crate) fn oid_to_type_names(oid: i32) -> (String, String) {
 /// database's context has its own catalog, so it has its own numbering.
 ///
 /// Two databases giving their first table the same OID is correct, not a
-/// collision: PostgreSQL's OIDs are unique within a database, and two databases'
+/// collision: `PostgreSQL`'s OIDs are unique within a database, and two databases'
 /// catalogs are never joined.
 ///
 /// Numbering starts at [`FIRST_USER_OID`], clear of the built-in range, and the
@@ -125,12 +170,18 @@ pub(crate) fn oid_to_type_names(oid: i32) -> (String, String) {
 /// space, so a relation and a schema can never be handed the same number.
 /// Callers needing several must insert each before asking for the next, or take
 /// consecutive values from one call.
+///
+/// # Errors
+///
+/// Errors if the `max(oid)` query over the catalog tables cannot be planned or
+/// executed, if it yields no batch at all, or if its single column does not come
+/// back as `Int64` (the type the explicit `::bigint` cast asks for).
 async fn next_catalog_oid(ctx: &SessionContext) -> DFResult<i32> {
     // Cast in SQL rather than guessing the Arrow type here: the oid columns are
-    // int4, so max() comes back as Int32, and a downcast to Int64 that silently
-    // fell back to a default would hand out the floor every time - which is
-    // exactly what it did before this cast was added, giving the first schema
-    // and the first relation the same OID.
+    // int4, so an uncast max() comes back as Int32 and does not match the Int64
+    // downcast below. Pinning the type in the query keeps the two in step, so the
+    // maximum is really read instead of falling back to the floor - a floor that
+    // would hand the first schema and the first relation the same OID.
     let batches = ctx
         .sql(
             "SELECT max(oid)::bigint FROM (
@@ -160,7 +211,10 @@ async fn next_catalog_oid(ctx: &SessionContext) -> DFResult<i32> {
             ))
         })?;
 
-    // NULL only if every source table is empty, which the floor covers.
+    // NULL only if every source table is empty, which the floor covers. Every oid
+    // column unioned above is int4 and is i64 here only because the query casts it
+    // to bigint, so the maximum always fits back into i32.
+    #[allow(clippy::cast_possible_truncation)]
     let highest = if highest.is_empty() || highest.is_null(0) {
         0
     } else {
@@ -170,6 +224,18 @@ async fn next_catalog_oid(ctx: &SessionContext) -> DFResult<i32> {
     Ok(std::cmp::max(FIRST_USER_OID, highest.saturating_add(1)))
 }
 
+/// Register a database in `pg_catalog.pg_database` and remember it in the
+/// per-database schema registry.
+///
+/// Idempotent: a `pg_database` row of that name is left exactly as it is, so a
+/// re-registration keeps the OID the database already has. A new row is given
+/// the next free catalog OID and `PostgreSQL`'s conventional defaults (`SQL_ASCII`
+/// era encoding 6, `C` collation, connectable, not a template).
+///
+/// # Errors
+///
+/// Errors if the `pg_database` probe or the `INSERT` cannot be planned or
+/// executed, or if allocating the new OID fails (see [`next_catalog_oid`]).
 pub async fn register_user_database(ctx: &SessionContext, database_name: &str) -> DFResult<()> {
     ensure_database_registry(database_name);
 
@@ -226,29 +292,33 @@ pub async fn register_user_database(ctx: &SessionContext, database_name: &str) -
 /// `register_user_constraint`, which identify the namespace by OID rather than name -
 /// the flattened catalog allows the same schema name under several databases, so a
 /// name alone is ambiguous.
+///
+/// # Errors
+///
+/// Errors if the `pg_namespace` lookup or the `INSERT` cannot be planned or
+/// executed, or if allocating the new OID fails (see [`next_catalog_oid`]).
 pub async fn register_schema(
     ctx: &SessionContext,
     database_name: &str,
     schema_name: &str,
 ) -> DFResult<i32> {
-    let oid = match get_schema_oid(ctx, schema_name).await? {
-        Some(oid) => oid,
-        None => {
-            // Only ever a NEW schema: an existing one is found by the lookup
-            // above and keeps the OID it already has, which is how a schema
-            // named "public" holds on to the built-in 2200.
-            let oid = next_catalog_oid(ctx).await?;
-            let sql = format!(
-                // The owner must be a role that exists: information_schema.schemata
-                // inner-joins nspowner to pg_authid, so a made-up owner OID drops
-                // the schema out of that view entirely rather than just blanking
-                // its owner column.
-                "INSERT INTO pg_catalog.pg_namespace (oid, nspname, nspowner, nspacl) VALUES ({oid}, '{}', {DEFAULT_OWNER_ROLE_OID}, NULL)",
-                schema_name.replace('\'', "''")
-            );
-            ctx.sql(&sql).await?.collect().await?;
-            oid
-        }
+    let oid = if let Some(oid) = get_schema_oid(ctx, schema_name).await? {
+        oid
+    } else {
+        // Only ever a NEW schema: an existing one is found by the lookup
+        // above and keeps the OID it already has, which is how a schema
+        // named "public" holds on to the built-in 2200.
+        let oid = next_catalog_oid(ctx).await?;
+        let sql = format!(
+            // The owner must be a role that exists: information_schema.schemata
+            // inner-joins nspowner to pg_authid, so a made-up owner OID drops
+            // the schema out of that view entirely rather than just blanking
+            // its owner column.
+            "INSERT INTO pg_catalog.pg_namespace (oid, nspname, nspowner, nspacl) VALUES ({oid}, '{}', {DEFAULT_OWNER_ROLE_OID}, NULL)",
+            schema_name.replace('\'', "''")
+        );
+        ctx.sql(&sql).await?.collect().await?;
+        oid
     };
 
     add_schema_to_registry(database_name, schema_name);
@@ -290,9 +360,14 @@ fn column_specs_from_defs(columns: &[BTreeMap<String, ColumnDef>]) -> Vec<Column
 ///
 /// `_database_name` is accepted to keep the public wrappers' signatures stable and
 /// self-documenting. The relation's rows are keyed by schema OID, the OID comes
-/// from the context's own counter, and the information_schema relations derive
+/// from the context's own counter, and the `information_schema` relations derive
 /// from the base-table rows - so the database name is not needed here. Which
 /// database this is is already settled by which context is being written to.
+///
+/// # Errors
+///
+/// Errors if `schema_oid` names no namespace in `pg_namespace`, or if any of the
+/// catalog queries, OID allocations or row appends fail.
 async fn register_user_relation(
     ctx: &SessionContext,
     _database_name: &str,
@@ -344,6 +419,12 @@ async fn register_user_relation(
         row_security: false,
     };
 
+    // A relation's column count is bounded by what the caller could build in
+    // memory as a Vec of per-column maps, which is orders of magnitude below
+    // i32::MAX (PostgreSQL itself caps a relation at 1600 columns).
+    #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
+    let column_count = column_specs.len() as i32;
+
     // pg_class identity row, its composite rowtype in pg_type, and one
     // pg_attribute row per column - all from the same builders the lazy
     // registration path uses, so eager and lazy emit identical rows.
@@ -351,7 +432,7 @@ async fn register_user_relation(
         ctx,
         "pg_catalog",
         "pg_class",
-        build_pg_class_row(&relation, schema_oid, column_specs.len() as i32),
+        build_pg_class_row(&relation, schema_oid, column_count),
     )
     .await?;
     append_catalog_row(
@@ -371,6 +452,9 @@ async fn register_user_relation(
     // the structural handle clients join on.
     for (idx, col) in column_specs.iter().enumerate() {
         if col.has_default {
+            // 1-based attnum. Bounded by the column count, which cannot reach
+            // i32::MAX (see the column_count cast above).
+            #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
             let adnum = (idx + 1) as i32;
             let attrdef_oid = next_catalog_oid(ctx).await?;
             append_catalog_row(
@@ -394,6 +478,11 @@ async fn register_user_relation(
 /// Register a user table in the schema identified by `schema_oid`. See
 /// [`register_user_relation`] for the rows written; this fixes the relkind to a
 /// table (`pg_class.relkind = 'r'`).
+///
+/// # Errors
+///
+/// Errors if `schema_oid` names no namespace in `pg_namespace`, or if any of the
+/// catalog queries, OID allocations or row appends fail.
 pub async fn register_user_tables(
     ctx: &SessionContext,
     database_name: &str,
@@ -418,6 +507,11 @@ pub async fn register_user_tables(
 /// and `information_schema.views`. Its `definition` text comes from the
 /// integration-supplied view-definition resolver at `pg_get_viewdef` call time
 /// (NULL until one is installed); `columns` are the view's output columns.
+///
+/// # Errors
+///
+/// Errors if `schema_oid` names no namespace in `pg_namespace`, or if any of the
+/// catalog queries, OID allocations or row appends fail.
 pub async fn register_user_view(
     ctx: &SessionContext,
     database_name: &str,
@@ -443,6 +537,13 @@ pub async fn register_user_view(
 /// the eager registration helpers to write rows whose columns include non-scalar
 /// types (e.g. the `pg_index.indkey` list) that a literal `INSERT ... VALUES`
 /// clause cannot express.
+///
+/// # Errors
+///
+/// Errors if the default catalog, the schema or the table cannot be resolved, if
+/// `row` cannot be materialized against the table's Arrow schema, or if
+/// registering the staging table or running the `INSERT` fails. The staging table
+/// is deregistered before the insert's error is returned.
 async fn append_catalog_row(
     ctx: &SessionContext,
     schema_name: &str,
@@ -498,8 +599,12 @@ async fn append_catalog_row(
 /// than resolved by name, since the flattened catalog allows duplicate schema names
 /// across databases); `key_attnums` lists the indexed columns by their 1-based
 /// `pg_attribute.attnum`, in index order. The index's `pg_class.oid` is allocated
-/// here. Errors if the table is not registered; re-registering an existing index
-/// name is a no-op.
+/// here. Re-registering an existing index name is a no-op.
+///
+/// # Errors
+///
+/// Errors if `table_name` is not registered in the namespace `schema_oid`, or if
+/// any of the catalog queries, the OID allocation or the row appends fail.
 pub async fn register_user_index(
     ctx: &SessionContext,
     schema_oid: i32,
@@ -564,6 +669,15 @@ pub async fn register_user_index(
 /// to `key_attnums`); both are ignored for primary-key and unique constraints. The
 /// call is idempotent: a constraint of the same name already on the table is left
 /// untouched.
+///
+/// # Errors
+///
+/// Errors if `table_name` is not registered in the namespace `schema_oid`; if
+/// `kind` is [`ConstraintKind::ForeignKey`] and `referenced_table_name` is `None`
+/// or names a table not registered in that same namespace; if a foreign key's
+/// `key_attnums` and `referenced_key_attnums` differ in length (they are matched
+/// position by position); or if any of the catalog queries, the OID allocation or
+/// the row append fail.
 #[allow(clippy::too_many_arguments)]
 pub async fn register_user_constraint(
     ctx: &SessionContext,
@@ -655,6 +769,11 @@ pub async fn register_user_constraint(
 /// Read a namespace's name from its OID. The inverse of [`get_schema_oid`], used by
 /// `register_user_tables` to label `information_schema` rows once the namespace is
 /// identified unambiguously by OID.
+///
+/// # Errors
+///
+/// Errors if the `pg_namespace` query cannot be planned or executed. An OID that
+/// matches no namespace is `Ok(None)`, not an error.
 async fn get_schema_name(ctx: &SessionContext, schema_oid: i32) -> DFResult<Option<String>> {
     let df = ctx
         .sql(&format!(
@@ -672,8 +791,13 @@ async fn get_schema_name(ctx: &SessionContext, schema_oid: i32) -> DFResult<Opti
 
 /// Read the OID in the first row of a single-column `SELECT oid ...` result,
 /// accepting either an `Int32` or `Int64` column (widened/narrowed to `i32`).
-/// Returns `None` when the result has no rows, and an error when the column is
-/// neither integer type. `kind` names the looked-up object for the error text.
+/// Returns `None` when the result has no rows. `kind` names the looked-up object
+/// for the error text.
+///
+/// # Errors
+///
+/// Errors if the first column is neither an `Int32Array` nor an `Int64Array`,
+/// which means the caller selected something other than an oid column.
 fn first_oid_cell(batches: &[RecordBatch], kind: &str) -> DFResult<Option<i32>> {
     if batches.is_empty() || batches[0].num_rows() == 0 {
         return Ok(None);
@@ -683,7 +807,11 @@ fn first_oid_cell(batches: &[RecordBatch], kind: &str) -> DFResult<Option<i32>> 
     if let Some(arr) = array.as_any().downcast_ref::<Int32Array>() {
         Ok(Some(arr.value(0)))
     } else if let Some(arr) = array.as_any().downcast_ref::<Int64Array>() {
-        Ok(Some(arr.value(0) as i32))
+        // Every catalog oid column is int4; an Int64 result only arises when the
+        // query widened one on the way out, so the value fits back in i32.
+        #[allow(clippy::cast_possible_truncation)]
+        let oid = arr.value(0) as i32;
+        Ok(Some(oid))
     } else {
         Err(DataFusionError::Execution(format!(
             "unexpected {kind} oid type"
@@ -693,6 +821,11 @@ fn first_oid_cell(batches: &[RecordBatch], kind: &str) -> DFResult<Option<i32>> 
 
 /// Look up a schema's OID by name from `pg_catalog.pg_namespace`, or `None` when
 /// no schema of that name exists.
+///
+/// # Errors
+///
+/// Errors if the `pg_namespace` query cannot be planned or executed, or if its
+/// oid column is not an integer column (see [`first_oid_cell`]).
 async fn get_schema_oid(ctx: &SessionContext, schema_name: &str) -> DFResult<Option<i32>> {
     let df = ctx
         .sql("SELECT oid FROM pg_catalog.pg_namespace WHERE nspname=$schema")
@@ -703,6 +836,11 @@ async fn get_schema_oid(ctx: &SessionContext, schema_name: &str) -> DFResult<Opt
 
 /// Look up a table's OID by name within a schema from `pg_catalog.pg_class`, or
 /// `None` when no such table exists in that schema.
+///
+/// # Errors
+///
+/// Errors if the `pg_class` query cannot be planned or executed, or if its oid
+/// column is not an integer column (see [`first_oid_cell`]).
 async fn get_table_oid(
     ctx: &SessionContext,
     schema_oid: i32,
@@ -717,6 +855,13 @@ async fn get_table_oid(
     first_oid_cell(&df.collect().await?, "table")
 }
 
+/// Read a string column into owned `String`s, skipping NULL cells.
+///
+/// Accepts both `StringArray` and `LargeStringArray` because the catalog tables
+/// are built from several sources that do not agree on the offset width. A
+/// non-string column yields an empty vector rather than an error: callers use
+/// this to enumerate names, where "no names" and "not a string column" lead to
+/// the same no-op.
 fn collect_string_column(column: &arrow::array::ArrayRef) -> Vec<String> {
     if let Some(arr) = column.as_any().downcast_ref::<StringArray>() {
         (0..arr.len())
@@ -733,6 +878,22 @@ fn collect_string_column(column: &arrow::array::ArrayRef) -> Vec<String> {
     }
 }
 
+/// Remove every catalog row describing one user table: its `pg_class` identity
+/// row, its composite rowtype in `pg_type`, its `pg_attribute` columns, and the
+/// `pg_attrdef` / `pg_constraint` rows keyed by its OID.
+///
+/// Each table is rewritten with `INSERT OVERWRITE ... SELECT ... WHERE <> oid`,
+/// which is how a row is deleted from an in-memory provider that has no DELETE.
+/// The `information_schema` relations are SQL views over these base tables, so
+/// they follow automatically and are not touched here.
+///
+/// An unknown schema or table is not an error - unregistering something that was
+/// never registered leaves the catalog as it is.
+///
+/// # Errors
+///
+/// Errors if the schema/table lookups or any of the overwrite statements cannot
+/// be planned or executed.
 pub async fn unregister_tables(
     ctx: &SessionContext,
     database_name: &str,
@@ -795,6 +956,18 @@ pub async fn unregister_tables(
     Ok(())
 }
 
+/// Unregister every relation in a schema and then the `pg_namespace` row itself,
+/// and forget the schema in the per-database registry.
+///
+/// The relations are dropped first so no `pg_class` row is left pointing at a
+/// namespace that no longer exists. A schema name that is not in `pg_namespace`
+/// is still dropped from the registry, so the registry cannot outlive the
+/// catalog.
+///
+/// # Errors
+///
+/// Errors if the namespace lookup, the relation enumeration, any per-table
+/// unregistration, or the `pg_namespace` overwrite cannot be planned or executed.
 pub async fn unregister_schema(
     ctx: &SessionContext,
     database_name: &str,
@@ -836,6 +1009,19 @@ pub async fn unregister_schema(
     Ok(())
 }
 
+/// Unregister a database: every schema it registered, then its `pg_database` row.
+///
+/// The schemas come from the per-database registry rather than from
+/// `pg_namespace`, because namespaces are flattened across databases and a
+/// namespace row does not say which database asked for it. Taking them from the
+/// registry is what keeps this from dropping another database's schema of the
+/// same name. A database with no `pg_database` row still has its registry entry
+/// cleared, so a half-registered database leaves nothing behind.
+///
+/// # Errors
+///
+/// Errors if the `pg_database` lookup, any schema unregistration, or the
+/// `pg_database` overwrite cannot be planned or executed.
 pub async fn unregister_database(ctx: &SessionContext, database_name: &str) -> DFResult<()> {
     let df = ctx
         .sql("SELECT oid FROM pg_catalog.pg_database WHERE datname=$database")
@@ -870,12 +1056,34 @@ mod tests {
     use super::*;
     use crate::session::get_base_session_context;
 
+    /// Build one column in the wire format the registration helpers take: a
+    /// single-entry map from the column name to its [`ColumnDef`]. The name is
+    /// the map key rather than a field, which is why a column cannot be written
+    /// as a plain struct literal.
+    fn single_column_map(
+        name: &str,
+        col_type: &str,
+        nullable: bool,
+        has_default: bool,
+    ) -> BTreeMap<String, ColumnDef> {
+        let mut column = BTreeMap::new();
+        column.insert(
+            name.to_string(),
+            ColumnDef {
+                col_type: col_type.to_string(),
+                nullable,
+                has_default,
+            },
+        );
+        column
+    }
+
+    /// The eager view path writes the same structural rows as a table, but with
+    /// relkind 'v', so the view appears in `pg_class`, `information_schema.tables`
+    /// (as a VIEW), and `pg_attribute` - the structural half of a view, ready for
+    /// the definition resolver to supply its text at `pg_get_viewdef` call time.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_register_user_view_creates_view_relation() -> DFResult<()> {
-        // The eager view path writes the same structural rows as a table, but with
-        // relkind 'v', so the view appears in pg_class, information_schema.tables
-        // (as a VIEW), and pg_attribute - the structural half of a view, ready for
-        // the definition resolver to supply its text at pg_get_viewdef call time.
         let (ctx, _) = get_base_session_context(
             Some("pg_catalog_data/pg_schema"),
             "pgtry".to_string(),
@@ -885,15 +1093,7 @@ mod tests {
 
         let schema_oid = register_schema(&ctx, "pgtry", "myschema").await?;
 
-        let mut id = BTreeMap::new();
-        id.insert(
-            "id".to_string(),
-            ColumnDef {
-                col_type: "int".to_string(),
-                nullable: false,
-                has_default: false,
-            },
-        );
+        let id = single_column_map("id", "int", false, false);
         register_user_view(&ctx, "pgtry", schema_oid, "active_users", vec![id]).await?;
 
         // A relkind 'v' pg_class row in the target schema.
@@ -934,6 +1134,8 @@ mod tests {
         Ok(())
     }
 
+    /// A registered table gets a `pg_class` row under the namespace it was
+    /// registered in, and one `pg_attribute` row per column.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_register_user_tables_dynamic() -> DFResult<()> {
         let (ctx, _) = get_base_session_context(
@@ -945,26 +1147,10 @@ mod tests {
 
         let schema_oid = register_schema(&ctx, "pgtry", "myschema").await?;
 
-        let mut c1 = BTreeMap::new();
-        c1.insert(
-            "id".to_string(),
-            ColumnDef {
-                col_type: "int".to_string(),
-                nullable: true,
-                has_default: false,
-            },
-        );
-        let mut c2 = BTreeMap::new();
-        c2.insert(
-            "name".to_string(),
-            ColumnDef {
-                col_type: "text".to_string(),
-                nullable: true,
-                has_default: false,
-            },
-        );
+        let id = single_column_map("id", "int", true, false);
+        let name = single_column_map("name", "text", true, false);
 
-        register_user_tables(&ctx, "pgtry", schema_oid, "contacts", vec![c1, c2]).await?;
+        register_user_tables(&ctx, "pgtry", schema_oid, "contacts", vec![id, name]).await?;
 
         let df = ctx
             .sql("SELECT relname FROM pg_catalog.pg_class WHERE relname='contacts'")
@@ -995,13 +1181,13 @@ mod tests {
         Ok(())
     }
 
+    /// Regression: the eager registration API must identify the schema by OID,
+    /// not by name. The flattened catalog allows the same schema name under
+    /// several databases (a lazy source can produce two `public` namespaces); a
+    /// name-only lookup would pick an arbitrary one and bind the table to the
+    /// wrong namespace.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_register_user_tables_resolves_schema_by_oid_not_name() -> DFResult<()> {
-        // Regression: the eager registration API must identify the schema by OID,
-        // not by name. The flattened catalog allows the same schema name under
-        // several databases (a lazy source can produce two `public` namespaces);
-        // a name-only lookup would pick an arbitrary one and bind the table to the
-        // wrong namespace.
         let (ctx, _) = get_base_session_context(
             Some("pg_catalog_data/pg_schema"),
             "pgtry".to_string(),
@@ -1022,40 +1208,35 @@ mod tests {
         }
 
         // Register a table against the SECOND namespace, by OID.
-        let mut id = BTreeMap::new();
-        id.insert(
-            "id".to_string(),
-            ColumnDef {
-                col_type: "int".to_string(),
-                nullable: false,
-                has_default: false,
-            },
-        );
+        let id = single_column_map("id", "int", false, false);
         register_user_tables(&ctx, "pgtry", 71002, "widget", vec![id]).await?;
 
         // The table lands in the OID we passed (71002), not the arbitrary first
         // same-named namespace (71001) a name lookup would have resolved to.
-        let in_passed = ctx
+        let rows_in_requested_namespace = ctx
             .sql("SELECT 1 FROM pg_catalog.pg_class WHERE relname='widget' AND relnamespace=71002")
             .await?
             .count()
             .await?;
         assert_eq!(
-            in_passed, 1,
+            rows_in_requested_namespace, 1,
             "table must be registered under the OID passed (71002)"
         );
-        let in_other = ctx
+        let rows_in_samename_namespace = ctx
             .sql("SELECT 1 FROM pg_catalog.pg_class WHERE relname='widget' AND relnamespace=71001")
             .await?
             .count()
             .await?;
         assert_eq!(
-            in_other, 0,
-            "table must NOT land in the other same-named namespace (71001)"
+            rows_in_samename_namespace, 0,
+            "table must NOT land in the same-named namespace 71001 that was not requested"
         );
         Ok(())
     }
 
+    /// A registered index gets its own relkind 'i' `pg_class` row plus a
+    /// `pg_index` structure row that names the indexed table, its uniqueness and
+    /// primary-key flags, and the indexed column attnums in `indkey`.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_register_user_index_dynamic() -> DFResult<()> {
         let (ctx, _) = get_base_session_context(
@@ -1067,16 +1248,8 @@ mod tests {
 
         let schema_oid = register_schema(&ctx, "pgtry", "myschema").await?;
 
-        let mut c1 = BTreeMap::new();
-        c1.insert(
-            "id".to_string(),
-            ColumnDef {
-                col_type: "int".to_string(),
-                nullable: false,
-                has_default: false,
-            },
-        );
-        register_user_tables(&ctx, "pgtry", schema_oid, "contacts", vec![c1]).await?;
+        let id = single_column_map("id", "int", false, false);
+        register_user_tables(&ctx, "pgtry", schema_oid, "contacts", vec![id]).await?;
 
         register_user_index(
             &ctx,
@@ -1141,11 +1314,11 @@ mod tests {
         Ok(())
     }
 
+    /// conkey and confkey are matched position-by-position, so the two attnum
+    /// lists must be the same length; an unequal pairing is rejected at
+    /// construction, before it can be serialized into `pg_constraint`.
     #[test]
     fn test_foreign_key_rejects_mismatched_attnum_counts() {
-        // conkey and confkey are matched position-by-position, so the two attnum
-        // lists must be the same length; an unequal pairing is rejected at
-        // construction (it could otherwise be serialized into pg_constraint).
         assert!(
             ConstraintDef::foreign_key(1, "fk", 10, 20, vec![1, 2], 30, vec![1], 0).is_err(),
             "2 key columns vs 1 referenced column must be rejected"
@@ -1160,38 +1333,16 @@ mod tests {
         );
     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn test_register_user_constraint_dynamic() -> DFResult<()> {
-        let (ctx, _) = get_base_session_context(
-            Some("pg_catalog_data/pg_schema"),
-            "pgtry".to_string(),
-            "public".to_string(),
-        )
-        .await?;
-
-        let schema_oid = register_schema(&ctx, "pgtry", "myschema").await?;
-
-        // Parent table 'users' (id, email) and child 'orders' (id, user_id).
-        let mut users_id = BTreeMap::new();
-        users_id.insert(
-            "id".to_string(),
-            ColumnDef {
-                col_type: "int".to_string(),
-                nullable: false,
-                has_default: false,
-            },
-        );
-        let mut users_email = BTreeMap::new();
-        users_email.insert(
-            "email".to_string(),
-            ColumnDef {
-                col_type: "text".to_string(),
-                nullable: false,
-                has_default: false,
-            },
-        );
+    /// Register the parent table 'users' (id, email) and the child table 'orders'
+    /// (id, `user_id`) that the constraint test hangs its constraints on.
+    async fn register_users_and_orders_tables(
+        ctx: &SessionContext,
+        schema_oid: i32,
+    ) -> DFResult<()> {
+        let users_id = single_column_map("id", "int", false, false);
+        let users_email = single_column_map("email", "text", false, false);
         register_user_tables(
-            &ctx,
+            ctx,
             "pgtry",
             schema_oid,
             "users",
@@ -1199,37 +1350,27 @@ mod tests {
         )
         .await?;
 
-        let mut orders_id = BTreeMap::new();
-        orders_id.insert(
-            "id".to_string(),
-            ColumnDef {
-                col_type: "int".to_string(),
-                nullable: false,
-                has_default: false,
-            },
-        );
-        let mut orders_user_id = BTreeMap::new();
-        orders_user_id.insert(
-            "user_id".to_string(),
-            ColumnDef {
-                col_type: "int".to_string(),
-                nullable: false,
-                has_default: false,
-            },
-        );
+        let orders_id = single_column_map("id", "int", false, false);
+        let orders_user_id = single_column_map("user_id", "int", false, false);
         register_user_tables(
-            &ctx,
+            ctx,
             "pgtry",
             schema_oid,
             "orders",
             vec![orders_id, orders_user_id],
         )
-        .await?;
+        .await
+    }
 
-        // A primary key and a unique constraint on 'users', and a foreign key
-        // from orders.user_id -> users.id.
+    /// Register the three constraints the constraint test asserts on: a primary
+    /// key and a unique constraint on 'users', and a foreign key from
+    /// `orders.user_id` to users.id.
+    async fn register_users_and_orders_constraints(
+        ctx: &SessionContext,
+        schema_oid: i32,
+    ) -> DFResult<()> {
         register_user_constraint(
-            &ctx,
+            ctx,
             schema_oid,
             "users_pkey",
             "users",
@@ -1240,7 +1381,7 @@ mod tests {
         )
         .await?;
         register_user_constraint(
-            &ctx,
+            ctx,
             schema_oid,
             "users_email_key",
             "users",
@@ -1251,7 +1392,7 @@ mod tests {
         )
         .await?;
         register_user_constraint(
-            &ctx,
+            ctx,
             schema_oid,
             "orders_user_id_fkey",
             "orders",
@@ -1260,7 +1401,25 @@ mod tests {
             Some("users"),
             vec![1],
         )
+        .await
+    }
+
+    /// A primary key, a unique constraint and a foreign key each land in
+    /// `pg_constraint` with the right contype, table, and column lists, the
+    /// foreign key defaulting to NO ACTION update/delete rules; registering the
+    /// same constraint twice leaves a single row.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn test_register_user_constraint_dynamic() -> DFResult<()> {
+        let (ctx, _) = get_base_session_context(
+            Some("pg_catalog_data/pg_schema"),
+            "pgtry".to_string(),
+            "public".to_string(),
+        )
         .await?;
+
+        let schema_oid = register_schema(&ctx, "pgtry", "myschema").await?;
+        register_users_and_orders_tables(&ctx, schema_oid).await?;
+        register_users_and_orders_constraints(&ctx, schema_oid).await?;
 
         // The primary key carries contype 'p' over the right table and column.
         let df = ctx
@@ -1322,6 +1481,10 @@ mod tests {
         Ok(())
     }
 
+    /// Column registration must derive each column's `PostgreSQL` storage
+    /// attributes (length, by-value, alignment, storage, collation) from its type
+    /// and must back a defaulted column with both `atthasdef` and a `pg_attrdef`
+    /// row, while columns without a default get neither.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_register_user_columns_fidelity_and_attrdef() -> DFResult<()> {
         let (ctx, _) = get_base_session_context(
@@ -1335,33 +1498,9 @@ mod tests {
 
         // 'id' int (no default), 'label' text (no default), 'created' bigint with
         // a default expression.
-        let mut id = BTreeMap::new();
-        id.insert(
-            "id".to_string(),
-            ColumnDef {
-                col_type: "int".to_string(),
-                nullable: false,
-                has_default: false,
-            },
-        );
-        let mut label = BTreeMap::new();
-        label.insert(
-            "label".to_string(),
-            ColumnDef {
-                col_type: "text".to_string(),
-                nullable: true,
-                has_default: false,
-            },
-        );
-        let mut created = BTreeMap::new();
-        created.insert(
-            "created".to_string(),
-            ColumnDef {
-                col_type: "bigint".to_string(),
-                nullable: false,
-                has_default: true,
-            },
-        );
+        let id = single_column_map("id", "int", false, false);
+        let label = single_column_map("label", "text", true, false);
+        let created = single_column_map("created", "bigint", false, true);
         register_user_tables(
             &ctx,
             "pgtry",
@@ -1451,6 +1590,8 @@ mod tests {
         Ok(())
     }
 
+    /// `information_schema.tables` derives a full row for a registered table:
+    /// catalog, schema, name, BASE TABLE type, and the insertable/typed flags.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_register_user_tables_information_schema() -> DFResult<()> {
         let (ctx, _) = get_base_session_context(
@@ -1462,26 +1603,17 @@ mod tests {
 
         let schema_oid = register_schema(&ctx, "pgtry", "myschema").await?;
 
-        let mut c1 = BTreeMap::new();
-        c1.insert(
-            "id".to_string(),
-            ColumnDef {
-                col_type: "int".to_string(),
-                nullable: true,
-                has_default: false,
-            },
-        );
-        let mut c2 = BTreeMap::new();
-        c2.insert(
-            "name".to_string(),
-            ColumnDef {
-                col_type: "text".to_string(),
-                nullable: true,
-                has_default: false,
-            },
-        );
+        let id_column = single_column_map("id", "int", true, false);
+        let name_column = single_column_map("name", "text", true, false);
 
-        register_user_tables(&ctx, "pgtry", schema_oid, "contacts", vec![c1, c2]).await?;
+        register_user_tables(
+            &ctx,
+            "pgtry",
+            schema_oid,
+            "contacts",
+            vec![id_column, name_column],
+        )
+        .await?;
 
         let df = ctx
             .sql("SELECT table_catalog, table_schema, table_name, table_type, is_insertable_into, is_typed \
@@ -1537,6 +1669,9 @@ mod tests {
         Ok(())
     }
 
+    /// `information_schema.columns` derives one row per registered column, in
+    /// registration order, with the type names that match the column's `pg_type`
+    /// OID and the nullability it was registered with.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_register_user_columns_information_schema() -> DFResult<()> {
         let (ctx, _) = get_base_session_context(
@@ -1548,26 +1683,17 @@ mod tests {
 
         let schema_oid = register_schema(&ctx, "pgtry", "myschema").await?;
 
-        let mut c1 = BTreeMap::new();
-        c1.insert(
-            "id".to_string(),
-            ColumnDef {
-                col_type: "int".to_string(),
-                nullable: true,
-                has_default: false,
-            },
-        );
-        let mut c2 = BTreeMap::new();
-        c2.insert(
-            "name".to_string(),
-            ColumnDef {
-                col_type: "text".to_string(),
-                nullable: true,
-                has_default: false,
-            },
-        );
+        let id_column = single_column_map("id", "int", true, false);
+        let name_column = single_column_map("name", "text", true, false);
 
-        register_user_tables(&ctx, "pgtry", schema_oid, "contacts", vec![c1, c2]).await?;
+        register_user_tables(
+            &ctx,
+            "pgtry",
+            schema_oid,
+            "contacts",
+            vec![id_column, name_column],
+        )
+        .await?;
 
         let df = ctx
             .sql(
@@ -1643,6 +1769,9 @@ mod tests {
         Ok(())
     }
 
+    /// Registering the same table twice leaves one `pg_class` row and one
+    /// `pg_attribute` row per column, so a host replaying its registrations does
+    /// not duplicate the catalog.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_register_user_tables_idempotent() -> DFResult<()> {
         let (ctx, _) = get_base_session_context(
@@ -1654,35 +1783,26 @@ mod tests {
 
         let schema_oid = register_schema(&ctx, "pgtry", "myschema").await?;
 
-        let mut c1 = BTreeMap::new();
-        c1.insert(
-            "id".to_string(),
-            ColumnDef {
-                col_type: "int".to_string(),
-                nullable: true,
-                has_default: false,
-            },
-        );
-        let mut c2 = BTreeMap::new();
-        c2.insert(
-            "name".to_string(),
-            ColumnDef {
-                col_type: "text".to_string(),
-                nullable: true,
-                has_default: false,
-            },
-        );
+        let id_column = single_column_map("id", "int", true, false);
+        let name_column = single_column_map("name", "text", true, false);
 
         register_user_tables(
             &ctx,
             "pgtry",
             schema_oid,
             "contacts",
-            vec![c1.clone(), c2.clone()],
+            vec![id_column.clone(), name_column.clone()],
         )
         .await?;
         // call again to ensure idempotency
-        register_user_tables(&ctx, "pgtry", schema_oid, "contacts", vec![c1, c2]).await?;
+        register_user_tables(
+            &ctx,
+            "pgtry",
+            schema_oid,
+            "contacts",
+            vec![id_column, name_column],
+        )
+        .await?;
 
         let df = ctx
             .sql("SELECT relname FROM pg_catalog.pg_class WHERE relname='contacts'")
@@ -1701,6 +1821,7 @@ mod tests {
         Ok(())
     }
 
+    /// Registering a schema writes its `pg_namespace` row.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_register_schema() -> DFResult<()> {
         let (ctx, _) = get_base_session_context(
@@ -1719,6 +1840,7 @@ mod tests {
         Ok(())
     }
 
+    /// Registering a database writes its `pg_database` row.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_register_user_database() -> DFResult<()> {
         let (ctx, _) = get_base_session_context(
@@ -1737,6 +1859,8 @@ mod tests {
         Ok(())
     }
 
+    /// Unregistering a table removes its `pg_class`, `pg_attribute` and `pg_type`
+    /// rowtype rows together, leaving no half-described relation behind.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_unregister_tables_removes_metadata() -> DFResult<()> {
         let (ctx, _) = get_base_session_context(
@@ -1748,16 +1872,8 @@ mod tests {
 
         let schema_oid = register_schema(&ctx, "pgtry", "myschema").await?;
 
-        let mut c1 = BTreeMap::new();
-        c1.insert(
-            "id".to_string(),
-            ColumnDef {
-                col_type: "int".to_string(),
-                nullable: false,
-                has_default: false,
-            },
-        );
-        register_user_tables(&ctx, "pgtry", schema_oid, "contacts", vec![c1]).await?;
+        let id = single_column_map("id", "int", false, false);
+        register_user_tables(&ctx, "pgtry", schema_oid, "contacts", vec![id]).await?;
 
         unregister_tables(&ctx, "pgtry", "myschema", "contacts").await?;
 
@@ -1782,11 +1898,11 @@ mod tests {
         Ok(())
     }
 
+    /// A table registered with a defaulted column and a primary key writes
+    /// `pg_attrdef` and `pg_constraint` rows keyed by its OID; unregistering must
+    /// drop both so no orphaned default/constraint metadata survives.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_unregister_tables_removes_attrdef_and_constraint_rows() -> DFResult<()> {
-        // A table registered with a defaulted column and a primary key writes
-        // pg_attrdef and pg_constraint rows keyed by its OID; unregistering must
-        // drop both so no orphaned default/constraint metadata survives.
         let (ctx, _) = get_base_session_context(
             Some("pg_catalog_data/pg_schema"),
             "pgtry".to_string(),
@@ -1798,24 +1914,8 @@ mod tests {
 
         // Each column is its own single-entry map (the wire format). 'id' has no
         // default; 'note' carries one, so it seeds a pg_attrdef row.
-        let mut id = BTreeMap::new();
-        id.insert(
-            "id".to_string(),
-            ColumnDef {
-                col_type: "int".to_string(),
-                nullable: false,
-                has_default: false,
-            },
-        );
-        let mut note = BTreeMap::new();
-        note.insert(
-            "note".to_string(),
-            ColumnDef {
-                col_type: "text".to_string(),
-                nullable: true,
-                has_default: true,
-            },
-        );
+        let id = single_column_map("id", "int", false, false);
+        let note = single_column_map("note", "text", true, true);
         register_user_tables(&ctx, "pgtry", schema_oid, "contacts", vec![id, note]).await?;
         register_user_constraint(
             &ctx,
@@ -1877,6 +1977,9 @@ mod tests {
         Ok(())
     }
 
+    /// Unregistering a schema drops the relations it held before dropping the
+    /// `pg_namespace` row, so no `pg_class` row is left pointing at a namespace
+    /// that no longer exists.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_unregister_schema_removes_tables() -> DFResult<()> {
         let (ctx, _) = get_base_session_context(
@@ -1888,16 +1991,8 @@ mod tests {
 
         let schema_oid = register_schema(&ctx, "pgtry", "myschema").await?;
 
-        let mut c1 = BTreeMap::new();
-        c1.insert(
-            "id".to_string(),
-            ColumnDef {
-                col_type: "int".to_string(),
-                nullable: false,
-                has_default: false,
-            },
-        );
-        register_user_tables(&ctx, "pgtry", schema_oid, "contacts", vec![c1]).await?;
+        let id = single_column_map("id", "int", false, false);
+        register_user_tables(&ctx, "pgtry", schema_oid, "contacts", vec![id]).await?;
 
         unregister_schema(&ctx, "pgtry", "myschema").await?;
 
@@ -1914,6 +2009,9 @@ mod tests {
         Ok(())
     }
 
+    /// Unregistering a database drops the schemas it registered and the relations
+    /// in them along with its `pg_database` row, using the per-database registry
+    /// to know which flattened namespaces belonged to it.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_unregister_database_removes_children() -> DFResult<()> {
         let (ctx, _) = get_base_session_context(
@@ -1926,16 +2024,8 @@ mod tests {
         register_user_database(&ctx, "crm").await?;
         let schema_oid = register_schema(&ctx, "crm", "crm_schema").await?;
 
-        let mut c1 = BTreeMap::new();
-        c1.insert(
-            "id".to_string(),
-            ColumnDef {
-                col_type: "int".to_string(),
-                nullable: false,
-                has_default: false,
-            },
-        );
-        register_user_tables(&ctx, "crm", schema_oid, "contacts", vec![c1]).await?;
+        let id = single_column_map("id", "int", false, false);
+        register_user_tables(&ctx, "crm", schema_oid, "contacts", vec![id]).await?;
 
         unregister_database(&ctx, "crm").await?;
 

@@ -31,7 +31,6 @@ use datafusion::logical_expr::{
     Volatility,
 };
 use datafusion::prelude::SessionContext;
-use once_cell::sync::Lazy;
 
 /// A process-wide slot holding an optional integration callback, read at call time.
 ///
@@ -41,6 +40,11 @@ pub(crate) struct ResolverSlot<F> {
     slot: RwLock<Option<F>>,
 }
 
+/// Slot operations shared by every resolver-backed function.
+///
+/// `F: Clone` because [`ResolverSlot::get`] hands out a clone of the callback rather
+/// than a guard: integration code must never run while the lock is held, or a resolver
+/// that queries the catalog again would deadlock against its own slot.
 impl<F: Clone> ResolverSlot<F> {
     /// An empty slot - no callback installed, so the function uses its default.
     pub(crate) fn new() -> Self {
@@ -50,23 +54,37 @@ impl<F: Clone> ResolverSlot<F> {
     }
 
     /// Install `callback`, replacing any previously installed one.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the slot's lock was poisoned by a thread that panicked while holding
+    /// it. Only a swap of the `Option` happens under the lock, so this cannot come
+    /// from resolver code.
     pub(crate) fn set(&self, callback: F) {
         *self.slot.write().expect("resolver slot poisoned") = Some(callback);
     }
 
-    /// Remove any installed callback.
+    /// Remove any installed callback, so the function falls back to its default.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the slot's lock was poisoned by a thread that panicked while holding it.
     pub(crate) fn clear(&self) {
         *self.slot.write().expect("resolver slot poisoned") = None;
     }
 
-    /// A clone of the installed callback, if any.
+    /// A clone of the installed callback, or `None` when no integration installed one.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the slot's lock was poisoned by a thread that panicked while holding it.
     pub(crate) fn get(&self) -> Option<F> {
         self.slot.read().expect("resolver slot poisoned").clone()
     }
 }
 
 /// One scalar UDF whose behaviour is a boxed closure, so a single type backs every
-/// resolver-driven scalar function. Identity (for DataFusion's plan dedup) is the
+/// resolver-driven scalar function. Identity (for `DataFusion`'s plan dedup) is the
 /// qualified name; the closure is not part of it.
 pub(crate) struct DynScalarUdf {
     qualified: String,
@@ -103,39 +121,59 @@ impl DynScalarUdf {
     }
 }
 
+/// Hand-written because the boxed `eval` closure has no `Debug`.
 impl std::fmt::Debug for DynScalarUdf {
+    /// Print the qualified function name; the signature, return type and closure are
+    /// elided, so the output stays readable in the plan dumps this appears in.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DynScalarUdf")
             .field("qualified", &self.qualified)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
+/// Two UDFs are the same function when they carry the same qualified name. Closures
+/// have no equality, and `DataFusion` needs this to dedup functions across a plan.
 impl PartialEq for DynScalarUdf {
+    /// Compare only the qualified name.
     fn eq(&self, other: &Self) -> bool {
         self.qualified == other.qualified
     }
 }
+/// Name equality is reflexive and transitive, so the name-only `PartialEq` is a total
+/// equivalence.
 impl Eq for DynScalarUdf {}
+/// Hashes the qualified name, keeping `Hash` consistent with the name-only `PartialEq`.
 impl std::hash::Hash for DynScalarUdf {
+    /// Hash the qualified name, the same field `PartialEq` compares.
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.qualified.hash(state);
     }
 }
 
+/// Drive the UDF from the fields captured at construction, so one type serves every
+/// resolver-backed scalar function.
 impl ScalarUDFImpl for DynScalarUdf {
+    /// The schema-qualified name the function is registered under.
     fn name(&self) -> &str {
         &self.qualified
     }
+    /// The bare, unqualified spelling clients may also call the function by.
     fn aliases(&self) -> &[String] {
         &self.aliases
     }
+    /// The argument signature fixed at construction from the declared arity.
     fn signature(&self) -> &Signature {
         &self.signature
     }
+    /// The declared return type. It does not depend on the argument types: every
+    /// resolver-backed function has one fixed `PostgreSQL` return type.
     fn return_type(&self, _args: &[DataType]) -> Result<DataType> {
         Ok(self.return_type.clone())
     }
+    /// Evaluate a batch by delegating to the closure supplied at construction, which
+    /// reads the resolver slot at call time so a resolver installed after registration
+    /// still takes effect.
     fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
         (self.eval)(args)
     }
@@ -149,6 +187,16 @@ fn timestamptz() -> DataType {
 /// Read scalar UDF argument `index` as one `Option<i64>` per row, widening any integer
 /// type (OIDs are 32-bit here but may arrive widened). An index past the supplied
 /// arguments yields all-NULL.
+///
+/// # Errors
+///
+/// Returns an error if a scalar argument cannot be expanded to an array, or if the
+/// argument's type has no cast to `Int64` (for instance a text argument).
+///
+/// # Panics
+///
+/// Panics if the successful `Int64` cast does not yield an `Int64Array`, which would
+/// mean Arrow's `cast` broke its own contract.
 fn int_arg(args: &ScalarFunctionArgs, index: usize) -> Result<Vec<Option<i64>>> {
     use arrow::array::Int64Array as I64;
     use arrow::compute::cast;
@@ -167,6 +215,10 @@ fn int_arg(args: &ScalarFunctionArgs, index: usize) -> Result<Vec<Option<i64>>> 
 }
 
 /// Read a scalar UDF's first OID argument as one `Option<i64>` per row.
+///
+/// # Errors
+///
+/// Returns whatever [`int_arg`] reports for argument 0.
 fn oid_args(args: &ScalarFunctionArgs) -> Result<Vec<Option<i64>>> {
     int_arg(args, 0)
 }
@@ -184,8 +236,8 @@ macro_rules! scalar_resolvers {
                     "`; see [`set_", stringify!($fn), "_resolver`].")]
                 pub type [<$fn:camel Resolver>] = scalar_resolver_ty!($($arg)?, $ret);
 
-                static [<$fn:upper _SLOT>]: Lazy<ResolverSlot<[<$fn:camel Resolver>]>> =
-                    Lazy::new(ResolverSlot::new);
+                static [<$fn:upper _SLOT>]: std::sync::LazyLock<ResolverSlot<[<$fn:camel Resolver>]>> =
+                    std::sync::LazyLock::new(ResolverSlot::new);
 
                 #[doc = concat!("Install the callback `", stringify!($fn),
                     "` consults, replacing any previously installed one.")]
@@ -198,6 +250,9 @@ macro_rules! scalar_resolvers {
                     [<$fn:upper _SLOT>].clear();
                 }
 
+                #[doc = concat!("Register `pg_catalog.", stringify!($fn),
+                    "` on `ctx`, backed by a `DynScalarUdf` that reads this function's \
+                     resolver slot on every call.")]
                 fn [<register_ $fn>](ctx: &SessionContext) {
                     let udf = DynScalarUdf::new(
                         concat!("pg_catalog.", stringify!($fn)),
@@ -446,8 +501,9 @@ scalar_resolvers! {
 /// and a method-specific phase number it returns the human-readable phase name.
 pub type PgIndexamProgressPhasenameResolver = Arc<dyn Fn(i64, i64) -> Option<String> + Send + Sync>;
 
-static PG_INDEXAM_PROGRESS_PHASENAME_SLOT: Lazy<ResolverSlot<PgIndexamProgressPhasenameResolver>> =
-    Lazy::new(ResolverSlot::new);
+static PG_INDEXAM_PROGRESS_PHASENAME_SLOT: std::sync::LazyLock<
+    ResolverSlot<PgIndexamProgressPhasenameResolver>,
+> = std::sync::LazyLock::new(ResolverSlot::new);
 
 /// Install the callback `pg_indexam_progress_phasename` consults, replacing any
 /// previously installed one. With none installed the function returns NULL.
@@ -495,9 +551,9 @@ fn register_pg_indexam_progress_phasename(ctx: &SessionContext) {
 pub type PgGetStatisticsobjdefExpressionsResolver =
     Arc<dyn Fn(i64) -> Option<Vec<String>> + Send + Sync>;
 
-static PG_GET_STATISTICSOBJDEF_EXPRESSIONS_SLOT: Lazy<
+static PG_GET_STATISTICSOBJDEF_EXPRESSIONS_SLOT: std::sync::LazyLock<
     ResolverSlot<PgGetStatisticsobjdefExpressionsResolver>,
-> = Lazy::new(ResolverSlot::new);
+> = std::sync::LazyLock::new(ResolverSlot::new);
 
 /// Install the callback `pg_get_statisticsobjdef_expressions` consults, replacing any
 /// previously installed one. With none installed the function returns NULL.
@@ -572,15 +628,27 @@ pub(crate) struct DynTableUdf {
     build: Arc<dyn Fn() -> RecordBatch + Send + Sync>,
 }
 
+/// Hand-written because the boxed `build` closure has no `Debug`.
 impl std::fmt::Debug for DynTableUdf {
+    /// Print the fixed row schema; the row-building closure is elided.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("DynTableUdf")
             .field("schema", &self.schema)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
+/// Serve the function's rows from the installed resolver, as a one-batch in-memory table.
 impl TableFunctionImpl for DynTableUdf {
+    /// Materialize the current rows into a [`MemTable`] over the function's fixed schema.
+    ///
+    /// Arguments are ignored: these functions are declared with their real `PostgreSQL`
+    /// signatures so the calling views plan, but the resolver decides the whole row set.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the built batch does not match the registered schema, which
+    /// `MemTable::try_new` rejects.
     fn call(&self, _exprs: &[Expr]) -> Result<Arc<dyn TableProvider>> {
         let batch = (self.build)();
         Ok(Arc::new(MemTable::try_new(
@@ -689,8 +757,8 @@ macro_rules! table_resolvers {
                 pub type [<$fn:camel Resolver>] =
                     Arc<dyn Fn() -> Vec<[<$fn:camel Row>]> + Send + Sync>;
 
-                static [<$fn:upper _SLOT>]: Lazy<ResolverSlot<[<$fn:camel Resolver>]>> =
-                    Lazy::new(ResolverSlot::new);
+                static [<$fn:upper _SLOT>]: std::sync::LazyLock<ResolverSlot<[<$fn:camel Resolver>]>> =
+                    std::sync::LazyLock::new(ResolverSlot::new);
 
                 #[doc = concat!("Install the callback `", stringify!($fn),
                     "` consults, replacing any previously installed one.")]
@@ -703,6 +771,9 @@ macro_rules! table_resolvers {
                     [<$fn:upper _SLOT>].clear();
                 }
 
+                #[doc = concat!("Register the set-returning function `", stringify!($fn),
+                    "` on `ctx`, backed by a `DynTableUdf` that rebuilds its rows from \
+                     this function's resolver slot on every call.")]
                 fn [<register_ $fn>](ctx: &SessionContext) {
                     let schema: SchemaRef = Arc::new(Schema::new(vec![
                         $( Field::new(stringify!($col), col_datatype!($kind), true), )*

@@ -20,13 +20,16 @@ logger = logging.getLogger(__name__)
 class LiteralString(str):
     pass
 
+
 def literal_representer(dumper, data):
     return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
+
 
 yaml.add_representer(LiteralString, literal_representer)
 
 
 LOG_LINE_REGEX = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3} ")
+
 
 def parse_parameters(detail_line):
     params = {}
@@ -44,6 +47,7 @@ def parse_parameters(detail_line):
         params[key] = value
     return params
 
+
 def normalize_sql(sql):
     try:
         return sqlglot.parse_one(sql, dialect="postgres").sql()
@@ -52,9 +56,11 @@ def normalize_sql(sql):
         logger.error("=====")
         raise
 
+
 def sql_hash(sql):
     tree = sqlglot.parse_one(sql, dialect="postgres")
     return hashlib.md5(tree.sql().encode()).hexdigest()
+
 
 def extract_queries_from_log(log_file):
     queries = []
@@ -137,13 +143,15 @@ def extract_queries_from_log(log_file):
 
     return deduplicated_queries
 
+
 def save_queries_to_yaml(queries, output_file):
     with open(output_file, "w") as f:
         yaml.dump({"tests": queries}, f, sort_keys=False, allow_unicode=True)
 
+
 if __name__ == "__main__":
     import sys
-    
+
     input_log = "postgresql.log"
     output_yaml = "queries.yaml"
     input_log = sys.argv[1]

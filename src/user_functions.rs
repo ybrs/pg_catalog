@@ -28,9 +28,8 @@ use crate::session::{ClientOpts, DEFAULT_SESSION_USER};
 /// The schema a session falls back to when its search path names none.
 const DEFAULT_USER_SCHEMA: &str = "public";
 
-/// The schema PostgreSQL searches before the search path without listing it.
+/// The schema `PostgreSQL` searches before the search path without listing it.
 const IMPLICIT_SYSTEM_SCHEMA: &str = "pg_catalog";
-use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::future::Future;
 use std::sync::Arc;
@@ -41,14 +40,15 @@ use std::sync::Arc;
 /// are themselves multi-threaded, so nested catalog UDFs spawned from here stay
 /// deadlock-free via the `block_in_place` branch. Production never reaches this (it
 /// is `#[tokio::main]`); it exists so any embedder flavor is safe.
-static CATALOG_FALLBACK_RT: Lazy<tokio::runtime::Runtime> = Lazy::new(|| {
-    tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .expect("failed to build the pg_catalog fallback runtime")
-});
+static CATALOG_FALLBACK_RT: std::sync::LazyLock<tokio::runtime::Runtime> =
+    std::sync::LazyLock::new(|| {
+        tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .expect("failed to build the pg_catalog fallback runtime")
+    });
 
-/// Drive `future` to completion from a synchronous context (a DataFusion scalar
+/// Drive `future` to completion from a synchronous context (a `DataFusion` scalar
 /// UDF) without starving the runtime under nesting, on any caller flavor.
 ///
 /// The future is always spawned as an ordinary task; the caller blocks on a channel
@@ -100,22 +100,35 @@ where
     }
 }
 
+/// A single-column table holding the OID of the `pg_class` row named `relname`.
+///
+/// Backs the `regclass_oid('name')` table function. The lookup runs when the table
+/// is scanned rather than when it is built, so it sees the catalog as it stands at
+/// query time; a name matching no row yields one NULL row so the caller still gets
+/// a value to project.
 #[derive(Debug)]
 struct RegClassOidTable {
+    /// The single nullable `oid BIGINT` column this table exposes.
     schema: SchemaRef,
+    /// The `pg_class.relname` whose OID is looked up.
     relname: String,
 }
 
 #[async_trait]
 impl TableProvider for RegClassOidTable {
+    /// The single-column `oid` schema.
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
 
+    /// A plain base table, not a view.
     fn table_type(&self) -> TableType {
         TableType::Base
     }
 
+    /// Query `pg_class` for `relname`'s OID through the scanning session and serve
+    /// the answer as an in-memory batch, substituting a single NULL row when the
+    /// name matches nothing.
     async fn scan(
         &self,
         session: &dyn Session,
@@ -151,10 +164,15 @@ impl TableProvider for RegClassOidTable {
     }
 }
 
+/// The `regclass_oid('name')` table function: exposes a relation's OID as a
+/// one-row, one-column table so a scalar `'name'::regclass` rewrite can be planned
+/// as a subquery.
 #[derive(Debug)]
 pub struct RegClassOidFunc;
 
 impl TableFunctionImpl for RegClassOidFunc {
+    /// Build the table for a single string literal argument, rejecting any other
+    /// call shape at planning time.
     fn call(&self, exprs: &[Expr]) -> Result<Arc<dyn TableProvider>> {
         let relname = if let Some(Expr::Literal(ScalarValue::Utf8(Some(ref s)), _)) = exprs.first()
         {
@@ -167,23 +185,23 @@ impl TableFunctionImpl for RegClassOidFunc {
     }
 }
 
-/// The name PostgreSQL renders for an object reference that points at nothing.
+/// The name `PostgreSQL` renders for an object reference that points at nothing.
 const ABSENT_OBJECT_NAME: &str = "-";
 
-/// The OID PostgreSQL gives an object reference that points at nothing.
+/// The OID `PostgreSQL` gives an object reference that points at nothing.
 const ABSENT_OBJECT_OID: i64 = 0;
 
 /// What a catalog column holding an object reference says it points at.
 enum CatalogObjectReference<'a> {
-    /// No object - PostgreSQL reads this back as OID 0.
+    /// No object - `PostgreSQL` reads this back as OID 0.
     Absent,
     /// The object with this bare (unqualified) name.
     Named(&'a str),
 }
 
-/// Read the object reference `raw` the way PostgreSQL reads a `reg*` value.
+/// Read the object reference `raw` the way `PostgreSQL` reads a `reg*` value.
 ///
-/// Catalog columns holding an object reference render it the way PostgreSQL prints the
+/// Catalog columns holding an object reference render it the way `PostgreSQL` prints the
 /// matching `reg*` type: a bare name (`boolrecv`) when the object is on the search path,
 /// a schema-qualified one (`pg_catalog.avg`) when it is not, and `-` for no object. The
 /// catalog's `relname` / `proname` columns hold bare names, so the qualifier is dropped
@@ -203,7 +221,7 @@ fn parse_catalog_object_reference(raw: &str) -> CatalogObjectReference<'_> {
 /// `name_column` is the column holding the object's name (`pg_class.relname`,
 /// `pg_proc.proname`). Names absent from the catalog are simply missing from the
 /// returned map, and an empty input short-circuits without querying. When a name is
-/// carried by several rows - `proname` is not unique, since PostgreSQL allows
+/// carried by several rows - `proname` is not unique, since `PostgreSQL` allows
 /// overloads - the lowest OID wins, because the name is all this catalog kept of the
 /// original reference and it cannot tell the overloads apart.
 fn fetch_oids_by_names(
@@ -254,7 +272,7 @@ fn fetch_oids_by_names(
 /// Register a scalar UDF named `udf_name` that maps an object name to its OID in
 /// `catalog_table`, matching on `name_column`.
 ///
-/// A reference to no object (`-`) reads back as OID 0, the way PostgreSQL reads a
+/// A reference to no object (`-`) reads back as OID 0, the way `PostgreSQL` reads a
 /// `reg*` value; a NULL argument and a name the catalog does not carry both give NULL.
 /// Every row of a column argument is resolved by one shared catalog query.
 fn register_name_to_oid_udf(
@@ -262,7 +280,7 @@ fn register_name_to_oid_udf(
     udf_name: &'static str,
     catalog_table: &'static str,
     name_column: &'static str,
-) -> Result<()> {
+) {
     let ctx_arc = Arc::new(ctx.clone());
 
     let lookup_oid_fn = Arc::new(move |args: &[ColumnarValue]| -> Result<ColumnarValue> {
@@ -328,22 +346,33 @@ fn register_name_to_oid_udf(
         lookup_oid_fn,
     );
     ctx.register_udf(udf);
-    Ok(())
 }
 
 /// Register `oid(text)` which looks up a table OID from `pg_class`.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_scalar_regclass_oid(ctx: &SessionContext) -> Result<()> {
-    register_name_to_oid_udf(ctx, "oid", "pg_catalog.pg_class", "relname")
+    register_name_to_oid_udf(ctx, "oid", "pg_catalog.pg_class", "relname");
+    Ok(())
 }
 
 /// Register `pg_proc_oid(text)` which looks up a function OID from `pg_proc`.
 ///
-/// The catalog stores the columns PostgreSQL types as `regproc` - `pg_type.typreceive`,
+/// The catalog stores the columns `PostgreSQL` types as `regproc` - `pg_type.typreceive`,
 /// `pg_am.amhandler`, ... - as the function's name, so queries that compare one of them
 /// against an OID go through this function first (see
 /// `replace::resolve_regproc_columns_to_oids_in_comparisons`).
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_scalar_pg_proc_oid(ctx: &SessionContext) -> Result<()> {
-    register_name_to_oid_udf(ctx, "pg_proc_oid", "pg_catalog.pg_proc", "proname")
+    register_name_to_oid_udf(ctx, "pg_proc_oid", "pg_catalog.pg_proc", "proname");
+    Ok(())
 }
 
 /// Register `current_user` / `session_user` / `current_role` (and their
@@ -355,33 +384,44 @@ pub fn register_scalar_pg_proc_oid(ctx: &SessionContext) -> Result<()> {
 /// makes per-connection identity possible at all: a catalog view is planned once
 /// at startup, before any client exists, and freezes which UDF *instance* its
 /// body calls - so nothing captured at registration can ever vary by connection.
-/// It does call that instance on every SELECT, and DataFusion hands it the
+/// It does call that instance on every SELECT, and `DataFusion` hands it the
 /// executing session's config, so reading the config at call time gives a view
 /// body's `CURRENT_USER` the querying connection's role.
 ///
 /// Write the role with [`crate::session::set_session_user`], on the connection's
 /// own context.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_session_identity(ctx: &SessionContext) -> Result<()> {
     /// The shared implementation behind all three names. They are separate
-    /// PostgreSQL functions but report the same value: riffq has no notion of
+    /// `PostgreSQL` functions but report the same value: riffq has no notion of
     /// a role changing within a session (no SET ROLE), so the session role and
     /// the current role cannot diverge.
     #[derive(Debug, PartialEq, Eq, Hash)]
     struct SessionIdentity {
+        /// Which of the three `PostgreSQL` spellings this instance answers to.
         name: String,
+        /// The no-argument, `Stable` signature.
         signature: Signature,
     }
 
     impl ScalarUDFImpl for SessionIdentity {
+        /// The spelling this instance was registered under.
         fn name(&self) -> &str {
             &self.name
         }
+        /// Takes no arguments.
         fn signature(&self) -> &Signature {
             &self.signature
         }
+        /// Always text (a role name).
         fn return_type(&self, _args: &[ArrowDataType]) -> Result<ArrowDataType> {
             Ok(ArrowDataType::Utf8)
         }
+        /// The executing session's role, read from its config at call time.
         fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
             // A session built by something other than this crate carries no
             // ClientOpts; report the default role rather than failing a query
@@ -390,8 +430,10 @@ pub fn register_session_identity(ctx: &SessionContext) -> Result<()> {
                 .config_options
                 .extensions
                 .get::<ClientOpts>()
-                .map(|opts| opts.session_user.clone())
-                .unwrap_or_else(|| DEFAULT_SESSION_USER.to_string());
+                .map_or_else(
+                    || DEFAULT_SESSION_USER.to_string(),
+                    |opts| opts.session_user.clone(),
+                );
             Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(user))))
         }
     }
@@ -416,6 +458,11 @@ pub fn register_session_identity(ctx: &SessionContext) -> Result<()> {
 
 /// Register `pg_tablespace_location(oid)` which currently always
 /// returns NULL as tablespaces are not implemented.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_scalar_pg_tablespace_location(ctx: &SessionContext) -> Result<()> {
     // TODO: this always returns empty string for now.
     //   If there is a db supporting tablespaces, this should be done correctly.
@@ -438,7 +485,7 @@ use datafusion::common::cast::as_int64_array;
 /// Render the SQL name of the type whose `pg_type.typname` is `typname`, applying
 /// `typmod` where the type carries a modifier (length, precision, scale).
 ///
-/// Mirrors the canonical-name table inside PostgreSQL's `format_type`: a fixed set
+/// Mirrors the canonical-name table inside `PostgreSQL`'s `format_type`: a fixed set
 /// of built-in types print their SQL-standard spelling (`int4` -> `integer`,
 /// `timestamptz` -> `timestamp with time zone`), and everything else prints its
 /// bare `typname` (`name` -> `name`, a user type -> its own name). `typmod` is the
@@ -449,7 +496,7 @@ fn sql_name_for_typname(typname: &str, typmod: Option<i64>) -> String {
     /// Fractional-seconds precision suffix, e.g. `(2)`, or empty when unmodified.
     fn precision_suffix(typmod: Option<i64>) -> String {
         match typmod {
-            Some(p) if p >= 0 => format!("({})", p),
+            Some(p) if p >= 0 => format!("({p})"),
             _ => String::new(),
         }
     }
@@ -483,7 +530,7 @@ fn sql_name_for_typname(typname: &str, typmod: Option<i64>) -> String {
         "interval" => "interval".to_string(),
         "bit" => "bit".to_string(),
         "varbit" => "bit varying".to_string(),
-        other if is_reserved_type_keyword(other) => format!("\"{}\"", other),
+        other if is_reserved_type_keyword(other) => format!("\"{other}\""),
         other => other.to_string(),
     }
 }
@@ -543,6 +590,12 @@ async fn load_typname_by_oid(ctx: &SessionContext) -> Result<HashMap<i64, String
 /// real `pg_type.typname` lookup, so it resolves every type the catalog knows -
 /// not just a hand-picked handful - to its SQL name. Falls back to the OID text
 /// for an unknown OID.
+///
+/// # Errors
+///
+/// Returns an error when the `pg_catalog.pg_type` snapshot cannot be read: the
+/// `SELECT oid, typname` query fails to plan or execute, or its `oid` / `typname`
+/// columns do not come back as `Int64` / `Utf8`.
 pub async fn register_scalar_format_type(ctx: &SessionContext) -> Result<()> {
     let by_oid = Arc::new(load_typname_by_oid(ctx).await?);
     let fun = move |args: &[ColumnarValue]| -> Result<ColumnarValue> {
@@ -574,6 +627,11 @@ pub async fn register_scalar_format_type(ctx: &SessionContext) -> Result<()> {
 
 /// Implement a basic `pg_get_expr` that simply returns the input
 /// expression text without evaluation.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_scalar_pg_get_expr(ctx: &SessionContext) -> Result<()> {
     use arrow::array::{cast::as_string_array, ArrayRef, StringBuilder};
     use arrow::datatypes::DataType;
@@ -583,12 +641,16 @@ pub fn register_scalar_pg_get_expr(ctx: &SessionContext) -> Result<()> {
     };
     use std::sync::Arc;
 
+    /// Echoes back the stored expression text `pg_get_expr` is handed, since this
+    /// catalog stores already-rendered text rather than a node tree to deparse.
     #[derive(Debug, PartialEq, Eq, Hash)]
     struct PgGetExpr {
+        /// Accepts `(text, oid)` and the `(text, oid, pretty)` form.
         sig: Signature,
     }
 
     impl PgGetExpr {
+        /// Build the UDF accepting both the two- and three-argument call shapes.
         fn new() -> Self {
             Self {
                 sig: Signature::one_of(
@@ -607,16 +669,20 @@ pub fn register_scalar_pg_get_expr(ctx: &SessionContext) -> Result<()> {
     }
 
     impl ScalarUDFImpl for PgGetExpr {
-        fn name(&self) -> &str {
+        /// The schema-qualified function name.
+        fn name(&self) -> &'static str {
             "pg_catalog.pg_get_expr"
         }
+        /// The accepted argument signatures.
         fn signature(&self) -> &Signature {
             &self.sig
         }
+        /// Always text.
         fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
             Ok(DataType::Utf8)
         }
 
+        /// Copy the first (expression text) argument through, row for row.
         fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
             let arrays = ColumnarValue::values_to_arrays(&args.args)?; // borrow as slice
             let exprs = as_string_array(&arrays[0]); // need the ?
@@ -638,18 +704,35 @@ pub fn register_scalar_pg_get_expr(ctx: &SessionContext) -> Result<()> {
 }
 
 /// Stub implementation of `pg_get_partkeydef` that always returns NULL.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_scalar_pg_get_partkeydef(ctx: &SessionContext) -> Result<()> {
-    register_null_text_stub(ctx, "pg_catalog.pg_get_partkeydef", 1)
+    register_null_text_stub(ctx, "pg_catalog.pg_get_partkeydef", 1);
+    Ok(())
 }
 
 /// Placeholder for `pg_get_statisticsobjdef_columns` which currently
 /// returns NULL for all rows.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_get_statisticsobjdef_columns(ctx: &SessionContext) -> Result<()> {
-    register_null_text_stub(ctx, "pg_catalog.pg_get_statisticsobjdef_columns", 1)
+    register_null_text_stub(ctx, "pg_catalog.pg_get_statisticsobjdef_columns", 1);
+    Ok(())
 }
 
 /// Compatibility stub for `pg_relation_is_publishable` which always
 /// returns `true`.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_relation_is_publishable(ctx: &SessionContext) -> Result<()> {
     let ctx_arc = Arc::new(ctx.clone());
     for dt in [ArrowDataType::Int64, ArrowDataType::Utf8] {
@@ -671,17 +754,14 @@ pub fn register_pg_relation_is_publishable(ctx: &SessionContext) -> Result<()> {
 /// Register an always-`true` `(object, privilege) -> bool` compatibility stub
 /// under `pg_catalog.<base_name>` (with the bare name as an alias), accepting the
 /// object argument as an OID (`Int32`/`Int64`) or a name (`Utf8`).
-fn register_always_true_object_privilege(
-    ctx: &SessionContext,
-    base_name: &'static str,
-) -> Result<()> {
+fn register_always_true_object_privilege(ctx: &SessionContext, base_name: &'static str) {
     use arrow::array::{ArrayRef, BooleanBuilder};
     use arrow::datatypes::DataType;
     use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
     use std::sync::Arc;
 
     let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
-        let len = match args.get(0) {
+        let len = match args.first() {
             Some(ColumnarValue::Array(a)) => a.len(),
             _ => 1,
         };
@@ -703,31 +783,47 @@ fn register_always_true_object_privilege(
         .with_aliases([base_name]);
         ctx.register_udf(udf);
     }
+}
+
+/// `pg_catalog.has_database_privilege(database`, text) -> bool
+///
+/// Compatibility stub that always returns `true`.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
+pub fn register_has_database_privilege(ctx: &SessionContext) -> Result<()> {
+    register_always_true_object_privilege(ctx, "has_database_privilege");
     Ok(())
 }
 
-/// pg_catalog.has_database_privilege(database, text) -> bool
+/// `pg_catalog.has_schema_privilege(schema`, text) -> bool
 ///
 /// Compatibility stub that always returns `true`.
-pub fn register_has_database_privilege(ctx: &SessionContext) -> Result<()> {
-    register_always_true_object_privilege(ctx, "has_database_privilege")
-}
-
-/// pg_catalog.has_schema_privilege(schema, text) -> bool
 ///
-/// Compatibility stub that always returns `true`.
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_has_schema_privilege(ctx: &SessionContext) -> Result<()> {
-    register_always_true_object_privilege(ctx, "has_schema_privilege")
+    register_always_true_object_privilege(ctx, "has_schema_privilege");
+    Ok(())
 }
 
-/// pg_catalog.pg_has_role(\[user,\] role, privilege) -> bool
+/// `pg_catalog.pg_has_role`(\[user,\] role, privilege) -> bool
 ///
 /// Compatibility stub that always returns `true`: the emulated single
 /// superuser is treated as a member of every role. This unblocks the many
-/// information_schema role/privilege views that filter rows with
+/// `information_schema` role/privilege views that filter rows with
 /// `pg_has_role(...)`. Covers both the 2-argument `pg_has_role(role, privilege)`
 /// and 3-argument `pg_has_role(user, role, privilege)` forms, with `user`/`role`
 /// given either as an OID (int) or a role name (text).
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_has_role(ctx: &SessionContext) -> Result<()> {
     use arrow::array::{ArrayRef, BooleanArray};
     use arrow::datatypes::DataType;
@@ -737,12 +833,15 @@ pub fn register_pg_has_role(ctx: &SessionContext) -> Result<()> {
     };
     use std::sync::Arc;
 
+    /// Answers `pg_has_role` for the emulated single superuser: always `true`.
     #[derive(Debug, PartialEq, Eq, Hash)]
     struct PgHasRole {
+        /// Accepts the 2- and 3-argument forms with arguments of any type.
         sig: Signature,
     }
 
     impl PgHasRole {
+        /// Build the UDF accepting both `PostgreSQL` call shapes.
         fn new() -> Self {
             // Accept `pg_has_role(role, priv)` and `pg_has_role(user, role, priv)`.
             // role/user may be an OID (int) or a name (text); since this is a stub
@@ -757,19 +856,23 @@ pub fn register_pg_has_role(ctx: &SessionContext) -> Result<()> {
     }
 
     impl ScalarUDFImpl for PgHasRole {
-        fn name(&self) -> &str {
+        /// The schema-qualified function name.
+        fn name(&self) -> &'static str {
             "pg_catalog.pg_has_role"
         }
+        /// The accepted argument signatures.
         fn signature(&self) -> &Signature {
             &self.sig
         }
+        /// Always boolean.
         fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
             Ok(DataType::Boolean)
         }
+        /// `true` once per input row.
         fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
             // The emulated single superuser is a member of every role -> always true.
             let arrays = ColumnarValue::values_to_arrays(&args.args)?;
-            let len = arrays.first().map(|a| a.len()).unwrap_or(1);
+            let len = arrays.first().map_or(1, arrow::array::Array::len);
             Ok(ColumnarValue::Array(
                 Arc::new(BooleanArray::from(vec![true; len])) as ArrayRef,
             ))
@@ -781,12 +884,17 @@ pub fn register_pg_has_role(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// pg_catalog.pg_is_other_temp_schema(oid) -> bool
+/// `pg_catalog.pg_is_other_temp_schema(oid)` -> bool
 ///
 /// Compatibility stub that always returns `false`: we emulate a single session
 /// with no other backends, so no schema is "another session's temp schema".
-/// Many information_schema views filter rows with
+/// Many `information_schema` views filter rows with
 /// `NOT pg_is_other_temp_schema(...)`.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_is_other_temp_schema(ctx: &SessionContext) -> Result<()> {
     use arrow::array::{ArrayRef, BooleanArray};
     use arrow::datatypes::DataType;
@@ -796,12 +904,16 @@ pub fn register_pg_is_other_temp_schema(ctx: &SessionContext) -> Result<()> {
     };
     use std::sync::Arc;
 
+    /// Answers `pg_is_other_temp_schema` for a single emulated session: always
+    /// `false`, because there are no other backends to own a temp schema.
     #[derive(Debug, PartialEq, Eq, Hash)]
     struct PgIsOtherTempSchema {
+        /// One argument of any type (the schema OID, int or name).
         sig: Signature,
     }
 
     impl PgIsOtherTempSchema {
+        /// Build the UDF accepting a single argument of any type.
         fn new() -> Self {
             // One OID argument, given as int or name -> accept any single arg.
             Self {
@@ -811,18 +923,22 @@ pub fn register_pg_is_other_temp_schema(ctx: &SessionContext) -> Result<()> {
     }
 
     impl ScalarUDFImpl for PgIsOtherTempSchema {
-        fn name(&self) -> &str {
+        /// The schema-qualified function name.
+        fn name(&self) -> &'static str {
             "pg_catalog.pg_is_other_temp_schema"
         }
+        /// The accepted argument signature.
         fn signature(&self) -> &Signature {
             &self.sig
         }
+        /// Always boolean.
         fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
             Ok(DataType::Boolean)
         }
+        /// `false` once per input row.
         fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
             let arrays = ColumnarValue::values_to_arrays(&args.args)?;
-            let len = arrays.first().map(|a| a.len()).unwrap_or(1);
+            let len = arrays.first().map_or(1, arrow::array::Array::len);
             Ok(ColumnarValue::Array(
                 Arc::new(BooleanArray::from(vec![false; len])) as ArrayRef,
             ))
@@ -835,10 +951,15 @@ pub fn register_pg_is_other_temp_schema(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// pg_catalog.pg_my_temp_schema() -> oid
+/// `pg_catalog.pg_my_temp_schema()` -> oid
 ///
 /// Compatibility stub returning `0`: we emulate a session with no temp schema,
-/// and PostgreSQL returns `0` (InvalidOid) when the session has none.
+/// and `PostgreSQL` returns `0` (`InvalidOid`) when the session has none.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_my_temp_schema(ctx: &SessionContext) -> Result<()> {
     use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
     use std::sync::Arc;
@@ -858,9 +979,14 @@ pub fn register_pg_my_temp_schema(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// pg_catalog.getdatabaseencoding() -> name
+/// `pg_catalog.getdatabaseencoding()` -> name
 ///
 /// Compatibility stub returning `'UTF8'` (the catalog is generated as UTF8).
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_getdatabaseencoding(ctx: &SessionContext) -> Result<()> {
     use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
     use std::sync::Arc;
@@ -882,12 +1008,69 @@ pub fn register_getdatabaseencoding(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// pg_catalog.format(formatstr, ...args) -> text
+/// Render one `format()` result from the format string `fmt` and the already
+/// string-coerced arguments of a single row (`None` is a SQL NULL argument).
 ///
-/// PostgreSQL's `format()` string-formatting function. Implements the conversion
+/// Conversion specifiers are consumed left to right; an unknown specifier is
+/// emitted verbatim rather than raising, so a catalog view built for a newer
+/// `PostgreSQL` still returns a row instead of failing the whole query.
+fn render_format_string(fmt: &str, args: &[Option<String>]) -> String {
+    let mut out = String::with_capacity(fmt.len());
+    let mut chars = fmt.chars().peekable();
+    let mut next_arg = 0usize;
+    while let Some(c) = chars.next() {
+        if c != '%' {
+            out.push(c);
+            continue;
+        }
+        match chars.next() {
+            // A trailing `%` with nothing after it prints as itself, like `%%`.
+            Some('%') | None => out.push('%'),
+            Some('s') => {
+                let v = args.get(next_arg).and_then(std::clone::Clone::clone);
+                next_arg += 1;
+                out.push_str(v.as_deref().unwrap_or(""));
+            }
+            Some('I') => {
+                let v = args
+                    .get(next_arg)
+                    .and_then(std::clone::Clone::clone)
+                    .unwrap_or_default();
+                next_arg += 1;
+                // Double-quote and escape embedded quotes (a safe superset of
+                // PostgreSQL's "quote only if needed").
+                out.push('"');
+                out.push_str(&v.replace('"', "\"\""));
+                out.push('"');
+            }
+            Some('L') => {
+                let v = args.get(next_arg).and_then(std::clone::Clone::clone);
+                next_arg += 1;
+                match v {
+                    None => out.push_str("NULL"),
+                    Some(s) => {
+                        out.push('\'');
+                        out.push_str(&s.replace('\'', "''"));
+                        out.push('\'');
+                    }
+                }
+            }
+            Some(other) => {
+                // Unknown specifier: emit verbatim rather than failing.
+                out.push('%');
+                out.push(other);
+            }
+        }
+    }
+    out
+}
+
+/// `pg_catalog.format(formatstr`, ...args) -> text
+///
+/// `PostgreSQL`'s `format()` string-formatting function. Implements the conversion
 /// specifiers used by the catalog views and the common cases:
 ///
-/// * `%s` - the argument as a string (NULL renders as empty, per PostgreSQL),
+/// * `%s` - the argument as a string (NULL renders as empty, per `PostgreSQL`),
 /// * `%I` - the argument as a quoted SQL identifier,
 /// * `%L` - the argument as a quoted SQL literal (NULL renders as `NULL`),
 /// * `%%` - a literal percent sign.
@@ -895,6 +1078,11 @@ pub fn register_getdatabaseencoding(ctx: &SessionContext) -> Result<()> {
 /// Arguments are consumed left to right (positional `%n$` specifiers are not
 /// supported - no catalog view uses them). Used by the `check_constraints` view
 /// (`format('%s IS NOT NULL', ...)`).
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_format(ctx: &SessionContext) -> Result<()> {
     use arrow::array::{ArrayRef, StringArray, StringBuilder};
     use arrow::compute::cast;
@@ -904,67 +1092,17 @@ pub fn register_format(ctx: &SessionContext) -> Result<()> {
     };
     use std::sync::Arc;
 
-    /// Render one `format()` call given the format string and the already
-    /// string-coerced arguments (NULL = `None`) for a single row.
-    fn render_row(fmt: &str, args: &[Option<String>]) -> String {
-        let mut out = String::with_capacity(fmt.len());
-        let mut chars = fmt.chars().peekable();
-        let mut next_arg = 0usize;
-        while let Some(c) = chars.next() {
-            if c != '%' {
-                out.push(c);
-                continue;
-            }
-            match chars.next() {
-                Some('%') => out.push('%'),
-                Some('s') => {
-                    let v = args.get(next_arg).and_then(|o| o.clone());
-                    next_arg += 1;
-                    out.push_str(v.as_deref().unwrap_or(""));
-                }
-                Some('I') => {
-                    let v = args
-                        .get(next_arg)
-                        .and_then(|o| o.clone())
-                        .unwrap_or_default();
-                    next_arg += 1;
-                    // Double-quote and escape embedded quotes (a safe superset of
-                    // PostgreSQL's "quote only if needed").
-                    out.push('"');
-                    out.push_str(&v.replace('"', "\"\""));
-                    out.push('"');
-                }
-                Some('L') => {
-                    let v = args.get(next_arg).and_then(|o| o.clone());
-                    next_arg += 1;
-                    match v {
-                        None => out.push_str("NULL"),
-                        Some(s) => {
-                            out.push('\'');
-                            out.push_str(&s.replace('\'', "''"));
-                            out.push('\'');
-                        }
-                    }
-                }
-                Some(other) => {
-                    // Unknown specifier: emit verbatim rather than failing.
-                    out.push('%');
-                    out.push(other);
-                }
-                None => out.push('%'),
-            }
-        }
-        out
-    }
-
+    /// `PostgreSQL`'s `format()`: a format string plus any number of arguments,
+    /// rendered per row by [`render_format_string`].
     #[derive(Debug, PartialEq, Eq, Hash)]
     struct Format {
+        /// Variadic over arguments of any type.
         sig: Signature,
     }
 
     impl ScalarUDFImpl for Format {
         /// The function name.
-        fn name(&self) -> &str {
+        fn name(&self) -> &'static str {
             "format"
         }
         /// Variadic: a format string followed by any number of arguments.
@@ -1015,7 +1153,7 @@ pub fn register_format(ctx: &SessionContext) -> Result<()> {
                     Some(fmt) => {
                         let row_args: Vec<Option<String>> =
                             as_str[1..].iter().map(|c| val_at(c, row)).collect();
-                        b.append_value(render_row(&fmt, &row_args));
+                        b.append_value(render_format_string(&fmt, &row_args));
                     }
                 }
             }
@@ -1031,48 +1169,72 @@ pub fn register_format(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// pg_catalog.pg_relation_is_updatable(relation, include_triggers) -> int4
+/// `pg_catalog.pg_relation_is_updatable(relation`, `include_triggers`) -> int4
 ///
 /// Compatibility stub returning `0` (the bitmask for "not updatable"). The
-/// information_schema view columns derived from it (`is_updatable`, etc.) then
+/// `information_schema` view columns derived from it (`is_updatable`, etc.) then
 /// read as `'NO'`, which is a safe default for an emulated read-mostly catalog.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_relation_is_updatable(ctx: &SessionContext) -> Result<()> {
-    register_int_stub(ctx, "pg_catalog.pg_relation_is_updatable", 2, Some(0))
+    register_int_stub(ctx, "pg_catalog.pg_relation_is_updatable", 2, Some(0));
+    Ok(())
 }
 
-/// information_schema._pg_char_max_length(typid, typmod) -> int4
+/// `information_schema`._`pg_char_max_length(typid`, typmod) -> int4
 ///
 /// Computes the declared character maximum length from the type OID and typmod
 /// (see [`pg_char_max_length`]), populating `character_maximum_length` in the
 /// `columns` / `domains` views.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_char_max_length(ctx: &SessionContext) -> Result<()> {
     register_type_fact_int_fn(
         ctx,
         "information_schema._pg_char_max_length",
         pg_char_max_length,
-    )
+    );
+    Ok(())
 }
 
-/// information_schema._pg_char_octet_length(typid, typmod) -> int4
+/// `information_schema`._`pg_char_octet_length(typid`, typmod) -> int4
 ///
 /// Computes the maximum length in bytes from the type OID and typmod (see
 /// [`pg_char_octet_length`]), populating `character_octet_length` in the
 /// `columns` / `domains` views.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_char_octet_length(ctx: &SessionContext) -> Result<()> {
     register_type_fact_int_fn(
         ctx,
         "information_schema._pg_char_octet_length",
         pg_char_octet_length,
-    )
+    );
+    Ok(())
 }
 
-/// information_schema._pg_index_position(indexoid, column) -> smallint
+/// `information_schema`._`pg_index_position(indexoid`, column) -> smallint
 ///
 /// Compatibility stub returning NULL (we don't resolve a column's position
 /// within an index), so `position_in_unique_constraint` reads as NULL. Used by
 /// the `key_column_usage` view.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_index_position(ctx: &SessionContext) -> Result<()> {
-    register_int_stub(ctx, "information_schema._pg_index_position", 2, None)
+    register_int_stub(ctx, "information_schema._pg_index_position", 2, None);
+    Ok(())
 }
 
 /// The `information_schema._pg_*` numeric/datetime type-introspection helpers,
@@ -1081,47 +1243,57 @@ pub fn register_pg_index_position(ctx: &SessionContext) -> Result<()> {
 /// `numeric_precision_radix`, `numeric_scale`, and `datetime_precision` in the
 /// `columns` / `domains` views. `_pg_interval_type` (the interval field
 /// qualifier, e.g. `YEAR TO MONTH`) is still a NULL text stub.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_numeric_helpers(ctx: &SessionContext) -> Result<()> {
     register_type_fact_int_fn(
         ctx,
         "information_schema._pg_numeric_precision",
         pg_numeric_precision,
-    )?;
+    );
     register_type_fact_int_fn(
         ctx,
         "information_schema._pg_numeric_precision_radix",
         pg_numeric_precision_radix,
-    )?;
+    );
     register_type_fact_int_fn(
         ctx,
         "information_schema._pg_numeric_scale",
         pg_numeric_scale,
-    )?;
+    );
     register_type_fact_int_fn(
         ctx,
         "information_schema._pg_datetime_precision",
         pg_datetime_precision,
-    )?;
-    register_null_text_stub(ctx, "information_schema._pg_interval_type", 2)?;
+    );
+    register_null_text_stub(ctx, "information_schema._pg_interval_type", 2);
     Ok(())
 }
 
 /// Register `information_schema._pg_truetypid` and `_pg_truetypmod`.
 ///
-/// In PostgreSQL these take two *whole-row* composite arguments - a
+/// In `PostgreSQL` these take two *whole-row* composite arguments - a
 /// `pg_attribute` row and a `pg_type` row - and resolve a column's "true" type:
 /// when the column's type is a domain (`typtype = 'd'`) they return the domain's
 /// base type id / typmod, otherwise the attribute's own `atttypid` / `atttypmod`.
 ///
-/// DataFusion has no composite/record scalar type, so it cannot bind `a.*` /
+/// `DataFusion` has no composite/record scalar type, so it cannot bind `a.*` /
 /// `t.*` as single arguments. The `rewrite_pg_truetypid_composite_args` pass
 /// therefore expands each call into the three scalar columns the body actually
 /// reads - `(atttypid|atttypmod, typtype, base)` - and these UDFs implement the
 /// `CASE WHEN typtype = 'd' THEN base ELSE own END` selection over them. Used by
-/// the `columns` and `attributes` information_schema views.
+/// the `columns` and `attributes` `information_schema` views.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_truetypid_helpers(ctx: &SessionContext) -> Result<()> {
-    register_truetype_select(ctx, "information_schema._pg_truetypid")?;
-    register_truetype_select(ctx, "information_schema._pg_truetypmod")?;
+    register_truetype_select(ctx, "information_schema._pg_truetypid");
+    register_truetype_select(ctx, "information_schema._pg_truetypmod");
     Ok(())
 }
 
@@ -1131,7 +1303,7 @@ pub fn register_pg_truetypid_helpers(ctx: &SessionContext) -> Result<()> {
 /// `base` when `typtype = 'd'` (a domain) and `own` otherwise. `own` and `base`
 /// carry the same type (both oid for `_pg_truetypid`, both int4 for
 /// `_pg_truetypmod`), and that type is preserved on output.
-fn register_truetype_select(ctx: &SessionContext, qualified: &'static str) -> Result<()> {
+fn register_truetype_select(ctx: &SessionContext, qualified: &'static str) {
     use arrow::array::StringArray;
     use arrow::compute::cast;
     use arrow::datatypes::DataType;
@@ -1140,9 +1312,13 @@ fn register_truetype_select(ctx: &SessionContext, qualified: &'static str) -> Re
         Volatility,
     };
 
+    /// Picks a column's "true" type fact: the domain's base value when the column
+    /// is a domain, otherwise the attribute's own value.
     #[derive(Debug, PartialEq, Eq, Hash)]
     struct TrueType {
+        /// The fully-qualified name this instance was registered under.
         qualified: String,
+        /// Exactly three arguments of any type: `(own, typtype, base)`.
         sig: Signature,
     }
 
@@ -1196,38 +1372,44 @@ fn register_truetype_select(ctx: &SessionContext, qualified: &'static str) -> Re
     let bare = qualified.rsplit('.').next().unwrap_or(qualified);
     let udf = ScalarUDF::new_from_impl(udf_impl).with_aliases([bare]);
     ctx.register_udf(udf);
-    Ok(())
 }
 
-/// pg_catalog.pg_get_function_arg_default(func oid, argnum int) -> text
+/// `pg_catalog.pg_get_function_arg_default(func` oid, argnum int) -> text
 ///
 /// Compatibility stub returning NULL: we don't model per-parameter default
 /// expressions, so the `parameter_default` column of the `parameters`
-/// information_schema view reads as NULL (the correct value for a parameter
+/// `information_schema` view reads as NULL (the correct value for a parameter
 /// without a default).
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_get_function_arg_default(ctx: &SessionContext) -> Result<()> {
-    register_null_text_stub(ctx, "pg_catalog.pg_get_function_arg_default", 2)
+    register_null_text_stub(ctx, "pg_catalog.pg_get_function_arg_default", 2);
+    Ok(())
 }
 
-/// pg_catalog.pg_column_is_updatable(relation, column, include_triggers) -> bool
+/// `pg_catalog.pg_column_is_updatable(relation`, column, `include_triggers`) -> bool
 ///
 /// Compatibility stub returning `false`, the per-column counterpart of
 /// [`register_pg_relation_is_updatable`] (which returns the "not updatable"
-/// bitmask). The `columns` information_schema view's `is_updatable` column then
+/// bitmask). The `columns` `information_schema` view's `is_updatable` column then
 /// reads `'NO'`, a safe default for an emulated read-mostly catalog.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_column_is_updatable(ctx: &SessionContext) -> Result<()> {
-    register_bool_stub(ctx, "pg_catalog.pg_column_is_updatable", 3, false)
+    register_bool_stub(ctx, "pg_catalog.pg_column_is_updatable", 3, false);
+    Ok(())
 }
 
 /// Register a scalar stub under the fully-qualified `qualified` (plus its bare
 /// last-segment alias) taking exactly `arity` args of any type and returning the
 /// constant boolean `value`, broadcast over the input length.
-fn register_bool_stub(
-    ctx: &SessionContext,
-    qualified: &'static str,
-    arity: usize,
-    value: bool,
-) -> Result<()> {
+fn register_bool_stub(ctx: &SessionContext, qualified: &'static str, arity: usize, value: bool) {
     use arrow::array::{ArrayRef, BooleanArray};
     use arrow::datatypes::DataType;
     use datafusion::logical_expr::{
@@ -1236,10 +1418,14 @@ fn register_bool_stub(
     };
     use std::sync::Arc;
 
+    /// A constant-boolean compatibility stub bound to one function name.
     #[derive(Debug, PartialEq, Eq, Hash)]
     struct BoolStub {
+        /// The fully-qualified name this instance was registered under.
         qualified: String,
+        /// The constant this stub reports for every row.
         value: bool,
+        /// Exactly `arity` arguments of any type.
         sig: Signature,
     }
 
@@ -1259,7 +1445,7 @@ fn register_bool_stub(
         /// The constant boolean, one value per input row.
         fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
             let arrays = ColumnarValue::values_to_arrays(&args.args)?;
-            let len = arrays.first().map(|a| a.len()).unwrap_or(1);
+            let len = arrays.first().map_or(1, arrow::array::Array::len);
             Ok(ColumnarValue::Array(
                 Arc::new(BooleanArray::from(vec![self.value; len])) as ArrayRef,
             ))
@@ -1274,29 +1460,24 @@ fn register_bool_stub(
     let bare = qualified.rsplit('.').next().unwrap_or(qualified);
     let udf = ScalarUDF::new_from_impl(udf_impl).with_aliases([bare]);
     ctx.register_udf(udf);
-    Ok(())
 }
 
 /// Register a scalar stub under `qualified` (plus its bare alias) taking `arity`
 /// args of any type and returning NULL text.
-fn register_null_text_stub(
-    ctx: &SessionContext,
-    qualified: &'static str,
-    arity: usize,
-) -> Result<()> {
-    register_null_text_stub_accepting_arities(ctx, qualified, &[arity])
+fn register_null_text_stub(ctx: &SessionContext, qualified: &'static str, arity: usize) {
+    register_null_text_stub_accepting_arities(ctx, qualified, &[arity]);
 }
 
 /// Register a scalar stub under `qualified` (plus its bare alias) that returns
 /// NULL text and accepts a call at any of the given `arities` (each an argument
-/// count of any types). Used for PostgreSQL functions that are exposed with
+/// count of any types). Used for `PostgreSQL` functions that are exposed with
 /// several arities, e.g. `pg_get_triggerdef(oid)` and `pg_get_triggerdef(oid,
 /// bool)`.
 fn register_null_text_stub_accepting_arities(
     ctx: &SessionContext,
     qualified: &'static str,
     arities: &[usize],
-) -> Result<()> {
+) {
     use arrow::array::{ArrayRef, StringBuilder};
     use arrow::datatypes::DataType;
     use datafusion::logical_expr::{
@@ -1305,25 +1486,32 @@ fn register_null_text_stub_accepting_arities(
     };
     use std::sync::Arc;
 
+    /// A stub that reports NULL text for every row, bound to one function name.
     #[derive(Debug, PartialEq, Eq, Hash)]
     struct NullText {
+        /// The fully-qualified name this instance was registered under.
         qualified: String,
+        /// One alternative per accepted arity, each of any argument types.
         sig: Signature,
     }
 
     impl ScalarUDFImpl for NullText {
+        /// The fully-qualified function name.
         fn name(&self) -> &str {
             &self.qualified
         }
+        /// The accepted arities.
         fn signature(&self) -> &Signature {
             &self.sig
         }
+        /// Always text.
         fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
             Ok(DataType::Utf8)
         }
+        /// A NULL per input row.
         fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
             let arrays = ColumnarValue::values_to_arrays(&args.args)?;
-            let len = arrays.first().map(|a| a.len()).unwrap_or(1);
+            let len = arrays.first().map_or(1, arrow::array::Array::len);
             let mut b = StringBuilder::new();
             for _ in 0..len {
                 b.append_null();
@@ -1343,13 +1531,8 @@ fn register_null_text_stub_accepting_arities(
     let bare = qualified.rsplit('.').next().unwrap_or(qualified);
     let udf = ScalarUDF::new_from_impl(udf_impl).with_aliases([bare]);
     ctx.register_udf(udf);
-    Ok(())
 }
 
-/// Register a scalar stub under the fully-qualified function name `qualified`
-/// (plus its bare last-segment alias) that takes exactly `arity` arguments of
-/// any type and returns the constant int4 `value` (or NULL when `value` is
-/// `None`), broadcast over the input length.
 // Type OIDs the information_schema precision/length helpers branch on. These are
 // the fixed built-in OIDs assigned by PostgreSQL (identical in every server).
 const OID_INT2: i64 = 21;
@@ -1372,7 +1555,7 @@ const OID_INTERVAL: i64 = 1186;
 
 /// `information_schema._pg_numeric_precision(typid, typmod)`: the number of
 /// significant digits a numeric column of this type can hold, or NULL for
-/// non-numeric types. Mirrors PostgreSQL's helper: fixed widths for the integer
+/// non-numeric types. Mirrors `PostgreSQL`'s helper: fixed widths for the integer
 /// and float types, and the precision packed into `typmod` for `numeric`.
 fn pg_numeric_precision(typid: Option<i64>, typmod: Option<i64>) -> Option<i32> {
     match typid? {
@@ -1422,7 +1605,14 @@ fn pg_datetime_precision(typid: Option<i64>, typmod: Option<i64>) -> Option<i32>
         OID_DATE => Some(0),
         OID_TIME | OID_TIMESTAMP | OID_TIMESTAMPTZ | OID_TIMETZ => {
             let m = typmod.unwrap_or(-1);
-            Some(if m < 0 { 6 } else { m as i32 })
+            // A fractional-seconds typmod is a precision in 0..=6, so it always
+            // fits an i32. A value too wide for i32 is not a precision at all;
+            // report the unmodified default rather than a truncated number.
+            Some(if m < 0 {
+                6
+            } else {
+                i32::try_from(m).unwrap_or(6)
+            })
         }
         OID_INTERVAL => {
             let m = typmod.unwrap_or(-1);
@@ -1441,11 +1631,15 @@ fn pg_datetime_precision(typid: Option<i64>, typmod: Option<i64>) -> Option<i32>
 /// `typmod` for the bit-string types, NULL otherwise.
 fn pg_char_max_length(typid: Option<i64>, typmod: Option<i64>) -> Option<i32> {
     match typid? {
+        // typmod is `length + VARHDRSZ(4)` and PostgreSQL caps a declared character
+        // length at 10485760, so the length always fits an i32; a value that does
+        // not is not a real length, and NULL says "no declared maximum".
         OID_BPCHAR | OID_VARCHAR => match typmod? {
             -1 => None,
-            m => Some((m - 4) as i32),
+            m => i32::try_from(m - 4).ok(),
         },
-        OID_BIT | OID_VARBIT => typmod.map(|m| m as i32),
+        // A bit-string typmod IS the length, capped the same way.
+        OID_BIT | OID_VARBIT => typmod.and_then(|m| i32::try_from(m).ok()),
         _ => None,
     }
 }
@@ -1485,7 +1679,7 @@ fn array_as_opt_i64(array: &ArrayRef) -> Vec<Option<i64>> {
     }
 }
 
-/// Register a 2-argument `(typid, typmod) -> int4` information_schema helper whose
+/// Register a 2-argument `(typid, typmod) -> int4` `information_schema` helper whose
 /// result is a pure function of the two integer arguments. Both arguments arrive
 /// as catalog integers (a type OID and a typmod) and are read NULL-safely, so the
 /// formula can branch on the type OID and decode the typmod.
@@ -1493,30 +1687,59 @@ fn register_type_fact_int_fn(
     ctx: &SessionContext,
     qualified: &'static str,
     func: fn(Option<i64>, Option<i64>) -> Option<i32>,
-) -> Result<()> {
+) {
     use arrow::array::{ArrayRef, Int32Builder};
     use arrow::datatypes::DataType;
 
-    #[derive(Debug, PartialEq, Eq, Hash)]
+    /// One `information_schema` type-introspection helper: a name, an arity-2
+    /// signature, and the formula that turns `(typid, typmod)` into the fact.
+    #[derive(Debug, Eq)]
     struct TypeFactFn {
+        /// The fully-qualified name this instance was registered under.
         qualified: String,
+        /// The per-row formula this name computes.
         func: fn(Option<i64>, Option<i64>) -> Option<i32>,
+        /// Exactly two arguments of any type: `(typid, typmod)`.
         sig: Signature,
     }
 
+    impl PartialEq for TypeFactFn {
+        /// Two instances are the same function when they share a name and
+        /// signature. The formula is deliberately left out: comparing function
+        /// pointers is not meaningful (equal addresses are not guaranteed for the
+        /// same function, nor distinct ones for different functions), and each
+        /// name is registered with exactly one formula anyway.
+        fn eq(&self, other: &Self) -> bool {
+            self.qualified == other.qualified && self.sig == other.sig
+        }
+    }
+
+    impl std::hash::Hash for TypeFactFn {
+        /// Hash over the same fields [`PartialEq`] compares, so equal instances
+        /// always hash alike.
+        fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+            std::hash::Hash::hash(&self.qualified, state);
+            std::hash::Hash::hash(&self.sig, state);
+        }
+    }
+
     impl ScalarUDFImpl for TypeFactFn {
+        /// The fully-qualified function name.
         fn name(&self) -> &str {
             &self.qualified
         }
+        /// The accepted argument signature.
         fn signature(&self) -> &Signature {
             &self.sig
         }
+        /// Always int4, the width `information_schema` declares for these columns.
         fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
             Ok(DataType::Int32)
         }
+        /// Apply the formula to each row's `(typid, typmod)` pair, NULL-safely.
         fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
             let arrays = ColumnarValue::values_to_arrays(&args.args)?;
-            let len = arrays.first().map(|a| a.len()).unwrap_or(1);
+            let len = arrays.first().map_or(1, arrow::array::Array::len);
             let typid = arrays
                 .first()
                 .map(array_as_opt_i64)
@@ -1544,15 +1767,18 @@ fn register_type_fact_int_fn(
     let bare = qualified.rsplit('.').next().unwrap_or(qualified);
     let udf = ScalarUDF::new_from_impl(udf_impl).with_aliases([bare]);
     ctx.register_udf(udf);
-    Ok(())
 }
 
+/// Register a scalar stub under the fully-qualified function name `qualified`
+/// (plus its bare last-segment alias) that takes exactly `arity` arguments of
+/// any type and returns the constant int4 `value` (or NULL when `value` is
+/// `None`), broadcast over the input length.
 fn register_int_stub(
     ctx: &SessionContext,
     qualified: &'static str,
     arity: usize,
     value: Option<i32>,
-) -> Result<()> {
+) {
     use arrow::array::{ArrayRef, Int32Array};
     use arrow::datatypes::DataType;
     use datafusion::logical_expr::{
@@ -1561,26 +1787,34 @@ fn register_int_stub(
     };
     use std::sync::Arc;
 
+    /// A constant-int4 (or NULL) compatibility stub bound to one function name.
     #[derive(Debug, PartialEq, Eq, Hash)]
     struct IntStub {
+        /// The fully-qualified name this instance was registered under.
         qualified: String,
+        /// The constant reported for every row; `None` reports SQL NULL.
         value: Option<i32>,
+        /// Exactly `arity` arguments of any type.
         sig: Signature,
     }
 
     impl ScalarUDFImpl for IntStub {
+        /// The fully-qualified function name.
         fn name(&self) -> &str {
             &self.qualified
         }
+        /// The accepted argument signature.
         fn signature(&self) -> &Signature {
             &self.sig
         }
+        /// Always int4.
         fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
             Ok(DataType::Int32)
         }
+        /// The constant, one value per input row.
         fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
             let arrays = ColumnarValue::values_to_arrays(&args.args)?;
-            let len = arrays.first().map(|a| a.len()).unwrap_or(1);
+            let len = arrays.first().map_or(1, arrow::array::Array::len);
             Ok(ColumnarValue::Array(
                 Arc::new(Int32Array::from(vec![self.value; len])) as ArrayRef,
             ))
@@ -1595,17 +1829,21 @@ fn register_int_stub(
     let bare = qualified.rsplit('.').next().unwrap_or(qualified);
     let udf = ScalarUDF::new_from_impl(udf_impl).with_aliases([bare]);
     ctx.register_udf(udf);
-    Ok(())
 }
 
-/// pg_catalog.pg_options_to_table(options text[]) -> setof (option_name, option_value)
+/// `pg_catalog.pg_options_to_table(options` text[]) -> setof (`option_name`, `option_value`)
 ///
-/// PostgreSQL set-returning function that splits each `"name=value"` option
-/// string into a row. DataFusion can't host a set-returning function in the
+/// `PostgreSQL` set-returning function that splits each `"name=value"` option
+/// string into a row. `DataFusion` can't host a set-returning function in the
 /// projection, so we model the result as a **scalar** function returning
 /// `List<Struct{option_name, option_value}>`; the `rewrite_srf_to_unnest` pass
 /// then `unnest`s it so `(pg_options_to_table(x)).option_name` works. The
 /// argument is the catalog's `_text` array (Arrow `List<Utf8>`).
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_options_to_table(ctx: &SessionContext) -> Result<()> {
     use arrow::array::{ArrayRef, ListArray, ListBuilder, StringBuilder, StructBuilder};
     use arrow::datatypes::{DataType, Field, Fields};
@@ -1615,6 +1853,7 @@ pub fn register_pg_options_to_table(ctx: &SessionContext) -> Result<()> {
     };
     use std::sync::Arc;
 
+    /// The `(option_name, option_value)` pair each option string expands into.
     fn item_fields() -> Fields {
         vec![
             Field::new("option_name", DataType::Utf8, true),
@@ -1623,18 +1862,24 @@ pub fn register_pg_options_to_table(ctx: &SessionContext) -> Result<()> {
         .into()
     }
 
+    /// Splits an option array's `"name=value"` strings into a list of
+    /// `(option_name, option_value)` structs, one list per input row.
     #[derive(Debug, PartialEq, Eq, Hash)]
     struct PgOptionsToTable {
+        /// One argument of any type (the option array).
         sig: Signature,
     }
 
     impl ScalarUDFImpl for PgOptionsToTable {
-        fn name(&self) -> &str {
+        /// The schema-qualified function name.
+        fn name(&self) -> &'static str {
             "pg_catalog.pg_options_to_table"
         }
+        /// The accepted argument signature.
         fn signature(&self) -> &Signature {
             &self.sig
         }
+        /// A list of `(option_name, option_value)` structs.
         fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
             Ok(DataType::List(Arc::new(Field::new(
                 "item",
@@ -1642,6 +1887,8 @@ pub fn register_pg_options_to_table(ctx: &SessionContext) -> Result<()> {
                 true,
             ))))
         }
+        /// Split each row's option strings on the first `=`; a string without one
+        /// becomes a name with an empty value, and a NULL array stays NULL.
         fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
             let arrays = ColumnarValue::values_to_arrays(&args.args)?;
             let input = arrays[0].as_any().downcast_ref::<ListArray>();
@@ -1653,7 +1900,7 @@ pub fn register_pg_options_to_table(ctx: &SessionContext) -> Result<()> {
                     Box::new(StringBuilder::new()),
                 ],
             ));
-            let len = arrays.first().map(|a| a.len()).unwrap_or(0);
+            let len = arrays.first().map_or(0, arrow::array::Array::len);
             for i in 0..len {
                 let opts = input.filter(|a| !a.is_null(i)).map(|a| a.value(i));
                 match opts {
@@ -1696,15 +1943,20 @@ pub fn register_pg_options_to_table(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// information_schema._pg_expandarray(arr) -> setof (x, n)
+/// `information_schema`._`pg_expandarray(arr)` -> setof (x, n)
 ///
-/// PostgreSQL set-returning helper that expands an array into rows of
+/// `PostgreSQL` set-returning helper that expands an array into rows of
 /// `(x = element, n = 1-based ordinal)`. Modeled as a scalar function returning
 /// `List<Struct{x, n}>` so `(_pg_expandarray(a)).x` works via the
 /// `rewrite_srf_to_unnest` pass. `x` is Int64 (the element value - a column
 /// number or type oid) and `n` is int4 (its 1-based position); the helper
 /// `element_as_i64` accepts the int arrays (`conkey`, `proargtypes`) the views
 /// pass as well as legacy text arrays.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_expandarray(ctx: &SessionContext) -> Result<()> {
     use arrow::array::{
         Array, ArrayRef, Int32Builder, Int64Builder, ListArray, ListBuilder, StructBuilder,
@@ -1716,6 +1968,8 @@ pub fn register_pg_expandarray(ctx: &SessionContext) -> Result<()> {
     };
     use std::sync::Arc;
 
+    /// The `(x, n)` pair - element value and 1-based ordinal - each array element
+    /// expands into.
     fn item_fields() -> Fields {
         // `x` is the array element (a column number or type oid) and `n` its
         // 1-based position. `x` is Int64 so it compares directly against the int
@@ -1737,9 +1991,9 @@ pub fn register_pg_expandarray(ctx: &SessionContext) -> Result<()> {
         if let Some(a) = elems.as_any().downcast_ref::<Int64Array>() {
             Some(a.value(j))
         } else if let Some(a) = elems.as_any().downcast_ref::<Int32Array>() {
-            Some(a.value(j) as i64)
+            Some(i64::from(a.value(j)))
         } else if let Some(a) = elems.as_any().downcast_ref::<Int16Array>() {
-            Some(a.value(j) as i64)
+            Some(i64::from(a.value(j)))
         } else if let Some(a) = elems.as_any().downcast_ref::<StringArray>() {
             a.value(j).parse::<i64>().ok()
         } else {
@@ -1747,18 +2001,24 @@ pub fn register_pg_expandarray(ctx: &SessionContext) -> Result<()> {
         }
     }
 
+    /// Expands an array into a list of `(element, 1-based ordinal)` structs, one
+    /// list per input row.
     #[derive(Debug, PartialEq, Eq, Hash)]
     struct PgExpandArray {
+        /// One argument of any type (the array to expand).
         sig: Signature,
     }
 
     impl ScalarUDFImpl for PgExpandArray {
-        fn name(&self) -> &str {
+        /// The schema-qualified function name.
+        fn name(&self) -> &'static str {
             "information_schema._pg_expandarray"
         }
+        /// The accepted argument signature.
         fn signature(&self) -> &Signature {
             &self.sig
         }
+        /// A list of `(x, n)` structs.
         fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
             Ok(DataType::List(Arc::new(Field::new(
                 "item",
@@ -1766,6 +2026,8 @@ pub fn register_pg_expandarray(ctx: &SessionContext) -> Result<()> {
                 true,
             ))))
         }
+        /// Emit one `(element, ordinal)` struct per element of each row's array;
+        /// a NULL array stays NULL and an unreadable element becomes a NULL `x`.
         fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
             let arrays = ColumnarValue::values_to_arrays(&args.args)?;
             let input = arrays[0].as_any().downcast_ref::<ListArray>();
@@ -1773,7 +2035,7 @@ pub fn register_pg_expandarray(ctx: &SessionContext) -> Result<()> {
                 item_fields(),
                 vec![Box::new(Int64Builder::new()), Box::new(Int32Builder::new())],
             ));
-            let len = arrays.first().map(|a| a.len()).unwrap_or(0);
+            let len = arrays.first().map_or(0, arrow::array::Array::len);
             for i in 0..len {
                 let elems = input.filter(|a| !a.is_null(i)).map(|a| a.value(i));
                 match elems {
@@ -1786,10 +2048,15 @@ pub fn register_pg_expandarray(ctx: &SessionContext) -> Result<()> {
                                 Some(v) => x.append_value(v),
                                 None => x.append_null(),
                             }
+                            // PostgreSQL types the ordinal as int4, and no catalog
+                            // array carries 2^31 elements, so the 1-based position
+                            // always fits an i32.
+                            #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
+                            let ordinal = (j + 1) as i32;
                             struct_builder
                                 .field_builder::<Int32Builder>(1)
                                 .unwrap()
-                                .append_value((j + 1) as i32);
+                                .append_value(ordinal);
                             struct_builder.append(true);
                         }
                         builder.append(true);
@@ -1808,14 +2075,19 @@ pub fn register_pg_expandarray(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// pg_catalog.aclexplode(acl) -> setof (grantor, grantee, privilege_type, is_grantable)
+/// `pg_catalog.aclexplode(acl)` -> setof (grantor, grantee, `privilege_type`, `is_grantable`)
 ///
 /// Compatibility stub returning an **empty** set: this catalog does not model
 /// per-object access privileges, so there are no grants to explode. The
-/// information_schema privilege views (table_privileges, etc.) then plan and run,
+/// `information_schema` privilege views (`table_privileges`, etc.) then plan and run,
 /// returning no rows - which is accurate for an emulated catalog with no ACLs.
 /// Modeled as a scalar function returning an empty `List<Struct{...}>` so the
 /// inline `(aclexplode(x)).grantee` form unnests to zero rows.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_aclexplode(ctx: &SessionContext) -> Result<()> {
     use arrow::array::{
         ArrayRef, BooleanBuilder, Int32Builder, ListBuilder, StringBuilder, StructBuilder,
@@ -1827,6 +2099,7 @@ pub fn register_aclexplode(ctx: &SessionContext) -> Result<()> {
     };
     use std::sync::Arc;
 
+    /// The grant tuple `PostgreSQL`'s `aclexplode` yields per ACL item.
     fn item_fields() -> Fields {
         vec![
             Field::new("grantor", DataType::Int32, true),
@@ -1837,18 +2110,24 @@ pub fn register_aclexplode(ctx: &SessionContext) -> Result<()> {
         .into()
     }
 
+    /// Yields an empty grant list for every row, since this catalog models no
+    /// per-object access privileges.
     #[derive(Debug, PartialEq, Eq, Hash)]
     struct AclExplode {
+        /// One argument of any type (the ACL array).
         sig: Signature,
     }
 
     impl ScalarUDFImpl for AclExplode {
-        fn name(&self) -> &str {
+        /// The schema-qualified function name.
+        fn name(&self) -> &'static str {
             "pg_catalog.aclexplode"
         }
+        /// The accepted argument signature.
         fn signature(&self) -> &Signature {
             &self.sig
         }
+        /// A list of grant structs (always empty).
         fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
             Ok(DataType::List(Arc::new(Field::new(
                 "item",
@@ -1856,10 +2135,11 @@ pub fn register_aclexplode(ctx: &SessionContext) -> Result<()> {
                 true,
             ))))
         }
+        /// An empty list per input row.
         fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
             // Every row gets an empty list (no grants).
             let arrays = ColumnarValue::values_to_arrays(&args.args)?;
-            let len = arrays.first().map(|a| a.len()).unwrap_or(1);
+            let len = arrays.first().map_or(1, arrow::array::Array::len);
             let mut builder = ListBuilder::new(StructBuilder::new(
                 item_fields(),
                 vec![
@@ -1884,12 +2164,17 @@ pub fn register_aclexplode(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// pg_catalog.acldefault(type, owner) -> aclitem[]
+/// `pg_catalog.acldefault(type`, owner) -> aclitem[]
 ///
 /// Compatibility stub returning an **empty** ACL array. Paired with the
-/// `aclexplode` stub, the information_schema privilege views' usual
+/// `aclexplode` stub, the `information_schema` privilege views' usual
 /// `COALESCE(relacl, acldefault(...))` yields an empty ACL, which explodes to no
 /// rows. The result is a `List<Utf8>` matching how the catalog stores `_aclitem`.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_acldefault(ctx: &SessionContext) -> Result<()> {
     use arrow::array::{ArrayRef, ListBuilder, StringBuilder};
     use arrow::datatypes::DataType;
@@ -1899,18 +2184,24 @@ pub fn register_acldefault(ctx: &SessionContext) -> Result<()> {
     };
     use std::sync::Arc;
 
+    /// Yields an empty ACL array for every row, so the privilege views' usual
+    /// `COALESCE(relacl, acldefault(...))` explodes to no grants.
     #[derive(Debug, PartialEq, Eq, Hash)]
     struct AclDefault {
+        /// Two arguments of any type (`object type`, `owner`).
         sig: Signature,
     }
 
     impl ScalarUDFImpl for AclDefault {
-        fn name(&self) -> &str {
+        /// The schema-qualified function name.
+        fn name(&self) -> &'static str {
             "pg_catalog.acldefault"
         }
+        /// The accepted argument signature.
         fn signature(&self) -> &Signature {
             &self.sig
         }
+        /// A `List<Utf8>`, matching how the catalog stores `_aclitem`.
         fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
             Ok(DataType::List(Arc::new(arrow::datatypes::Field::new(
                 "item",
@@ -1918,9 +2209,10 @@ pub fn register_acldefault(ctx: &SessionContext) -> Result<()> {
                 true,
             ))))
         }
+        /// An empty ACL array per input row.
         fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
             let arrays = ColumnarValue::values_to_arrays(&args.args)?;
-            let len = arrays.first().map(|a| a.len()).unwrap_or(1);
+            let len = arrays.first().map_or(1, arrow::array::Array::len);
             let mut builder = ListBuilder::new(StringBuilder::new());
             for _ in 0..len {
                 builder.append(true); // empty acl array
@@ -1946,7 +2238,7 @@ pub fn register_acldefault(ctx: &SessionContext) -> Result<()> {
 /// (int) or a name (text). `base_name` is the unqualified function name (e.g.
 /// `has_table_privilege`); it is registered under `pg_catalog.<base_name>` with
 /// the bare name as an alias.
-fn register_has_privilege_stub(ctx: &SessionContext, base_name: &'static str) -> Result<()> {
+fn register_has_privilege_stub(ctx: &SessionContext, base_name: &'static str) {
     use arrow::array::{ArrayRef, BooleanArray};
     use arrow::datatypes::DataType;
     use datafusion::logical_expr::{
@@ -1955,25 +2247,33 @@ fn register_has_privilege_stub(ctx: &SessionContext, base_name: &'static str) ->
     };
     use std::sync::Arc;
 
+    /// Answers one `has_<object>_privilege` name for the emulated single
+    /// superuser: always `true`.
     #[derive(Debug, PartialEq, Eq, Hash)]
     struct HasPrivilege {
+        /// The fully-qualified name this instance was registered under.
         qualified: String,
+        /// Accepts the 2- and 3-argument forms with arguments of any type.
         sig: Signature,
     }
 
     impl ScalarUDFImpl for HasPrivilege {
+        /// The fully-qualified function name.
         fn name(&self) -> &str {
             &self.qualified
         }
+        /// The accepted argument signatures.
         fn signature(&self) -> &Signature {
             &self.sig
         }
+        /// Always boolean.
         fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
             Ok(DataType::Boolean)
         }
+        /// `true` once per input row.
         fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
             let arrays = ColumnarValue::values_to_arrays(&args.args)?;
-            let len = arrays.first().map(|a| a.len()).unwrap_or(1);
+            let len = arrays.first().map_or(1, arrow::array::Array::len);
             Ok(ColumnarValue::Array(
                 Arc::new(BooleanArray::from(vec![true; len])) as ArrayRef,
             ))
@@ -1989,15 +2289,19 @@ fn register_has_privilege_stub(ctx: &SessionContext, base_name: &'static str) ->
     };
     let udf = ScalarUDF::new_from_impl(udf_impl).with_aliases([base_name]);
     ctx.register_udf(udf);
-    Ok(())
 }
 
 /// Register the full `has_*_privilege` family as always-true compatibility stubs.
 ///
-/// PostgreSQL has one such function per object class; the information_schema
+/// `PostgreSQL` has one such function per object class; the `information_schema`
 /// privilege views call most of them. The emulated single superuser holds every
 /// privilege, so each returns `true`. (`has_database_privilege` /
 /// `has_schema_privilege` keep their existing dedicated registrations.)
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_has_privilege_family(ctx: &SessionContext) -> Result<()> {
     for name in [
         "has_table_privilege",
@@ -2012,16 +2316,21 @@ pub fn register_has_privilege_family(ctx: &SessionContext) -> Result<()> {
         "has_language_privilege",
         "has_parameter_privilege",
     ] {
-        register_has_privilege_stub(ctx, name)?;
+        register_has_privilege_stub(ctx, name);
     }
     Ok(())
 }
 
-/// pg_catalog.nameconcatoid(name, oid) -> text
+/// `pg_catalog.nameconcatoid(name`, oid) -> text
 ///
-/// PostgreSQL helper that builds a unique label by appending an object's OID to
-/// its name (used by the routine/parameter information_schema views to make
+/// `PostgreSQL` helper that builds a unique label by appending an object's OID to
+/// its name (used by the routine/parameter `information_schema` views to make
 /// `specific_name`s unique). Returns `"<name>_<oid>"`.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_nameconcatoid(ctx: &SessionContext) -> Result<()> {
     use arrow::array::{ArrayRef, StringBuilder};
     use arrow::datatypes::DataType;
@@ -2031,28 +2340,34 @@ pub fn register_nameconcatoid(ctx: &SessionContext) -> Result<()> {
     };
     use std::sync::Arc;
 
+    /// Appends an object's OID to its name to build a unique label.
     #[derive(Debug, PartialEq, Eq, Hash)]
     struct NameConcatOid {
+        /// Two arguments of any type (`name`, `oid`).
         sig: Signature,
     }
 
     impl ScalarUDFImpl for NameConcatOid {
-        fn name(&self) -> &str {
+        /// The schema-qualified function name.
+        fn name(&self) -> &'static str {
             "pg_catalog.nameconcatoid"
         }
+        /// The accepted argument signature.
         fn signature(&self) -> &Signature {
             &self.sig
         }
+        /// Always text.
         fn return_type(&self, _t: &[DataType]) -> Result<DataType> {
             Ok(DataType::Utf8)
         }
+        /// Join `"<name>_<oid>"` per row; a NULL in either argument gives NULL.
         fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
             use arrow::array::Array;
             let arrays = ColumnarValue::values_to_arrays(&args.args)?;
             let names = arrays[0]
                 .as_any()
                 .downcast_ref::<arrow::array::StringArray>();
-            let len = arrays.first().map(|a| a.len()).unwrap_or(1);
+            let len = arrays.first().map_or(1, arrow::array::Array::len);
             // The oid column may arrive as int or text; stringify generically.
             let oid_str = |i: usize| -> Option<String> {
                 let a = &arrays[1];
@@ -2063,10 +2378,10 @@ pub fn register_nameconcatoid(ctx: &SessionContext) -> Result<()> {
                     Some(s.value(i).to_string())
                 } else if let Some(v) = a.as_any().downcast_ref::<arrow::array::Int32Array>() {
                     Some(v.value(i).to_string())
-                } else if let Some(v) = a.as_any().downcast_ref::<arrow::array::Int64Array>() {
-                    Some(v.value(i).to_string())
                 } else {
-                    None
+                    a.as_any()
+                        .downcast_ref::<arrow::array::Int64Array>()
+                        .map(|v| v.value(i).to_string())
                 }
             };
             let mut b = StringBuilder::with_capacity(len, 32 * len);
@@ -2104,23 +2419,36 @@ pub fn register_nameconcatoid(ctx: &SessionContext) -> Result<()> {
 /// the catalog's to answer by looking up `pg_catalog.<name>` in the function
 /// registry (see `router::function_is_catalog`), so without it a plain
 /// `SELECT current_database()` would be handed to the host instead.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_current_database(ctx: &SessionContext) -> Result<()> {
+    /// Reports the executing session's default catalog, which for a context built
+    /// by this crate is the database the connection is attached to.
     #[derive(Debug, PartialEq, Eq, Hash)]
     struct CurrentDatabase {
+        /// The name this instance was registered under.
         name: String,
+        /// The no-argument, `Stable` signature.
         signature: Signature,
     }
 
     impl ScalarUDFImpl for CurrentDatabase {
+        /// The registered function name.
         fn name(&self) -> &str {
             &self.name
         }
+        /// Takes no arguments.
         fn signature(&self) -> &Signature {
             &self.signature
         }
+        /// Always text (a database name).
         fn return_type(&self, _args: &[ArrowDataType]) -> Result<ArrowDataType> {
             Ok(ArrowDataType::Utf8)
         }
+        /// The executing session's default catalog, read at call time.
         fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
             let database = args.config_options.catalog.default_catalog.clone();
             Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(database))))
@@ -2141,7 +2469,7 @@ pub fn register_current_database(ctx: &SessionContext) -> Result<()> {
 
 /// The schemas on this session's search path, in order, with `$user` dropped.
 ///
-/// PostgreSQL resolves `"$user"` to a schema named after the session role and
+/// `PostgreSQL` resolves `"$user"` to a schema named after the session role and
 /// skips the entry when no such schema exists. Nothing here creates per-role
 /// schemas - they all come from the host's registrations - so the entry never
 /// resolves and is always skipped.
@@ -2166,25 +2494,36 @@ fn search_path_schemas(config: &datafusion::config::ConfigOptions) -> Vec<String
 ///
 /// That is the schema an unqualified `CREATE` would write to, so `pg_catalog` is
 /// specifically not it: `pg_catalog` is searched first but is implicit, and
-/// PostgreSQL reports the first *explicit* entry. Returning `pg_catalog` here -
+/// `PostgreSQL` reports the first *explicit* entry. Returning `pg_catalog` here -
 /// which is what taking the head of `current_schemas(true)` did - told every
 /// client its working schema was the system catalog.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_current_schema(ctx: &SessionContext) -> Result<()> {
+    /// Reports the first explicit entry of the executing session's search path.
     #[derive(Debug, PartialEq, Eq, Hash)]
     struct CurrentSchema {
+        /// The no-argument, `Stable` signature.
         signature: Signature,
     }
 
     impl ScalarUDFImpl for CurrentSchema {
-        fn name(&self) -> &str {
+        /// The function name.
+        fn name(&self) -> &'static str {
             "current_schema"
         }
+        /// Takes no arguments.
         fn signature(&self) -> &Signature {
             &self.signature
         }
+        /// Always text (a schema name).
         fn return_type(&self, _args: &[ArrowDataType]) -> Result<ArrowDataType> {
             Ok(ArrowDataType::Utf8)
         }
+        /// The head of the session's search path, read at call time.
         fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
             let schema = search_path_schemas(&args.config_options)
                 .into_iter()
@@ -2209,24 +2548,34 @@ pub fn register_current_schema(ctx: &SessionContext) -> Result<()> {
 /// path as an array.
 ///
 /// With `include_implicit` true the implicitly-searched `pg_catalog` is
-/// prepended, as PostgreSQL does; with it false only the explicit entries are
+/// prepended, as `PostgreSQL` does; with it false only the explicit entries are
 /// reported.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_current_schemas(ctx: &SessionContext) -> Result<()> {
     use arrow::array::{ArrayRef, ListBuilder, StringBuilder};
     use arrow::datatypes::Field;
 
+    /// Reports the executing session's search path as a text array.
     #[derive(Debug, PartialEq, Eq, Hash)]
     struct CurrentSchemas {
+        /// One boolean argument (`include_implicit`), `Stable`.
         signature: Signature,
     }
 
     impl ScalarUDFImpl for CurrentSchemas {
-        fn name(&self) -> &str {
+        /// The function name.
+        fn name(&self) -> &'static str {
             "current_schemas"
         }
+        /// One boolean argument.
         fn signature(&self) -> &Signature {
             &self.signature
         }
+        /// A `List<Utf8>` of schema names.
         fn return_type(&self, _args: &[ArrowDataType]) -> Result<ArrowDataType> {
             Ok(ArrowDataType::List(Arc::new(Field::new(
                 "item",
@@ -2234,6 +2583,8 @@ pub fn register_current_schemas(ctx: &SessionContext) -> Result<()> {
                 true,
             ))))
         }
+        /// The session's search path, with `pg_catalog` prepended when the caller
+        /// asked for the implicitly-searched schemas.
         fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
             let include_implicit = matches!(
                 args.args.first(),
@@ -2263,6 +2614,11 @@ pub fn register_current_schemas(ctx: &SessionContext) -> Result<()> {
 }
 
 /// Stub for `pg_table_is_visible` which always reports `true`.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_scalar_pg_table_is_visible(ctx: &SessionContext) -> Result<()> {
     use arrow::array::{ArrayRef, BooleanBuilder};
     use arrow::datatypes::DataType;
@@ -2323,7 +2679,7 @@ fn fetch_users_by_oids(ctx: Arc<SessionContext>, oids: &[i64]) -> Result<HashMap
 
     let in_list = oids
         .iter()
-        .map(|o| o.to_string())
+        .map(std::string::ToString::to_string)
         .collect::<Vec<_>>()
         .join(", ");
 
@@ -2359,12 +2715,20 @@ fn fetch_users_by_oids(ctx: Arc<SessionContext>, oids: &[i64]) -> Result<HashMap
     })
 }
 
+/// `pg_catalog.pg_get_userbyid(oid)` resolves role OIDs to `pg_authid.rolname`
+/// from the live catalog at call time, batching the distinct OIDs of a whole
+/// column into one query so a column argument costs one catalog query rather than
+/// one per row.
 struct PgGetUserById {
+    /// Accepts a single OID argument of any signed/unsigned 32/64-bit width.
     sig: Signature,
+    /// The session the `pg_authid` lookup is issued through.
     ctx: Arc<SessionContext>,
 }
 
 impl PgGetUserById {
+    /// Build the UDF over a clone of the session context it queries `pg_authid`
+    /// through.
     fn new(ctx: Arc<SessionContext>) -> Self {
         Self {
             sig: Signature::one_of(
@@ -2382,12 +2746,14 @@ impl PgGetUserById {
 }
 
 impl std::fmt::Debug for PgGetUserById {
+    /// Format without the (non-Debug) session context.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("PgGetUserById").finish()
     }
 }
 
 impl PartialEq for PgGetUserById {
+    /// Two instances are equal when they share the same session context.
     fn eq(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.ctx, &other.ctx)
     }
@@ -2396,24 +2762,31 @@ impl PartialEq for PgGetUserById {
 impl Eq for PgGetUserById {}
 
 impl std::hash::Hash for PgGetUserById {
+    /// Hash by the identity of the shared session context.
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         (Arc::as_ptr(&self.ctx) as usize).hash(state);
     }
 }
 
 impl ScalarUDFImpl for PgGetUserById {
-    fn name(&self) -> &str {
+    /// The schema-qualified function name.
+    fn name(&self) -> &'static str {
         "pg_catalog.pg_get_userbyid"
     }
 
+    /// The accepted argument signature (a single OID).
     fn signature(&self) -> &Signature {
         &self.sig
     }
 
+    /// `pg_get_userbyid` returns a role name as `text`.
     fn return_type(&self, _arg_types: &[ArrowDataType]) -> Result<ArrowDataType> {
         Ok(ArrowDataType::Utf8)
     }
 
+    /// Decode every row's role OID, resolve the DISTINCT ones with one `pg_authid`
+    /// query, then emit each role name - `unknown (OID=...)` for an OID with no
+    /// row, NULL for a NULL argument.
     fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
         let arrays = ColumnarValue::values_to_arrays(&args.args)?;
         let arr = &arrays[0];
@@ -2466,6 +2839,11 @@ impl ScalarUDFImpl for PgGetUserById {
 
 /// Register `pg_get_userbyid(oid)` which returns the role name for the
 /// provided OID or "unknown (OID=...)" when no match is found.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_scalar_pg_get_userbyid(ctx: &SessionContext) -> Result<()> {
     let udf = ScalarUDF::new_from_impl(PgGetUserById::new(Arc::new(ctx.clone())))
         .with_aliases(["pg_get_userbyid"]);
@@ -2474,6 +2852,11 @@ pub fn register_scalar_pg_get_userbyid(ctx: &SessionContext) -> Result<()> {
 }
 
 /// Register `pg_encoding_to_char(int)` returning the encoding name as text.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_scalar_pg_encoding_to_char(ctx: &SessionContext) -> Result<()> {
     use arrow::array::{ArrayRef, StringBuilder};
     use arrow::datatypes::DataType;
@@ -2502,248 +2885,319 @@ pub fn register_scalar_pg_encoding_to_char(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// Register the `array_to_string` function used for array formatting.
-pub fn register_scalar_array_to_string(ctx: &SessionContext) -> Result<()> {
-    use arrow::array::{
-        Array, ArrayRef, GenericListArray, OffsetSizeTrait, StringArray, StringBuilder,
-    };
-    use arrow::datatypes::{DataType, Field};
-    use datafusion::logical_expr::{
-        ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature,
-        Volatility,
-    };
-    use std::sync::Arc;
+/// Join the elements of every list in `arr` into one delimited string per row.
+///
+/// `null_rep` is `array_to_string`'s optional third argument: a NULL element is
+/// rendered as that text when it is given, and dropped from the output entirely
+/// when it is not - which is what `PostgreSQL` does. A NULL list stays NULL.
+///
+/// `O` selects the list's offset width (`i32` for `List`, `i64` for `LargeList`).
+///
+/// # Panics
+///
+/// Panics if `arr` is not a `GenericListArray<O>` of `Utf8` values. Callers pick
+/// `O` from a `downcast` test on the very same array, so the shape always matches.
+fn join_list_elements<O: arrow::array::OffsetSizeTrait>(
+    arr: &ArrayRef,
+    delim: &str,
+    null_rep: Option<&String>,
+) -> ColumnarValue {
+    use arrow::array::{GenericListArray, StringArray};
 
-    fn build_list<O: OffsetSizeTrait>(
-        arr: ArrayRef,
-        delim: &str,
-        null_rep: &Option<String>,
-    ) -> Result<ColumnarValue> {
-        let l = arr.as_any().downcast_ref::<GenericListArray<O>>().unwrap();
-        let strings = l.values().as_any().downcast_ref::<StringArray>().unwrap();
-        let offsets = l.value_offsets();
-        let mut out = StringBuilder::with_capacity(l.len(), 32 * l.len());
-        for i in 0..l.len() {
-            if l.is_null(i) {
-                out.append_null();
-                continue;
-            }
-            let mut parts = Vec::new();
-            let start = offsets[i].to_usize().unwrap();
-            let end = offsets[i + 1].to_usize().unwrap();
-            for idx in start..end {
-                if strings.is_null(idx) {
-                    if let Some(ref nr) = null_rep {
-                        parts.push(nr.as_str())
-                    }
-                } else {
-                    parts.push(strings.value(idx))
-                }
-            }
-            out.append_value(parts.join(delim));
+    let l = arr.as_any().downcast_ref::<GenericListArray<O>>().unwrap();
+    let strings = l.values().as_any().downcast_ref::<StringArray>().unwrap();
+    let offsets = l.value_offsets();
+    let mut out = StringBuilder::with_capacity(l.len(), 32 * l.len());
+    for i in 0..l.len() {
+        if l.is_null(i) {
+            out.append_null();
+            continue;
         }
-        Ok(ColumnarValue::Array(Arc::new(out.finish()) as ArrayRef))
-    }
-
-    #[derive(Debug, PartialEq, Eq, Hash)]
-    struct ArrayToString {
-        sig: Signature,
-    }
-
-    impl ArrayToString {
-        fn new() -> Self {
-            let list = DataType::List(Arc::new(Field::new("item", DataType::Utf8, true)));
-            Self {
-                sig: Signature::one_of(
-                    vec![
-                        TypeSignature::Exact(vec![list.clone(), DataType::Utf8]),
-                        TypeSignature::Exact(vec![list, DataType::Utf8, DataType::Utf8]),
-                        //
-                        TypeSignature::Exact(vec![DataType::Utf8, DataType::Utf8]),
-                        TypeSignature::Exact(vec![DataType::Utf8, DataType::Utf8, DataType::Utf8]),
-                    ],
-                    Volatility::Stable,
-                ),
-            }
-        }
-    }
-
-    impl ScalarUDFImpl for ArrayToString {
-        fn name(&self) -> &str {
-            "pg_catalog.array_to_string"
-        }
-        fn signature(&self) -> &Signature {
-            &self.sig
-        }
-        fn return_type(&self, _: &[DataType]) -> Result<DataType> {
-            Ok(DataType::Utf8)
-        }
-
-        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
-            let delim = match &args.args[1] {
-                ColumnarValue::Scalar(ScalarValue::Utf8(Some(s))) => s.clone(),
-                _ => "".to_string(),
-            };
-            let null_rep = if args.args.len() == 3 {
-                match &args.args[2] {
-                    ColumnarValue::Scalar(ScalarValue::Utf8(opt)) => opt.clone(),
-                    _ => None,
+        let mut parts = Vec::new();
+        let start = offsets[i].to_usize().unwrap();
+        let end = offsets[i + 1].to_usize().unwrap();
+        for idx in start..end {
+            if strings.is_null(idx) {
+                if let Some(nr) = null_rep {
+                    parts.push(nr.as_str());
                 }
             } else {
-                None
-            };
-
-            match &args.args[0] {
-                ColumnarValue::Array(a) if a.as_any().is::<GenericListArray<i32>>() => {
-                    build_list::<i32>(a.clone(), &delim, &null_rep)
-                }
-                ColumnarValue::Array(a) if a.as_any().is::<GenericListArray<i64>>() => {
-                    build_list::<i64>(a.clone(), &delim, &null_rep)
-                }
-                ColumnarValue::Array(a) if a.as_any().is::<StringArray>() => {
-                    let string_array = a.as_any().downcast_ref::<StringArray>().unwrap();
-                    let mut b =
-                        StringBuilder::with_capacity(string_array.len(), 32 * string_array.len());
-                    for i in 0..string_array.len() {
-                        if string_array.is_null(i) {
-                            b.append_null();
-                        } else {
-                            b.append_value(string_array.value(i));
-                        }
-                    }
-                    Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
-                }
-                ColumnarValue::Scalar(ScalarValue::List(list)) => {
-                    if list.is_null(0) {
-                        return Ok(ColumnarValue::Scalar(ScalarValue::Utf8(None)));
-                    }
-
-                    let elem = list.value(0);
-                    let string_array = elem.as_any().downcast_ref::<StringArray>().unwrap();
-
-                    let mut parts = Vec::new();
-                    for i in 0..string_array.len() {
-                        if string_array.is_null(i) {
-                            if let Some(ref nr) = null_rep {
-                                parts.push(nr.clone());
-                            }
-                        } else {
-                            parts.push(string_array.value(i).to_string());
-                        }
-                    }
-                    let joined = parts.join(&delim);
-                    Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(joined))))
-                }
-                ColumnarValue::Scalar(ScalarValue::Utf8(Some(s))) => {
-                    let mut b = StringBuilder::with_capacity(1, s.len());
-                    b.append_value(s);
-                    Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
-                }
-                _ => Err(DataFusionError::Plan(
-                    "unsupported argument to array_to_string".into(),
-                )),
+                parts.push(strings.value(idx));
             }
         }
+        out.append_value(parts.join(delim));
+    }
+    ColumnarValue::Array(Arc::new(out.finish()) as ArrayRef)
+}
 
-        fn is_nullable(
-            &self,
-            _args: &[Expr],
-            _schema: &dyn datafusion::common::ExprSchema,
-        ) -> bool {
-            true
+/// `pg_catalog.array_to_string(array, delimiter [, null_string])`: joins a text
+/// array into one string. A plain text argument is passed through unchanged, which
+/// is what the catalog views that hand it an already-joined column expect.
+#[derive(Debug, PartialEq, Eq, Hash)]
+struct ArrayToString {
+    /// The `(list|text, text [, text])` call shapes this function accepts.
+    sig: Signature,
+}
+
+impl ArrayToString {
+    /// Build the UDF accepting a text list or a bare text as the first argument,
+    /// with or without the trailing `null_string`.
+    fn new() -> Self {
+        let list = DataType::List(Arc::new(Field::new("item", DataType::Utf8, true)));
+        Self {
+            sig: Signature::one_of(
+                vec![
+                    TypeSignature::Exact(vec![list.clone(), DataType::Utf8]),
+                    TypeSignature::Exact(vec![list, DataType::Utf8, DataType::Utf8]),
+                    //
+                    TypeSignature::Exact(vec![DataType::Utf8, DataType::Utf8]),
+                    TypeSignature::Exact(vec![DataType::Utf8, DataType::Utf8, DataType::Utf8]),
+                ],
+                Volatility::Stable,
+            ),
         }
+    }
+}
 
-        fn aliases(&self) -> &[String] {
-            &[]
-        }
+impl ScalarUDFImpl for ArrayToString {
+    /// The schema-qualified function name.
+    fn name(&self) -> &'static str {
+        "pg_catalog.array_to_string"
+    }
+    /// The accepted argument signatures.
+    fn signature(&self) -> &Signature {
+        &self.sig
+    }
+    /// Always text.
+    fn return_type(&self, _: &[DataType]) -> Result<DataType> {
+        Ok(DataType::Utf8)
+    }
 
-        fn simplify(
-            &self,
-            args: Vec<Expr>,
-            _info: &datafusion::logical_expr::simplify::SimplifyContext,
-        ) -> Result<datafusion::logical_expr::simplify::ExprSimplifyResult> {
-            Ok(datafusion::logical_expr::simplify::ExprSimplifyResult::Original(args))
-        }
+    /// Join the first argument, dispatching on its concrete Arrow shape: a
+    /// 32- or 64-bit offset list column, a text column (passed through), or a
+    /// scalar list / text.
+    ///
+    /// # Errors
+    ///
+    /// Returns a plan error when the first argument is none of those shapes.
+    fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+        use arrow::array::{GenericListArray, StringArray};
 
-        fn short_circuits(&self) -> bool {
-            false
-        }
-
-        fn evaluate_bounds(
-            &self,
-            _input: &[&datafusion::logical_expr::interval_arithmetic::Interval],
-        ) -> Result<datafusion::logical_expr::interval_arithmetic::Interval> {
-            // We cannot assume the input datatype is the same of output type.
-            datafusion::logical_expr::interval_arithmetic::Interval::make_unbounded(&DataType::Null)
-        }
-
-        fn propagate_constraints(
-            &self,
-            _interval: &datafusion::logical_expr::interval_arithmetic::Interval,
-            _inputs: &[&datafusion::logical_expr::interval_arithmetic::Interval],
-        ) -> Result<Option<Vec<datafusion::logical_expr::interval_arithmetic::Interval>>> {
-            Ok(Some(std::vec![]))
-        }
-
-        fn output_ordering(
-            &self,
-            inputs: &[datafusion::logical_expr::sort_properties::ExprProperties],
-        ) -> Result<datafusion::logical_expr::sort_properties::SortProperties> {
-            if !self.preserves_lex_ordering(inputs)? {
-                return Ok(datafusion::logical_expr::sort_properties::SortProperties::Unordered);
+        let delim = match &args.args[1] {
+            ColumnarValue::Scalar(ScalarValue::Utf8(Some(s))) => s.clone(),
+            _ => String::new(),
+        };
+        let null_rep = if args.args.len() == 3 {
+            match &args.args[2] {
+                ColumnarValue::Scalar(ScalarValue::Utf8(opt)) => opt.clone(),
+                _ => None,
             }
-
-            let Some(first_order) = inputs.first().map(|p| &p.sort_properties) else {
-                return Ok(datafusion::logical_expr::sort_properties::SortProperties::Singleton);
-            };
-
-            if inputs
-                .iter()
-                .skip(1)
-                .all(|input| &input.sort_properties == first_order)
-            {
-                Ok(*first_order)
-            } else {
-                Ok(datafusion::logical_expr::sort_properties::SortProperties::Unordered)
-            }
-        }
-
-        fn preserves_lex_ordering(
-            &self,
-            _inputs: &[datafusion::logical_expr::sort_properties::ExprProperties],
-        ) -> Result<bool> {
-            Ok(false)
-        }
-
-        fn coerce_types(&self, _arg_types: &[DataType]) -> Result<Vec<DataType>> {
-            datafusion::common::not_impl_err!(
-                "Function {} does not implement coerce_types",
-                self.name()
-            )
-        }
-
-        fn documentation(&self) -> Option<&datafusion::logical_expr::Documentation> {
+        } else {
             None
+        };
+
+        match &args.args[0] {
+            ColumnarValue::Array(a) if a.as_any().is::<GenericListArray<i32>>() => {
+                Ok(join_list_elements::<i32>(a, &delim, null_rep.as_ref()))
+            }
+            ColumnarValue::Array(a) if a.as_any().is::<GenericListArray<i64>>() => {
+                Ok(join_list_elements::<i64>(a, &delim, null_rep.as_ref()))
+            }
+            ColumnarValue::Array(a) if a.as_any().is::<StringArray>() => {
+                let string_array = a.as_any().downcast_ref::<StringArray>().unwrap();
+                let mut b =
+                    StringBuilder::with_capacity(string_array.len(), 32 * string_array.len());
+                for i in 0..string_array.len() {
+                    if string_array.is_null(i) {
+                        b.append_null();
+                    } else {
+                        b.append_value(string_array.value(i));
+                    }
+                }
+                Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
+            }
+            ColumnarValue::Scalar(ScalarValue::List(list)) => {
+                if list.is_null(0) {
+                    return Ok(ColumnarValue::Scalar(ScalarValue::Utf8(None)));
+                }
+
+                let elem = list.value(0);
+                let string_array = elem.as_any().downcast_ref::<StringArray>().unwrap();
+
+                let mut parts = Vec::new();
+                for i in 0..string_array.len() {
+                    if string_array.is_null(i) {
+                        if let Some(ref nr) = null_rep {
+                            parts.push(nr.clone());
+                        }
+                    } else {
+                        parts.push(string_array.value(i).to_string());
+                    }
+                }
+                let joined = parts.join(&delim);
+                Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(joined))))
+            }
+            ColumnarValue::Scalar(ScalarValue::Utf8(Some(s))) => {
+                let mut b = StringBuilder::with_capacity(1, s.len());
+                b.append_value(s);
+                Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
+            }
+            _ => Err(DataFusionError::Plan(
+                "unsupported argument to array_to_string".into(),
+            )),
         }
     }
 
+    /// The result may be NULL (a NULL array joins to NULL).
+    fn is_nullable(&self, _args: &[Expr], _schema: &dyn datafusion::common::ExprSchema) -> bool {
+        true
+    }
+
+    /// No aliases: the bare `array_to_string` is `DataFusion`'s own function, and
+    /// this one is reached through its `pg_catalog.` name.
+    fn aliases(&self) -> &[String] {
+        &[]
+    }
+
+    /// Never simplified away - the call is evaluated as written.
+    ///
+    /// # Errors
+    ///
+    /// Never fails; the `Result` is required by the trait.
+    fn simplify(
+        &self,
+        args: Vec<Expr>,
+        _info: &datafusion::logical_expr::simplify::SimplifyContext,
+    ) -> Result<datafusion::logical_expr::simplify::ExprSimplifyResult> {
+        Ok(datafusion::logical_expr::simplify::ExprSimplifyResult::Original(args))
+    }
+
+    /// Every argument is always evaluated.
+    fn short_circuits(&self) -> bool {
+        false
+    }
+
+    /// No usable interval bounds: the output is text regardless of the input type.
+    ///
+    /// # Errors
+    ///
+    /// Propagates a failure to construct the unbounded interval.
+    fn evaluate_bounds(
+        &self,
+        _input: &[&datafusion::logical_expr::interval_arithmetic::Interval],
+    ) -> Result<datafusion::logical_expr::interval_arithmetic::Interval> {
+        // We cannot assume the input datatype is the same of output type.
+        datafusion::logical_expr::interval_arithmetic::Interval::make_unbounded(&DataType::Null)
+    }
+
+    /// Constrains no input interval from an output interval.
+    ///
+    /// # Errors
+    ///
+    /// Never fails; the `Result` is required by the trait.
+    fn propagate_constraints(
+        &self,
+        _interval: &datafusion::logical_expr::interval_arithmetic::Interval,
+        _inputs: &[&datafusion::logical_expr::interval_arithmetic::Interval],
+    ) -> Result<Option<Vec<datafusion::logical_expr::interval_arithmetic::Interval>>> {
+        Ok(Some(std::vec![]))
+    }
+
+    /// Report the shared ordering of the inputs when they agree, and unordered
+    /// otherwise - which, since [`Self::preserves_lex_ordering`] is `false`, is
+    /// always the answer here.
+    ///
+    /// # Errors
+    ///
+    /// Propagates a failure from the lexicographic-ordering check.
+    fn output_ordering(
+        &self,
+        inputs: &[datafusion::logical_expr::sort_properties::ExprProperties],
+    ) -> Result<datafusion::logical_expr::sort_properties::SortProperties> {
+        if !self.preserves_lex_ordering(inputs)? {
+            return Ok(datafusion::logical_expr::sort_properties::SortProperties::Unordered);
+        }
+
+        let Some(first_order) = inputs.first().map(|p| &p.sort_properties) else {
+            return Ok(datafusion::logical_expr::sort_properties::SortProperties::Singleton);
+        };
+
+        if inputs
+            .iter()
+            .skip(1)
+            .all(|input| &input.sort_properties == first_order)
+        {
+            Ok(*first_order)
+        } else {
+            Ok(datafusion::logical_expr::sort_properties::SortProperties::Unordered)
+        }
+    }
+
+    /// Joining elements into one string destroys any input ordering.
+    ///
+    /// # Errors
+    ///
+    /// Never fails; the `Result` is required by the trait.
+    fn preserves_lex_ordering(
+        &self,
+        _inputs: &[datafusion::logical_expr::sort_properties::ExprProperties],
+    ) -> Result<bool> {
+        Ok(false)
+    }
+
+    /// Not implemented: the signature already lists every accepted call shape
+    /// exactly, so there is nothing to coerce.
+    ///
+    /// # Errors
+    ///
+    /// Always returns a `not implemented` error.
+    fn coerce_types(&self, _arg_types: &[DataType]) -> Result<Vec<DataType>> {
+        datafusion::common::not_impl_err!(
+            "Function {} does not implement coerce_types",
+            self.name()
+        )
+    }
+
+    /// No `DataFusion` documentation entry is published for this function.
+    fn documentation(&self) -> Option<&datafusion::logical_expr::Documentation> {
+        None
+    }
+}
+
+/// Register the `array_to_string` function used for array formatting.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
+pub fn register_scalar_array_to_string(ctx: &SessionContext) -> Result<()> {
     ctx.register_udf(ScalarUDF::new_from_impl(ArrayToString::new()));
     Ok(())
 }
 
 /// Register the helper function `pg_get_one` used for planner rewrites.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_get_one(ctx: &SessionContext) -> Result<()> {
     use arrow::datatypes::DataType;
     use datafusion::logical_expr::{
         ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, Volatility,
     };
 
+    /// Passes its single argument straight through, preserving its type. Scalar
+    /// subquery rewrites wrap a rewritten expression in this so the plan keeps a
+    /// function call where one was expected.
     #[derive(Debug, PartialEq, Eq, Hash)]
     struct PgGetOne {
+        /// Exactly one argument of any type.
         sig: Signature,
     }
 
     impl PgGetOne {
+        /// Build the UDF accepting a single argument of any type.
         fn new() -> Self {
             Self {
                 sig: Signature::any(1, Volatility::Stable),
@@ -2752,15 +3206,23 @@ pub fn register_pg_get_one(ctx: &SessionContext) -> Result<()> {
     }
 
     impl ScalarUDFImpl for PgGetOne {
-        fn name(&self) -> &str {
+        /// The function name.
+        fn name(&self) -> &'static str {
             "pg_get_one"
         }
+        /// The accepted argument signature.
         fn signature(&self) -> &Signature {
             &self.sig
         }
+        /// The argument's own type, so wrapping an expression changes nothing.
         fn return_type(&self, arg_types: &[DataType]) -> Result<DataType> {
-            Ok(arg_types.get(0).cloned().unwrap_or(DataType::Null))
+            Ok(arg_types.first().cloned().unwrap_or(DataType::Null))
         }
+        /// Hand the single argument back untouched.
+        ///
+        /// # Panics
+        ///
+        /// Panics if called with no argument, which the arity-1 signature prevents.
         fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
             Ok(args.args.into_iter().next().unwrap())
         }
@@ -2771,13 +3233,19 @@ pub fn register_pg_get_one(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
+/// Accumulator behind `pg_get_array`: gathers every input value, in arrival order,
+/// into one list. Values are kept as `ScalarValue` so any element type works with a
+/// single implementation.
 #[derive(Debug)]
 struct ArrayCollector {
+    /// Every value seen so far, in the order the aggregate saw them.
     collected_values: Vec<ScalarValue>,
+    /// The element type of the list this accumulator produces.
     element_type: DataType,
 }
 
 impl ArrayCollector {
+    /// An empty accumulator for a list of `element_type` values.
     fn new(element_type: DataType) -> Self {
         Self {
             collected_values: Vec::new(),
@@ -2788,6 +3256,11 @@ impl ArrayCollector {
 
 impl Accumulator for ArrayCollector {
     // ---------- state ----------
+    /// The partial state: the values gathered so far, as a single list scalar.
+    ///
+    /// # Errors
+    ///
+    /// Never fails; the `Result` is required by the trait.
     fn state(&mut self) -> Result<Vec<ScalarValue>> {
         let arr = ScalarValue::new_list_from_iter(
             self.collected_values.clone().into_iter(),
@@ -2798,6 +3271,11 @@ impl Accumulator for ArrayCollector {
     }
 
     // ---------- input tuples ----------
+    /// Append every row of the input column to the gathered values.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when a row cannot be read out of the Arrow array.
     fn update_batch(&mut self, values: &[ArrayRef]) -> Result<()> {
         for i in 0..values[0].len() {
             self.collected_values
@@ -2807,6 +3285,11 @@ impl Accumulator for ArrayCollector {
     }
 
     // ---------- merge partial states ----------
+    /// Flatten another partition's list state into this accumulator's values.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when a state row or one of its elements cannot be read.
     fn merge_batch(&mut self, states: &[ArrayRef]) -> Result<()> {
         for row in 0..states[0].len() {
             let scalar = ScalarValue::try_from_array(&states[0], row)?;
@@ -2825,6 +3308,11 @@ impl Accumulator for ArrayCollector {
     }
 
     // ---------- final result ----------
+    /// The gathered values as one list, consuming them.
+    ///
+    /// # Errors
+    ///
+    /// Never fails; the `Result` is required by the trait.
     fn evaluate(&mut self) -> Result<ScalarValue> {
         let arr = ScalarValue::new_list_from_iter(
             std::mem::take(&mut self.collected_values).into_iter(),
@@ -2835,13 +3323,19 @@ impl Accumulator for ArrayCollector {
     }
 
     // ---------- memory footprint ----------
+    /// A rough byte estimate the executor uses for memory accounting.
     fn size(&self) -> usize {
         // very rough - 24 bytes per value
         24 * self.collected_values.len()
     }
 }
 
-/// Register the `array_agg` aggregate function and its pg_catalog alias.
+/// Register the `array_agg` aggregate function and its `pg_catalog` alias.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_array_agg(ctx: &SessionContext) -> Result<()> {
     use datafusion_functions_aggregate::array_agg::array_agg_udaf;
     let udaf = array_agg_udaf();
@@ -2852,6 +3346,11 @@ pub fn register_array_agg(ctx: &SessionContext) -> Result<()> {
 
 /// Register the table function `pg_get_array` used to materialize
 /// results of `ARRAY(subquery)` rewrites.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_get_array(ctx: &SessionContext) -> Result<()> {
     use arrow::datatypes::{DataType, Field};
     use datafusion::logical_expr::Volatility;
@@ -2886,20 +3385,27 @@ pub fn register_pg_get_array(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
+/// A one-row table holding the process start time, backing the table-function
+/// form of `pg_postmaster_start_time()`.
 #[derive(Debug)]
 struct PostmasterStartTimeTable {
+    /// The single `pg_postmaster_start_time` timestamp column.
     schema: SchemaRef,
+    /// Start time as microseconds since the Unix epoch.
     ts: i64,
 }
 
 #[async_trait]
 impl TableProvider for PostmasterStartTimeTable {
+    /// The single-column timestamp schema.
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
+    /// A plain base table, not a view.
     fn table_type(&self) -> TableType {
         TableType::Base
     }
+    /// Serve the single stored timestamp as one in-memory row.
     async fn scan(
         &self,
         _session: &dyn Session,
@@ -2917,13 +3423,18 @@ impl TableProvider for PostmasterStartTimeTable {
     }
 }
 
+/// The `pg_postmaster_start_time()` table function: hands out a
+/// [`PostmasterStartTimeTable`] over the start time captured at registration.
 #[derive(Debug)]
 struct PostmasterStartTimeFunc {
+    /// The single `pg_postmaster_start_time` timestamp column.
     schema: SchemaRef,
+    /// Start time as microseconds since the Unix epoch.
     ts: i64,
 }
 
 impl TableFunctionImpl for PostmasterStartTimeFunc {
+    /// Build the one-row table; the function takes no arguments.
     fn call(&self, _exprs: &[Expr]) -> Result<Arc<dyn TableProvider>> {
         Ok(Arc::new(PostmasterStartTimeTable {
             schema: self.schema.clone(),
@@ -2934,13 +3445,29 @@ impl TableFunctionImpl for PostmasterStartTimeFunc {
 
 /// Register `pg_postmaster_start_time()` returning the current system
 /// time. Both a table function and a scalar variant are installed.
+///
+/// The time is captured once, here, so every call within a process reports the
+/// same instant - which is what a client watching for a server restart expects.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
+///
+/// # Panics
+///
+/// Panics if the system clock reads earlier than the Unix epoch, which leaves no
+/// sensible start time to report.
 pub fn register_pg_postmaster_start_time(ctx: &SessionContext) -> Result<()> {
     use arrow::datatypes::{DataType, Field, Schema, TimeUnit};
     use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
     use std::sync::Arc;
+    // Microseconds since the Unix epoch stay far inside i64 (it would take until
+    // year 294247 to overflow), so narrowing from u128 cannot lose the instant.
+    #[allow(clippy::cast_possible_truncation)]
     let ts = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
+        .expect("system clock reads earlier than the Unix epoch")
         .as_micros() as i64;
 
     let schema = Arc::new(Schema::new(vec![Field::new(
@@ -2990,6 +3517,11 @@ pub fn register_pg_postmaster_start_time(ctx: &SessionContext) -> Result<()> {
 }
 
 /// Register a trivial `pg_age` implementation used by some catalog views.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_scalar_pg_age(ctx: &SessionContext) -> Result<()> {
     use arrow::datatypes::DataType;
     use datafusion::common::ScalarValue;
@@ -3015,9 +3547,14 @@ pub fn register_scalar_pg_age(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// pg_catalog.pg_is_in_recovery() -> BOOL
+/// `pg_catalog.pg_is_in_recovery()` -> BOOL
 ///
 /// We don't do physical recovery, so just return `false`.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_scalar_pg_is_in_recovery(ctx: &SessionContext) -> Result<()> {
     use arrow::datatypes::DataType;
     use datafusion::common::ScalarValue;
@@ -3040,23 +3577,31 @@ pub fn register_scalar_pg_is_in_recovery(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// pg_catalog.txid_current()  ->  BIGINT
+/// `pg_catalog.txid_current()`  ->  BIGINT
 ///
 /// We don't run a real MVCC engine, so we fake a transaction counter that
 /// ticks up every time the function is invoked.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_scalar_txid_current(ctx: &SessionContext) -> Result<()> {
     use arrow::datatypes::DataType;
     use datafusion::common::ScalarValue;
     use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
-    use once_cell::sync::Lazy;
+
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::Arc;
 
     // global ever-increasing counter (starts at 1 just for fun)
-    static NEXT_TXID: Lazy<AtomicU64> = Lazy::new(|| AtomicU64::new(1));
+    static NEXT_TXID: std::sync::LazyLock<AtomicU64> =
+        std::sync::LazyLock::new(|| AtomicU64::new(1));
 
     let fun = |_args: &[ColumnarValue]| -> Result<ColumnarValue> {
-        let val = NEXT_TXID.fetch_add(1, Ordering::SeqCst) as i64; // BIGINT
+        // BIGINT. The counter would have to be called 2^63 times in one process
+        // before the reinterpretation could turn negative.
+        let val = NEXT_TXID.fetch_add(1, Ordering::SeqCst).cast_signed();
         Ok(ColumnarValue::Scalar(ScalarValue::Int64(Some(val))))
     };
 
@@ -3081,9 +3626,14 @@ pub fn register_scalar_txid_current(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// pg_catalog.quote_ident(text) -> text
+/// `pg_catalog.quote_ident(text)` -> text
 ///
 /// Minimal implementation that simply returns the input verbatim.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_quote_ident(ctx: &SessionContext) -> Result<()> {
     use arrow::array::{as_string_array, ArrayRef, StringBuilder};
     use arrow::datatypes::DataType;
@@ -3116,9 +3666,14 @@ pub fn register_quote_ident(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// pg_catalog.translate(text, text, text) -> text
+/// `pg_catalog.translate(text`, text, text) -> text
 ///
-/// Implements a basic character translation similar to PostgreSQL's translate.
+/// Implements a basic character translation similar to `PostgreSQL`'s translate.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_translate(ctx: &SessionContext) -> Result<()> {
     use arrow::array::{as_string_array, ArrayRef, StringBuilder};
     use arrow::datatypes::DataType;
@@ -3166,9 +3721,14 @@ pub fn register_translate(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// pg_catalog.upper(text) -> text
+/// `pg_catalog.upper(text)` -> text
 ///
 /// Simple uppercase implementation.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_upper(ctx: &SessionContext) -> Result<()> {
     use arrow::array::{as_string_array, ArrayRef, StringBuilder};
     use arrow::datatypes::DataType;
@@ -3201,9 +3761,14 @@ pub fn register_upper(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// version() -> text
+/// `version()` -> text
 ///
 /// Returns a PostgreSQL-style server version string.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_version_fn(ctx: &SessionContext) -> Result<()> {
     use crate::server::SERVER_VERSION;
     use arrow::datatypes::DataType;
@@ -3239,6 +3804,11 @@ pub fn register_version_fn(ctx: &SessionContext) -> Result<()> {
 /// stored plan binds the UDF at creation time - calls this resolver-backed
 /// implementation; the embedding application can install or change the resolver at
 /// any later point because the UDF reads the resolver slot at call time.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_get_viewdef(ctx: &SessionContext) -> Result<()> {
     let udf = ScalarUDF::new_from_impl(PgGetViewDef::new(Arc::new(ctx.clone())))
         .with_aliases(["pg_get_viewdef"]);
@@ -3246,7 +3816,15 @@ pub fn register_pg_get_viewdef(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// pg_catalog.pg_get_function_arguments(oid) -> text
+/// `pg_catalog.pg_get_function_arguments(oid)` -> text
+///
+/// Compatibility stub returning NULL: this catalog does not model a function's
+/// argument list as renderable text.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_get_function_arguments(ctx: &SessionContext) -> Result<()> {
     use arrow::array::{ArrayRef, StringBuilder};
     use arrow::datatypes::DataType;
@@ -3278,7 +3856,7 @@ pub fn register_pg_get_function_arguments(ctx: &SessionContext) -> Result<()> {
 }
 
 /// Render the canonical `CREATE INDEX` statement for a plain (non-expression)
-/// index, matching PostgreSQL's `pg_get_indexdef` output.
+/// index, matching `PostgreSQL`'s `pg_get_indexdef` output.
 ///
 /// `columns` are the indexed column names in index-key order. The table is
 /// always schema-qualified, e.g.
@@ -3307,7 +3885,7 @@ fn render_create_index_statement(
     )
 }
 
-/// Quote a SQL identifier the way PostgreSQL's `quote_ident` does: leave a plain
+/// Quote a SQL identifier the way `PostgreSQL`'s `quote_ident` does: leave a plain
 /// identifier (a lowercase letter or `_`, followed by lowercase letters, digits, or
 /// `_`) unquoted, and double-quote anything else, doubling any embedded `"`. This
 /// keeps already-safe catalog names (e.g. `pg_proc`) verbatim while protecting
@@ -3334,14 +3912,97 @@ fn quote_identifier_if_needed(ident: &str) -> String {
 /// which makes the index functional/partial (its text comes from the
 /// integration-installed definition resolver, not rendered here).
 struct PlainIndexParts {
+    /// The index's own `pg_class.oid`.
     index_oid: i64,
+    /// The indexed relation's `pg_class.oid`.
     table_oid: i64,
+    /// Whether the index enforces uniqueness (`pg_index.indisunique`).
     is_unique: bool,
+    /// The indexed columns' attribute numbers, in index-key order.
     key_attnums: Vec<i64>,
+    /// The index's relation name.
     index_name: String,
+    /// The indexed relation's name.
     table_name: String,
+    /// The schema (namespace) of the indexed relation.
     schema_name: String,
+    /// The index access method's name (`btree`, ...).
     access_method: String,
+}
+
+/// Decode the `pg_index` join result into the parts a plain `CREATE INDEX` is
+/// rendered from, plus the identity of every index the query found.
+///
+/// The two outputs deliberately differ in membership: identities cover every
+/// existing index, while the parts list drops the ones no structural render can
+/// describe - functional (`indexprs`) and partial (`indpred`) indexes, and rows
+/// whose name / table / schema / access method could not all be read. Callers ask
+/// the installed definition resolver about exactly that difference.
+///
+/// # Errors
+///
+/// Returns an error when the result batches lack an expected column or a cell
+/// cannot be decoded.
+fn read_index_parts_and_identities(
+    part_batches: &[RecordBatch],
+) -> Result<(Vec<PlainIndexParts>, HashMap<i64, IndexIdentity>)> {
+    let mut parsed: Vec<PlainIndexParts> = Vec::new();
+    let mut identities: HashMap<i64, IndexIdentity> = HashMap::new();
+    for batch in part_batches {
+        for row in 0..batch.num_rows() {
+            let Some(index_oid) = column_oid_at(batch, "indexrelid", row)? else {
+                continue;
+            };
+            let index_name = column_string_at(batch, "indexname", row)?;
+            let table_name = column_string_at(batch, "tablename", row)?;
+            let schema_name = column_string_at(batch, "schemaname", row)?;
+            if let (Some(name), Some(table), Some(schema)) =
+                (&index_name, &table_name, &schema_name)
+            {
+                identities.insert(
+                    index_oid,
+                    IndexIdentity {
+                        oid: index_oid,
+                        schema: schema.clone(),
+                        table: table.clone(),
+                        name: name.clone(),
+                    },
+                );
+            }
+
+            // A functional index (indexprs) or partial index (indpred) carries a
+            // node-tree expression we do not deparse; the resolver fallback
+            // supplies its text, so skip structural render here.
+            if column_is_non_null(batch, "indexprs", row)?
+                || column_is_non_null(batch, "indpred", row)?
+            {
+                continue;
+            }
+            let Some(table_oid) = column_oid_at(batch, "indrelid", row)? else {
+                continue;
+            };
+            let Some(key_attnums) = index_key_attnums_at(batch, "indkey", row)? else {
+                continue;
+            };
+            let access_method = column_string_at(batch, "amname", row)?;
+            let (Some(index_name), Some(table_name), Some(schema_name), Some(access_method)) =
+                (index_name, table_name, schema_name, access_method)
+            else {
+                continue;
+            };
+            parsed.push(PlainIndexParts {
+                index_oid,
+                table_oid,
+                is_unique: column_bool_at(batch, "indisunique", row)?.unwrap_or(false),
+                key_attnums,
+                index_name,
+                table_name,
+                schema_name,
+                access_method,
+            });
+        }
+    }
+    Ok((parsed, identities))
 }
 
 /// Resolve a set of index OIDs to their `CREATE INDEX` text with a fixed, small
@@ -3349,6 +4010,11 @@ struct PlainIndexParts {
 /// parts, one for the column names). Indexes whose key includes an expression
 /// (attnum `0`), and any whose parts cannot be fully resolved, are omitted from
 /// the map so the caller renders SQL NULL for them.
+///
+/// # Errors
+///
+/// Returns an error when a catalog query fails to plan or execute, or when a
+/// result column is missing or cannot be decoded.
 fn fetch_index_definitions(ctx: Arc<SessionContext>, oids: &[i64]) -> Result<HashMap<i64, String>> {
     let mut out: HashMap<i64, String> = HashMap::new();
     if oids.is_empty() {
@@ -3357,7 +4023,7 @@ fn fetch_index_definitions(ctx: Arc<SessionContext>, oids: &[i64]) -> Result<Has
 
     let in_list = oids
         .iter()
-        .map(|o| o.to_string())
+        .map(std::string::ToString::to_string)
         .collect::<Vec<_>>()
         .join(", ");
 
@@ -3377,68 +4043,9 @@ fn fetch_index_definitions(ctx: Arc<SessionContext>, oids: &[i64]) -> Result<Has
         );
         let part_batches = ctx.sql(&parts_sql).await?.collect().await?;
 
-        let mut parsed: Vec<PlainIndexParts> = Vec::new();
-        // Identity of every requested index that exists, captured up front so the
-        // resolver fallback below can describe functional/partial indexes the
-        // structural render skips.
-        let mut identities: HashMap<i64, IndexIdentity> = HashMap::new();
-        for batch in &part_batches {
-            for row in 0..batch.num_rows() {
-                let index_oid = match column_oid_at(batch, "indexrelid", row)? {
-                    Some(v) => v,
-                    None => continue,
-                };
-                let index_name = column_string_at(batch, "indexname", row)?;
-                let table_name = column_string_at(batch, "tablename", row)?;
-                let schema_name = column_string_at(batch, "schemaname", row)?;
-                if let (Some(name), Some(table), Some(schema)) =
-                    (&index_name, &table_name, &schema_name)
-                {
-                    identities.insert(
-                        index_oid,
-                        IndexIdentity {
-                            oid: index_oid,
-                            schema: schema.clone(),
-                            table: table.clone(),
-                            name: name.clone(),
-                        },
-                    );
-                }
-
-                // A functional index (indexprs) or partial index (indpred) carries a
-                // node-tree expression we do not deparse; the resolver fallback below
-                // supplies its text, so skip structural render here.
-                if column_is_non_null(batch, "indexprs", row)?
-                    || column_is_non_null(batch, "indpred", row)?
-                {
-                    continue;
-                }
-                let table_oid = match column_oid_at(batch, "indrelid", row)? {
-                    Some(v) => v,
-                    None => continue,
-                };
-                let key_attnums = match index_key_attnums_at(batch, "indkey", row)? {
-                    Some(v) => v,
-                    None => continue,
-                };
-                let access_method = column_string_at(batch, "amname", row)?;
-                let (Some(index_name), Some(table_name), Some(schema_name), Some(access_method)) =
-                    (index_name, table_name, schema_name, access_method)
-                else {
-                    continue;
-                };
-                parsed.push(PlainIndexParts {
-                    index_oid,
-                    table_oid,
-                    is_unique: column_bool_at(batch, "indisunique", row)?.unwrap_or(false),
-                    key_attnums,
-                    index_name,
-                    table_name,
-                    schema_name,
-                    access_method,
-                });
-            }
-        }
+        // `identities` covers every requested index that exists, so the resolver
+        // fallback below can describe the functional/partial ones `parsed` skips.
+        let (parsed, identities) = read_index_parts_and_identities(&part_batches)?;
 
         // Map each (table oid, attnum) to its column name in one query over the
         // distinct owning tables.
@@ -3450,18 +4057,17 @@ fn fetch_index_definitions(ctx: Arc<SessionContext>, oids: &[i64]) -> Result<Has
         for index in parsed {
             // An expression key column (attnum 0) means a functional index; the
             // resolver fallback below supplies its text, so skip structural render.
-            if index.key_attnums.iter().any(|&attnum| attnum == 0) {
+            if index.key_attnums.contains(&0) {
                 continue;
             }
             let mut columns: Vec<String> = Vec::with_capacity(index.key_attnums.len());
             let mut resolvable = true;
             for attnum in &index.key_attnums {
-                match names.get(&(index.table_oid, *attnum)) {
-                    Some(name) => columns.push(name.clone()),
-                    None => {
-                        resolvable = false;
-                        break;
-                    }
+                if let Some(name) = names.get(&(index.table_oid, *attnum)) {
+                    columns.push(name.clone());
+                } else {
+                    resolvable = false;
+                    break;
                 }
             }
             if !resolvable {
@@ -3501,6 +4107,11 @@ fn fetch_index_definitions(ctx: Arc<SessionContext>, oids: &[i64]) -> Result<Has
 /// Resolve `(attrelid, attnum) -> attname` for the given relations with a single
 /// catalog query. Dropped and system (attnum <= 0) columns are excluded, since
 /// an index key only references real, ordinary columns.
+///
+/// # Errors
+///
+/// Returns an error when the `pg_attribute` query fails to plan or execute, or
+/// when a result column is missing or cannot be decoded.
 async fn fetch_attribute_names(
     ctx: Arc<SessionContext>,
     table_oids: &[i64],
@@ -3511,7 +4122,7 @@ async fn fetch_attribute_names(
     }
     let in_list = table_oids
         .iter()
-        .map(|o| o.to_string())
+        .map(std::string::ToString::to_string)
         .collect::<Vec<_>>()
         .join(", ");
     let sql = format!(
@@ -3549,10 +4160,11 @@ fn column_oid_at(batch: &RecordBatch, column: &str, row: usize) -> Result<Option
 }
 
 /// Read a UTF-8 cell from `batch[column][row]`. Returns `None` for NULL or a
-/// non-string column. Handles dictionary-encoded string columns (which DataFusion
+/// non-string column. Handles dictionary-encoded string columns (which `DataFusion`
 /// may produce for low-cardinality names like `relname`/`amname`) by unwrapping the
 /// dictionary value - otherwise a valid index would silently render as NULL.
 fn column_string_at(batch: &RecordBatch, column: &str, row: usize) -> Result<Option<String>> {
+    /// Peel a scalar down to its owned string, following dictionary indirection.
     fn unwrap_string(scalar: ScalarValue) -> Option<String> {
         match scalar {
             ScalarValue::Utf8(v) | ScalarValue::LargeUtf8(v) | ScalarValue::Utf8View(v) => v,
@@ -3589,9 +4201,8 @@ fn column_bool_at(batch: &RecordBatch, column: &str, row: usize) -> Result<Optio
 /// NULL cell or a non-list column.
 fn index_key_attnums_at(batch: &RecordBatch, column: &str, row: usize) -> Result<Option<Vec<i64>>> {
     let array = column_array(batch, column)?;
-    let list = match array.as_any().downcast_ref::<arrow::array::ListArray>() {
-        Some(list) => list,
-        None => return Ok(None),
+    let Some(list) = array.as_any().downcast_ref::<arrow::array::ListArray>() else {
+        return Ok(None);
     };
     if list.is_null(row) {
         return Ok(None);
@@ -3610,7 +4221,9 @@ fn index_key_attnums_at(batch: &RecordBatch, column: &str, row: usize) -> Result
 /// expressions are left NULL unless an integration-installed resolver supplies
 /// their text.
 struct PgGetIndexDef {
+    /// The one- and three-argument call shapes, over any OID integer width.
     sig: Signature,
+    /// The session the catalog lookups are issued through.
     ctx: Arc<SessionContext>,
 }
 
@@ -3669,7 +4282,7 @@ impl std::hash::Hash for PgGetIndexDef {
 
 impl ScalarUDFImpl for PgGetIndexDef {
     /// The schema-qualified function name.
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "pg_catalog.pg_get_indexdef"
     }
 
@@ -3687,7 +4300,7 @@ impl ScalarUDFImpl for PgGetIndexDef {
     /// three-argument forms), resolve the DISTINCT ones with a small, fixed
     /// number of catalog queries, then emit the `CREATE INDEX` text per row
     /// (NULL where the OID is NULL, unknown, or a functional/partial index). The
-    /// three-argument form's column_no and pretty arguments are accepted but not
+    /// three-argument form's `column_no` and pretty arguments are accepted but not
     /// yet used; it returns the whole-index definition.
     fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
         let arrays = ColumnarValue::values_to_arrays(&args.args)?;
@@ -3718,6 +4331,11 @@ impl ScalarUDFImpl for PgGetIndexDef {
 /// Register `pg_get_indexdef(oid)`, which reconstructs the `CREATE INDEX` text
 /// for a plain index from live catalog rows. Functional/partial indexes return
 /// NULL until their expression text is supplied by an installed definition resolver.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_get_indexdef(ctx: &SessionContext) -> Result<()> {
     let udf = ScalarUDF::new_from_impl(PgGetIndexDef::new(Arc::new(ctx.clone())))
         .with_aliases(["pg_get_indexdef"]);
@@ -3744,7 +4362,7 @@ pub struct ViewIdentity {
 /// definition text at `pg_get_*def` call time, keyed by an identity of type `I`
 /// (e.g. [`ViewIdentity`], [`IndexIdentity`]). It returns the SQL the integration
 /// wants clients to see (it owns the text and may build it however it likes) or
-/// `None` to leave the definition NULL. pg_catalog never deparses node trees;
+/// `None` to leave the definition NULL. `pg_catalog` never deparses node trees;
 /// these callbacks are the sole source of definition text. Defaulting to NULL when
 /// no resolver is installed is the contract for every definition resolver.
 pub type DefinitionResolver<I> = Arc<dyn Fn(&I) -> Option<String> + Send + Sync>;
@@ -3754,6 +4372,7 @@ pub type DefinitionResolver<I> = Arc<dyn Fn(&I) -> Option<String> + Send + Sync>
 /// resolver, so views, index expressions, and future kinds get identical
 /// install / clear / read-at-call-time semantics with no duplicated machinery.
 struct DefinitionResolverSlot<I> {
+    /// The installed resolver, or `None` when definitions read back as NULL.
     slot: std::sync::RwLock<Option<DefinitionResolver<I>>>,
 }
 
@@ -3800,8 +4419,8 @@ pub type ViewDefinitionResolver = DefinitionResolver<ViewIdentity>;
 /// resolver-backed UDF is registered once during session construction and reads
 /// this slot on every call - installing or changing the resolver later still flows
 /// through.
-static VIEW_DEFINITION_RESOLVER: Lazy<DefinitionResolverSlot<ViewIdentity>> =
-    Lazy::new(DefinitionResolverSlot::new);
+static VIEW_DEFINITION_RESOLVER: std::sync::LazyLock<DefinitionResolverSlot<ViewIdentity>> =
+    std::sync::LazyLock::new(DefinitionResolverSlot::new);
 
 /// Install the [`ViewDefinitionResolver`] that `pg_get_viewdef` consults, replacing
 /// any previously installed one. The embedding application calls this (typically
@@ -3819,7 +4438,7 @@ pub fn clear_view_definition_resolver() {
 
 /// Identifies the index whose `CREATE INDEX` text an [`IndexDefinitionResolver`] is
 /// asked to produce. Used only for functional and partial indexes, which carry a
-/// node-tree expression pg_catalog cannot render structurally. `oid` is the index's
+/// node-tree expression `pg_catalog` cannot render structurally. `oid` is the index's
 /// `pg_class.oid`; `schema` and `table` name the indexed relation; `name` is the
 /// index's own relation name.
 #[derive(Clone, Debug)]
@@ -3834,7 +4453,7 @@ pub struct IndexIdentity {
     pub name: String,
 }
 
-/// Resolver supplying the `CREATE INDEX` text for indexes pg_catalog cannot render
+/// Resolver supplying the `CREATE INDEX` text for indexes `pg_catalog` cannot render
 /// structurally (functional/partial indexes); see
 /// [`set_index_definition_resolver`].
 pub type IndexDefinitionResolver = DefinitionResolver<IndexIdentity>;
@@ -3842,8 +4461,8 @@ pub type IndexDefinitionResolver = DefinitionResolver<IndexIdentity>;
 /// The process-wide index-definition resolver, consulted by `pg_get_indexdef` only
 /// for indexes it cannot render from structured catalog data alone (functional and
 /// partial indexes). Plain indexes are always rendered structurally and ignore it.
-static INDEX_DEFINITION_RESOLVER: Lazy<DefinitionResolverSlot<IndexIdentity>> =
-    Lazy::new(DefinitionResolverSlot::new);
+static INDEX_DEFINITION_RESOLVER: std::sync::LazyLock<DefinitionResolverSlot<IndexIdentity>> =
+    std::sync::LazyLock::new(DefinitionResolverSlot::new);
 
 /// Install the [`IndexDefinitionResolver`] that `pg_get_indexdef` consults for
 /// functional/partial indexes, replacing any previously installed one. Plain
@@ -3863,6 +4482,7 @@ pub fn clear_index_definition_resolver() {
 /// time. Like [`DefinitionResolverSlot`] but for callbacks that return values
 /// other than definition text (a sequence's last value, a row-security flag, ...).
 struct CallableSlot<F> {
+    /// The installed callback, or `None` when the function uses its stub default.
     slot: std::sync::RwLock<Option<F>>,
 }
 
@@ -3897,6 +4517,11 @@ impl<F: Clone> CallableSlot<F> {
 /// Read a scalar function's first OID argument as one `Option<i64>` per row,
 /// accepting any integer width (OIDs are 32-bit in this catalog but can arrive
 /// widened). Shared by the OID-keyed, resolver-backed functions below.
+///
+/// # Errors
+///
+/// Returns an error when there is no first argument, or when it is of a type that
+/// cannot be cast to `Int64`.
 fn oid_arg_as_i64(args: &[ColumnarValue]) -> Result<Vec<Option<i64>>> {
     use arrow::array::Int64Array;
     use arrow::compute::cast;
@@ -3921,9 +4546,9 @@ pub type SequenceLastValueResolver = Arc<dyn Fn(i64) -> Option<i64> + Send + Syn
 
 /// The process-wide resolver `pg_sequence_last_value` consults at call time. A
 /// static catalog has no running sequences, so with no resolver the function is
-/// NULL - the value PostgreSQL also reports for a sequence not yet read.
-static SEQUENCE_LAST_VALUE_RESOLVER: Lazy<CallableSlot<SequenceLastValueResolver>> =
-    Lazy::new(CallableSlot::new);
+/// NULL - the value `PostgreSQL` also reports for a sequence not yet read.
+static SEQUENCE_LAST_VALUE_RESOLVER: std::sync::LazyLock<CallableSlot<SequenceLastValueResolver>> =
+    std::sync::LazyLock::new(CallableSlot::new);
 
 /// Install the callback `pg_sequence_last_value(oid)` consults, replacing any
 /// previously installed one. An embedding fronting real sequences reports their
@@ -3944,8 +4569,8 @@ pub type RowSecurityActiveResolver = Arc<dyn Fn(i64) -> bool + Send + Sync>;
 
 /// The process-wide resolver `row_security_active` consults at call time. With no
 /// resolver the function is false, matching a catalog that enforces no policy.
-static ROW_SECURITY_ACTIVE_RESOLVER: Lazy<CallableSlot<RowSecurityActiveResolver>> =
-    Lazy::new(CallableSlot::new);
+static ROW_SECURITY_ACTIVE_RESOLVER: std::sync::LazyLock<CallableSlot<RowSecurityActiveResolver>> =
+    std::sync::LazyLock::new(CallableSlot::new);
 
 /// Install the callback `row_security_active(oid)` consults, replacing any
 /// previously installed one. An embedding enforcing row-level security reports it
@@ -3962,6 +4587,11 @@ pub fn clear_row_security_active_resolver() {
 
 /// Register `pg_sequence_last_value(oid)`, giving each sequence's last value via the
 /// installed [`SequenceLastValueResolver`], or NULL when none is installed.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_sequence_last_value(ctx: &SessionContext) -> Result<()> {
     use arrow::array::{ArrayRef, Int64Array};
     use arrow::datatypes::DataType;
@@ -3969,14 +4599,16 @@ pub fn register_pg_sequence_last_value(ctx: &SessionContext) -> Result<()> {
         ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature, Volatility,
     };
 
+    /// Reports a sequence's last value through the installed resolver.
     #[derive(Debug, PartialEq, Eq, Hash)]
     struct PgSequenceLastValue {
+        /// One argument of any type (the sequence OID / regclass).
         sig: Signature,
     }
 
     impl ScalarUDFImpl for PgSequenceLastValue {
         /// The fully-qualified function name.
-        fn name(&self) -> &str {
+        fn name(&self) -> &'static str {
             "pg_catalog.pg_sequence_last_value"
         }
         /// One argument of any type (the sequence OID / regclass).
@@ -4012,6 +4644,11 @@ pub fn register_pg_sequence_last_value(ctx: &SessionContext) -> Result<()> {
 
 /// Register `row_security_active(oid)`, answering via the installed
 /// [`RowSecurityActiveResolver`], or false when none is installed.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_row_security_active(ctx: &SessionContext) -> Result<()> {
     use arrow::array::{ArrayRef, BooleanArray};
     use arrow::datatypes::DataType;
@@ -4019,14 +4656,16 @@ pub fn register_row_security_active(ctx: &SessionContext) -> Result<()> {
         ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, TypeSignature, Volatility,
     };
 
+    /// Reports whether row-level security is active, via the installed resolver.
     #[derive(Debug, PartialEq, Eq, Hash)]
     struct RowSecurityActive {
+        /// One argument of any type (the relation OID / regclass).
         sig: Signature,
     }
 
     impl ScalarUDFImpl for RowSecurityActive {
         /// The fully-qualified function name.
-        fn name(&self) -> &str {
+        fn name(&self) -> &'static str {
             "pg_catalog.row_security_active"
         }
         /// One argument of any type (the relation OID / regclass).
@@ -4063,6 +4702,11 @@ pub fn register_row_security_active(ctx: &SessionContext) -> Result<()> {
 /// Resolve each view / materialized-view OID to its `(schema, name)` identity with
 /// a single catalog query, skipping OIDs that name no view. Mirrors
 /// [`fetch_index_definitions`]'s batched distinct-OID lookup.
+///
+/// # Errors
+///
+/// Returns an error when the catalog query fails to plan or execute, or when a
+/// result column is missing or cannot be decoded.
 fn fetch_view_identities(
     ctx: Arc<SessionContext>,
     oids: &[i64],
@@ -4073,7 +4717,7 @@ fn fetch_view_identities(
     }
     let in_list = oids
         .iter()
-        .map(|o| o.to_string())
+        .map(std::string::ToString::to_string)
         .collect::<Vec<_>>()
         .join(", ");
     run_catalog_query(async move {
@@ -4105,7 +4749,9 @@ fn fetch_view_identities(
 /// [`ViewDefinitionResolver`] for the definition text - returning NULL where the
 /// OID is NULL, names no view, no resolver is installed, or the resolver declines.
 struct PgGetViewDef {
+    /// The one- and two-argument call shapes, over arguments of any type.
     sig: Signature,
+    /// The session the identity lookup is issued through.
     ctx: Arc<SessionContext>,
 }
 
@@ -4150,7 +4796,7 @@ impl std::hash::Hash for PgGetViewDef {
 
 impl ScalarUDFImpl for PgGetViewDef {
     /// The schema-qualified function name.
-    fn name(&self) -> &str {
+    fn name(&self) -> &'static str {
         "pg_catalog.pg_get_viewdef"
     }
 
@@ -4179,16 +4825,15 @@ impl ScalarUDFImpl for PgGetViewDef {
         }
 
         let resolver = VIEW_DEFINITION_RESOLVER.get();
-        let identities = match &resolver {
-            // No resolver installed: every definition is NULL, and there is no
-            // need to query the catalog for identities.
-            None => HashMap::new(),
-            Some(_) => {
-                let mut distinct: Vec<i64> = oids.iter().flatten().copied().collect();
-                distinct.sort_unstable();
-                distinct.dedup();
-                fetch_view_identities(self.ctx.clone(), &distinct)?
-            }
+        // With no resolver installed every definition is NULL, so there is nothing
+        // to gain from querying the catalog for identities.
+        let identities = if resolver.is_some() {
+            let mut distinct: Vec<i64> = oids.iter().flatten().copied().collect();
+            distinct.sort_unstable();
+            distinct.dedup();
+            fetch_view_identities(self.ctx.clone(), &distinct)?
+        } else {
+            HashMap::new()
         };
 
         let mut builder = StringBuilder::with_capacity(len, 64 * len.max(1));
@@ -4206,45 +4851,140 @@ impl ScalarUDFImpl for PgGetViewDef {
     }
 }
 
-/// pg_catalog.pg_get_function_result(oid) -> text
+/// `pg_catalog.pg_get_function_result(oid)` -> text
+///
+/// Compatibility stub returning NULL: this catalog does not render a function's
+/// result type as text.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_get_function_result(ctx: &SessionContext) -> Result<()> {
-    register_null_text_stub(ctx, "pg_catalog.pg_get_function_result", 1)
+    register_null_text_stub(ctx, "pg_catalog.pg_get_function_result", 1);
+    Ok(())
 }
 
-/// pg_catalog.pg_get_function_sqlbody(oid) -> text
+/// `pg_catalog.pg_get_function_sqlbody(oid)` -> text
+///
+/// Compatibility stub returning NULL: function bodies are not stored here.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_get_function_sqlbody(ctx: &SessionContext) -> Result<()> {
-    register_null_text_stub(ctx, "pg_catalog.pg_get_function_sqlbody", 1)
+    register_null_text_stub(ctx, "pg_catalog.pg_get_function_sqlbody", 1);
+    Ok(())
 }
 
-/// pg_catalog.encode(bytea, text) -> text
+/// `pg_catalog.encode(bytea`, text) -> text
 ///
 /// Placeholder implementation returning NULL.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_encode(ctx: &SessionContext) -> Result<()> {
-    register_null_text_stub(ctx, "pg_catalog.encode", 2)
+    register_null_text_stub(ctx, "pg_catalog.encode", 2);
+    Ok(())
 }
 
-/// pg_catalog.pg_get_triggerdef(oid [, bool]) -> text
+/// `pg_catalog.pg_get_triggerdef(oid` [, bool]) -> text
 ///
 /// Returns NULL placeholder.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_get_triggerdef(ctx: &SessionContext) -> Result<()> {
-    register_null_text_stub_accepting_arities(ctx, "pg_catalog.pg_get_triggerdef", &[1, 2])
+    register_null_text_stub_accepting_arities(ctx, "pg_catalog.pg_get_triggerdef", &[1, 2]);
+    Ok(())
 }
 
-/// pg_catalog.pg_get_ruledef(oid [, bool]) -> text
+/// `pg_catalog.pg_get_ruledef(oid` [, bool]) -> text
 ///
 /// Returns NULL placeholder.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_get_ruledef(ctx: &SessionContext) -> Result<()> {
-    register_null_text_stub_accepting_arities(ctx, "pg_catalog.pg_get_ruledef", &[1, 2])
+    register_null_text_stub_accepting_arities(ctx, "pg_catalog.pg_get_ruledef", &[1, 2]);
+    Ok(())
 }
 
-/// pg_catalog.pg_available_extension_versions() -> TABLE
+/// `pg_catalog.pg_available_extension_versions()` -> TABLE
 ///
 /// Returns information about available extension versions. For now this
 /// implementation returns an empty result set but exposes the expected
 /// columns so queries referencing the function succeed.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_available_extension_versions(ctx: &SessionContext) -> Result<()> {
     use arrow::datatypes::{DataType, Field, Schema};
     use std::sync::Arc;
+
+    /// The always-empty table behind `pg_available_extension_versions()`.
+    #[derive(Debug)]
+    struct ExtensionVersionsTable {
+        /// The column layout `PostgreSQL` declares for this function.
+        schema: SchemaRef,
+    }
+
+    #[async_trait]
+    impl TableProvider for ExtensionVersionsTable {
+        /// The declared extension-version columns.
+        fn schema(&self) -> SchemaRef {
+            self.schema.clone()
+        }
+
+        /// A plain base table, not a view.
+        fn table_type(&self) -> TableType {
+            TableType::Base
+        }
+
+        /// Serve a single empty batch: no extensions are available to install.
+        async fn scan(
+            &self,
+            _session: &dyn Session,
+            projection: Option<&Vec<usize>>,
+            _filters: &[Expr],
+            _limit: Option<usize>,
+        ) -> Result<Arc<dyn datafusion::physical_plan::ExecutionPlan>> {
+            let batch = RecordBatch::new_empty(self.schema.clone());
+            Ok(MemorySourceConfig::try_new_exec(
+                &[vec![batch]],
+                self.schema.clone(),
+                projection.cloned(),
+            )?)
+        }
+    }
+
+    /// The table function that hands out an [`ExtensionVersionsTable`].
+    #[derive(Debug)]
+    struct ExtensionVersionsTableFunc {
+        /// The column layout handed to every table it builds.
+        schema: SchemaRef,
+    }
+
+    impl TableFunctionImpl for ExtensionVersionsTableFunc {
+        /// Build the empty table, rejecting any argument at planning time.
+        fn call(&self, exprs: &[Expr]) -> Result<Arc<dyn TableProvider>> {
+            if !exprs.is_empty() {
+                return plan_err!("pg_available_extension_versions takes no arguments");
+            }
+            Ok(Arc::new(ExtensionVersionsTable {
+                schema: self.schema.clone(),
+            }))
+        }
+    }
 
     let schema = Arc::new(Schema::new(vec![
         Field::new("name", DataType::Utf8, true),
@@ -4261,53 +5001,6 @@ pub fn register_pg_available_extension_versions(ctx: &SessionContext) -> Result<
         Field::new("comment", DataType::Utf8, true),
     ]));
 
-    #[derive(Debug)]
-    struct ExtensionVersionsTable {
-        schema: SchemaRef,
-    }
-
-    #[async_trait]
-    impl TableProvider for ExtensionVersionsTable {
-        fn schema(&self) -> SchemaRef {
-            self.schema.clone()
-        }
-
-        fn table_type(&self) -> TableType {
-            TableType::Base
-        }
-
-        async fn scan(
-            &self,
-            _session: &dyn Session,
-            projection: Option<&Vec<usize>>,
-            _filters: &[Expr],
-            _limit: Option<usize>,
-        ) -> Result<Arc<dyn datafusion::physical_plan::ExecutionPlan>> {
-            let batch = RecordBatch::new_empty(self.schema.clone());
-            Ok(MemorySourceConfig::try_new_exec(
-                &[vec![batch]],
-                self.schema.clone(),
-                projection.cloned(),
-            )?)
-        }
-    }
-
-    #[derive(Debug)]
-    struct ExtensionVersionsTableFunc {
-        schema: SchemaRef,
-    }
-
-    impl TableFunctionImpl for ExtensionVersionsTableFunc {
-        fn call(&self, exprs: &[Expr]) -> Result<Arc<dyn TableProvider>> {
-            if !exprs.is_empty() {
-                return plan_err!("pg_available_extension_versions takes no arguments");
-            }
-            Ok(Arc::new(ExtensionVersionsTable {
-                schema: self.schema.clone(),
-            }))
-        }
-    }
-
     // Registered as `available_extension_versions`, NOT `pg_available_extension_versions`:
     // the catalog also declares a *view* named `pg_available_extension_versions` whose
     // body calls this function, and DataFusion resolves a table function and a relation
@@ -4321,37 +5014,41 @@ pub fn register_pg_available_extension_versions(ctx: &SessionContext) -> Result<
     Ok(())
 }
 
-/// pg_catalog.pg_get_keywords() -> TABLE
+/// `pg_catalog.pg_get_keywords()` -> TABLE
 ///
-/// Returns PostgreSQL keywords and their categories. For now this
+/// Returns `PostgreSQL` keywords and their categories. For now this
 /// implementation exposes the expected columns but returns an empty
 /// result set so that tools relying on the function can execute
 /// successfully.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_get_keywords(ctx: &SessionContext) -> Result<()> {
     use arrow::datatypes::{DataType, Field, Schema};
     use std::sync::Arc;
 
-    let schema = Arc::new(Schema::new(vec![
-        Field::new("word", DataType::Utf8, true),
-        Field::new("catcode", DataType::Utf8, true),
-        Field::new("catdesc", DataType::Utf8, true),
-    ]));
-
+    /// The always-empty table behind `pg_get_keywords()`.
     #[derive(Debug)]
     struct KeywordsTable {
+        /// The `(word, catcode, catdesc)` column layout.
         schema: SchemaRef,
     }
 
     #[async_trait]
     impl TableProvider for KeywordsTable {
+        /// The declared keyword columns.
         fn schema(&self) -> SchemaRef {
             self.schema.clone()
         }
 
+        /// A plain base table, not a view.
         fn table_type(&self) -> TableType {
             TableType::Base
         }
 
+        /// Serve a single empty batch: no keyword list is published.
         async fn scan(
             &self,
             _session: &dyn Session,
@@ -4368,12 +5065,15 @@ pub fn register_pg_get_keywords(ctx: &SessionContext) -> Result<()> {
         }
     }
 
+    /// The table function that hands out a [`KeywordsTable`].
     #[derive(Debug)]
     struct KeywordsTableFunc {
+        /// The column layout handed to every table it builds.
         schema: SchemaRef,
     }
 
     impl TableFunctionImpl for KeywordsTableFunc {
+        /// Build the empty table, rejecting any argument at planning time.
         fn call(&self, exprs: &[Expr]) -> Result<Arc<dyn TableProvider>> {
             if !exprs.is_empty() {
                 return plan_err!("pg_get_keywords takes no arguments");
@@ -4383,6 +5083,12 @@ pub fn register_pg_get_keywords(ctx: &SessionContext) -> Result<()> {
             }))
         }
     }
+
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("word", DataType::Utf8, true),
+        Field::new("catcode", DataType::Utf8, true),
+        Field::new("catdesc", DataType::Utf8, true),
+    ]));
 
     ctx.register_udtf(
         "pg_get_keywords",
@@ -4399,7 +5105,7 @@ pub fn register_pg_get_keywords(ctx: &SessionContext) -> Result<()> {
 
 /// Register a relation-size stub `<base_name>(oid) -> int8` that returns zero for
 /// now, under `pg_catalog.<base_name>` with the bare name as an alias.
-fn register_zero_relation_size(ctx: &SessionContext, base_name: &'static str) -> Result<()> {
+fn register_zero_relation_size(ctx: &SessionContext, base_name: &'static str) {
     use arrow::datatypes::DataType;
     use datafusion::common::ScalarValue;
     use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
@@ -4418,17 +5124,28 @@ fn register_zero_relation_size(ctx: &SessionContext, base_name: &'static str) ->
     )
     .with_aliases([base_name]);
     ctx.register_udf(udf);
-    Ok(())
 }
 
 /// Register `pg_relation_size(oid)` returning zero for now.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_relation_size(ctx: &SessionContext) -> Result<()> {
-    register_zero_relation_size(ctx, "pg_relation_size")
+    register_zero_relation_size(ctx, "pg_relation_size");
+    Ok(())
 }
 
 /// Register `pg_total_relation_size(oid)` returning zero for now.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
 pub fn register_pg_total_relation_size(ctx: &SessionContext) -> Result<()> {
-    register_zero_relation_size(ctx, "pg_total_relation_size")
+    register_zero_relation_size(ctx, "pg_total_relation_size");
+    Ok(())
 }
 
 #[cfg(test)]
@@ -4445,6 +5162,7 @@ mod tests {
     use datafusion::error::Result;
     use std::sync::Arc;
 
+    /// Catalog queries nested three deep still complete on a two-worker runtime.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_run_catalog_query_nested_does_not_deadlock() {
         // Three levels of nested catalog queries on a 2-worker runtime - the size
@@ -4458,6 +5176,8 @@ mod tests {
         assert_eq!(value, 42);
     }
 
+    /// The rendered `CREATE INDEX` text matches `PostgreSQL`'s, down to which
+    /// identifiers get quoted.
     #[test]
     fn test_render_create_index_statement() {
         // Unique multi-column index, schema-qualified table, matching the
@@ -4505,6 +5225,7 @@ mod tests {
         );
     }
 
+    /// Plain lowercase identifiers stay bare; everything else is double-quoted.
     #[test]
     fn test_quote_identifier_if_needed() {
         assert_eq!(quote_identifier_if_needed("pg_proc"), "pg_proc");
@@ -4515,6 +5236,8 @@ mod tests {
         assert_eq!(quote_identifier_if_needed("a\"b"), "\"a\"\"b\"");
     }
 
+    /// Numeric precision and scale follow `PostgreSQL`'s per-type formulas,
+    /// including the precision/scale packed into a `numeric` typmod.
     #[test]
     fn test_pg_numeric_precision_formula() {
         // Fixed widths for the integer/float types.
@@ -4539,6 +5262,8 @@ mod tests {
         assert_eq!(pg_numeric_precision(None, Some(-1)), None);
     }
 
+    /// The precision radix is 2 for the binary types and 10 for `numeric`, and
+    /// the integer types have scale 0 while the float types have none.
     #[test]
     fn test_pg_numeric_radix_and_scale_formula() {
         assert_eq!(
@@ -4554,6 +5279,8 @@ mod tests {
         assert_eq!(pg_numeric_scale(Some(OID_FLOAT4), Some(-1)), None);
     }
 
+    /// Datetime precision is 0 for `date`, an explicit typmod when given, and
+    /// otherwise the unmodified default of 6.
     #[test]
     fn test_pg_datetime_precision_formula() {
         assert_eq!(pg_datetime_precision(Some(OID_DATE), Some(-1)), Some(0));
@@ -4567,6 +5294,8 @@ mod tests {
         assert_eq!(pg_datetime_precision(Some(OID_INT4), Some(-1)), None);
     }
 
+    /// Character max length comes from `typmod - 4`, and octet length multiplies
+    /// it by the UTF-8 maximum bytes per character (or is 1 GiB when unbounded).
     #[test]
     fn test_pg_char_length_formula() {
         // varchar(3): typmod = 3 + 4 -> max length 3, octet length 3 * 4 (UTF-8).
@@ -4587,6 +5316,8 @@ mod tests {
         assert_eq!(pg_char_octet_length(Some(OID_INT4), Some(-1)), None);
     }
 
+    /// The registered helper UDFs reproduce the per-row formulas when driven from
+    /// SQL over a column of `(typid, typmod)` pairs.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_pg_precision_helpers_via_sql() {
         // The registered UDFs compute precision/length from a column of (typid,
@@ -4632,6 +5363,8 @@ mod tests {
         assert_eq!(oct.value(3), 12); // varchar(3) octet length 3 * 4
     }
 
+    /// `format_type` resolves an OID through the `typname` map - applying typmods
+    /// and appending `[]` for arrays - and falls back to the OID text otherwise.
     #[test]
     fn test_format_type_name_resolves_via_typname_lookup() {
         // A representative pg_type oid -> typname slice (oid 19 = name,
@@ -4661,9 +5394,11 @@ mod tests {
         );
         assert_eq!(format_type_name(1007, None, &by_oid), "integer[]");
         // An OID with no pg_type row falls back to its numeric text.
-        assert_eq!(format_type_name(999999, None, &by_oid), "999999");
+        assert_eq!(format_type_name(999_999, None, &by_oid), "999999");
     }
 
+    /// Built-in typnames print their SQL-standard spelling; any other type prints
+    /// its own name unchanged.
     #[test]
     fn test_sql_name_for_typname_canonical_and_passthrough() {
         // Built-ins map to their SQL-standard spelling.
@@ -4678,6 +5413,8 @@ mod tests {
         assert_eq!(sql_name_for_typname("citext", None), "citext");
     }
 
+    /// Unsigned OID columns widen to `i64`, and a `UInt64` above `i64::MAX` reads
+    /// as "no OID" rather than wrapping to a negative value.
     #[test]
     fn test_oid_at_handles_unsigned_columns() {
         use arrow::array::{ArrayRef, UInt32Array, UInt64Array};
@@ -4707,7 +5444,10 @@ mod tests {
 
      */
 
-    async fn make_ctx() -> Result<SessionContext> {
+    /// Build a context carrying a tiny in-memory `pg_class` plus the OID and
+    /// array helpers, so the regclass / `pg_get_one` / `pg_get_array` tests can
+    /// run real SQL against it.
+    fn make_ctx() -> Result<SessionContext> {
         let config = datafusion::execution::context::SessionConfig::new()
             .with_default_catalog_and_schema("public", "pg_catalog");
 
@@ -4739,9 +5479,10 @@ mod tests {
         Ok(ctx)
     }
 
+    /// The `regclass_oid` table function yields the relation's OID as a row.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_regclass_with_oid() -> Result<()> {
-        let ctx = make_ctx().await?;
+        let ctx = make_ctx()?;
         let batches = ctx
             .sql("SELECT * FROM regclass_oid('pg_constraint');")
             .await?
@@ -4756,9 +5497,11 @@ mod tests {
         Ok(())
     }
 
+    /// The fixture catalog answers a plain `pg_class` query, so the UDF tests
+    /// around it start from a known-good baseline.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_query_without_function() -> Result<()> {
-        let ctx = make_ctx().await?;
+        let ctx = make_ctx()?;
         let batches = ctx
             .sql("SELECT oid FROM pg_catalog.pg_class WHERE relname = 'pg_constraint';")
             .await?
@@ -4773,9 +5516,10 @@ mod tests {
         Ok(())
     }
 
+    /// The OID from `regclass_oid` takes part in arithmetic like any bigint.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_regclass_oid_arithmetic() -> Result<()> {
-        let ctx = make_ctx().await?;
+        let ctx = make_ctx()?;
         let batches = ctx
             .sql("SELECT oid + 1 AS n FROM regclass_oid('pg_constraint');")
             .await?
@@ -4790,9 +5534,10 @@ mod tests {
         Ok(())
     }
 
+    /// The scalar `oid('name')` resolves a relation the catalog carries.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_regclass_scalar_ok() -> Result<()> {
-        let ctx = make_ctx().await?;
+        let ctx = make_ctx()?;
         let batches = ctx
             .sql("SELECT oid('pg_constraint') AS v;")
             .await?
@@ -4807,9 +5552,10 @@ mod tests {
         Ok(())
     }
 
+    /// The scalar `oid('name')` is NULL for a relation the catalog does not have.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_regclass_scalar_null() -> Result<()> {
-        let ctx = make_ctx().await?;
+        let ctx = make_ctx()?;
         let batches = ctx
             .sql("SELECT oid('does_not_exist') AS v;")
             .await?
@@ -4824,9 +5570,10 @@ mod tests {
         Ok(())
     }
 
+    /// `pg_get_one` passes a literal through unchanged.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_pggetone_constant() -> Result<()> {
-        let ctx = make_ctx().await?;
+        let ctx = make_ctx()?;
         let batches = ctx
             .sql("SELECT pg_get_one('hello') AS v;")
             .await?
@@ -4841,9 +5588,10 @@ mod tests {
         Ok(())
     }
 
+    /// `pg_get_one` passes a scalar subquery's single value through unchanged.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_pggetone_subquery() -> Result<()> {
-        let ctx = make_ctx().await?;
+        let ctx = make_ctx()?;
         let batches = ctx
             .sql("SELECT pg_get_one((SELECT relname FROM pg_catalog.pg_class LIMIT 1)) AS v;")
             .await?
@@ -4858,9 +5606,10 @@ mod tests {
         Ok(())
     }
 
+    /// `pg_get_array` collects a single literal into a one-element list.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_pg_get_array_constant() -> Result<()> {
-        let ctx = make_ctx().await?;
+        let ctx = make_ctx()?;
         let batches = ctx
             .sql("SELECT pg_get_array('hello') AS v;")
             .await?
@@ -4877,9 +5626,10 @@ mod tests {
         Ok(())
     }
 
+    /// `pg_get_array` collects the rows of a CTE-rewritten subquery into a list.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_pg_get_array_subquery() -> Result<()> {
-        let ctx = make_ctx().await?;
+        let ctx = make_ctx()?;
 
         let sql = rewrite_subquery_as_cte(
             "SELECT pg_get_array((SELECT relname FROM pg_catalog.pg_class order by 1)) AS v;",
@@ -4891,18 +5641,19 @@ mod tests {
             .as_any()
             .downcast_ref::<ListArray>()
             .unwrap();
-        log::debug!("test_pg_get_array_subquery {:?}", list);
+        log::debug!("test_pg_get_array_subquery {list:?}");
         let inner = list.value(0);
         let inner = inner.as_any().downcast_ref::<StringArray>().unwrap();
         assert_eq!(inner.value(0), "pg_constraint");
         Ok(())
     }
 
+    /// The `pg_catalog.array_agg` alias aggregates exactly like the bare name.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_pg_catalog_array_agg_alias() -> Result<()> {
         use arrow::array::ListArray;
 
-        let ctx = make_ctx().await?;
+        let ctx = make_ctx()?;
 
         let sql =
             "SELECT pg_catalog.array_agg(relname ORDER BY relname) AS v FROM pg_catalog.pg_class";
@@ -4916,6 +5667,7 @@ mod tests {
         Ok(())
     }
 
+    /// `pg_postmaster_start_time()` reports a non-NULL timestamp.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_pg_postmaster_start_time_fn() -> Result<()> {
         use arrow::array::TimestampMicrosecondArray;
@@ -4935,6 +5687,7 @@ mod tests {
         Ok(())
     }
 
+    /// `pg_catalog.age()` reports the constant 1 whatever it is handed.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_pg_age_always_one() -> datafusion::error::Result<()> {
         use arrow::array::Int64Array;
@@ -4963,6 +5716,7 @@ mod tests {
         Ok(())
     }
 
+    /// `pg_is_in_recovery()` is false: no physical recovery is emulated.
     #[tokio::test(flavor = "multi_thread")]
     async fn pg_is_in_recovery_always_false() -> Result<()> {
         let ctx = SessionContext::new();
@@ -4978,10 +5732,11 @@ mod tests {
             .as_any()
             .downcast_ref::<arrow::array::BooleanArray>()
             .unwrap();
-        assert_eq!(arr.value(0), false);
+        assert!(!arr.value(0));
         Ok(())
     }
 
+    /// `txid_current()` hands out the next counter value on every call.
     #[tokio::test(flavor = "multi_thread")]
     async fn txid_current_ticks_up() -> Result<()> {
         let ctx = SessionContext::new();
@@ -5012,6 +5767,7 @@ mod tests {
         Ok(())
     }
 
+    /// The extension-version table function plans and returns no rows.
     #[tokio::test(flavor = "multi_thread")]
     async fn available_extension_versions_empty() -> Result<()> {
         let ctx = SessionContext::new();
@@ -5025,6 +5781,7 @@ mod tests {
         Ok(())
     }
 
+    /// The keyword table function plans and returns no rows.
     #[tokio::test(flavor = "multi_thread")]
     async fn pg_get_keywords_empty() -> Result<()> {
         let ctx = SessionContext::new();
@@ -5038,6 +5795,7 @@ mod tests {
         Ok(())
     }
 
+    /// `pg_relation_size()` reports zero.
     #[tokio::test(flavor = "multi_thread")]
     async fn relation_size_returns_zero() -> Result<()> {
         use arrow::array::Int64Array;
@@ -5057,6 +5815,7 @@ mod tests {
         Ok(())
     }
 
+    /// `pg_total_relation_size()` reports zero.
     #[tokio::test(flavor = "multi_thread")]
     async fn total_relation_size_returns_zero() -> Result<()> {
         use arrow::array::Int64Array;
@@ -5076,6 +5835,7 @@ mod tests {
         Ok(())
     }
 
+    /// `encode()` is a NULL stub.
     #[tokio::test(flavor = "multi_thread")]
     async fn encode_returns_null() -> Result<()> {
         use arrow::array::StringArray;
@@ -5095,6 +5855,7 @@ mod tests {
         Ok(())
     }
 
+    /// `pg_get_triggerdef()` is a NULL stub, and accepts the one-argument form.
     #[tokio::test(flavor = "multi_thread")]
     async fn pg_get_triggerdef_returns_null() -> Result<()> {
         use arrow::array::StringArray;
@@ -5114,6 +5875,7 @@ mod tests {
         Ok(())
     }
 
+    /// `pg_catalog.upper()` uppercases its argument.
     #[tokio::test(flavor = "multi_thread")]
     async fn upper_converts_text() -> Result<()> {
         use arrow::array::StringArray;
@@ -5133,6 +5895,7 @@ mod tests {
         Ok(())
     }
 
+    /// `pg_get_ruledef()` is a NULL stub, and accepts the one-argument form.
     #[tokio::test(flavor = "multi_thread")]
     async fn pg_get_ruledef_returns_null() -> Result<()> {
         use arrow::array::StringArray;
@@ -5154,13 +5917,17 @@ mod tests {
 
     /// Build a context carrying `search_path`, the way the catalog builds one.
     fn ctx_with_search_path(search_path: &str) -> SessionContext {
-        let mut opts = ClientOpts::default();
-        opts.search_path = search_path.to_string();
+        let opts = ClientOpts {
+            search_path: search_path.to_string(),
+            ..Default::default()
+        };
         SessionContext::new_with_config(
             datafusion::execution::context::SessionConfig::new().with_option_extension(opts),
         )
     }
 
+    /// `current_schemas(true)` prepends the implicitly-searched `pg_catalog` and
+    /// drops the `$user` entry that never resolves here.
     #[tokio::test(flavor = "multi_thread")]
     async fn current_schemas_prepends_the_implicit_pg_catalog() -> Result<()> {
         use arrow::array::{ListArray, StringArray};
@@ -5187,6 +5954,7 @@ mod tests {
         Ok(())
     }
 
+    /// `current_schema()` reports the first explicit search-path entry.
     #[tokio::test(flavor = "multi_thread")]
     async fn current_schema_is_the_first_explicit_search_path_entry() -> Result<()> {
         use arrow::array::StringArray;
@@ -5210,6 +5978,8 @@ mod tests {
         Ok(())
     }
 
+    /// `has_database_privilege()` is true whether the database is named by OID or
+    /// by name.
     #[tokio::test(flavor = "multi_thread")]
     async fn has_database_privilege_always_true() -> Result<()> {
         use arrow::array::BooleanArray;
@@ -5241,6 +6011,8 @@ mod tests {
         Ok(())
     }
 
+    /// `has_schema_privilege()` is true whether the schema is named by OID or by
+    /// name.
     #[tokio::test(flavor = "multi_thread")]
     async fn has_schema_privilege_always_true() -> Result<()> {
         use arrow::array::BooleanArray;
@@ -5272,6 +6044,8 @@ mod tests {
         Ok(())
     }
 
+    /// `pg_get_userbyid()` resolves a role OID through `pg_authid`, and labels an
+    /// OID with no row as `unknown (OID=...)`.
     #[tokio::test(flavor = "multi_thread")]
     async fn pg_get_userbyid_reads_pg_authid() -> Result<()> {
         let config = datafusion::execution::context::SessionConfig::new()

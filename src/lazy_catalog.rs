@@ -42,7 +42,7 @@ use crate::session::rows_to_record_batch;
 /// consumed by [`rows_to_record_batch`]. Columns not present default to NULL.
 pub type Row = std::collections::BTreeMap<String, Value>;
 
-/// The first OID PostgreSQL leaves to user objects; everything below is reserved
+/// The first OID `PostgreSQL` leaves to user objects; everything below is reserved
 /// for the built-in catalog.
 pub const FIRST_USER_OID: i32 = 16384;
 
@@ -127,6 +127,7 @@ pub enum RelationKind {
 
 impl RelationKind {
     /// The single-character `pg_class.relkind` code for this relation kind.
+    #[must_use]
     pub fn relkind(&self) -> &'static str {
         match self {
             RelationKind::Table => "r",
@@ -136,6 +137,7 @@ impl RelationKind {
     }
 
     /// The `information_schema.tables.table_type` label for this relation kind.
+    #[must_use]
     pub fn table_type(&self) -> &'static str {
         match self {
             RelationKind::Table => "BASE TABLE",
@@ -149,6 +151,11 @@ impl RelationKind {
 ///
 /// `oid` is the `pg_class.oid`; `reltype_oid` is the rowtype's `pg_type.oid`.
 /// Both are user-supplied and written through verbatim.
+// The four booleans are not a state to model: each mirrors one independent
+// pg_class flag column (relhasindex / relhasrules / relhastriggers /
+// relrowsecurity) that PostgreSQL stores separately and clients read
+// separately. Folding them into enums would only obscure that mapping.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Clone, Debug)]
 pub struct RelationDef {
     /// The relation's `pg_class.oid`.
@@ -161,8 +168,8 @@ pub struct RelationDef {
     pub kind: RelationKind,
     /// Owning role OID (`pg_class.relowner`), surfaced as `pg_tables.tableowner`
     /// via `pg_get_userbyid`. `None` leaves it NULL - appropriate for backends
-    /// with no ownership concept (e.g. DuckDB); a backend that has owners (e.g.
-    /// PostgreSQL) supplies the role OID here.
+    /// with no ownership concept (e.g. `DuckDB`); a backend that has owners (e.g.
+    /// `PostgreSQL`) supplies the role OID here.
     pub owner_oid: Option<i32>,
     /// Whether the relation has any index (`pg_class.relhasindex`). Drives
     /// `pg_tables.hasindexes`; defaults to `false` via [`RelationDef::table`].
@@ -197,7 +204,7 @@ impl RelationDef {
 
 /// One index fed into `pg_catalog.pg_index` (plus its own `pg_class` row).
 ///
-/// In PostgreSQL an index is itself a relation: it has a `pg_class` row of
+/// In `PostgreSQL` an index is itself a relation: it has a `pg_class` row of
 /// `relkind = 'i'` that carries its *name*, and a `pg_index` row that carries its
 /// *structure* (which table and columns it covers, whether it is unique/primary).
 /// `pg_indexes` and `pg_get_indexdef` reconstruct the `CREATE INDEX` text by
@@ -206,7 +213,7 @@ impl RelationDef {
 /// from this one description.
 ///
 /// All OIDs are user-supplied and written through verbatim. Functional/partial
-/// index expressions (`pg_index.indexprs`/`indpred`, stored by PostgreSQL as
+/// index expressions (`pg_index.indexprs`/`indpred`, stored by `PostgreSQL` as
 /// node trees) are out of scope and left NULL; a plain column index needs none of
 /// them.
 #[derive(Clone, Debug)]
@@ -264,6 +271,7 @@ pub enum ConstraintKind {
 
 impl ConstraintKind {
     /// The single-character `pg_constraint.contype` code for this kind.
+    #[must_use]
     pub fn contype(&self) -> &'static str {
         match self {
             ConstraintKind::PrimaryKey => "p",
@@ -291,6 +299,7 @@ pub enum ForeignKeyAction {
 
 impl ForeignKeyAction {
     /// The single-character action code stored in `pg_constraint`.
+    #[must_use]
     pub fn code(&self) -> &'static str {
         match self {
             ForeignKeyAction::NoAction => "a",
@@ -316,6 +325,7 @@ pub enum ForeignKeyMatch {
 
 impl ForeignKeyMatch {
     /// The single-character match-type code stored in `pg_constraint`.
+    #[must_use]
     pub fn code(&self) -> &'static str {
         match self {
             ForeignKeyMatch::Full => "f",
@@ -444,6 +454,11 @@ impl ConstraintDef {
     /// `pg_constraint.conkey` / `confkey`), they must have the same length; an
     /// unequal pairing is rejected here so an invalid foreign key can never be
     /// constructed and later serialized.
+    ///
+    /// # Errors
+    ///
+    /// Returns `DataFusionError::Execution` when `key_attnums` and
+    /// `referenced_key_attnums` differ in length.
     #[allow(clippy::too_many_arguments)]
     pub fn foreign_key(
         oid: i32,
@@ -517,6 +532,7 @@ impl ColumnSpec {
     /// Mark this column as having a default expression, so it gets a `pg_attrdef`
     /// row and `pg_attribute.atthasdef = true`. The default text itself is supplied
     /// by the integration-provided definition-text resolver.
+    #[must_use]
     pub fn with_default(mut self) -> Self {
         self.has_default = true;
         self
@@ -535,12 +551,27 @@ impl ColumnSpec {
 /// vector).
 pub trait LazyCatalogSource: Send + Sync {
     /// User databases -> `pg_catalog.pg_database`.
+    ///
+    /// # Errors
+    ///
+    /// Returns whatever error the implementor hits while enumerating databases;
+    /// it is propagated to the client instead of being swallowed.
     fn databases(&self, callback: &mut dyn FnMut(Vec<DatabaseDef>)) -> DFResult<()>;
 
     /// User schemas in `database` -> `pg_catalog.pg_namespace`.
+    ///
+    /// # Errors
+    ///
+    /// Returns whatever error the implementor hits while enumerating the
+    /// schemas of `database`; it is propagated to the client.
     fn schemas(&self, database: &str, callback: &mut dyn FnMut(Vec<SchemaDef>)) -> DFResult<()>;
 
     /// User relations in `database`.`schema` -> `pg_class` + `pg_type`.
+    ///
+    /// # Errors
+    ///
+    /// Returns whatever error the implementor hits while enumerating the
+    /// relations of `database`.`schema`; it is propagated to the client.
     fn relations(
         &self,
         database: &str,
@@ -550,6 +581,11 @@ pub trait LazyCatalogSource: Send + Sync {
 
     /// Columns of `database`.`schema`.`relation`, in ordinal order ->
     /// `pg_attribute` + `information_schema.columns`.
+    ///
+    /// # Errors
+    ///
+    /// Returns whatever error the implementor hits while describing the
+    /// relation's columns; it is propagated to the client.
     fn columns(
         &self,
         database: &str,
@@ -566,6 +602,11 @@ pub trait LazyCatalogSource: Send + Sync {
     /// `pg_indexes` / `pg_get_indexdef` can describe them. The `index_oid` of each
     /// returned [`IndexDef`] must be distinct from every relation OID, since an
     /// index occupies its own `pg_class` row.
+    ///
+    /// # Errors
+    ///
+    /// Returns whatever error an overriding implementor hits while enumerating
+    /// indexes; the default implementation reports none and never fails.
     fn indexes(
         &self,
         _database: &str,
@@ -582,6 +623,11 @@ pub trait LazyCatalogSource: Send + Sync {
     /// primary-key/unique/foreign-key constraints so the `information_schema`
     /// constraint views describe them. Each returned [`ConstraintDef`]'s `oid`
     /// must be distinct from every relation and index OID.
+    ///
+    /// # Errors
+    ///
+    /// Returns whatever error an overriding implementor hits while enumerating
+    /// constraints; the default implementation reports none and never fails.
     fn constraints(
         &self,
         _database: &str,
@@ -597,6 +643,11 @@ pub trait LazyCatalogSource: Send + Sync {
     /// built-in `pg_config` defaults. Override it to report the embedding
     /// application's own build settings (e.g. its real `VERSION`); a setting
     /// whose `name` matches a built-in one replaces it.
+    ///
+    /// # Errors
+    ///
+    /// Returns whatever error an overriding implementor hits while reading its
+    /// build settings; the default implementation reports none and never fails.
     fn config(&self, _callback: &mut dyn FnMut(Vec<ConfigSettingDef>)) -> DFResult<()> {
         Ok(())
     }
@@ -608,6 +659,12 @@ pub trait LazyCatalogSource: Send + Sync {
     /// application's live values for session-mutable parameters (e.g.
     /// `search_path`, `TimeZone`); a setting whose `name` matches a built-in one
     /// replaces it.
+    ///
+    /// # Errors
+    ///
+    /// Returns whatever error an overriding implementor hits while reading its
+    /// live parameter values; the default implementation reports none and never
+    /// fails.
     fn settings(&self, _callback: &mut dyn FnMut(Vec<SettingDef>)) -> DFResult<()> {
         Ok(())
     }
@@ -654,6 +711,7 @@ impl CatalogTable {
     /// schemas, relations or columns and is scoped to it. The corresponding arms
     /// of [`build_rows_for`] are exactly the ones that ignore its `database`
     /// argument.
+    #[must_use]
     pub fn is_database_independent(&self) -> bool {
         matches!(
             self,
@@ -663,6 +721,7 @@ impl CatalogTable {
 
     /// The `(schema_name, table_name)` this catalog table lives under, used to
     /// look up and replace its provider during registration.
+    #[must_use]
     pub fn location(&self) -> (&'static str, &'static str) {
         match self {
             CatalogTable::PgDatabase => ("pg_catalog", "pg_database"),
@@ -693,18 +752,17 @@ impl CatalogTable {
     ///
     /// Which built-in rows a user row *replaces* is a separate question; see
     /// [`Self::builtin_shadow_key_columns`].
+    #[must_use]
     pub fn key_columns(&self) -> &'static [&'static str] {
         match self {
             CatalogTable::PgDatabase => &["datname"],
-            CatalogTable::PgNamespace => &["oid"],
+            CatalogTable::PgNamespace | CatalogTable::PgConstraint => &["oid"],
             CatalogTable::PgClass => &["relnamespace", "relname"],
             CatalogTable::PgType => &["typnamespace", "typname"],
             CatalogTable::PgAttribute => &["attrelid", "attname"],
             CatalogTable::PgIndex => &["indexrelid"],
-            CatalogTable::PgConstraint => &["oid"],
             CatalogTable::PgAttrdef => &["adrelid", "adnum"],
-            CatalogTable::PgConfig => &["name"],
-            CatalogTable::PgSettings => &["name"],
+            CatalogTable::PgConfig | CatalogTable::PgSettings => &["name"],
             CatalogTable::InformationSchemaTables => {
                 &["table_catalog", "table_schema", "table_name"]
             }
@@ -721,7 +779,7 @@ impl CatalogTable {
     /// is [`Self::key_columns`]. `pg_namespace` is the exception, because its
     /// identity and its name deliberately disagree.
     ///
-    /// PostgreSQL gives `public` the fixed OID 2200 in every database: each
+    /// `PostgreSQL` gives `public` the fixed OID 2200 in every database: each
     /// database owns a private catalog, so the same OID in two databases never
     /// collides. A flattened catalog has one shared `pg_namespace`, so it
     /// cannot give every database's `public` that OID and assigns generated
@@ -735,6 +793,7 @@ impl CatalogTable {
     /// the built-in row of that name whatever OID it was given, while
     /// [`Self::key_columns`] still keys identity by OID so the same schema name
     /// under several databases remains several rows.
+    #[must_use]
     pub fn builtin_shadow_key_columns(&self) -> &'static [&'static str] {
         match self {
             CatalogTable::PgNamespace => &["nspname"],
@@ -822,15 +881,43 @@ fn fetch_columns(
 // --- pure row builders (oids taken straight from the source objects) ------
 
 /// Build a JSON array from a list of strings, or NULL when the list is absent.
-fn string_list_to_json(items: &Option<Vec<String>>) -> Value {
+///
+/// Absence and emptiness are kept apart on purpose: an ACL column that was never
+/// set is SQL NULL, while an explicitly empty ACL is an empty array.
+fn string_list_to_json(items: Option<&[String]>) -> Value {
     match items {
         Some(items) => Value::Array(items.iter().map(|s| json!(s)).collect()),
         None => Value::Null,
     }
 }
 
+/// Turn a zero-based position in a column or key list into the 1-based number
+/// `PostgreSQL` uses for it (`pg_attribute.attnum`, `pg_attrdef.adnum`,
+/// `information_schema.columns.ordinal_position`).
+///
+/// The position indexes a `Vec` already materialized in memory, so it cannot
+/// reach `i32::MAX`: `PostgreSQL` caps a relation at 1600 columns, and even
+/// without that cap a vector of that many column descriptions could not be
+/// allocated. The narrowing is therefore exact.
+#[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
+fn one_based_position(index: usize) -> i32 {
+    (index + 1) as i32
+}
+
+/// Narrow the length of a column or key list to the `i32` width `PostgreSQL`
+/// uses for its counts (`pg_class.relnatts`, `pg_index.indnatts`).
+///
+/// Bounded by the same argument as [`one_based_position`]: the list is already
+/// held in memory and `PostgreSQL` caps a relation at 1600 columns and an index
+/// at 32 key columns, so the count cannot reach `i32::MAX`.
+#[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
+fn attribute_count_as_i32(len: usize) -> i32 {
+    len as i32
+}
+
 /// Build one `pg_catalog.pg_config` row (a `name`/`setting` pair) from a
 /// [`ConfigSettingDef`].
+#[must_use]
 pub fn build_pg_config_row(def: &ConfigSettingDef) -> Row {
     let mut row = Row::new();
     row.insert("name".to_string(), json!(def.name));
@@ -841,6 +928,7 @@ pub fn build_pg_config_row(def: &ConfigSettingDef) -> Row {
 /// Build one `pg_catalog.pg_settings` row from a [`SettingDef`]. Only `name` and
 /// `setting` are populated; the remaining metadata columns are left to default to
 /// NULL (they describe the parameter, not its value).
+#[must_use]
 pub fn build_pg_settings_row(def: &SettingDef) -> Row {
     let mut row = Row::new();
     row.insert("name".to_string(), json!(def.name));
@@ -850,6 +938,7 @@ pub fn build_pg_settings_row(def: &SettingDef) -> Row {
 
 /// Build one `pg_catalog.pg_database` row from a [`DatabaseDef`], filling unset
 /// optional fields with PostgreSQL-compatible defaults.
+#[must_use]
 pub fn build_pg_database_row(def: &DatabaseDef) -> Row {
     let mut row = Row::new();
     row.insert("oid".to_string(), json!(def.oid));
@@ -859,8 +948,7 @@ pub fn build_pg_database_row(def: &DatabaseDef) -> Row {
     row.insert(
         "datlocprovider".to_string(),
         def.datlocprovider
-            .map(|c| json!(c.to_string()))
-            .unwrap_or(Value::Null),
+            .map_or(Value::Null, |c| json!(c.to_string())),
     );
     row.insert(
         "datistemplate".to_string(),
@@ -903,30 +991,25 @@ pub fn build_pg_database_row(def: &DatabaseDef) -> Row {
     );
     row.insert(
         "datlocale".to_string(),
-        def.datlocale
-            .clone()
-            .map(|v| json!(v))
-            .unwrap_or(Value::Null),
+        def.datlocale.clone().map_or(Value::Null, |v| json!(v)),
     );
     row.insert(
         "daticurules".to_string(),
-        def.daticurules
-            .clone()
-            .map(|v| json!(v))
-            .unwrap_or(Value::Null),
+        def.daticurules.clone().map_or(Value::Null, |v| json!(v)),
     );
     row.insert(
         "datcollversion".to_string(),
-        def.datcollversion
-            .clone()
-            .map(|v| json!(v))
-            .unwrap_or(Value::Null),
+        def.datcollversion.clone().map_or(Value::Null, |v| json!(v)),
     );
-    row.insert("datacl".to_string(), string_list_to_json(&def.datacl));
+    row.insert(
+        "datacl".to_string(),
+        string_list_to_json(def.datacl.as_deref()),
+    );
     row
 }
 
 /// Build one `pg_catalog.pg_namespace` row from a [`SchemaDef`].
+#[must_use]
 pub fn build_pg_namespace_row(def: &SchemaDef) -> Row {
     let mut row = Row::new();
     row.insert("oid".to_string(), json!(def.oid));
@@ -939,15 +1022,16 @@ pub fn build_pg_namespace_row(def: &SchemaDef) -> Row {
     row
 }
 
-/// The `pg_am.oid` of the heap table access method (a fixed PostgreSQL system
+/// The `pg_am.oid` of the heap table access method (a fixed `PostgreSQL` system
 /// OID). An ordinary registered table is heap-stored, so its `pg_class.relam`
-/// points here. (A view/materialized view has no access method; PostgreSQL still
+/// points here. (A view/materialized view has no access method; `PostgreSQL` still
 /// records heap for a materialized view and 0 for a plain view, but heap is a
 /// safe non-NULL default for client introspection either way.)
 pub const HEAP_ACCESS_METHOD_OID: i32 = 2;
 
 /// Build one `pg_catalog.pg_class` row from a [`RelationDef`], the OID of its
 /// owning schema, and its column count (`natts`, written to `relnatts`).
+#[must_use]
 pub fn build_pg_class_row(def: &RelationDef, namespace_oid: i32, natts: i32) -> Row {
     let mut row = Row::new();
     row.insert("oid".to_string(), json!(def.oid));
@@ -990,7 +1074,7 @@ pub fn build_pg_class_row(def: &RelationDef, namespace_oid: i32, natts: i32) -> 
     row
 }
 
-/// The `pg_am.oid` of the B-tree access method (a fixed PostgreSQL system OID).
+/// The `pg_am.oid` of the B-tree access method (a fixed `PostgreSQL` system OID).
 /// A registered [`IndexDef`] describes a plain column index, which is always
 /// B-tree, so its `pg_class.relam` points here - letting `pg_get_indexdef`
 /// render `USING btree`.
@@ -1002,6 +1086,7 @@ pub const BTREE_ACCESS_METHOD_OID: i32 = 403;
 /// emitted. `relhasindex` is false (an index does not itself have indexes). The
 /// remaining defaults match [`build_pg_class_row`] so client introspection sees
 /// the same non-NULL columns for an index as for a table.
+#[must_use]
 pub fn build_index_pg_class_row(def: &IndexDef, namespace_oid: i32) -> Row {
     let mut row = Row::new();
     row.insert("oid".to_string(), json!(def.index_oid));
@@ -1029,8 +1114,9 @@ pub fn build_index_pg_class_row(def: &IndexDef, namespace_oid: i32) -> Row {
 /// node-tree columns (`indexprs`/`indpred`) and the per-column option vectors
 /// (`indcollation`/`indclass`/`indoption`) are left NULL - a plain column index
 /// needs none of them, and the node trees are out of scope.
+#[must_use]
 pub fn build_pg_index_row(def: &IndexDef) -> Row {
-    let natts = def.key_attnums.len() as i32;
+    let natts = attribute_count_as_i32(def.key_attnums.len());
     let mut row = Row::new();
     row.insert("indexrelid".to_string(), json!(def.index_oid));
     row.insert("indrelid".to_string(), json!(def.table_oid));
@@ -1055,10 +1141,11 @@ pub fn build_pg_index_row(def: &IndexDef) -> Row {
 ///
 /// The foreign-key fields (`confrelid`/`confkey`/`confupdtype`/`confdeltype`/
 /// `confmatchtype`) carry real values only for a foreign key; for primary-key and
-/// unique constraints they take PostgreSQL's non-FK sentinels (`confrelid` 0,
+/// unique constraints they take `PostgreSQL`'s non-FK sentinels (`confrelid` 0,
 /// `confkey` NULL, and the three type codes a single space). The check-expression
 /// column (`conbin`) is left NULL - these kinds have no expression, and check text
 /// comes from the integration-provided definition-text resolver anyway.
+#[must_use]
 pub fn build_pg_constraint_row(def: &ConstraintDef) -> Row {
     let is_foreign_key = def.kind == ConstraintKind::ForeignKey;
     let mut row = Row::new();
@@ -1097,8 +1184,9 @@ pub fn build_pg_constraint_row(def: &ConstraintDef) -> Row {
 ///
 /// A composite type is variable-length and passed by reference (`typlen` -1,
 /// `typbyval` false), with the `record` I/O routines and extended storage that
-/// PostgreSQL uses for every relation rowtype. `typelem`/`typarray` are 0 (the
+/// `PostgreSQL` uses for every relation rowtype. `typelem`/`typarray` are 0 (the
 /// rowtype is not an array element type and we do not register its array type).
+#[must_use]
 pub fn build_pg_type_rowtype_row(def: &RelationDef, namespace_oid: i32) -> Row {
     let mut row = Row::new();
     row.insert("oid".to_string(), json!(def.reltype_oid));
@@ -1134,19 +1222,21 @@ pub fn build_pg_type_rowtype_row(def: &RelationDef, namespace_oid: i32) -> Row {
 /// not-by-value, extended-storage column - the safe default for any text-like or
 /// composite type.
 fn column_type_storage(type_oid: i32) -> (i32, bool, &'static str, &'static str) {
+    // Grouped by the storage attributes they share, so each arm is one distinct
+    // physical layout; the comment names the type OIDs it covers.
     match type_oid {
-        16 => (1, true, "c", "p"),                 // bool
-        18 => (1, true, "c", "p"),                 // "char"
-        21 => (2, true, "s", "p"),                 // int2
-        23 => (4, true, "i", "p"),                 // int4
-        26 => (4, true, "i", "p"),                 // oid
-        20 => (8, true, "d", "p"),                 // int8
-        700 => (4, true, "i", "p"),                // float4
-        701 => (8, true, "d", "p"),                // float8
-        1082 => (4, true, "i", "p"),               // date
-        1114 | 1184 => (8, true, "d", "p"),        // timestamp / timestamptz
-        1700 => (-1, false, "i", "m"),             // numeric (main-storage)
-        25 | 1042 | 1043 => (-1, false, "i", "x"), // text / bpchar / varchar
+        // bool, "char"
+        16 | 18 => (1, true, "c", "p"),
+        // int2
+        21 => (2, true, "s", "p"),
+        // int4, oid, float4, date
+        23 | 26 | 700 | 1082 => (4, true, "i", "p"),
+        // int8, float8, timestamp, timestamptz
+        20 | 701 | 1114 | 1184 => (8, true, "d", "p"),
+        // numeric (main-storage)
+        1700 => (-1, false, "i", "m"),
+        // text (25) / bpchar (1042) / varchar (1043), and every type not modeled
+        // here: variable length, not by value, extended storage.
         _ => (-1, false, "i", "x"),
     }
 }
@@ -1167,6 +1257,7 @@ fn column_collation(type_oid: i32) -> i32 {
 /// introspection (`attlen`/`attbyval`/`attalign`/`attstorage`/`attcollation`) are
 /// derived from each column's type OID; `atthasdef` reflects whether the column
 /// has a default (its `pg_attrdef` handle).
+#[must_use]
 pub fn build_pg_attribute_rows(attrelid: i32, columns: &[ColumnSpec]) -> Vec<Row> {
     columns
         .iter()
@@ -1177,7 +1268,7 @@ pub fn build_pg_attribute_rows(attrelid: i32, columns: &[ColumnSpec]) -> Vec<Row
             row.insert("attrelid".to_string(), json!(attrelid));
             row.insert("attname".to_string(), json!(col.name));
             row.insert("atttypid".to_string(), json!(col.type_oid));
-            row.insert("attnum".to_string(), json!((idx + 1) as i32));
+            row.insert("attnum".to_string(), json!(one_based_position(idx)));
             row.insert("atttypmod".to_string(), json!(-1));
             row.insert("attnotnull".to_string(), json!(!col.nullable));
             row.insert("atthasdef".to_string(), json!(col.has_default));
@@ -1207,7 +1298,7 @@ pub fn build_pg_attribute_rows(attrelid: i32, columns: &[ColumnSpec]) -> Vec<Row
 }
 
 /// Base OID for synthesized `pg_attrdef.oid` values on the lazy path. The column
-/// is NOT NULL in PostgreSQL but no consumer reads it (the constraint/column
+/// is NOT NULL in `PostgreSQL` but no consumer reads it (the constraint/column
 /// views join `pg_attrdef` on `adrelid`+`adnum`), so a high, unread range avoids
 /// colliding with real allocated OIDs.
 const SYNTHETIC_ATTRDEF_OID_BASE: i32 = 900_000;
@@ -1220,6 +1311,7 @@ const SYNTHETIC_ATTRDEF_OID_BASE: i32 = 900_000;
 /// integration-provided definition-text resolver. This row, joined with
 /// `pg_attribute.atthasdef`, is the structural handle that
 /// `information_schema.columns` and clients read.
+#[must_use]
 pub fn build_pg_attrdef_row(oid: i32, adrelid: i32, adnum: i32) -> Row {
     let mut row = Row::new();
     row.insert("oid".to_string(), json!(oid));
@@ -1230,6 +1322,7 @@ pub fn build_pg_attrdef_row(oid: i32, adrelid: i32, adnum: i32) -> Row {
 }
 
 /// Build one `information_schema.tables` row for a relation.
+#[must_use]
 pub fn build_info_tables_row(catalog: &str, schema: &str, def: &RelationDef) -> Row {
     let mut row = Row::new();
     row.insert("table_catalog".to_string(), json!(catalog));
@@ -1243,6 +1336,7 @@ pub fn build_info_tables_row(catalog: &str, schema: &str, def: &RelationDef) -> 
 
 /// Build the `information_schema.columns` rows for a relation's columns. The
 /// `data_type`/`udt_name` strings are derived from each column's `pg_type` OID.
+#[must_use]
 pub fn build_info_columns_rows(
     catalog: &str,
     schema: &str,
@@ -1254,7 +1348,7 @@ pub fn build_info_columns_rows(
         .enumerate()
         .map(|(idx, col)| {
             let (data_type, udt_name) = oid_to_type_names(col.type_oid);
-            let ordinal = (idx + 1) as i32;
+            let ordinal = one_based_position(idx);
             let mut row = Row::new();
             row.insert("table_catalog".to_string(), json!(catalog));
             row.insert("table_schema".to_string(), json!(schema));
@@ -1280,6 +1374,7 @@ pub fn build_info_columns_rows(
 }
 
 /// Build one `information_schema.schemata` row for a schema.
+#[must_use]
 pub fn build_info_schemata_row(catalog: &str, def: &SchemaDef) -> Row {
     let mut row = Row::new();
     row.insert("catalog_name".to_string(), json!(catalog));
@@ -1293,7 +1388,7 @@ pub fn build_info_schemata_row(catalog: &str, def: &SchemaDef) -> Row {
 /// propagates unchanged.
 ///
 /// Every table here is scoped to `database` except `pg_database` itself:
-/// PostgreSQL shows a connection only its own database's schemas, relations and
+/// `PostgreSQL` shows a connection only its own database's schemas, relations and
 /// attributes, while `pg_database` lists every database on the server. The
 /// tables that hold no per-database data at all (`pg_config`, `pg_settings`)
 /// never consulted the database hierarchy and still do not.
@@ -1302,6 +1397,16 @@ pub fn build_info_schemata_row(catalog: &str, def: &SchemaDef) -> Row {
 /// right answer for a database that has been dropped. Registration validates the
 /// name up front (see [`register_lazy_catalog`]) so a typo fails loudly there
 /// rather than showing up as an empty catalog here.
+///
+/// # Errors
+///
+/// Returns the first error the source raises from `databases`, `schemas`,
+/// `relations`, `columns`, `indexes`, `constraints`, `config` or `settings`
+/// while the requested table's hierarchy is walked.
+// One arm per CatalogTable variant, so the length is the number of catalog
+// tables served rather than tangled logic. Splitting it into helpers would put
+// the arms out of sight of the match and make a missing table easy to overlook.
+#[allow(clippy::too_many_lines)]
 pub fn build_rows_for(
     table: CatalogTable,
     source: &dyn LazyCatalogSource,
@@ -1334,8 +1439,9 @@ pub fn build_rows_for(
         CatalogTable::PgClass => {
             for schema in fetch_schemas(source, database)? {
                 for rel in fetch_relations(source, database, &schema.name)? {
-                    let natts =
-                        fetch_columns(source, database, &schema.name, &rel.name)?.len() as i32;
+                    let natts = attribute_count_as_i32(
+                        fetch_columns(source, database, &schema.name, &rel.name)?.len(),
+                    );
                     rows.push(build_pg_class_row(&rel, schema.oid, natts));
                 }
                 // An index is itself a relation, so it gets its own pg_class
@@ -1370,7 +1476,11 @@ pub fn build_rows_for(
                     let columns = fetch_columns(source, database, &schema.name, &rel.name)?;
                     for (idx, col) in columns.iter().enumerate() {
                         if col.has_default {
-                            rows.push(build_pg_attrdef_row(synthetic_oid, rel.oid, (idx + 1) as i32));
+                            rows.push(build_pg_attrdef_row(
+                                synthetic_oid,
+                                rel.oid,
+                                one_based_position(idx),
+                            ));
                             synthetic_oid += 1;
                         }
                     }
@@ -1501,7 +1611,7 @@ fn drop_builtin_rows_shadowed_by_users(
 /// A [`TableProvider`] for one catalog table. On every scan it asks the source
 /// for that table's user rows (here and now - nothing is cached), converts them
 /// to a batch, and serves them *merged* with the built-in batches captured at
-/// registration. DataFusion does all joins/filters/projection across providers.
+/// registration. `DataFusion` does all joins/filters/projection across providers.
 pub struct LazyCatalogTableProvider {
     /// Which catalog table this provider serves.
     table: CatalogTable,
@@ -1521,18 +1631,24 @@ pub struct LazyCatalogTableProvider {
 }
 
 impl std::fmt::Debug for LazyCatalogTableProvider {
-    /// Format without touching the opaque source object.
+    /// Format as the catalog table served, and nothing else.
+    ///
+    /// The source is an opaque trait object with no `Debug` bound, and the
+    /// captured built-in batches are whole catalog tables that would swamp any
+    /// plan or error message they appear in. The elided fields are marked with
+    /// `..` rather than dropped silently.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("LazyCatalogTableProvider")
             .field("table", &self.table)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
 #[async_trait]
 impl TableProvider for LazyCatalogTableProvider {
-    /// Return self as `Any` for downcasting by DataFusion.
-    /// The Arrow schema for this catalog table.
+    /// The Arrow schema for this catalog table, taken verbatim from the
+    /// provider that was replaced so the built-in and user batches stay
+    /// union-compatible.
     fn schema(&self) -> SchemaRef {
         self.schema.clone()
     }
@@ -1546,7 +1662,7 @@ impl TableProvider for LazyCatalogTableProvider {
     /// built-in rows, and serve the union through an in-memory plan honoring the
     /// requested projection/filters/limit. The (non-`Send`) callback used to
     /// pull rows lives and dies entirely before the first `.await`, so the
-    /// returned future stays `Send` as DataFusion requires.
+    /// returned future stays `Send` as `DataFusion` requires.
     async fn scan(
         &self,
         state: &dyn Session,
@@ -1613,6 +1729,7 @@ pub struct LazyCatalogOptions {
 impl LazyCatalogOptions {
     /// Every catalog table currently supported by the lazy mechanism
     /// (Tier 1 + Tier 2).
+    #[must_use]
     pub fn all() -> Self {
         Self {
             tables: vec![
@@ -1638,6 +1755,7 @@ impl LazyCatalogOptions {
     }
 
     /// Install lazy providers over exactly the given tables.
+    #[must_use]
     pub fn with_tables(tables: Vec<CatalogTable>) -> Self {
         Self { tables }
     }
@@ -1650,7 +1768,7 @@ impl Default for LazyCatalogOptions {
     }
 }
 
-/// Install lazy providers over the catalog + information_schema tables, sourcing
+/// Install lazy providers over the catalog + `information_schema` tables, sourcing
 /// user rows from `source`, for the single database `database` names.
 ///
 /// MUST be called right after [`crate::get_base_session_context`] and BEFORE any
@@ -1661,12 +1779,19 @@ impl Default for LazyCatalogOptions {
 ///
 /// `database` is a build-time choice: the resulting context shows that
 /// database's schemas and relations and no other database's, exactly as a
-/// PostgreSQL connection does. `pg_database` still lists every database the
+/// `PostgreSQL` connection does. `pg_database` still lists every database the
 /// source reports. To serve several databases, build one context per database.
 ///
 /// Fails if `source` does not report `database`, so a name that will never match
 /// anything is caught here rather than presenting as a catalog that is
 /// mysteriously empty.
+///
+/// # Errors
+///
+/// Returns `DataFusionError::Execution` when `source.databases()` does not list
+/// `database`, when the default catalog, a target schema or a target table is
+/// missing from `ctx`, and propagates any error raised by the source, by the
+/// scan that captures the built-in rows, or by re-planning the catalog views.
 pub async fn register_lazy_catalog(
     ctx: &SessionContext,
     source: Arc<dyn LazyCatalogSource>,
@@ -1693,14 +1818,26 @@ pub async fn register_lazy_catalog(
 /// never read one, and demanding a name would force such a source to invent one.
 ///
 /// Rejects any table that is database-scoped. Such a table would be served the
-/// placeholder below and would report an empty catalog - the silent-empty
+/// `NO_DATABASE` placeholder and would report an empty catalog - the silent-empty
 /// failure that [`register_lazy_catalog`]'s validation exists to prevent,
 /// arriving by a different door.
+///
+/// # Errors
+///
+/// Returns `DataFusionError::Execution` when `opts.tables` names a
+/// database-scoped table, or when the default catalog, a target schema or a
+/// target table is missing from `ctx`; also propagates any error raised by the
+/// scan that captures the built-in rows or by re-planning the catalog views.
 pub async fn register_database_independent_lazy_catalog(
     ctx: &SessionContext,
     source: Arc<dyn LazyCatalogSource>,
     opts: LazyCatalogOptions,
 ) -> DFResult<()> {
+    // Never read: every database-independent table ignores it. Named so that a
+    // value reaching build_rows_for by mistake is obvious in the failure rather
+    // than looking like a real database.
+    const NO_DATABASE: &str = "\u{0}global\u{0}";
+
     if let Some(scoped) = opts.tables.iter().find(|t| !t.is_database_independent()) {
         let (schema_name, table_name) = scoped.location();
         return Err(DataFusionError::Execution(format!(
@@ -1708,10 +1845,6 @@ pub async fn register_database_independent_lazy_catalog(
              as a global table; use register_lazy_catalog and name the database"
         )));
     }
-    // Never read: every table above ignores it. Named so that a value reaching
-    // build_rows_for by mistake is obvious in the failure rather than looking
-    // like a real database.
-    const NO_DATABASE: &str = "\u{0}global\u{0}";
     install_lazy_providers(ctx, source, opts, NO_DATABASE).await
 }
 

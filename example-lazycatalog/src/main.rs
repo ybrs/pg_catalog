@@ -1,11 +1,11 @@
-//! Example: lazy, callback-driven `pg_catalog` backed by a live SQLite schema.
+//! Example: lazy, callback-driven `pg_catalog` backed by a live `SQLite` schema.
 //!
 //! This mirrors the sibling `example/` crate (route data queries to an in-memory
-//! SQLite database, catalog queries to the `pg_catalog` layer) but additionally
+//! `SQLite` database, catalog queries to the `pg_catalog` layer) but additionally
 //! wires up the **lazy catalog** mechanism. A [`LazyCatalogSource`] reads the
-//! SQLite schema on demand, so every scan of `pg_catalog.pg_class` /
+//! `SQLite` schema on demand, so every scan of `pg_catalog.pg_class` /
 //! `pg_namespace` / `pg_attribute` / `pg_type` / `information_schema.*` reflects
-//! the *current* set of SQLite tables - nothing is pre-registered.
+//! the *current* set of `SQLite` tables - nothing is pre-registered.
 //!
 //! Run a query by passing it as an argument:
 //! ```bash
@@ -41,22 +41,25 @@ const SCHEMA_OID: i32 = 16385;
 fn djb2(s: &str) -> u32 {
     let mut hash: u32 = 5381;
     for b in s.bytes() {
-        hash = hash.wrapping_mul(33).wrapping_add(b as u32);
+        hash = hash.wrapping_mul(33).wrapping_add(u32::from(b));
     }
     hash
 }
 
 /// Stable `pg_class.oid` for a table name (range 20000..25000, clear of built-ins).
 fn relation_oid(name: &str) -> i32 {
-    20000 + (djb2(name) % 5000) as i32
+    // `% 5000` bounds the offset at 4999, so the sum is nowhere near i32::MAX
+    // and the conversion cannot fail.
+    20000 + i32::try_from(djb2(name) % 5000).expect("a value below 5000 fits in i32")
 }
 
 /// Stable `pg_type.oid` for a table's composite rowtype (range 30000..35000).
 fn reltype_oid(name: &str) -> i32 {
-    30000 + (djb2(name) % 5000) as i32
+    // Bounded the same way as relation_oid above.
+    30000 + i32::try_from(djb2(name) % 5000).expect("a value below 5000 fits in i32")
 }
 
-/// Map a SQLite declared column type to a PostgreSQL `pg_type` OID.
+/// Map a `SQLite` declared column type to a `PostgreSQL` `pg_type` OID.
 /// Only the common affinities are needed for the demo; everything else is text.
 fn sqlite_type_to_oid(decl_type: &str) -> i32 {
     let t = decl_type.to_uppercase();
@@ -67,19 +70,19 @@ fn sqlite_type_to_oid(decl_type: &str) -> i32 {
     }
 }
 
-/// A [`LazyCatalogSource`] that reflects the live SQLite schema.
+/// A [`LazyCatalogSource`] that reflects the live `SQLite` schema.
 ///
 /// It holds a handle to the same connection used for data queries, so adding a
-/// table in SQLite is immediately visible to the next catalog scan. Every method
+/// table in `SQLite` is immediately visible to the next catalog scan. Every method
 /// locks the connection, reads what it needs, releases the lock, and hands the
 /// rows back through the callback - all synchronous, exactly as the trait wants.
 struct SqliteCatalogSource {
-    /// Shared handle to the in-memory SQLite database.
+    /// Shared handle to the in-memory `SQLite` database.
     conn: Arc<Mutex<Connection>>,
 }
 
 impl SqliteCatalogSource {
-    /// List the user tables currently present in SQLite (excluding internal
+    /// List the user tables currently present in `SQLite` (excluding internal
     /// `sqlite_*` tables), ordered by name for stable output.
     fn list_tables(&self) -> DFResult<Vec<String>> {
         let conn = self
@@ -152,7 +155,7 @@ impl LazyCatalogSource for SqliteCatalogSource {
         Ok(())
     }
 
-    /// Every SQLite table in `appdb.public`, with stable name-derived OIDs.
+    /// Every `SQLite` table in `appdb.public`, with stable name-derived OIDs.
     fn relations(
         &self,
         database: &str,
@@ -171,7 +174,7 @@ impl LazyCatalogSource for SqliteCatalogSource {
         Ok(())
     }
 
-    /// The columns of a SQLite table, read live via `PRAGMA table_info`.
+    /// The columns of a `SQLite` table, read live via `PRAGMA table_info`.
     fn columns(
         &self,
         database: &str,
@@ -187,7 +190,7 @@ impl LazyCatalogSource for SqliteCatalogSource {
     }
 }
 
-/// Execute a data query against SQLite and return the rows as Arrow batches.
+/// Execute a data query against `SQLite` and return the rows as Arrow batches.
 /// (Values are stringified for simplicity, exactly like the sibling `example/`.)
 fn handle_sqlite(
     conn: &Arc<Mutex<Connection>>,
@@ -208,12 +211,7 @@ fn handle_sqlite(
             .map_err(|e| DataFusionError::Execution(e.to_string()))?;
         // Only DML actually affects rows; DDL (CREATE/DROP/ALTER) should just say OK
         // rather than echo SQLite's stale change counter.
-        let verb = query
-            .trim_start()
-            .split_whitespace()
-            .next()
-            .unwrap_or("")
-            .to_uppercase();
+        let verb = query.split_whitespace().next().unwrap_or("").to_uppercase();
         let status = match verb.as_str() {
             "INSERT" | "UPDATE" | "DELETE" => format!("OK ({affected} row(s) affected)"),
             _ => "OK".to_string(),
@@ -233,7 +231,7 @@ fn handle_sqlite(
     let column_names = stmt
         .column_names()
         .into_iter()
-        .map(|s| s.to_string())
+        .map(std::string::ToString::to_string)
         .collect::<Vec<_>>();
     let mut rows = stmt
         .query([])
@@ -243,11 +241,11 @@ fn handle_sqlite(
         .next()
         .map_err(|e| DataFusionError::Execution(e.to_string()))?
     {
-        for i in 0..column_names.len() {
+        for (index, column) in columns.iter_mut().enumerate() {
             let v: rusqlite::types::Value = row
-                .get(i)
+                .get(index)
                 .map_err(|e| DataFusionError::Execution(e.to_string()))?;
-            columns[i].push(format!("{:?}", v));
+            column.push(format!("{v:?}"));
         }
     }
     let fields: Vec<Field> = column_names
@@ -263,7 +261,7 @@ fn handle_sqlite(
     Ok((vec![batch], schema))
 }
 
-/// Seed the in-memory SQLite database with a couple of tables and rows so the
+/// Seed the in-memory `SQLite` database with a couple of tables and rows so the
 /// catalog has something to reflect.
 fn seed_database(conn: &Arc<Mutex<Connection>>) -> DFResult<()> {
     let conn = conn
@@ -282,7 +280,7 @@ fn seed_database(conn: &Arc<Mutex<Connection>>) -> DFResult<()> {
 /// Run one SQL statement through the catalog/SQLite router and print the result.
 ///
 /// `pg_catalog`/`information_schema` queries are answered lazily by the catalog
-/// layer; everything else (including DDL/DML) runs against SQLite via the shared
+/// layer; everything else (including DDL/DML) runs against `SQLite` via the shared
 /// connection.
 async fn run_one(
     ctx: &datafusion::execution::context::SessionContext,
@@ -300,7 +298,10 @@ async fn run_one(
     let (batches, _schema) = dispatch_query(ctx, sql, None, None, handler).await?;
     let elapsed = started.elapsed();
 
-    let total_rows: usize = batches.iter().map(|b| b.num_rows()).sum();
+    let total_rows: usize = batches
+        .iter()
+        .map(arrow::array::RecordBatch::num_rows)
+        .sum();
     if total_rows == 0 {
         // An empty result set renders as a bare "++" box, which looks broken.
         // Print a clear marker instead.
@@ -354,7 +355,7 @@ async fn run_repl(
                 }
             }
             // Ctrl-C cancels the current line; keep going.
-            Err(ReadlineError::Interrupted) => continue,
+            Err(ReadlineError::Interrupted) => {}
             // Ctrl-D on an empty line quits.
             Err(ReadlineError::Eof) => break,
             Err(e) => {

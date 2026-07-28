@@ -22,18 +22,20 @@ use crate::session::{execute_sql, ClientOpts};
 use bytes::Bytes;
 use pgwire::api::Type;
 
-use sqlparser::ast::*;
+use sqlparser::ast::{
+    Ident, ObjectName, ObjectNamePart, Query, SetExpr, Statement, TableFactor, TableWithJoins,
+};
 use sqlparser::dialect::PostgreSqlDialect;
 use sqlparser::parser::Parser;
 
 /// Split and normalise a `search_path` option.
 ///
 /// The returned vector always contains `pg_catalog` as the first element
-/// to mirror PostgreSQL behaviour when it is not explicitly listed.
+/// to mirror `PostgreSQL` behaviour when it is not explicitly listed.
 fn parse_search_path(path: &str) -> Vec<String> {
     let mut parts: Vec<String> = path
         .split(',')
-        .map(|s| s.trim())
+        .map(str::trim)
         .filter(|s| !s.is_empty())
         .map(|s| s.trim_matches('"').to_string())
         .collect();
@@ -43,12 +45,13 @@ fn parse_search_path(path: &str) -> Vec<String> {
     parts
 }
 
-/// Check if a table exists within the provided catalog and schema.
+/// Returns `true` when `catalog.schema.table` is registered on `ctx`. A missing catalog
+/// or schema is reported as "no such table" rather than as an error, because the router
+/// probes names it does not expect to find.
 fn table_exists(ctx: &SessionContext, catalog: &str, schema: &str, table: &str) -> bool {
     ctx.catalog(catalog)
         .and_then(|c| c.schema(schema))
-        .map(|s| s.table_exist(table))
-        .unwrap_or(false)
+        .is_some_and(|s| s.table_exist(table))
 }
 
 /// Prepend the given schema to an [`ObjectName`] if it is unqualified.
@@ -115,7 +118,12 @@ fn qualify_query(ctx: &SessionContext, query: &mut Query) {
     }
 }
 
-/// Parse the SQL string and fully qualify catalog table references.
+/// Parse the SQL string and fully qualify catalog table references, returning the
+/// rewritten SQL.
+///
+/// # Errors
+///
+/// Returns a `DataFusionError::Plan` if `sql` does not parse as `PostgreSQL` dialect.
 fn qualify_catalog_tables(ctx: &SessionContext, sql: &str) -> datafusion::error::Result<String> {
     let dialect = PostgreSqlDialect {};
     let mut statements = Parser::parse_sql(&dialect, sql).map_err(|e| {
@@ -133,7 +141,7 @@ fn qualify_catalog_tables(ctx: &SessionContext, sql: &str) -> datafusion::error:
         .join("; "))
 }
 
-/// The name PostgreSQL resolves `ident` to: an unquoted identifier folds to lower case,
+/// The name `PostgreSQL` resolves `ident` to: an unquoted identifier folds to lower case,
 /// a quoted one is taken verbatim.
 ///
 /// Clients do not all spell catalog objects in lower case - Power BI asks for
@@ -148,7 +156,7 @@ fn resolved_identifier(ident: &Ident) -> String {
     }
 }
 
-/// The parts of `name`, each resolved as PostgreSQL would (see [`resolved_identifier`]).
+/// The parts of `name`, each resolved as `PostgreSQL` would (see [`resolved_identifier`]).
 fn resolved_name_parts(name: &ObjectName) -> Vec<String> {
     name.0
         .iter()
@@ -163,11 +171,10 @@ fn resolve_schema(ctx: &SessionContext, name: &ObjectName) -> Option<String> {
     let options = state.config_options();
     let default_catalog = &options.catalog.default_catalog;
     let default_schema = &options.catalog.default_schema;
-    let search_path = options
-        .extensions
-        .get::<ClientOpts>()
-        .map(|opts| parse_search_path(&opts.search_path))
-        .unwrap_or_else(|| vec!["pg_catalog".to_string(), default_schema.clone()]);
+    let search_path = options.extensions.get::<ClientOpts>().map_or_else(
+        || vec!["pg_catalog".to_string(), default_schema.clone()],
+        |opts| parse_search_path(&opts.search_path),
+    );
 
     let parts = resolved_name_parts(name);
     match parts.as_slice() {
@@ -189,7 +196,7 @@ fn resolve_schema(ctx: &SessionContext, name: &ObjectName) -> Option<String> {
             for sp in &search_path {
                 let schema_name = if sp == "$user" { default_schema } else { sp };
                 if table_exists(ctx, default_catalog, schema_name, table) {
-                    return Some(schema_name.to_string());
+                    return Some(schema_name.clone());
                 }
             }
             None
@@ -215,9 +222,7 @@ fn function_registered(ctx: &SessionContext, full: &str) -> bool {
 
 /// Determine if the object belongs to `pg_catalog` or `information_schema`.
 fn object_is_catalog(ctx: &SessionContext, name: &ObjectName) -> bool {
-    resolve_schema(ctx, name)
-        .map(|schema| schema_is_catalog(&schema))
-        .unwrap_or(false)
+    resolve_schema(ctx, name).is_some_and(|schema| schema_is_catalog(&schema))
 }
 
 /// Determine if the function belongs to `pg_catalog` or `information_schema`.
@@ -320,7 +325,11 @@ fn statement_has_catalog(ctx: &SessionContext, stmt: &Statement) -> bool {
     found
 }
 
-/// Parse the SQL string and check whether it references catalog tables.
+/// Parse the SQL string and check whether it references catalog tables or functions.
+///
+/// # Errors
+///
+/// Returns a `DataFusionError::Plan` if `sql` does not parse as `PostgreSQL` dialect.
 fn is_catalog_query(ctx: &SessionContext, sql: &str) -> datafusion::error::Result<bool> {
     let dialect = PostgreSqlDialect {};
     let statements = Parser::parse_sql(&dialect, sql).map_err(|e| {
@@ -335,6 +344,14 @@ fn is_catalog_query(ctx: &SessionContext, sql: &str) -> datafusion::error::Resul
 /// When `sql` references `pg_catalog`/`information_schema`, it is executed with
 /// [`execute_sql`]. Otherwise the provided `handler` is awaited with the
 /// unmodified SQL.
+///
+/// # Errors
+///
+/// Returns a `DataFusionError::Plan` if `sql` does not parse as `PostgreSQL` dialect -
+/// the routing decision needs the parsed statement, so an unparsable query cannot be
+/// classified. For a catalog query it also propagates whatever [`execute_sql`] reports
+/// (planning or execution failure, parameter decoding); otherwise it propagates the
+/// caller's `handler` error unchanged.
 pub async fn dispatch_query<'a, F, Fut>(
     ctx: &'a SessionContext,
     sql: &'a str,
@@ -364,6 +381,7 @@ mod tests {
     use arrow::datatypes::DataType;
     use std::sync::{Arc, Mutex};
 
+    /// A query over a user table alone is not a catalog query, so the caller's handler runs it.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_dispatch_user_table_calls_handler() -> datafusion::error::Result<()> {
         let ctx = SessionContext::new();
@@ -390,6 +408,8 @@ mod tests {
         Ok(())
     }
 
+    /// A schema-qualified `pg_catalog` query is answered internally, never handed to the
+    /// caller.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_dispatch_catalog_query_internal() -> datafusion::error::Result<()> {
         let ctx = SessionContext::new();
@@ -422,6 +442,8 @@ mod tests {
         Ok(())
     }
 
+    /// An unqualified catalog table name resolves through the search path and is still
+    /// answered internally.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_dispatch_unqualified_catalog_query_internal() -> datafusion::error::Result<()> {
         let ctx = SessionContext::new();
@@ -448,6 +470,8 @@ mod tests {
         Ok(())
     }
 
+    /// An unquoted upper-case catalog name folds to lower case, so it is recognised as a
+    /// catalog query rather than passed to the caller's engine.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_dispatch_uppercase_catalog_query_internal() -> datafusion::error::Result<()> {
         // Power BI writes catalog objects in upper case; PostgreSQL folds unquoted
@@ -477,6 +501,8 @@ mod tests {
         Ok(())
     }
 
+    /// A quoted upper-case name is a distinct, case-sensitive object and must reach the
+    /// caller's handler.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_dispatch_quoted_uppercase_table_calls_handler() -> datafusion::error::Result<()> {
         // A quoted name is case sensitive in PostgreSQL: "PG_CLASS" is a different
@@ -505,6 +531,8 @@ mod tests {
         Ok(())
     }
 
+    /// When the search path puts a user schema before `pg_catalog`, a name present in both
+    /// resolves to the user's table and the query goes to the caller's handler.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_dispatch_user_table_precedence() -> datafusion::error::Result<()> {
         let mut config = datafusion::execution::context::SessionConfig::new()
@@ -546,6 +574,7 @@ mod tests {
         Ok(())
     }
 
+    /// Bind parameters are forwarded to the caller's handler untouched.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_dispatch_with_params_passes_to_handler() -> datafusion::error::Result<()> {
         let ctx = SessionContext::new();
@@ -581,6 +610,7 @@ mod tests {
         Ok(())
     }
 
+    /// A schema-qualified call to a registered catalog function is answered internally.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_dispatch_catalog_function_internal() -> datafusion::error::Result<()> {
         let ctx = SessionContext::new();
@@ -601,6 +631,7 @@ mod tests {
         Ok(())
     }
 
+    /// An unqualified call to a registered catalog function is answered internally.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_dispatch_unqualified_catalog_function_internal() -> datafusion::error::Result<()>
     {

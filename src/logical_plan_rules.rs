@@ -1,6 +1,7 @@
-// Custom optimizer rules for DataFusion.
-// Currently strips pggetone() calls so they don't block other optimizations.
-// Added to better mimic PostgreSQL planning.
+//! Custom optimizer rules for `DataFusion`.
+//!
+//! Currently strips `pg_get_one()` calls so they don't block other optimizations,
+//! which brings planning closer to what `PostgreSQL` does.
 
 use datafusion::{
     common::{tree_node::Transformed, Result},
@@ -8,19 +9,35 @@ use datafusion::{
     optimizer::{ApplyOrder, OptimizerConfig, OptimizerRule},
 };
 
+/// Optimizer rule that unwraps `pg_get_one(<expr>)` back to `<expr>`.
+///
+/// `pg_get_one` marks a scalar subquery that must yield a single value, mirroring how
+/// `PostgreSQL` treats such subqueries. Once planning is done the wrapper is opaque to
+/// `DataFusion` and would block subquery decorrelation and the rewrites that follow it,
+/// so this rule removes it.
 #[derive(Debug)]
 pub struct StripPgGetOne;
 
+/// Applies the unwrapping over every expression in the plan.
 impl OptimizerRule for StripPgGetOne {
-    fn name(&self) -> &str {
+    /// The rule's name as it appears in optimizer traces and explain output.
+    fn name(&self) -> &'static str {
         "strip_pg_get_one"
     }
 
-    // ask the optimiser framework to call us bottom-up on every node
+    /// Ask the optimiser framework to call us bottom-up on every node, so nested
+    /// `pg_get_one` calls are unwrapped inside-out.
     fn apply_order(&self) -> Option<ApplyOrder> {
         Some(ApplyOrder::BottomUp)
     }
 
+    /// Replace every single-argument `pg_get_one` call in this node's expressions with
+    /// its argument, leaving all other expressions untouched.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error only if `map_expressions` fails while walking the plan; the
+    /// rewrite itself cannot fail.
     fn rewrite(
         &self,
         plan: LogicalPlan,
@@ -70,7 +87,15 @@ mod tests {
 
      */
 
-    async fn make_ctx() -> Result<SessionContext> {
+    /// Build a session holding a two-row `pg_catalog.pg_class`, the regclass/`pg_get_one`
+    /// UDFs and the [`StripPgGetOne`] rule - the minimum needed to plan a correlated
+    /// scalar subquery over the catalog.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if a UDF cannot be registered, if the seed record batch does not
+    /// match its schema, or if the catalog/schema/table registration is rejected.
+    fn make_ctx() -> Result<SessionContext> {
         let config = datafusion::execution::context::SessionConfig::new()
             .with_default_catalog_and_schema("public", "pg_catalog");
 
@@ -102,10 +127,12 @@ mod tests {
         Ok(ctx)
     }
 
+    /// A correlated scalar subquery wrapped in `pg_get_one` still plans and executes:
+    /// the rule unwraps the marker so decorrelation can run.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_pggetone_correlated_subquery() -> Result<()> {
         use crate::logical_plan_rules::StripPgGetOne;
-        let ctx = make_ctx().await?;
+        let ctx = make_ctx()?;
         ctx.add_optimizer_rule(Arc::new(StripPgGetOne));
         let batches = ctx
             .sql(

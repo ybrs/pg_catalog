@@ -2,6 +2,7 @@
 // Loads YAML schemas into MemTables, registers UDFs and executes rewritten queries using DataFusion.
 // Separated to encapsulate DataFusion setup and query execution behaviour.
 
+use arrow::array::ArrayRef;
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 use arrow::record_batch::RecordBatch;
 use datafusion::catalog::memory::{MemoryCatalogProvider, MemorySchemaProvider};
@@ -18,12 +19,11 @@ use crate::replace::{
     drop_redundant_oid_and_regclass_casts, regclass_udfs, replace_regclass,
     replace_set_command_with_namespace, resolve_order_by_names_to_output_positions,
     resolve_regproc_columns_to_oids_in_comparisons, rewrite_array_agg_varchar_cast,
-    rewrite_boolean_column_char_comparisons,
-    rewrite_array_subquery, rewrite_available_extension_versions_source, rewrite_available_updates,
-    rewrite_array_upper_to_array_length, rewrite_boolean_scalar_subquery_to_exists,
-    rewrite_brace_array_literal, rewrite_char_cast,
-    rewrite_correlated_limit_one_subquery_to_max, rewrite_exists_to_count,
-    rewrite_information_schema_casts, rewrite_name_cast, rewrite_oid_cast,
+    rewrite_array_subquery, rewrite_array_upper_to_array_length,
+    rewrite_available_extension_versions_source, rewrite_available_updates,
+    rewrite_boolean_column_char_comparisons, rewrite_boolean_scalar_subquery_to_exists,
+    rewrite_brace_array_literal, rewrite_char_cast, rewrite_correlated_limit_one_subquery_to_max,
+    rewrite_exists_to_count, rewrite_information_schema_casts, rewrite_name_cast, rewrite_oid_cast,
     rewrite_pg_custom_operator, rewrite_pg_truetypid_composite_args, rewrite_regoper_cast,
     rewrite_regoperator_cast, rewrite_regproc_cast, rewrite_regprocedure_cast,
     rewrite_regtype_cast, rewrite_schema_qualified_custom_types, rewrite_schema_qualified_text,
@@ -42,9 +42,9 @@ use zip::ZipArchive;
 use crate::user_functions::{
     register_acldefault, register_aclexplode, register_array_agg, register_current_database,
     register_current_schema, register_current_schemas, register_encode, register_format,
-    register_getdatabaseencoding,
-    register_has_database_privilege, register_has_privilege_family, register_has_schema_privilege,
-    register_nameconcatoid, register_pg_available_extension_versions, register_pg_char_max_length,
+    register_getdatabaseencoding, register_has_database_privilege, register_has_privilege_family,
+    register_has_schema_privilege, register_nameconcatoid,
+    register_pg_available_extension_versions, register_pg_char_max_length,
     register_pg_char_octet_length, register_pg_column_is_updatable, register_pg_expandarray,
     register_pg_get_array, register_pg_get_function_arg_default,
     register_pg_get_function_arguments, register_pg_get_function_result,
@@ -90,7 +90,7 @@ use std::sync::OnceLock;
 /// under. Keyed by [`SessionContext::session_id`] so concurrent sessions in one
 /// process do not clobber each other.
 ///
-/// A DataFusion view stores the logical plan it was planned from; that plan
+/// A `DataFusion` view stores the logical plan it was planned from; that plan
 /// captures the concrete table providers present at `CREATE VIEW` time and is not
 /// re-resolved on later queries. When [`register_lazy_catalog`] swaps a base
 /// table's provider for a lazy one, any view already planned against the old
@@ -120,6 +120,17 @@ struct RegisteredViewStatement {
 /// views that derive from those base tables re-resolve against the lazy providers
 /// instead of the built-in snapshots they were first planned against. A view body
 /// that no longer plans is left as it was rather than dropped.
+///
+/// # Errors
+///
+/// Returns an error if the `SET datafusion.catalog.default_schema` statements that
+/// bracket the replay fail - the view bodies themselves cannot fail this call,
+/// since a body that no longer plans is deliberately ignored.
+///
+/// # Panics
+///
+/// Panics if the process-global statement registry's mutex is poisoned, which
+/// means another thread panicked while recording or replaying view statements.
 pub async fn replan_registered_views_against_current_providers(
     ctx: &SessionContext,
 ) -> datafusion::error::Result<(), DataFusionError> {
@@ -142,17 +153,20 @@ pub async fn replan_registered_views_against_current_providers(
         set_default_schema(ctx, &statement.body_resolution_schema).await?;
         // A body that fails to re-plan leaves the prior view definition in place,
         // so the object stays queryable rather than being dropped.
-        match ctx.sql(&statement.create_sql).await {
-            Ok(df) => {
-                let _ = df.collect().await;
-            }
-            Err(_) => continue,
+        if let Ok(df) = ctx.sql(&statement.create_sql).await {
+            let _ = df.collect().await;
         }
     }
 
     set_default_schema(ctx, &original_default_schema).await
 }
 
+/// The per-connection `PostgreSQL` GUCs this crate serves, carried on the session
+/// as a `DataFusion` config extension.
+///
+/// Storing them in the session config rather than in a global is what lets each
+/// connection answer `SHOW`/`SET` and the session-identity functions with its own
+/// values while every connection shares one set of catalog tables and views.
 #[derive(Clone, Debug)]
 pub struct ClientOpts {
     pub application_name: String,
@@ -176,6 +190,9 @@ pub struct ClientOpts {
 pub const DEFAULT_SESSION_USER: &str = "postgres";
 
 impl Default for ClientOpts {
+    /// The GUC values a connection starts with before its host overrides any:
+    /// `PostgreSQL`'s own defaults for `DateStyle` and `search_path`, an empty
+    /// application name, and [`DEFAULT_SESSION_USER`] as the role.
     fn default() -> Self {
         Self {
             application_name: String::new(),
@@ -191,8 +208,12 @@ impl Default for ClientOpts {
 ///
 /// `ctx` must be the connection's own context - a clone of the shared base, not
 /// the base itself - or every connection sharing that context reports the last
-/// role written. Returns an error if the context carries no [`ClientOpts`],
-/// which means it was not built by this crate.
+/// role written.
+///
+/// # Errors
+///
+/// Returns an error if `ctx` carries no [`ClientOpts`] config extension, which
+/// means it was not built by this crate and has nowhere to record the role.
 pub fn set_session_user(ctx: &SessionContext, user: &str) -> datafusion::error::Result<()> {
     let state_ref = ctx.state_ref();
     let mut state = state_ref.write();
@@ -203,7 +224,8 @@ pub fn set_session_user(ctx: &SessionContext, user: &str) -> datafusion::error::
         .get_mut::<ClientOpts>()
         .ok_or_else(|| {
             DataFusionError::Execution(
-                "this session has no ClientOpts, so the session user cannot be recorded".to_string(),
+                "this session has no ClientOpts, so the session user cannot be recorded"
+                    .to_string(),
             )
         })?;
     opts.session_user = user.to_string();
@@ -211,22 +233,40 @@ pub fn set_session_user(ctx: &SessionContext, user: &str) -> datafusion::error::
 }
 
 impl ConfigExtension for ClientOpts {
+    /// The namespace these options are addressed under, so a client writes
+    /// `SET pg_catalog.application_name = ...`.
     const PREFIX: &'static str = "pg_catalog";
 }
 
 impl ExtensionOptions for ClientOpts {
+    /// Downcast handle `DataFusion` uses to recover the concrete options type
+    /// from the type-erased extension slot.
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
+    /// Mutable counterpart of `as_any`, used by [`set_session_user`] to write a
+    /// connection's role.
     fn as_any_mut(&mut self) -> &mut dyn std::any::Any {
         self
     }
+    /// Deep-copy the options, which is how a per-connection context gets its own
+    /// values instead of sharing the base context's.
     fn cloned(&self) -> Box<dyn ExtensionOptions> {
         Box::new(self.clone())
     }
 
+    /// Apply one `SET pg_catalog.<key> = <value>` statement.
+    ///
+    /// `extra_float_digits` is accepted and ignored: clients set it routinely at
+    /// connection time and it does not affect how this crate formats results, so
+    /// rejecting it would fail those connections for nothing.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for any other key, since an unrecognized GUC would
+    /// otherwise be silently dropped and read back with the wrong value.
     fn set(&mut self, key: &str, value: &str) -> datafusion::error::Result<()> {
-        log::debug!("set key {:?}", key);
+        log::debug!("set key {key:?}");
         match key {
             "application_name" => {
                 self.application_name = value.to_string();
@@ -250,6 +290,8 @@ impl ExtensionOptions for ClientOpts {
         }
     }
 
+    /// Report every option and its current value, which is what `SHOW ALL` and
+    /// `SHOW pg_catalog.<key>` read.
     fn entries(&self) -> Vec<ConfigEntry> {
         vec![
             ConfigEntry {
@@ -276,6 +318,12 @@ impl ExtensionOptions for ClientOpts {
     }
 }
 
+/// One table or view as the YAML catalog declares it: its column name -> `PostgreSQL`
+/// type map, its optional rows, and - for a view - the body it is defined by.
+///
+/// `pg_types` exists next to `schema` because the exporter records a few columns
+/// (the `bytea` ones) under a wider type in `schema` than they really have; see
+/// [`build_table`].
 #[derive(Debug, Deserialize)]
 struct TableDef {
     #[serde(rename = "type", default)]
@@ -288,9 +336,15 @@ struct TableDef {
     view_sql: Option<String>,
 }
 
+/// A whole YAML catalog document, nested catalog -> schema -> table -> definition.
 #[derive(Debug, Deserialize)]
 struct YamlSchema(HashMap<String, HashMap<String, HashMap<String, TableDef>>>);
 
+/// A catalog table after its declaration has been turned into Arrow: the Arrow
+/// schema, the materialized rows, and the view body if it is a view.
+///
+/// The same shape is produced by both loaders (YAML and the embedded Arrow IPC
+/// artifact), so registration downstream does not care which one ran.
 #[derive(Clone)]
 struct ParsedTable {
     schema: SchemaRef,
@@ -299,6 +353,8 @@ struct ParsedTable {
     is_view: bool,
 }
 
+/// A declared view queued for `CREATE OR REPLACE VIEW`, held until every base
+/// table is registered so the body has something to resolve against.
 #[derive(Clone)]
 struct ViewToRegister {
     catalog: String,
@@ -307,17 +363,17 @@ struct ViewToRegister {
     sql: String,
 }
 
-// Declared views the server serves as `CREATE VIEW`s, re-derived from the base
-// tables on every query. Every view the embedded catalog declares is listed, so
-// no view is served as a frozen snapshot.
-//
-// A listed view whose body fails to plan FAILS STARTUP naming the view; it is
-// not substituted by anything. Adding a view here therefore means committing to
-// a body that plans -- see `create_registered_views`.
-//
-// A declared view left off this list would be registered as a MemTable holding
-// its snapshot rows, which is not view semantics at all. Nothing is off the list
-// today, and nothing should be.
+/// Declared views the server serves as `CREATE VIEW`s, re-derived from the base
+/// tables on every query. Every view the embedded catalog declares is listed, so
+/// no view is served as a frozen snapshot.
+///
+/// A listed view whose body fails to plan FAILS STARTUP naming the view; it is
+/// not substituted by anything. Adding a view here therefore means committing to
+/// a body that plans -- see [`create_registered_views`].
+///
+/// A declared view left off this list would be registered as a `MemTable` holding
+/// its snapshot rows, which is not view semantics at all. Nothing is off the list
+/// today, and nothing should be.
 const VIEWS_TO_REGISTER: &[(&str, &str)] = &[
     ("pg_catalog", "pg_views"),
     ("pg_catalog", "pg_tables"),
@@ -494,16 +550,23 @@ fn should_attempt_as_view(schema_name: &str, table_name: &str, is_view: bool) ->
             .any(|(schema, table)| *schema == schema_name && *table == table_name)
 }
 
+/// Wrap `ident` in double quotes for use in generated SQL, doubling any quote it
+/// contains so a catalog name can never break out of the identifier.
 fn quote_identifier(ident: &str) -> String {
     let escaped = ident.replace('"', "\"\"");
     format!("\"{escaped}\"")
 }
 
+/// Wrap `value` in single quotes for use in generated SQL, doubling any quote it
+/// contains so the literal cannot terminate early.
 fn quote_literal(value: &str) -> String {
     let escaped = value.replace('\'', "''");
     format!("'{escaped}'")
 }
 
+/// Render `catalog.schema.table` with every part quoted, the form a generated
+/// `CREATE VIEW` needs so the object lands in its own schema regardless of the
+/// session's current default.
 fn format_fully_qualified_name(catalog: &str, schema: &str, table: &str) -> String {
     format!(
         "{}.{}.{}",
@@ -513,12 +576,24 @@ fn format_fully_qualified_name(catalog: &str, schema: &str, table: &str) -> Stri
     )
 }
 
+/// Strip surrounding whitespace and the trailing statement terminator from a
+/// declared view body, so it can be spliced after `CREATE OR REPLACE VIEW ... AS`
+/// without leaving a stray semicolon mid-statement.
 fn normalize_view_sql(sql: &str) -> String {
     let trimmed = sql.trim();
     let without_semicolon = trimmed.trim_end_matches(';').trim();
     without_semicolon.to_string()
 }
 
+/// Point `ctx` at `schema` for unqualified name resolution.
+///
+/// View bodies are planned under `pg_catalog` regardless of which schema the view
+/// itself lives in, so view creation and replay both move this setting and put it
+/// back afterwards.
+///
+/// # Errors
+///
+/// Returns an error if the `SET` statement fails to plan or execute.
 async fn set_default_schema(ctx: &SessionContext, schema: &str) -> datafusion::error::Result<()> {
     let stmt = format!(
         "SET datafusion.catalog.default_schema = {}",
@@ -528,6 +603,16 @@ async fn set_default_schema(ctx: &SessionContext, schema: &str) -> datafusion::e
     Ok(())
 }
 
+/// Return `batch` with every column named in `name_map` renamed to its mapped
+/// name, reusing the original column data.
+///
+/// Used to undo the aliases the rewrite passes introduce, so the client sees the
+/// column names its own query asked for.
+///
+/// # Panics
+///
+/// Panics if the renamed schema does not accept the original columns, which
+/// cannot happen here: only names change, never the column types or count.
 fn rename_columns(batch: &RecordBatch, name_map: &HashMap<String, String>) -> RecordBatch {
     let new_fields = batch
         .schema()
@@ -536,8 +621,7 @@ fn rename_columns(batch: &RecordBatch, name_map: &HashMap<String, String>) -> Re
         .map(|old_field| {
             let new_name = name_map
                 .get(old_field.name())
-                .map(|s| s.as_str())
-                .unwrap_or_else(|| old_field.name().as_str());
+                .map_or_else(|| old_field.name().as_str(), std::string::String::as_str);
             Field::new(
                 new_name,
                 old_field.data_type().clone(),
@@ -551,7 +635,7 @@ fn rename_columns(batch: &RecordBatch, name_map: &HashMap<String, String>) -> Re
 }
 
 /// Remove system columns from `batches` if they were not explicitly referenced
-/// in the original SQL statement. PostgreSQL exposes virtual system columns
+/// in the original SQL statement. `PostgreSQL` exposes virtual system columns
 /// like `xmin` and `ctid` which are hidden from `SELECT *` results. We emulate
 /// this behaviour by checking if the SQL contains the column name. If not,
 /// the column is pruned from the result batches and schema.
@@ -589,38 +673,58 @@ fn remove_virtual_system_columns(
     (new_batches, new_schema)
 }
 
-pub fn print_params(params: &Vec<Option<Bytes>>) {
+/// Log each bound statement parameter at debug level.
+///
+/// The wire protocol delivers parameters as opaque big-endian bytes, so this
+/// guesses a readable rendering from the width - 4 bytes as `u32`, 8 as `u64` -
+/// and falls back to the raw bytes. It is a debugging aid only: nothing here
+/// feeds the values that are actually bound to the query.
+pub fn print_params(params: &[Option<Bytes>]) {
     for (i, param) in params.iter().enumerate() {
-        match param {
-            Some(bytes) => match bytes.len() {
-                4 => {
-                    let v = u32::from_be_bytes(bytes[..4].try_into().unwrap());
-                    log::debug!("param[{}] as u32: {}", i, v);
-                }
-                8 => {
-                    let v = u64::from_be_bytes(bytes[..8].try_into().unwrap());
-                    log::debug!("param[{}] as u64: {}", i, v);
-                }
-                _ => {
-                    log::debug!(
-                        "param[{}] raw bytes ({} bytes): {:?}",
-                        i,
-                        bytes.len(),
-                        bytes
-                    );
-                }
-            },
-            None => {
-                log::debug!("param[{}] is NULL", i);
-            }
+        let Some(bytes) = param else {
+            log::debug!("param[{i}] is NULL");
+            continue;
+        };
+        if let Ok(four) = <[u8; 4]>::try_from(&bytes[..]) {
+            let v = u32::from_be_bytes(four);
+            log::debug!("param[{i}] as u32: {v}");
+        } else if let Ok(eight) = <[u8; 8]>::try_from(&bytes[..]) {
+            let v = u64::from_be_bytes(eight);
+            log::debug!("param[{i}] as u64: {v}");
+        } else {
+            log::debug!(
+                "param[{}] raw bytes ({} bytes): {:?}",
+                i,
+                bytes.len(),
+                bytes
+            );
         }
     }
 }
 
 /// Run the input SQL through all available rewrite passes and return
 /// the transformed query together with any alias mappings produced.
+///
+/// The alias map is `generated alias -> original column name`: one pass names the
+/// unnamed top-level projections so later passes can address them, and the caller
+/// uses the map to put the client's own column names back on the result.
+///
+/// The pass order is load-bearing; each pass that depends on another running
+/// first says so at its call site below.
+///
+/// # Errors
+///
+/// Returns an error if a pass cannot parse the SQL it is handed - the passes
+/// parse with sqlparser's `PostgreSQL` dialect, so a statement that dialect
+/// rejects fails here rather than reaching the planner.
+///
+/// # Panics
+///
+/// Panics if the array-subquery or brace-array-literal pass fails, which means
+/// the SQL those two passes were handed no longer parses even though the passes
+/// before them accepted it.
 pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<String, String>)> {
-    let sql = replace_set_command_with_namespace(&sql)?;
+    let sql = replace_set_command_with_namespace(sql)?;
     let sql = strip_default_collate(&sql)?;
     let sql = rewrite_time_zone_utc(&sql)?;
     let sql = rewrite_regoper_cast(&sql)?;
@@ -679,10 +783,10 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     let (sql, aliases) = alias_unnamed_columns(&sql)?;
     let sql = rewrite_subquery_as_cte(&sql);
 
-    log::debug!("before group by {}", sql);
+    log::debug!("before group by {sql}");
     let sql = rewrite_group_by_for_any(&sql);
 
-    return Ok((sql, aliases));
+    Ok((sql, aliases))
 }
 
 /// Plan `sql` on `ctx`, run it, and rename the result columns per `aliases`.
@@ -709,8 +813,7 @@ async fn plan_collect_and_rename(
         .map(|f| {
             let new_name = aliases
                 .get(f.name())
-                .map(|s| s.as_str())
-                .unwrap_or_else(|| f.name().as_str());
+                .map_or_else(|| f.name().as_str(), std::string::String::as_str);
             Field::new(new_name, f.data_type().clone(), f.is_nullable())
         })
         .collect::<Vec<_>>();
@@ -724,13 +827,34 @@ async fn plan_collect_and_rename(
     Ok((results, schema))
 }
 
+/// Rewrite a client's `PostgreSQL` statement into SQL `DataFusion` can plan, run
+/// it on `ctx`, and return the result batches with the schema the client expects.
+///
+/// `param_values` are the raw wire-format bytes of the bound parameters and
+/// `param_types` their declared `PostgreSQL` types; both must be present for any
+/// binding to happen, since a value cannot be decoded without its type. The
+/// result has `PostgreSQL`'s virtual system columns (`xmin`, `ctid`, ...) pruned
+/// unless the statement named one, matching what a real server returns for
+/// `SELECT *`.
+///
+/// # Errors
+///
+/// Returns an error if a rewrite pass cannot parse the statement, or if planning,
+/// parameter binding, or execution fails.
+///
+/// # Panics
+///
+/// Panics if a bound parameter cannot be decoded as its declared type: a
+/// fixed-width integer type whose value is not that many bytes wide, a text type
+/// whose bytes are not UTF-8, or a `PostgreSQL` type this crate has no mapping
+/// for yet. These are protocol-level mismatches from the client, not query errors.
 pub async fn rewrite_and_execute_sql(
     ctx: &SessionContext,
     sql: &str,
     param_values: Option<Vec<Option<Bytes>>>,
     param_types: Option<Vec<Type>>,
 ) -> datafusion::error::Result<(Vec<RecordBatch>, Arc<Schema>)> {
-    log::debug!("input sql {:?}", sql);
+    log::debug!("input sql {sql:?}");
 
     // A correlated scalar subquery with `LIMIT 1` decorrelates into a plan that
     // limits the whole subquery relation rather than each outer row, silently
@@ -764,60 +888,59 @@ pub async fn rewrite_and_execute_sql(
     // EXISTS it emits stays a native WHERE predicate.
     let sql = rewrite_tuple_in_subquery_to_exists(&sql)?;
 
-    let scalars: Option<Vec<ScalarValue>> =
-        if let (Some(params), Some(types)) = (param_values, param_types) {
-            log::debug!("params {:?}", params);
-            print_params(&params);
+    let scalars: Option<Vec<ScalarValue>> = if let (Some(params), Some(types)) =
+        (param_values, param_types)
+    {
+        log::debug!("params {params:?}");
+        print_params(&params);
 
-            let mut scalars = Vec::new();
-            for (param, typ) in params.into_iter().zip(types.into_iter()) {
-                let value = match (param, typ) {
-                    (Some(bytes), Type::INT2) => {
-                        let v = i16::from_be_bytes(bytes[..].try_into().unwrap());
-                        ScalarValue::Int16(Some(v))
-                    }
-                    (Some(bytes), Type::INT8) => {
-                        let v = i64::from_be_bytes(bytes[..].try_into().unwrap());
-                        ScalarValue::Int64(Some(v))
-                    }
-                    (Some(bytes), Type::INT4) => {
-                        let v = i32::from_be_bytes(bytes[..].try_into().unwrap());
-                        ScalarValue::Int32(Some(v))
-                    }
-                    (Some(bytes), Type::OID) => {
-                        // OID values are 32-bit unsigned integers. We map them to
-                        // BIGINT to align with `rewrite_oid_cast`, which rewrites
-                        // `::oid` casts on parameters to BIGINT.
-                        let v = u32::from_be_bytes(bytes[..].try_into().unwrap());
-                        ScalarValue::Int64(Some(v as i64))
-                    }
-                    (Some(bytes), Type::VARCHAR)
-                    | (Some(bytes), Type::TEXT)
-                    | (Some(bytes), Type::BPCHAR)
-                    | (Some(bytes), Type::NAME)
-                    | (Some(bytes), Type::UNKNOWN) => {
-                        let s = String::from_utf8(bytes.to_vec()).unwrap();
-                        ScalarValue::Utf8(Some(s))
-                    }
-                    (None, Type::INT2) => ScalarValue::Int16(None),
-                    (None, Type::INT8) => ScalarValue::Int64(None),
-                    (None, Type::INT4) => ScalarValue::Int32(None),
-                    (None, Type::OID) => ScalarValue::Int64(None),
-                    (None, Type::VARCHAR)
-                    | (None, Type::TEXT)
-                    | (None, Type::BPCHAR)
-                    | (None, Type::NAME)
-                    | (None, Type::UNKNOWN) => ScalarValue::Utf8(None),
-                    (some, other_type) => {
-                        panic!("unsupported param {:?} type {:?}", some, other_type);
-                    }
-                };
-                scalars.push(value);
-            }
-            Some(scalars)
-        } else {
-            None
-        };
+        let mut scalars = Vec::new();
+        for (param, typ) in params.into_iter().zip(types) {
+            let value = match (param, typ) {
+                (Some(bytes), Type::INT2) => {
+                    let v = i16::from_be_bytes(bytes[..].try_into().unwrap());
+                    ScalarValue::Int16(Some(v))
+                }
+                (Some(bytes), Type::INT8) => {
+                    let v = i64::from_be_bytes(bytes[..].try_into().unwrap());
+                    ScalarValue::Int64(Some(v))
+                }
+                (Some(bytes), Type::INT4) => {
+                    let v = i32::from_be_bytes(bytes[..].try_into().unwrap());
+                    ScalarValue::Int32(Some(v))
+                }
+                (Some(bytes), Type::OID) => {
+                    // OID values are 32-bit unsigned integers. We map them to
+                    // BIGINT to align with `rewrite_oid_cast`, which rewrites
+                    // `::oid` casts on parameters to BIGINT.
+                    let v = u32::from_be_bytes(bytes[..].try_into().unwrap());
+                    ScalarValue::Int64(Some(i64::from(v)))
+                }
+                (
+                    Some(bytes),
+                    Type::VARCHAR | Type::TEXT | Type::BPCHAR | Type::NAME | Type::UNKNOWN,
+                ) => {
+                    let s = String::from_utf8(bytes.to_vec()).unwrap();
+                    ScalarValue::Utf8(Some(s))
+                }
+                (None, Type::INT2) => ScalarValue::Int16(None),
+                // OID binds as Int64 for the same reason the non-NULL arm above
+                // does, so a NULL oid must carry the same type.
+                (None, Type::INT8 | Type::OID) => ScalarValue::Int64(None),
+                (None, Type::INT4) => ScalarValue::Int32(None),
+                (None, Type::VARCHAR | Type::TEXT | Type::BPCHAR | Type::NAME | Type::UNKNOWN) => {
+                    ScalarValue::Utf8(None)
+                }
+                (param_bytes, unsupported_type) => {
+                    panic!("unsupported param {param_bytes:?} type {unsupported_type:?}");
+                }
+            };
+            scalars.push(value);
+        }
+        Some(scalars)
+    } else {
+        None
+    };
 
     let (results, schema) = plan_collect_and_rename(ctx, &sql, scalars, &aliases).await?;
 
@@ -826,6 +949,16 @@ pub async fn rewrite_and_execute_sql(
     Ok((results, schema))
 }
 
+/// Run a client statement through [`rewrite_and_execute_sql`], logging the
+/// statement, its parameters and the error when it fails.
+///
+/// This is the entry point a server front end should call: a failure here is
+/// something a user typed, and the rewritten SQL alone is rarely enough to see
+/// what went wrong.
+///
+/// # Errors
+///
+/// Returns the error from [`rewrite_and_execute_sql`] unchanged, after logging it.
 pub async fn execute_sql(
     ctx: &SessionContext,
     sql: &str,
@@ -836,14 +969,25 @@ pub async fn execute_sql(
     match rewrite_and_execute_sql(ctx, sql, param_values, param_types).await {
         Ok(v) => Ok(v),
         Err(e) => {
-            log::error!("exec_error query: {:?}", sql);
-            log::error!("exec_error params: {:?}", params_for_log);
-            log::error!("exec_error error: {:?}", e);
+            log::error!("exec_error query: {sql:?}");
+            log::error!("exec_error params: {params_for_log:?}");
+            log::error!("exec_error error: {e:?}");
             Err(e)
         }
     }
 }
 
+/// Load the catalog definition selected by `schema_path`.
+///
+/// `None` or an empty string selects the embedded Arrow IPC artifact; otherwise
+/// the path may be a YAML file, a directory of YAML files, or a zip of them.
+///
+/// # Panics
+///
+/// Panics if `schema_path` names something that is neither a file nor a
+/// directory, or if the selected catalog cannot be read or parsed. The catalog is
+/// what every query resolves against, so a session built on a half-loaded one
+/// would answer wrongly rather than fail.
 fn parse_schema(
     schema_path: Option<&str>,
 ) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
@@ -860,10 +1004,7 @@ fn parse_schema(
         } else if path.is_dir() {
             parse_schema_dir(schema_path)
         } else {
-            panic!(
-                "schema_path {} is neither a file nor a directory",
-                schema_path
-            );
+            panic!("schema_path {schema_path} is neither a file nor a directory");
         }
     } else {
         // No path -> embedded catalog, loaded from the Arrow IPC artifact. This
@@ -873,9 +1014,26 @@ fn parse_schema(
     }
 }
 
+/// Parse one YAML catalog file at `path` into a schema map.
+///
+/// # Panics
+///
+/// Panics if the file cannot be read or does not parse as a catalog document.
 fn parse_schema_file(path: &str) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
     let contents = fs::read_to_string(path).expect("Failed to read schema file");
     parse_schema_contents(&contents)
+}
+
+/// Whether the zip entry named `entry_name` carries the file extension
+/// `extension` (written without its dot), compared case-insensitively.
+///
+/// Archive members are matched on their extension rather than on a trailing
+/// substring so a name that merely ends in those letters is not mistaken for one
+/// of ours.
+fn has_extension(entry_name: &str, extension: &str) -> bool {
+    Path::new(entry_name)
+        .extension()
+        .is_some_and(|found| found.eq_ignore_ascii_case(extension))
 }
 
 /// Parse every `.yaml` entry of a zip archive into a merged schema map.
@@ -883,6 +1041,11 @@ fn parse_schema_file(path: &str) -> HashMap<String, HashMap<String, HashMap<Stri
 /// Reads each YAML member through `parse_schema_contents` and merges the
 /// results with `merge_schema_maps`. Non-`.yaml` entries are skipped. The
 /// archive may come from any seekable reader (a file or an in-memory buffer).
+///
+/// # Panics
+///
+/// Panics if the archive cannot be opened, an entry cannot be read, or a YAML
+/// member does not parse as a catalog document.
 fn parse_schema_zip_reader<R: std::io::Read + std::io::Seek>(
     reader: R,
 ) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
@@ -890,7 +1053,7 @@ fn parse_schema_zip_reader<R: std::io::Read + std::io::Seek>(
     let mut all = HashMap::new();
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i).expect("Invalid zip entry");
-        if !entry.name().ends_with(".yaml") {
+        if !has_extension(entry.name(), "yaml") {
             continue;
         }
         let mut contents = String::new();
@@ -904,12 +1067,21 @@ fn parse_schema_zip_reader<R: std::io::Read + std::io::Seek>(
 }
 
 /// Parse the YAML schema zip located at `path` into a merged schema map.
+///
+/// # Panics
+///
+/// Panics if the file cannot be opened, or if the archive or any YAML member
+/// inside it cannot be parsed.
 fn parse_schema_zip(path: &str) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
     let file = fs::File::open(path).expect("Failed to open schema zip file");
     parse_schema_zip_reader(file)
 }
 
 /// Parse an in-memory YAML schema zip into a merged schema map.
+///
+/// # Panics
+///
+/// Panics if the archive or any YAML member inside it cannot be parsed.
 fn parse_schema_zip_bytes(
     bytes: &[u8],
 ) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
@@ -923,6 +1095,12 @@ fn parse_schema_zip_bytes(
 /// fast-loading counterpart to the YAML zip: reading it back skips YAML parsing
 /// and the JSON->Arrow conversion entirely (those two dominate cold start -
 /// ~1.85s vs ~9ms for everything else).
+///
+/// # Panics
+///
+/// Panics if writing the IPC streams or the zip fails. This runs only in the
+/// `gen_schema_ipc` tool, where a partially written artifact is worse than a
+/// failed run.
 fn schemas_to_ipc_zip(
     schemas: &HashMap<String, HashMap<String, HashMap<String, ParsedTable>>>,
 ) -> Vec<u8> {
@@ -982,6 +1160,12 @@ fn schemas_to_ipc_zip(
 
 /// Load the catalog from a zip of per-table Arrow IPC streams (the fast path for
 /// the embedded artifact). The inverse of [`schemas_to_ipc_zip`].
+///
+/// # Panics
+///
+/// Panics if the archive cannot be read, an entry is not a readable IPC stream,
+/// or a stream is missing the `pgcat.catalog` / `pgcat.schema` / `pgcat.table`
+/// metadata that says where its table belongs.
 fn parse_schema_ipc_bytes(
     bytes: &[u8],
 ) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
@@ -992,7 +1176,7 @@ fn parse_schema_ipc_bytes(
     let mut all: HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> = HashMap::new();
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i).expect("Invalid zip entry");
-        if !entry.name().ends_with(".arrow") {
+        if !has_extension(entry.name(), "arrow") {
             continue;
         }
         let mut buf: Vec<u8> = Vec::new();
@@ -1007,7 +1191,7 @@ fn parse_schema_ipc_bytes(
             .expect("missing catalog md");
         let schema_name = md.get("pgcat.schema").cloned().expect("missing schema md");
         let table = md.get("pgcat.table").cloned().expect("missing table md");
-        let is_view = md.get("pgcat.is_view").map(|v| v == "1").unwrap_or(false);
+        let is_view = md.get("pgcat.is_view").is_some_and(|v| v == "1");
         let view_sql = md.get("pgcat.view_sql").cloned();
 
         // Drop the pgcat.* metadata so the schema matches the YAML path exactly.
@@ -1039,11 +1223,24 @@ fn parse_schema_ipc_bytes(
 /// Build the embedded IPC catalog artifact from the YAML schema zip. Used by the
 /// `gen_schema_ipc` tool to (re)generate `postgres-schema-nightly-ipc.zip`
 /// whenever the YAML catalog changes.
+///
+/// # Panics
+///
+/// Panics if `yaml_zip_bytes` is not a readable zip of parseable catalog YAML, or
+/// if the IPC artifact cannot be written.
+#[must_use]
 pub fn build_ipc_artifact(yaml_zip_bytes: &[u8]) -> Vec<u8> {
     let schemas = parse_schema_zip_bytes(yaml_zip_bytes);
     schemas_to_ipc_zip(&schemas)
 }
 
+/// Parse one YAML catalog document into a schema map, materializing every
+/// declared table's rows into Arrow along the way.
+///
+/// # Panics
+///
+/// Panics if `contents` is not a valid catalog document, or if a declared table's
+/// rows do not fit the schema it declares.
 fn parse_schema_contents(
     contents: &str,
 ) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
@@ -1070,6 +1267,13 @@ fn parse_schema_contents(
         .collect()
 }
 
+/// Parse every `.yaml` file directly inside `dir_path` into one merged schema
+/// map, so a catalog can be split across files by subsystem.
+///
+/// # Panics
+///
+/// Panics if the directory cannot be listed, or if any YAML file in it cannot be
+/// read or parsed.
 fn parse_schema_dir(
     dir_path: &str,
 ) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
@@ -1087,19 +1291,35 @@ fn parse_schema_dir(
     all
 }
 
+/// Merge the catalog map `addition` into `target`, combining them catalog by
+/// catalog and schema by schema.
+///
+/// A table declared in both wins from `addition`, so a later-read file overrides
+/// an earlier one rather than the two being rejected as a conflict.
 fn merge_schema_maps(
     target: &mut HashMap<String, HashMap<String, HashMap<String, ParsedTable>>>,
-    other: HashMap<String, HashMap<String, HashMap<String, ParsedTable>>>,
+    addition: HashMap<String, HashMap<String, HashMap<String, ParsedTable>>>,
 ) {
-    for (catalog, schemas) in other {
-        let catalog_entry = target.entry(catalog).or_insert_with(HashMap::new);
+    for (catalog, schemas) in addition {
+        let catalog_entry = target.entry(catalog).or_default();
         for (schema, tables) in schemas {
-            let schema_entry = catalog_entry.entry(schema).or_insert_with(HashMap::new);
+            let schema_entry = catalog_entry.entry(schema).or_default();
             schema_entry.extend(tables);
         }
     }
 }
 
+/// Turn one declared table into its Arrow schema and rows.
+///
+/// A `bytea` column is taken from `pg_types` rather than `schema`, because the
+/// exporter writes those columns' `schema` entry as text. A `system_catalog`
+/// table additionally gains `PostgreSQL`'s pseudo-columns (`xmin`, `ctid`, ...),
+/// which no dump contains but clients still select by name.
+///
+/// # Panics
+///
+/// Panics if the declared rows cannot be materialized under the declared schema,
+/// which means the catalog data and its column types disagree.
 fn build_table(def: TableDef) -> ParsedTable {
     let TableDef {
         table_type,
@@ -1115,7 +1335,7 @@ fn build_table(def: TableDef) -> ParsedTable {
             let mapped_typ = pg_types
                 .as_ref()
                 .and_then(|m| m.get(col))
-                .map(|s| s.as_str())
+                .map(std::string::String::as_str)
                 .filter(|t| *t == "bytea")
                 .unwrap_or(typ);
             Field::new(col, map_pg_type(mapped_typ), true)
@@ -1143,7 +1363,7 @@ fn build_table(def: TableDef) -> ParsedTable {
         // The pseudo-columns never appear in the YAML rows, so seed each row with
         // the historical constant (value 1) before materializing the batch.
         if is_system_catalog {
-            for row in rows.iter_mut() {
+            for row in &mut rows {
                 for col in system_cols {
                     row.entry(col.to_string())
                         .or_insert(serde_json::Value::from(1));
@@ -1172,12 +1392,16 @@ fn build_table(def: TableDef) -> ParsedTable {
 /// NULL) and converted according to the field's Arrow `DataType`. This is the
 /// single source of truth for turning catalog rows into Arrow data, shared by
 /// the static YAML path ([`build_table`]) and the lazy provider path.
+///
+/// # Errors
+///
+/// Returns an error if the built columns do not form a valid batch under
+/// `schema`. One column is built per field, in order, so this means a field whose
+/// Arrow type the column builders cannot produce values for.
 pub fn rows_to_record_batch(
     schema: &SchemaRef,
     rows: &[BTreeMap<String, serde_json::Value>],
 ) -> Result<RecordBatch, DataFusionError> {
-    use arrow::array::*;
-
     let fields = schema.fields();
     let mut cols: Vec<Vec<serde_json::Value>> = vec![vec![]; fields.len()];
     for row in rows {
@@ -1192,152 +1416,217 @@ pub fn rows_to_record_batch(
 
     let arrays = fields
         .iter()
-        .zip(cols.into_iter())
-        .map(|(field, col_data)| {
-            let array: ArrayRef = match field.data_type() {
-                DataType::Utf8 => Arc::new(StringArray::from(
-                    col_data
-                        .into_iter()
-                        .map(|v| v.as_str().map(|s| s.to_string()))
-                        .collect::<Vec<_>>(),
-                )),
-                DataType::Int32 => Arc::new(Int32Array::from(
-                    col_data
-                        .into_iter()
-                        .map(|v| v.as_i64().map(|i| i as i32))
-                        .collect::<Vec<_>>(),
-                )),
-                DataType::Int64 => Arc::new(Int64Array::from(
-                    col_data.into_iter().map(|v| v.as_i64()).collect::<Vec<_>>(),
-                )),
-                // `as_f64` accepts both integer and float JSON numbers, so a row
-                // written as `json!(0)` or `json!(410.0)` both materialize here.
-                DataType::Float32 => Arc::new(Float32Array::from(
-                    col_data
-                        .into_iter()
-                        .map(|v| v.as_f64().map(|f| f as f32))
-                        .collect::<Vec<_>>(),
-                )),
-                DataType::Float64 => Arc::new(Float64Array::from(
-                    col_data.into_iter().map(|v| v.as_f64()).collect::<Vec<_>>(),
-                )),
-                DataType::Boolean => Arc::new(BooleanArray::from(
-                    col_data
-                        .into_iter()
-                        .map(|v| v.as_bool())
-                        .collect::<Vec<_>>(),
-                )),
-                DataType::Binary => {
-                    let mut builder = BinaryBuilder::new();
-                    for v in col_data {
-                        match v.as_str() {
-                            Some(s) => builder.append_value(s.as_bytes()),
-                            None => builder.append_null(),
-                        }
-                    }
-                    Arc::new(builder.finish())
-                }
-                DataType::List(inner) if inner.data_type() == &DataType::Utf8 => {
-                    let mut builder = ListBuilder::new(StringBuilder::new());
-                    for v in col_data {
-                        if let Some(items) = v.as_array() {
-                            for item in items {
-                                match item.as_str() {
-                                    Some(s) => builder.values().append_value(s),
-                                    None => builder.values().append_null(),
-                                }
-                            }
-                            builder.append(true);
-                        } else if v.is_null() {
-                            builder.append(false);
-                        } else {
-                            builder.values().append_value(v.to_string());
-                            builder.append(true);
-                        }
-                    }
-                    Arc::new(builder.finish())
-                }
-                DataType::List(inner) if inner.data_type() == &DataType::Int64 => {
-                    let mut builder = ListBuilder::new(Int64Builder::new());
-                    for v in col_data {
-                        if let Some(items) = v.as_array() {
-                            for item in items {
-                                match item.as_i64() {
-                                    Some(num) => builder.values().append_value(num),
-                                    None => builder.values().append_null(),
-                                }
-                            }
-                            builder.append(true);
-                        } else if let Some(s) = v.as_str() {
-                            for part in s.split_whitespace() {
-                                match part.parse::<i64>() {
-                                    Ok(num) => builder.values().append_value(num),
-                                    Err(_) => builder.values().append_null(),
-                                }
-                            }
-                            builder.append(true);
-                        } else if v.is_null() {
-                            builder.append(false);
-                        } else {
-                            builder.append(false);
-                        }
-                    }
-                    Arc::new(builder.finish())
-                }
-                DataType::List(inner) if inner.data_type() == &DataType::Int32 => {
-                    let mut builder = ListBuilder::new(Int32Builder::new());
-                    for v in col_data {
-                        if let Some(items) = v.as_array() {
-                            for item in items {
-                                match item.as_i64() {
-                                    Some(num) => builder.values().append_value(num as i32),
-                                    None => builder.values().append_null(),
-                                }
-                            }
-                            builder.append(true);
-                        } else if let Some(s) = v.as_str() {
-                            for part in s.split_whitespace() {
-                                match part.parse::<i32>() {
-                                    Ok(num) => builder.values().append_value(num),
-                                    Err(_) => builder.values().append_null(),
-                                }
-                            }
-                            builder.append(true);
-                        } else if v.is_null() {
-                            builder.append(false);
-                        } else {
-                            builder.append(false);
-                        }
-                    }
-                    Arc::new(builder.finish())
-                }
-
-                _ => Arc::new(StringArray::from(
-                    col_data
-                        .into_iter()
-                        .map(|v| Some(v.to_string()))
-                        .collect::<Vec<_>>(),
-                )),
-            };
-            array
-        })
+        .zip(cols)
+        .map(|(field, column_values)| json_values_to_array(field.data_type(), column_values))
         .collect::<Vec<_>>();
 
     RecordBatch::try_new(schema.clone(), arrays).map_err(DataFusionError::from)
 }
 
-async fn register_catalogs_from_schemas(
+/// Convert one column's JSON values into an Arrow array of `data_type`.
+///
+/// A value that does not fit the column's type becomes NULL instead of failing
+/// the whole batch: these rows come from the checked-in catalog and from the lazy
+/// catalog's row builders, where a single odd cell must not take an entire
+/// catalog table out of service. A `data_type` with no dedicated arm falls back to
+/// the value's JSON text, which is what this catalog's remaining columns hold.
+fn json_values_to_array(data_type: &DataType, values: Vec<serde_json::Value>) -> ArrayRef {
+    use arrow::array::{
+        BinaryBuilder, BooleanArray, Float32Array, Float64Array, Int32Array, Int64Array,
+        StringArray,
+    };
+
+    match data_type {
+        DataType::Utf8 => Arc::new(StringArray::from(
+            values
+                .into_iter()
+                .map(|v| v.as_str().map(std::string::ToString::to_string))
+                .collect::<Vec<_>>(),
+        )),
+        DataType::Int32 => Arc::new(Int32Array::from(
+            values.iter().map(json_value_as_i32).collect::<Vec<_>>(),
+        )),
+        DataType::Int64 => Arc::new(Int64Array::from(
+            values.into_iter().map(|v| v.as_i64()).collect::<Vec<_>>(),
+        )),
+        // `as_f64` accepts both integer and float JSON numbers, so a row
+        // written as `json!(0)` or `json!(410.0)` both materialize here.
+        DataType::Float32 => Arc::new(Float32Array::from(
+            values.iter().map(json_value_as_f32).collect::<Vec<_>>(),
+        )),
+        DataType::Float64 => Arc::new(Float64Array::from(
+            values.into_iter().map(|v| v.as_f64()).collect::<Vec<_>>(),
+        )),
+        DataType::Boolean => Arc::new(BooleanArray::from(
+            values.into_iter().map(|v| v.as_bool()).collect::<Vec<_>>(),
+        )),
+        DataType::Binary => {
+            let mut builder = BinaryBuilder::new();
+            for value in values {
+                match value.as_str() {
+                    Some(text) => builder.append_value(text.as_bytes()),
+                    None => builder.append_null(),
+                }
+            }
+            Arc::new(builder.finish())
+        }
+        DataType::List(inner) if inner.data_type() == &DataType::Utf8 => {
+            json_values_to_utf8_list_array(values)
+        }
+        DataType::List(inner) if inner.data_type() == &DataType::Int64 => {
+            json_values_to_int64_list_array(values)
+        }
+        DataType::List(inner) if inner.data_type() == &DataType::Int32 => {
+            json_values_to_int32_list_array(values)
+        }
+        _ => Arc::new(StringArray::from(
+            values
+                .into_iter()
+                .map(|v| Some(v.to_string()))
+                .collect::<Vec<_>>(),
+        )),
+    }
+}
+
+/// A JSON value as an `i32`, or `None` when it is not a number or does not fit
+/// `PostgreSQL`'s 32-bit integer range.
+///
+/// Every int4 the catalog holds (oids, attribute numbers, type lengths) is inside
+/// that range, so an out-of-range value means the catalog data is wrong; NULL says
+/// so, where a wrapping cast would hand out a different, plausible-looking number.
+fn json_value_as_i32(value: &serde_json::Value) -> Option<i32> {
+    value.as_i64().and_then(|number| i32::try_from(number).ok())
+}
+
+/// A JSON value as an `f32`, or `None` when it is not a number.
+///
+/// `serde_json` parses every number as `f64`, so a `float4` column has to narrow
+/// here. The narrowing is the column's declared precision rather than a loss the
+/// caller could avoid: the value is one `PostgreSQL` itself stores as a float4.
+#[allow(clippy::cast_possible_truncation)]
+fn json_value_as_f32(value: &serde_json::Value) -> Option<f32> {
+    value.as_f64().map(|number| number as f32)
+}
+
+/// Build a `List<Utf8>` column from one column's JSON values.
+///
+/// A JSON array becomes a list of its elements, a JSON null becomes a NULL list,
+/// and any other scalar becomes a one-element list holding its JSON text - the
+/// form a text-array catalog column takes when the dump wrote a bare value.
+fn json_values_to_utf8_list_array(values: Vec<serde_json::Value>) -> ArrayRef {
+    use arrow::array::{ListBuilder, StringBuilder};
+
+    let mut builder = ListBuilder::new(StringBuilder::new());
+    for value in values {
+        if let Some(items) = value.as_array() {
+            for item in items {
+                match item.as_str() {
+                    Some(text) => builder.values().append_value(text),
+                    None => builder.values().append_null(),
+                }
+            }
+            builder.append(true);
+        } else if value.is_null() {
+            builder.append(false);
+        } else {
+            builder.values().append_value(value.to_string());
+            builder.append(true);
+        }
+    }
+    Arc::new(builder.finish())
+}
+
+/// Build a `List<Int64>` column from one column's JSON values.
+///
+/// A JSON array becomes a list of its elements. A string is read as a
+/// whitespace-separated vector, which is how `PostgreSQL` renders `int2vector` /
+/// `oidvector` columns such as `pg_index.indkey`. Anything else - a JSON null or a
+/// scalar that is not an array or a string - becomes a NULL list.
+fn json_values_to_int64_list_array(values: Vec<serde_json::Value>) -> ArrayRef {
+    use arrow::array::{Int64Builder, ListBuilder};
+
+    let mut builder = ListBuilder::new(Int64Builder::new());
+    for value in values {
+        if let Some(items) = value.as_array() {
+            for item in items {
+                match item.as_i64() {
+                    Some(number) => builder.values().append_value(number),
+                    None => builder.values().append_null(),
+                }
+            }
+            builder.append(true);
+        } else if let Some(text) = value.as_str() {
+            for part in text.split_whitespace() {
+                match part.parse::<i64>() {
+                    Ok(number) => builder.values().append_value(number),
+                    Err(_) => builder.values().append_null(),
+                }
+            }
+            builder.append(true);
+        } else {
+            builder.append(false);
+        }
+    }
+    Arc::new(builder.finish())
+}
+
+/// Build a `List<Int32>` column from one column's JSON values.
+///
+/// The `List<Int64>` rules apply (see [`json_values_to_int64_list_array`]), with
+/// each element additionally range-checked by [`json_value_as_i32`].
+fn json_values_to_int32_list_array(values: Vec<serde_json::Value>) -> ArrayRef {
+    use arrow::array::{Int32Builder, ListBuilder};
+
+    let mut builder = ListBuilder::new(Int32Builder::new());
+    for value in values {
+        if let Some(items) = value.as_array() {
+            for item in items {
+                match json_value_as_i32(item) {
+                    Some(number) => builder.values().append_value(number),
+                    None => builder.values().append_null(),
+                }
+            }
+            builder.append(true);
+        } else if let Some(text) = value.as_str() {
+            for part in text.split_whitespace() {
+                match part.parse::<i32>() {
+                    Ok(number) => builder.values().append_value(number),
+                    Err(_) => builder.values().append_null(),
+                }
+            }
+            builder.append(true);
+        } else {
+            builder.append(false);
+        }
+    }
+    Arc::new(builder.finish())
+}
+
+/// Register every parsed table on `ctx` and return the declared views, which the
+/// caller creates once all base tables exist.
+///
+/// Tables become [`ScanRecordingMemTable`]s writing into `log`, so a caller can
+/// see which catalog tables a query actually scanned. The catalog named `public`
+/// is the database name the catalog was exported under, so its schemas are
+/// registered under `default_catalog` instead - that is what makes the exported
+/// catalog answer under whatever database name this session serves.
+///
+/// # Errors
+///
+/// Returns an error if a table cannot be registered under its schema, which means
+/// two tables in the parsed catalog claim the same name.
+fn register_catalogs_from_schemas(
     ctx: &SessionContext,
     schemas: HashMap<String, HashMap<String, HashMap<String, ParsedTable>>>,
-    default_catalog: String,
-    log: Arc<Mutex<Vec<ScanTrace>>>,
+    default_catalog: &str,
+    log: &Arc<Mutex<Vec<ScanTrace>>>,
 ) -> datafusion::error::Result<Vec<ViewToRegister>, DataFusionError> {
     let mut views_to_register: Vec<ViewToRegister> = Vec::new();
 
     for (catalog_name, schemas) in schemas {
         // "public" is the *database* name we used in exports
         // so we copy the schema/tables under that database to default_catalog/database
-        let current_catalog = if catalog_name.clone() == "public" {
+        let current_catalog = if catalog_name == "public" {
             default_catalog.to_string()
         } else {
             catalog_name.clone()
@@ -1360,11 +1649,7 @@ async fn register_catalogs_from_schemas(
                 };
 
             let _ = catalog_provider.register_schema(&schema_name, schema_provider.clone());
-            log::debug!(
-                "catalog/database: {:?} schema: {:?}",
-                current_catalog,
-                schema_name
-            );
+            log::debug!("catalog/database: {current_catalog:?} schema: {schema_name:?}");
 
             for (table, table_info) in tables {
                 let ParsedTable {
@@ -1386,19 +1671,17 @@ async fn register_catalogs_from_schemas(
                             sql,
                         });
                         continue;
-                    } else {
-                        log::warn!(
-                            "view_sql missing for view {}.{}; registering its snapshot as a table",
-                            schema_name,
-                            table
-                        );
                     }
+                    log::warn!(
+                        "view_sql missing for view {schema_name}.{table}; registering its snapshot as a table"
+                    );
                 }
 
                 let table_name = table.clone();
                 log::debug!("-- table {:?}", &table);
 
-                let base = ScanRecordingMemTable::new(table_name, schema_ref, log.clone(), batches);
+                let base =
+                    ScanRecordingMemTable::new(table_name, schema_ref, Arc::clone(log), batches);
                 let provider: Arc<dyn datafusion::datasource::TableProvider> = Arc::new(base);
                 schema_provider.register_table(table, provider)?;
             }
@@ -1499,8 +1782,7 @@ async fn try_create_view(
     };
     if definition.is_empty() {
         return Err(DataFusionError::Execution(format!(
-            "view_sql for {} is empty",
-            qualified
+            "view_sql for {qualified} is empty"
         )));
     }
 
@@ -1549,9 +1831,9 @@ const VIEW_CREATION_ORDER: &str = include_str!("../pg_catalog_data/view_creation
 fn precomputed_view_order() -> Vec<String> {
     VIEW_CREATION_ORDER
         .lines()
-        .map(|line| line.trim())
+        .map(str::trim)
         .filter(|line| !line.is_empty() && !line.starts_with('#'))
-        .map(|line| line.to_string())
+        .map(std::string::ToString::to_string)
         .collect()
 }
 
@@ -1561,6 +1843,11 @@ fn precomputed_view_order() -> Vec<String> {
 /// This is the discovery path: it ignores the committed order and lets the
 /// retry loop find one, so the result reflects what actually plans rather than
 /// what a dependency analysis predicts.
+///
+/// # Errors
+///
+/// Returns an error if the session cannot be built, which for this path means at
+/// least one declared view body never planned no matter what order was tried.
 pub async fn discover_view_creation_order() -> datafusion::error::Result<Vec<String>> {
     let (_ctx, order) = build_base_session_context_inner(
         None,
@@ -1592,12 +1879,37 @@ fn view_order_key(schema: &str, name: &str) -> String {
     format!("{schema}.{name}")
 }
 
+/// Create every declared view on `ctx` as a real `CREATE OR REPLACE VIEW` and
+/// return the order they were created in.
+///
+/// A view body may reference another view, so `order` decides what is tried when;
+/// see [`ViewOrder`]. Views are created rather than materialized so they re-derive
+/// from the base tables on every query instead of serving snapshot rows.
+///
+/// # Errors
+///
+/// Returns an error if a pass creates nothing while views are still pending: the
+/// remaining bodies cannot be planned at all, which is a bug in this project's own
+/// catalog rather than anything a user did, so startup fails naming every view
+/// involved instead of quietly serving fewer views than the catalog declares.
+///
+/// # Panics
+///
+/// Panics if the process-global statement registry's mutex is poisoned, which
+/// means another thread panicked while recording or replaying view statements.
 async fn create_registered_views(
     ctx: &SessionContext,
     views: Vec<ViewToRegister>,
     log: Arc<Mutex<Vec<ScanTrace>>>,
     order: ViewOrder<'_>,
 ) -> datafusion::error::Result<Vec<String>, DataFusionError> {
+    // Catalog view bodies reference their base tables (pg_class, pg_attribute,
+    // pg_constraint, ...) unqualified, and those all live in pg_catalog - so
+    // resolve every view body under pg_catalog regardless of which schema the
+    // view itself belongs to. Each CREATE statement is fully schema-qualified, so a
+    // view still lands in its own schema (e.g. information_schema.table_constraints).
+    const VIEW_BODY_RESOLUTION_SCHEMA: &str = "pg_catalog";
+
     if views.is_empty() {
         return Ok(Vec::new());
     }
@@ -1641,13 +1953,6 @@ async fn create_registered_views(
     let original_default_schema = state.config_options().catalog.default_schema.clone();
     drop(state);
 
-    // Catalog view bodies reference their base tables (pg_class, pg_attribute,
-    // pg_constraint, ...) unqualified, and those all live in pg_catalog - so
-    // resolve every view body under pg_catalog regardless of which schema the
-    // view itself belongs to. Each CREATE statement is fully schema-qualified, so a
-    // view still lands in its own schema (e.g. information_schema.table_constraints).
-    const VIEW_BODY_RESOLUTION_SCHEMA: &str = "pg_catalog";
-
     // A view body may reference another declared view, so the order they are
     // tried in matters. The precomputed order puts every view after the views
     // it depends on, so a single pass creates them all. The retry that follows
@@ -1672,9 +1977,7 @@ async fn create_registered_views(
             let mut created_this_pass = 0usize;
             let mut last_error: Option<(String, DataFusionError)> = None;
             for view in pending {
-                match try_create_view(ctx, &view, VIEW_BODY_RESOLUTION_SCHEMA)
-                    .await
-                {
+                match try_create_view(ctx, &view, VIEW_BODY_RESOLUTION_SCHEMA).await {
                     Ok(()) => {
                         created_this_pass += 1;
                         created_order.push(view_order_key(&view.schema, &view.name));
@@ -1734,18 +2037,26 @@ async fn create_registered_views(
     Ok(created_order)
 }
 
+/// Build the session every connection is cloned from: the catalog tables, the
+/// `PostgreSQL` compatibility functions, and the catalog views planned over them.
+///
+/// `schema_path` selects the catalog definition (see [`parse_schema`]); `None`
+/// uses the embedded one, which is the fast path. Returns the context together
+/// with the scan-trace log its catalog tables record into.
+///
+/// `default_catalog` is also the database name the session serves, because
+/// `current_database()` reports the session's default catalog.
+///
+/// # Errors
+///
+/// Returns an error if a compatibility function cannot be registered, or if a
+/// declared catalog view cannot be planned - see [`create_registered_views`].
 pub async fn get_base_session_context(
     schema_path: Option<&str>,
     default_catalog: String,
     default_schema: String,
 ) -> datafusion::error::Result<(SessionContext, Arc<Mutex<Vec<ScanTrace>>>)> {
-    build_base_session_context(
-        schema_path,
-        default_catalog,
-        default_schema,
-        None,
-    )
-    .await
+    build_base_session_context(schema_path, default_catalog, default_schema, None).await
 }
 
 /// Like [`get_base_session_context`], but installs a lazy catalog `source` (over
@@ -1765,6 +2076,11 @@ pub async fn get_base_session_context(
 /// executing session's default catalog, so a context whose catalog and database
 /// disagree serves one database's rows while naming another. Serving several
 /// databases means calling this once per database.
+///
+/// # Errors
+///
+/// Returns an error if the lazy source cannot be registered, or for the same
+/// reasons [`get_base_session_context`] does.
 pub async fn get_base_session_context_with_lazy_catalog(
     schema_path: Option<&str>,
     default_catalog: String,
@@ -1786,6 +2102,11 @@ pub async fn get_base_session_context_with_lazy_catalog(
 /// [`get_base_session_context_with_lazy_catalog`]. When `lazy_catalog` is
 /// `Some`, the source is registered after the base tables are built but before
 /// the catalog views are created.
+///
+/// # Errors
+///
+/// Returns an error if the session cannot be built - see
+/// [`build_base_session_context_inner`].
 async fn build_base_session_context(
     schema_path: Option<&str>,
     default_catalog: String,
@@ -1809,6 +2130,12 @@ async fn build_base_session_context(
 ///
 /// Returns the context (with its scan-trace log) and the order its views were
 /// created in.
+///
+/// # Errors
+///
+/// Returns an error if the catalog tables cannot be registered, if a
+/// compatibility function cannot be registered, if a lazy catalog source was
+/// given and fails to install, or if a declared catalog view cannot be planned.
 async fn build_base_session_context_inner(
     schema_path: Option<&str>,
     default_catalog: String,
@@ -1838,88 +2165,10 @@ async fn build_base_session_context_inner(
 
     let ctx: SessionContext = SessionContext::new_with_config(session_config);
     let pending_views =
-        register_catalogs_from_schemas(&ctx, schemas, default_catalog, scan_traces.clone()).await?;
+        register_catalogs_from_schemas(&ctx, schemas, &default_catalog, &scan_traces)?;
     log_phase("register_catalogs_from_schemas");
 
-    for f in regclass_udfs(&ctx) {
-        ctx.register_udf(f);
-    }
-
-    ctx.register_udtf(
-        "regclass_oid",
-        Arc::new(crate::user_functions::RegClassOidFunc),
-    );
-
-    register_scalar_regclass_oid(&ctx)?;
-    register_scalar_pg_proc_oid(&ctx)?;
-    register_scalar_pg_tablespace_location(&ctx)?;
-    register_scalar_format_type(&ctx).await?;
-    ctx.register_udtf(
-        "regclass_oid",
-        Arc::new(crate::user_functions::RegClassOidFunc),
-    );
-
-    register_current_schema(&ctx)?;
-    register_current_schemas(&ctx)?;
-
-    register_scalar_pg_get_expr(&ctx)?;
-    register_scalar_pg_get_partkeydef(&ctx)?;
-    register_scalar_pg_table_is_visible(&ctx)?;
-    register_scalar_pg_get_userbyid(&ctx)?;
-    register_scalar_pg_encoding_to_char(&ctx)?;
-    register_scalar_array_to_string(&ctx)?;
-    register_pg_get_one(&ctx)?;
-    register_pg_get_array(&ctx)?;
-    register_array_agg(&ctx)?;
-    register_pg_get_statisticsobjdef_columns(&ctx)?;
-    register_pg_relation_is_publishable(&ctx)?;
-    register_has_database_privilege(&ctx)?;
-    register_has_schema_privilege(&ctx)?;
-    register_has_privilege_family(&ctx)?;
-    register_nameconcatoid(&ctx)?;
-    register_pg_has_role(&ctx)?;
-    register_pg_is_other_temp_schema(&ctx)?;
-    register_pg_my_temp_schema(&ctx)?;
-    register_getdatabaseencoding(&ctx)?;
-    register_pg_relation_is_updatable(&ctx)?;
-    register_pg_sequence_last_value(&ctx)?;
-    register_row_security_active(&ctx)?;
-    register_session_identity(&ctx)?;
-    register_current_database(&ctx)?;
-    crate::runtime_function_resolvers::register_all_scalar_resolvers(&ctx);
-    crate::runtime_function_resolvers::register_all_table_resolvers(&ctx);
-    register_pg_column_is_updatable(&ctx)?;
-    register_pg_get_function_arg_default(&ctx)?;
-    register_format(&ctx)?;
-    register_pg_char_max_length(&ctx)?;
-    register_pg_char_octet_length(&ctx)?;
-    register_pg_index_position(&ctx)?;
-    register_pg_numeric_helpers(&ctx)?;
-    register_pg_truetypid_helpers(&ctx)?;
-    register_pg_options_to_table(&ctx)?;
-    register_pg_expandarray(&ctx)?;
-    register_aclexplode(&ctx)?;
-    register_acldefault(&ctx)?;
-    register_pg_postmaster_start_time(&ctx)?;
-    register_pg_relation_size(&ctx)?;
-    register_pg_total_relation_size(&ctx)?;
-    register_scalar_pg_age(&ctx)?;
-    register_scalar_pg_is_in_recovery(&ctx)?;
-    register_scalar_txid_current(&ctx)?;
-    register_quote_ident(&ctx)?;
-    register_translate(&ctx)?;
-    register_pg_available_extension_versions(&ctx)?;
-    register_pg_get_keywords(&ctx)?;
-    register_pg_get_viewdef(&ctx)?;
-    register_pg_get_function_arguments(&ctx)?;
-    register_pg_get_function_result(&ctx)?;
-    register_pg_get_function_sqlbody(&ctx)?;
-    register_pg_get_indexdef(&ctx)?;
-    register_pg_get_triggerdef(&ctx)?;
-    register_pg_get_ruledef(&ctx)?;
-    register_encode(&ctx)?;
-    register_upper(&ctx)?;
-    register_version_fn(&ctx)?;
+    register_pg_compatibility_functions(&ctx).await?;
     log_phase("register_functions");
 
     // Install the lazy catalog providers BEFORE the views are created, so the
@@ -1935,11 +2184,109 @@ async fn build_base_session_context_inner(
     log::debug!("session build total: {:?}", build_started.elapsed());
 
     let catalogs = ctx.catalog_names();
-    log::info!("registered catalogs: {:?}", catalogs);
+    log::info!("registered catalogs: {catalogs:?}");
 
     Ok(((ctx, scan_traces), created_order))
 }
 
+/// Register the `PostgreSQL` functions this crate emulates on `ctx`.
+///
+/// These must all be in place before the catalog views are created: the view
+/// bodies call them (`pg_get_userbyid`, `format_type`, the `pg_stat_*` runtime
+/// resolvers, ...), and a body naming a function the session does not have fails
+/// to plan.
+///
+/// # Errors
+///
+/// Returns an error if any registration fails, which means two functions were
+/// registered under one name or a function's signature was rejected.
+async fn register_pg_compatibility_functions(
+    ctx: &SessionContext,
+) -> datafusion::error::Result<()> {
+    for f in regclass_udfs(ctx) {
+        ctx.register_udf(f);
+    }
+
+    ctx.register_udtf(
+        "regclass_oid",
+        Arc::new(crate::user_functions::RegClassOidFunc),
+    );
+
+    register_scalar_regclass_oid(ctx)?;
+    register_scalar_pg_proc_oid(ctx)?;
+    register_scalar_pg_tablespace_location(ctx)?;
+    register_scalar_format_type(ctx).await?;
+    ctx.register_udtf(
+        "regclass_oid",
+        Arc::new(crate::user_functions::RegClassOidFunc),
+    );
+
+    register_current_schema(ctx)?;
+    register_current_schemas(ctx)?;
+
+    register_scalar_pg_get_expr(ctx)?;
+    register_scalar_pg_get_partkeydef(ctx)?;
+    register_scalar_pg_table_is_visible(ctx)?;
+    register_scalar_pg_get_userbyid(ctx)?;
+    register_scalar_pg_encoding_to_char(ctx)?;
+    register_scalar_array_to_string(ctx)?;
+    register_pg_get_one(ctx)?;
+    register_pg_get_array(ctx)?;
+    register_array_agg(ctx)?;
+    register_pg_get_statisticsobjdef_columns(ctx)?;
+    register_pg_relation_is_publishable(ctx)?;
+    register_has_database_privilege(ctx)?;
+    register_has_schema_privilege(ctx)?;
+    register_has_privilege_family(ctx)?;
+    register_nameconcatoid(ctx)?;
+    register_pg_has_role(ctx)?;
+    register_pg_is_other_temp_schema(ctx)?;
+    register_pg_my_temp_schema(ctx)?;
+    register_getdatabaseencoding(ctx)?;
+    register_pg_relation_is_updatable(ctx)?;
+    register_pg_sequence_last_value(ctx)?;
+    register_row_security_active(ctx)?;
+    register_session_identity(ctx)?;
+    register_current_database(ctx)?;
+    crate::runtime_function_resolvers::register_all_scalar_resolvers(ctx);
+    crate::runtime_function_resolvers::register_all_table_resolvers(ctx);
+    register_pg_column_is_updatable(ctx)?;
+    register_pg_get_function_arg_default(ctx)?;
+    register_format(ctx)?;
+    register_pg_char_max_length(ctx)?;
+    register_pg_char_octet_length(ctx)?;
+    register_pg_index_position(ctx)?;
+    register_pg_numeric_helpers(ctx)?;
+    register_pg_truetypid_helpers(ctx)?;
+    register_pg_options_to_table(ctx)?;
+    register_pg_expandarray(ctx)?;
+    register_aclexplode(ctx)?;
+    register_acldefault(ctx)?;
+    register_pg_postmaster_start_time(ctx)?;
+    register_pg_relation_size(ctx)?;
+    register_pg_total_relation_size(ctx)?;
+    register_scalar_pg_age(ctx)?;
+    register_scalar_pg_is_in_recovery(ctx)?;
+    register_scalar_txid_current(ctx)?;
+    register_quote_ident(ctx)?;
+    register_translate(ctx)?;
+    register_pg_available_extension_versions(ctx)?;
+    register_pg_get_keywords(ctx)?;
+    register_pg_get_viewdef(ctx)?;
+    register_pg_get_function_arguments(ctx)?;
+    register_pg_get_function_result(ctx)?;
+    register_pg_get_function_sqlbody(ctx)?;
+    register_pg_get_indexdef(ctx)?;
+    register_pg_get_triggerdef(ctx)?;
+    register_pg_get_ruledef(ctx)?;
+    register_encode(ctx)?;
+    register_upper(ctx)?;
+    register_version_fn(ctx)?;
+    Ok(())
+}
+
+/// Loader and result-shaping tests: what the catalog files turn into, and what a
+/// result set looks like by the time a client sees it.
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1949,9 +2296,11 @@ mod tests {
     use std::io::Write;
     use tempfile::NamedTempFile;
 
+    /// A YAML table's columns keep their declared types and its rows keep their
+    /// values through the load.
     #[test]
     fn test_parse_schema_file() {
-        let yaml = r#"
+        let yaml = r"
 public:
   myschema:
     employees:
@@ -1964,10 +2313,10 @@ public:
           name: Alice
         - id: 2
           name: Bob
-"#;
+";
 
         let mut file = NamedTempFile::new().unwrap();
-        write!(file, "{}", yaml).unwrap();
+        write!(file, "{yaml}").unwrap();
 
         let parsed = parse_schema_file(file.path().to_str().unwrap());
 
@@ -2004,6 +2353,9 @@ public:
         assert_eq!(name_array.value(1), "Bob");
     }
 
+    /// Float columns keep their values at the Arrow width their declared
+    /// `PostgreSQL` type maps to, whether the YAML wrote them as floats or
+    /// integers.
     #[test]
     fn test_float_column_round_trips() {
         // Regression: a float column used to map to Utf8 and its numeric values
@@ -2012,7 +2364,7 @@ public:
         // as a float (1.5) or an integer (3) in the YAML.
         use arrow::array::{Array, Float32Array, Float64Array};
 
-        let yaml = r#"
+        let yaml = r"
 public:
   s:
     stats:
@@ -2025,9 +2377,9 @@ public:
           ratio: 3
         - est: 0.0
           ratio: 1.25
-"#;
+";
         let mut file = NamedTempFile::new().unwrap();
-        write!(file, "{}", yaml).unwrap();
+        write!(file, "{yaml}").unwrap();
         let parsed = parse_schema_file(file.path().to_str().unwrap());
         let table = parsed
             .get("public")
@@ -2053,13 +2405,17 @@ public:
             .downcast_ref::<Float64Array>()
             .expect("ratio (double precision) must be Float64");
 
-        assert!(est.is_valid(0) && est.value(0) == 410.0_f32);
-        assert!(est.is_valid(1) && est.value(1) == 0.0_f32);
+        // Every value here is exactly representable at its width, so the tolerance
+        // only exists to keep the comparison off an exact float equality.
+        assert!(est.is_valid(0) && (est.value(0) - 410.0_f32).abs() < f32::EPSILON);
+        assert!(est.is_valid(1) && est.value(1).abs() < f32::EPSILON);
         // An integer literal in a float column also materializes (not NULL).
-        assert!(ratio.is_valid(0) && ratio.value(0) == 3.0);
-        assert!(ratio.is_valid(1) && ratio.value(1) == 1.25);
+        assert!(ratio.is_valid(0) && (ratio.value(0) - 3.0).abs() < f64::EPSILON);
+        assert!(ratio.is_valid(1) && (ratio.value(1) - 1.25).abs() < f64::EPSILON);
     }
 
+    /// Renaming every column rewrites the names while reusing the original
+    /// column data rather than copying it.
     #[test]
     fn test_rename_columns_all() {
         let schema = Arc::new(Schema::new(vec![
@@ -2089,6 +2445,8 @@ public:
         assert!(Arc::ptr_eq(batch.column(1), renamed.column(1)));
     }
 
+    /// A `_text` column loads as an Arrow list whose elements are the YAML
+    /// sequence's entries.
     #[test]
     fn test_parse_schema_text_array() {
         use arrow::array::ListArray;
@@ -2126,6 +2484,7 @@ public:
         assert_eq!(inner.value(1), "y");
     }
 
+    /// A column the rename map does not mention keeps the name it had.
     #[test]
     fn test_rename_columns_partial() {
         let schema = Arc::new(Schema::new(vec![
@@ -2154,6 +2513,8 @@ public:
         assert!(Arc::ptr_eq(batch.column(1), renamed.column(1)));
     }
 
+    /// A system column is pruned from a `SELECT *` result but kept when the
+    /// statement named it, which is what a real server does.
     #[test]
     fn test_remove_virtual_system_columns() {
         use arrow::array::Int32Array;
@@ -2200,6 +2561,8 @@ public:
     }
 }
 
+/// Tests that a declared view which cannot be planned fails startup loudly,
+/// rather than being served as something else.
 #[cfg(test)]
 mod view_failure_tests {
     use super::*;
@@ -2218,6 +2581,8 @@ mod view_failure_tests {
         ctx
     }
 
+    /// A view body that cannot be planned fails startup and leaves nothing
+    /// registered under the view's name.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_unplannable_view_fails_startup_instead_of_being_materialized() {
         // The regression guard for the removed fallback. A body that cannot be
@@ -2257,6 +2622,8 @@ mod view_failure_tests {
         );
     }
 
+    /// The startup failure names every view that could not be planned, not just
+    /// the first one hit.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_view_creation_reports_every_unplannable_view() {
         // The error names all of them, not just the first, so one startup
