@@ -2,12 +2,12 @@
 
 Single source of truth for **what lives in the catalog**, **what each object is
 for**, **how it is populated** (seed vs. runtime registration), and **whether it
-actually works today**. Verified 2026-06-26.
+actually works today**. Verified 2026-07-28.
 
 - **75 base tables** (71 `pg_catalog` + 4 `information_schema`) - all served as
   tables and queryable (**75 working**).
 - **136 objects declared `type: view`** - **all 136 are now actually served as views**
-  (97 working + 39 partial); none falls back to a materialized table. The four whose
+  (98 working + 38 partial); none falls back to a materialized table. The four whose
   declared bodies use engine features not yet supported are served via equivalent
   simplified bodies (`SIMPLIFIED_VIEW_BODIES` in `src/session.rs`), lossless for the data
   this catalog holds. The stat /
@@ -237,7 +237,7 @@ These carry `type: view` in the YAML but the server materializes each as a
 `MemTable` (or, for one, fails to scan). They answer `SELECT` from frozen
 seed/snapshot rows and do **not** re-derive from their base tables, so they are
 broken as views. Promoting them to real views means adding them to `VIEW_ONLY_TABLES`
-(and ensuring their `view_sql` plans) - tracked in `TODO.md`.
+and ensuring their `view_sql` plans.
 
 The secondary `view_sql` column below records whether the defining SQL would even
 run if promoted: **80 would run** (68 of those reproduce the snapshot exactly, 12
@@ -265,18 +265,21 @@ Includes `pg_indexes`, `pg_matviews`, `pg_roles`, `pg_shadow`, `pg_user`,
 | `views` | information_schema | `view_definition`, `is_updatable`, `is_insertable_into` | `pg_get_viewdef` not reproduced. |
 | `column_privileges`, `routine_privileges`, `table_privileges`, `udt_privileges`, `usage_privileges` | information_schema | (row count -> 0/partial) | GRANTs not modeled, so privilege views are empty. |
 
-### Their `view_sql` errors - fixable engine/UDF gaps (9)
-| View | Reads from | Blocker |
+### Previously blocked engine/UDF gaps - all nine now execute
+Every view once listed here as failing to plan now runs. Seven reproduce the
+captured snapshot exactly; two execute but diverge from it.
+
+| View | Status | Note |
 |---|---|---|
-| `pg_group` | pg_auth_members, pg_authid | `pg_authid.oid` unresolved after subquery flattening (rewrite-pipeline bug). **Good small win.** |
-| `pg_available_extension_versions` | pg_available_extensions, pg_extension | Spurious `GROUP BY` wildcard not planned. (Function-backed - even `SELECT *` fails to scan.) |
-| `pg_policies` | pg_policy, pg_class, pg_namespace, pg_authid | "Unsupported SQL type name" while planning. |
-| `pg_publication_tables` | pg_publication, pg_namespace, pg_attribute | sqlparser parse error on `ARRAY` literal. |
-| `pg_seclabels` | pg_seclabel, pg_class, pg_namespace | `pg_table_is_visible()` not implemented. |
-| `pg_sequences` | pg_sequence, pg_class, pg_namespace | `pg_sequence_last_value()` not implemented. |
-| `pg_stats` | pg_statistic, pg_class, pg_attribute | `row_security_active()` not implemented. |
-| `pg_stats_ext` | pg_statistic_ext, pg_class | `s.stxkeys` unresolved (column scoping after rewrite). |
-| `pg_stats_ext_exprs` | pg_statistic_ext, pg_statistic_ext_data, pg_class | `pg_get_statisticsobjdef_expressions()` not implemented. |
+| `pg_policies` | working | |
+| `pg_publication_tables` | working | |
+| `pg_seclabels` | working | `pg_table_is_visible()` is registered, returning true |
+| `pg_sequences` | working | `pg_sequence_last_value()` is a resolver slot, NULL until an integration installs one |
+| `pg_stats` | working | `row_security_active()` is a resolver slot |
+| `pg_stats_ext` | working | |
+| `pg_stats_ext_exprs` | working | `pg_get_statisticsobjdef_expressions()` is registered |
+| `pg_group` | partial | executes; `grolist` content diverges from the snapshot |
+| `pg_available_extension_versions` | partial | executes; row count diverges from the snapshot |
 
 ### Their `view_sql` errors - need live server-runtime functions (41, all pg_catalog)
 Report live process/IO/WAL/lock/progress state via server-runtime table functions we
@@ -363,8 +366,9 @@ regression test; they are not hand-maintained.
    RUST_LOG=off .venv/bin/python -m pytest tests/test_view_output_snapshot.py -q
    ```
 
-See [`TODO.md`](TODO.md) for the prioritized work to promote materialized views to
-real views and to close the engine/registration backlog.
+Promoting the remaining materialized views to real views means giving each a
+`view_sql` that plans against the base tables, then adding it to
+`VIEW_ONLY_TABLES` in `src/session.rs`.
 
 ---
 

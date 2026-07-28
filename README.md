@@ -232,7 +232,7 @@ list, in Rust.
 - [x] `pg_constraint` / `pg_attrdef` registration for user objects (eager `register_user_constraint` /
       `register_user_tables`, lazy `LazyCatalogSource::constraints()` / `columns()`)
 - [x] `pg_get_indexdef` / `pg_get_viewdef` text via an integration-supplied resolver (see
-      "Runtime functions" below); `pg_get_ruledef` remains a NULL stub - see [`TODO.md`](TODO.md)
+      "Runtime functions" below); `pg_get_ruledef` remains a NULL stub
 - [ ] Catalog persistence to disk or external store
 - [ ] Enhanced type inference and function overloads
 

@@ -7,8 +7,8 @@
 
 | status | count |
 |---|---|
-| working | 97 |
-| partial | 39 |
+| working | 98 |
+| partial | 38 |
 
 ## Base-table status (every table queried with SELECT count(*))
 
@@ -115,7 +115,7 @@ Of the declared views NOT served as views, whether their `view_sql` would even r
 | _pg_foreign_tables | working | view | ok | match |  |
 | _pg_user_mappings | working | view | ok | match |  |
 | administrable_role_authorizations | working | view | ok | match |  |
-| applicable_roles | partial | view | ok | count-mismatch |  |
+| applicable_roles | working | view | ok | match |  |
 | attributes | working | view | ok | match |  |
 | character_sets | working | view | ok | match |  |
 | check_constraint_routine_usage | working | view | ok | match |  |

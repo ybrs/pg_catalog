@@ -546,10 +546,24 @@ Because the Python tests launch the server via `cargo run`, `cargo` must be on
 - Never fail silently. Unparseable SQL and unexpected types return errors to the
   client rather than falling back to a guess; the test suites fail loudly on a new
   divergence.
-- OID stability. The lazy path takes OIDs verbatim from the source and never
-  invents or caches them. The eager path allocates a new OID itself
-  (`next_catalog_oid`: one past the current `max(oid)` across the catalog tables)
-  since its callers do not supply one.
+- OID stability. A host that supplies OIDs keeps them, untouched: the lazy path
+  writes the source's values verbatim. A host that supplies none gets an
+  auto-increment counter, and the counter lives *in* the context -
+  `next_catalog_oid` reads `max(oid)` back out of the catalog that context
+  already holds, across every table sharing the OID space, floored at
+  `FIRST_USER_OID`. That makes the numbering per database by construction, with
+  no shared state to scope or reset, and stable across restarts because it
+  depends only on the host's own registration order. Two databases giving their
+  first table the same number is correct, not a collision: PostgreSQL OIDs are
+  unique within a database and two databases' catalogs are never joined.
+- The host's numbers are not trusted, and this catalog enforces nothing on
+  PostgreSQL's behalf. Column counts, attribute positions and the like arrive
+  from a `LazyCatalogSource` callback or an eager registration call - arbitrary
+  embedder code - so nothing here may assume PostgreSQL's own limits apply to
+  them. Where such a value has to be narrowed to the width a catalog column
+  uses, it goes through a checked conversion that returns an error naming the
+  relation (`one_based_position`, `attribute_count_as_i32`), never a cast
+  justified by what a real PostgreSQL server would have rejected.
 - Fix the gap in SQL, not in the engine where possible. Most compatibility lives
   in the `sqlparser`-level rewrite passes (small, independently testable
   functions) rather than in DataFusion internals; only `StripPgGetOne` is a

@@ -22,8 +22,13 @@ regenerate-catalog:
 	./regenerate-catalog.sh
 
 
+# A server on 5444 for poking at by hand, and what claude-scripts/audit_catalog_objects.py
+# expects to be listening. The empty first argument selects the embedded Arrow
+# IPC catalog, which is the path the test suite and the shipped binary both use;
+# naming pg_schema.zip instead only works after `make create_schema_zip`, since
+# that file is generated and not checked in.
 dev_server:
-	RUST_LOG=info RUST_MIN_STACK=33554432 cargo run -- ./pg_schema.zip --default-catalog pgtry --default-schema pg_catalog --port 5444
+	RUST_LOG=info RUST_MIN_STACK=33554432 cargo run -- "" --default-catalog pgtry --default-schema pg_catalog --host 127.0.0.1 --port 5444
 
 # --- Dependency upgrade pipeline -------------------------------------------
 # `make update-deps` upgrades deps, then compiles and runs the full test
