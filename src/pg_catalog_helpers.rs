@@ -6,12 +6,12 @@ use serde::Deserialize;
 
 use crate::lazy_catalog::{
     build_index_pg_class_row, build_pg_attrdef_row, build_pg_attribute_rows, build_pg_class_row,
-    build_pg_constraint_row, build_pg_index_row, build_pg_type_rowtype_row, ColumnSpec,
-    ConstraintDef, ConstraintKind, IndexDef, RelationDef, RelationKind,
+    build_pg_constraint_row, build_pg_index_row, build_pg_type_rowtype_row, ColumnSpec, FIRST_USER_OID,
+    ConstraintDef, ConstraintKind, IndexDef, RelationDef, RelationKind, DEFAULT_OWNER_ROLE_OID,
 };
 use crate::session::rows_to_record_batch;
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::sync::atomic::{AtomicI32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
 use once_cell::sync::Lazy;
@@ -28,8 +28,6 @@ pub struct ColumnDef {
     #[serde(default)]
     pub has_default: bool,
 }
-
-static NEXT_OID: AtomicI32 = AtomicI32::new(50010);
 
 /// Per-call sequence making each `append_catalog_row` staging table name unique, so
 /// concurrent appends can't collide on a shared register/deregister name.
@@ -106,9 +104,73 @@ pub(crate) fn oid_to_type_names(oid: i32) -> (String, String) {
     }
 }
 
-pub async fn register_user_database(ctx: &SessionContext, database_name: &str) -> DFResult<()> {
-    // let oid = NEXT_OID.fetch_add(1, Ordering::SeqCst);
+/// The next unused OID in `ctx`'s catalog.
+///
+/// This is the auto-increment counter for hosts that do not supply their own
+/// OIDs, and it lives IN the context rather than beside it: the next value is
+/// read back out of the catalog `ctx` already holds. That is what makes it per
+/// database without any shared state to scope, reset or clean up - each
+/// database's context has its own catalog, so it has its own numbering.
+///
+/// Two databases giving their first table the same OID is correct, not a
+/// collision: PostgreSQL's OIDs are unique within a database, and two databases'
+/// catalogs are never joined.
+///
+/// Numbering starts at [`FIRST_USER_OID`], clear of the built-in range, and the
+/// value depends only on how many objects that database registered before this
+/// one - fixed by the host's own registration order, so it is the same on every
+/// run.
+///
+/// The maximum is taken across every catalog table drawing on the same OID
+/// space, so a relation and a schema can never be handed the same number.
+/// Callers needing several must insert each before asking for the next, or take
+/// consecutive values from one call.
+async fn next_catalog_oid(ctx: &SessionContext) -> DFResult<i32> {
+    // Cast in SQL rather than guessing the Arrow type here: the oid columns are
+    // int4, so max() comes back as Int32, and a downcast to Int64 that silently
+    // fell back to a default would hand out the floor every time - which is
+    // exactly what it did before this cast was added, giving the first schema
+    // and the first relation the same OID.
+    let batches = ctx
+        .sql(
+            "SELECT max(oid)::bigint FROM (
+                 SELECT oid FROM pg_catalog.pg_class
+                 UNION ALL SELECT oid FROM pg_catalog.pg_type
+                 UNION ALL SELECT oid FROM pg_catalog.pg_namespace
+                 UNION ALL SELECT oid FROM pg_catalog.pg_database
+                 UNION ALL SELECT oid FROM pg_catalog.pg_attrdef
+                 UNION ALL SELECT oid FROM pg_catalog.pg_constraint
+             )",
+        )
+        .await?
+        .collect()
+        .await?;
 
+    let column = batches
+        .first()
+        .map(|batch| batch.column(0))
+        .ok_or_else(|| DataFusionError::Execution("max(oid) returned no rows".to_string()))?;
+    let highest = column
+        .as_any()
+        .downcast_ref::<Int64Array>()
+        .ok_or_else(|| {
+            DataFusionError::Execution(format!(
+                "max(oid) came back as {} rather than Int64",
+                column.data_type()
+            ))
+        })?;
+
+    // NULL only if every source table is empty, which the floor covers.
+    let highest = if highest.is_empty() || highest.is_null(0) {
+        0
+    } else {
+        highest.value(0) as i32
+    };
+
+    Ok(std::cmp::max(FIRST_USER_OID, highest.saturating_add(1)))
+}
+
+pub async fn register_user_database(ctx: &SessionContext, database_name: &str) -> DFResult<()> {
     ensure_database_registry(database_name);
 
     let df: datafusion::prelude::DataFrame = ctx
@@ -116,16 +178,7 @@ pub async fn register_user_database(ctx: &SessionContext, database_name: &str) -
         .await?
         .with_param_values(vec![("database_name", ScalarValue::from(database_name))])?;
     if df.count().await? == 0 {
-        let next_oid_df = ctx
-            .sql("select max(oid)+1 from pg_catalog.pg_database")
-            .await?;
-        let batches = next_oid_df.collect().await?;
-        let array = batches[0]
-            .column(0)
-            .as_any()
-            .downcast_ref::<Int64Array>()
-            .unwrap();
-        let dbid = array.value(0);
+        let dbid = next_catalog_oid(ctx).await?;
 
         let df = ctx
             .sql(&format!(
@@ -146,7 +199,7 @@ pub async fn register_user_database(ctx: &SessionContext, database_name: &str) -
         ) VALUES (
             {},
             '{}',
-            27735,
+            {DEFAULT_OWNER_ROLE_OID},
             6,
             'C',
             'C',
@@ -164,10 +217,6 @@ pub async fn register_user_database(ctx: &SessionContext, database_name: &str) -
             .await?;
         df.collect().await?;
     }
-    let df = ctx
-        .sql("select datname from pg_catalog.pg_database")
-        .await?;
-    df.show().await?;
     Ok(())
 }
 
@@ -185,9 +234,16 @@ pub async fn register_schema(
     let oid = match get_schema_oid(ctx, schema_name).await? {
         Some(oid) => oid,
         None => {
-            let oid = NEXT_OID.fetch_add(1, Ordering::SeqCst);
+            // Only ever a NEW schema: an existing one is found by the lookup
+            // above and keeps the OID it already has, which is how a schema
+            // named "public" holds on to the built-in 2200.
+            let oid = next_catalog_oid(ctx).await?;
             let sql = format!(
-                "INSERT INTO pg_catalog.pg_namespace (oid, nspname, nspowner, nspacl) VALUES ({oid}, '{}', 27735, NULL)",
+                // The owner must be a role that exists: information_schema.schemata
+                // inner-joins nspowner to pg_authid, so a made-up owner OID drops
+                // the schema out of that view entirely rather than just blanking
+                // its owner column.
+                "INSERT INTO pg_catalog.pg_namespace (oid, nspname, nspowner, nspacl) VALUES ({oid}, '{}', {DEFAULT_OWNER_ROLE_OID}, NULL)",
                 schema_name.replace('\'', "''")
             );
             ctx.sql(&sql).await?.collect().await?;
@@ -232,10 +288,11 @@ fn column_specs_from_defs(columns: &[BTreeMap<String, ColumnDef>]) -> Vec<Column
 /// `register_user_tables` and `register_user_view` are thin wrappers that fix the
 /// `kind`, so tables and views emit identical metadata except for the relkind.
 ///
-/// `_database_name` is accepted to keep the public wrappers' signature stable and
-/// self-documenting; the relation's rows are keyed by schema OID, so the database
-/// name is not needed: the information_schema relations derive from the base-table
-/// rows rather than being written per database here.
+/// `_database_name` is accepted to keep the public wrappers' signatures stable and
+/// self-documenting. The relation's rows are keyed by schema OID, the OID comes
+/// from the context's own counter, and the information_schema relations derive
+/// from the base-table rows - so the database name is not needed here. Which
+/// database this is is already settled by which context is being written to.
 async fn register_user_relation(
     ctx: &SessionContext,
     _database_name: &str,
@@ -269,8 +326,11 @@ async fn register_user_relation(
         )));
     }
 
-    let relation_oid = NEXT_OID.fetch_add(1, Ordering::SeqCst);
-    let type_oid = NEXT_OID.fetch_add(1, Ordering::SeqCst);
+    // Two consecutive values: the relation and the composite rowtype it gets in
+    // pg_type are separate objects sharing one OID space, and both rows are
+    // written below before anything allocates again.
+    let relation_oid = next_catalog_oid(ctx).await?;
+    let type_oid = relation_oid + 1;
     let column_specs = column_specs_from_defs(&columns);
     let relation = RelationDef {
         oid: relation_oid,
@@ -312,7 +372,7 @@ async fn register_user_relation(
     for (idx, col) in column_specs.iter().enumerate() {
         if col.has_default {
             let adnum = (idx + 1) as i32;
-            let attrdef_oid = NEXT_OID.fetch_add(1, Ordering::SeqCst);
+            let attrdef_oid = next_catalog_oid(ctx).await?;
             append_catalog_row(
                 ctx,
                 "pg_catalog",
@@ -460,7 +520,7 @@ pub async fn register_user_index(
         return Ok(());
     }
 
-    let index_oid = NEXT_OID.fetch_add(1, Ordering::SeqCst);
+    let index_oid = next_catalog_oid(ctx).await?;
     let index_def = IndexDef {
         index_oid,
         index_name: index_name.to_string(),
@@ -537,7 +597,7 @@ pub async fn register_user_constraint(
         return Ok(());
     }
 
-    let constraint_oid = NEXT_OID.fetch_add(1, Ordering::SeqCst);
+    let constraint_oid = next_catalog_oid(ctx).await?;
     let constraint = match kind {
         ConstraintKind::ForeignKey => {
             let Some(referenced_table) = referenced_table_name else {
@@ -820,7 +880,6 @@ mod tests {
             Some("pg_catalog_data/pg_schema"),
             "pgtry".to_string(),
             "public".to_string(),
-            None,
         )
         .await?;
 
@@ -881,7 +940,6 @@ mod tests {
             Some("pg_catalog_data/pg_schema"),
             "pgtry".to_string(),
             "public".to_string(),
-            None,
         )
         .await?;
 
@@ -948,7 +1006,6 @@ mod tests {
             Some("pg_catalog_data/pg_schema"),
             "pgtry".to_string(),
             "public".to_string(),
-            None,
         )
         .await?;
 
@@ -1005,7 +1062,6 @@ mod tests {
             Some("pg_catalog_data/pg_schema"),
             "pgtry".to_string(),
             "public".to_string(),
-            None,
         )
         .await?;
 
@@ -1110,7 +1166,6 @@ mod tests {
             Some("pg_catalog_data/pg_schema"),
             "pgtry".to_string(),
             "public".to_string(),
-            None,
         )
         .await?;
 
@@ -1273,7 +1328,6 @@ mod tests {
             Some("pg_catalog_data/pg_schema"),
             "pgtry".to_string(),
             "public".to_string(),
-            None,
         )
         .await?;
 
@@ -1403,7 +1457,6 @@ mod tests {
             Some("pg_catalog_data/pg_schema"),
             "pgtry".to_string(),
             "public".to_string(),
-            None,
         )
         .await?;
 
@@ -1490,7 +1543,6 @@ mod tests {
             Some("pg_catalog_data/pg_schema"),
             "pgtry".to_string(),
             "public".to_string(),
-            None,
         )
         .await?;
 
@@ -1597,7 +1649,6 @@ mod tests {
             Some("pg_catalog_data/pg_schema"),
             "pgtry".to_string(),
             "public".to_string(),
-            None,
         )
         .await?;
 
@@ -1656,7 +1707,6 @@ mod tests {
             Some("pg_catalog_data/pg_schema"),
             "pgtry".to_string(),
             "public".to_string(),
-            None,
         )
         .await?;
 
@@ -1675,7 +1725,6 @@ mod tests {
             Some("pg_catalog_data/pg_schema"),
             "pgtry".to_string(),
             "public".to_string(),
-            None,
         )
         .await?;
 
@@ -1694,7 +1743,6 @@ mod tests {
             Some("pg_catalog_data/pg_schema"),
             "pgtry".to_string(),
             "public".to_string(),
-            None,
         )
         .await?;
 
@@ -1743,7 +1791,6 @@ mod tests {
             Some("pg_catalog_data/pg_schema"),
             "pgtry".to_string(),
             "public".to_string(),
-            None,
         )
         .await?;
 
@@ -1836,7 +1883,6 @@ mod tests {
             Some("pg_catalog_data/pg_schema"),
             "pgtry".to_string(),
             "public".to_string(),
-            None,
         )
         .await?;
 
@@ -1874,7 +1920,6 @@ mod tests {
             Some("pg_catalog_data/pg_schema"),
             "pgtry".to_string(),
             "public".to_string(),
-            None,
         )
         .await?;
 

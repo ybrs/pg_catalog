@@ -37,7 +37,6 @@ async fn test_get_base_session_context_public() -> datafusion::error::Result<()>
         Some(zip_path.to_str().unwrap()),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
     )
     .await?;
     Ok(())
@@ -47,7 +46,7 @@ async fn test_get_base_session_context_public() -> datafusion::error::Result<()>
 async fn test_get_base_session_context_embedded() -> datafusion::error::Result<()> {
     // `None` loads the embedded postgres-schema-nightly.zip (the path riffq uses).
     let (ctx, _log) =
-        get_base_session_context(None, "pgtry".to_string(), "public".to_string(), None).await?;
+        get_base_session_context(None, "pgtry".to_string(), "public".to_string()).await?;
 
     // The embedded zip must carry the float-precision fix: pg_class.reltuples is
     // declared float4 and must materialize as Float32 (FLOAT4 / OID 700 on the
@@ -72,7 +71,6 @@ async fn test_pg_views_registered_as_view() -> datafusion::error::Result<()> {
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
     )
     .await?;
 

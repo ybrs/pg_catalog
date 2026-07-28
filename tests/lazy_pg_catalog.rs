@@ -7,12 +7,12 @@ use arrow::array::Array;
 use datafusion::error::{DataFusionError, Result as DFResult};
 use datafusion_pg_catalog::{
     clear_index_definition_resolver, clear_view_definition_resolver, get_base_session_context,
-    get_base_session_context_with_lazy_catalog, register_lazy_catalog,
-    register_user_database_with_callback, set_index_definition_resolver,
-    set_view_definition_resolver, ColumnSpec, ConfigSettingDef, ConstraintDef, DatabaseDef,
-    IndexDef, IndexDefinitionResolver, IndexIdentity, LazyCatalogOptions, LazyCatalogSource,
-    LazyDatabaseRow, RelationDef, RelationKind, SchemaDef, SettingDef, ViewDefinitionResolver,
-    ViewIdentity,
+    get_base_session_context_with_lazy_catalog, register_database_independent_lazy_catalog,
+    register_lazy_catalog, register_user_database_with_callback, set_index_definition_resolver,
+    set_view_definition_resolver, CatalogTable, ColumnSpec, ConfigSettingDef, ConstraintDef,
+    DatabaseDef, IndexDef, IndexDefinitionResolver, IndexIdentity, LazyCatalogOptions,
+    LazyCatalogSource, LazyDatabaseRow, RelationDef, RelationKind, SchemaDef, SettingDef,
+    ViewDefinitionResolver, ViewIdentity,
 };
 
 /// Collect a single-column `StringArray` result into a `Vec<String>`.
@@ -187,16 +187,21 @@ impl LazyCatalogSource for FailingSource {
     }
 }
 
-/// Build a base session and install the fake source over all catalog tables.
-async fn ctx_with_fake_source() -> DFResult<datafusion::execution::context::SessionContext> {
+/// Build a base session serving `database` and install the fake source over all
+/// catalog tables.
+///
+/// `FakeSource` reports two databases, and a context serves exactly one, so
+/// every caller says which. `lazydb1` holds `users`, `lazydb2` holds `events`.
+async fn ctx_with_fake_source(
+    database: &str,
+) -> DFResult<datafusion::execution::context::SessionContext> {
     let (ctx, _log) = get_base_session_context(
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
     )
     .await?;
-    register_lazy_catalog(&ctx, Arc::new(FakeSource), LazyCatalogOptions::all()).await?;
+    register_lazy_catalog(&ctx, Arc::new(FakeSource), LazyCatalogOptions::all(), database).await?;
     Ok(ctx)
 }
 
@@ -206,7 +211,6 @@ async fn test_lazy_register_pg_database_on_scan() -> DFResult<()> {
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
     )
     .await?;
 
@@ -250,7 +254,6 @@ async fn test_lazy_merges_pg_database_rows() -> DFResult<()> {
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
     )
     .await?;
 
@@ -304,7 +307,7 @@ async fn test_lazy_merges_pg_database_rows() -> DFResult<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_catalog_joins_resolve() -> DFResult<()> {
-    let ctx = ctx_with_fake_source().await?;
+    let ctx = ctx_with_fake_source("lazydb1").await?;
 
     // pg_class JOIN pg_namespace JOIN pg_attribute for the user relation 'users'.
     let cols = string_column(
@@ -322,7 +325,7 @@ async fn test_lazy_catalog_joins_resolve() -> DFResult<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_catalog_builtins_survive() -> DFResult<()> {
-    let ctx = ctx_with_fake_source().await?;
+    let ctx = ctx_with_fake_source("lazydb1").await?;
 
     // Built-in pg_type row for int4 (oid 23) survives the merge.
     let oids = int_column(
@@ -352,7 +355,7 @@ async fn test_lazy_catalog_builtins_survive() -> DFResult<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_catalog_oid_passthrough() -> DFResult<()> {
-    let ctx = ctx_with_fake_source().await?;
+    let ctx = ctx_with_fake_source("lazydb1").await?;
 
     // The oid the source returns for 'users' appears verbatim in pg_class.oid ...
     let class_oid = int_column(
@@ -375,7 +378,7 @@ async fn test_lazy_catalog_oid_passthrough() -> DFResult<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_catalog_information_schema_columns() -> DFResult<()> {
-    let ctx = ctx_with_fake_source().await?;
+    let ctx = ctx_with_fake_source("lazydb1").await?;
 
     let batches = ctx
         .sql(
@@ -425,16 +428,18 @@ async fn test_lazy_catalog_information_schema_columns() -> DFResult<()> {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn test_lazy_catalog_projection_and_filter() -> DFResult<()> {
-    let ctx = ctx_with_fake_source().await?;
+    let ctx = ctx_with_fake_source("lazydb1").await?;
 
     // Filter pushes a relname predicate; projection selects a single column.
+    // The IN list names both databases' relations, and only this database's
+    // comes back: `events` belongs to lazydb2, which this context does not serve.
     let names = string_column(
         &ctx,
         "SELECT relname FROM pg_catalog.pg_class \
          WHERE relname IN ('users','events') ORDER BY relname",
     )
     .await?;
-    assert_eq!(names, vec!["events".to_string(), "users".to_string()]);
+    assert_eq!(names, vec!["users".to_string()]);
     Ok(())
 }
 
@@ -444,10 +449,18 @@ async fn test_lazy_catalog_error_propagates() -> DFResult<()> {
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
     )
     .await?;
-    register_lazy_catalog(&ctx, Arc::new(FailingSource), LazyCatalogOptions::all()).await?;
+    // Registered as a database-independent source so registration itself does
+    // not consult databases(): this test is about a source that fails at SCAN
+    // time, which is the case a client is exposed to.
+    // test_lazy_catalog_error_surfaces_at_registration covers the other one.
+    register_database_independent_lazy_catalog(
+        &ctx,
+        Arc::new(FailingSource),
+        LazyCatalogOptions::with_tables(vec![CatalogTable::PgDatabase]),
+    )
+    .await?;
 
     // Scanning pg_database must surface the source error, not silently return rows.
     let result = ctx
@@ -490,18 +503,20 @@ async fn test_pg_tables_view_reflects_lazy_tables() -> DFResult<()> {
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
         Arc::new(FakeSource),
         LazyCatalogOptions::all(),
+        "lazydb1".to_string(),
     )
     .await?;
 
+    // Only this context's database contributes: `events` lives in lazydb2 and
+    // stays invisible from lazydb1, through the view as well as the base table.
     let names = string_column(
         &ctx,
         "SELECT tablename FROM pg_catalog.pg_tables WHERE tablename IN ('users','events') ORDER BY tablename",
     )
     .await?;
-    assert_eq!(names, vec!["events".to_string(), "users".to_string()]);
+    assert_eq!(names, vec!["users".to_string()]);
 
     // The owning schema is resolved through the join to pg_namespace.
     let schemas = string_column(
@@ -521,9 +536,9 @@ async fn test_pg_tables_view_keeps_builtin_tables() -> DFResult<()> {
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
         Arc::new(FakeSource),
         LazyCatalogOptions::all(),
+        "lazydb1".to_string(),
     )
     .await?;
 
@@ -556,10 +571,10 @@ async fn test_lazy_registered_after_session_rebinds_views() -> DFResult<()> {
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
     )
     .await?;
-    register_lazy_catalog(&ctx, Arc::new(FakeSource), LazyCatalogOptions::all()).await?;
+    register_lazy_catalog(&ctx, Arc::new(FakeSource), LazyCatalogOptions::all(), "lazydb1")
+        .await?;
 
     // The base table reflects the lazy rows ...
     let base = count_rows(
@@ -633,11 +648,12 @@ async fn test_lazy_catalog_double_registration_is_idempotent() -> DFResult<()> {
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
     )
     .await?;
-    register_lazy_catalog(&ctx, Arc::new(FakeSource), LazyCatalogOptions::all()).await?;
-    register_lazy_catalog(&ctx, Arc::new(FakeSource), LazyCatalogOptions::all()).await?;
+    register_lazy_catalog(&ctx, Arc::new(FakeSource), LazyCatalogOptions::all(), "lazydb1")
+        .await?;
+    register_lazy_catalog(&ctx, Arc::new(FakeSource), LazyCatalogOptions::all(), "lazydb1")
+        .await?;
 
     // The user relation appears exactly once ...
     let users = count_rows(
@@ -775,9 +791,9 @@ async fn test_lazy_pg_index_reflects_source() -> DFResult<()> {
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
         Arc::new(IndexedSource),
         LazyCatalogOptions::all(),
+        "idxdb".to_string(),
     )
     .await?;
 
@@ -850,9 +866,9 @@ async fn test_pg_get_indexdef_multicolumn_and_unresolvable_oids() -> DFResult<()
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
         Arc::new(IndexedSource),
         LazyCatalogOptions::all(),
+        "idxdb".to_string(),
     )
     .await?;
 
@@ -898,9 +914,9 @@ async fn test_lazy_pg_constraint_reflects_source() -> DFResult<()> {
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
         Arc::new(IndexedSource),
         LazyCatalogOptions::all(),
+        "idxdb".to_string(),
     )
     .await?;
 
@@ -953,9 +969,9 @@ async fn test_lazy_pg_attrdef_reflects_source() -> DFResult<()> {
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
         Arc::new(IndexedSource),
         LazyCatalogOptions::all(),
+        "idxdb".to_string(),
     )
     .await?;
 
@@ -1002,9 +1018,9 @@ async fn test_lazy_pg_tables_flags_reflect_source() -> DFResult<()> {
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
         Arc::new(IndexedSource),
         LazyCatalogOptions::all(),
+        "idxdb".to_string(),
     )
     .await?;
 
@@ -1030,7 +1046,7 @@ async fn test_lazy_pg_tables_flags_reflect_source() -> DFResult<()> {
 async fn test_lazy_catalog_owner_omitted_is_null() -> DFResult<()> {
     // FakeSource builds relations via RelationDef::table (no owner), so a backend
     // without ownership leaves pg_class.relowner NULL (int_column skips NULLs).
-    let ctx = ctx_with_fake_source().await?;
+    let ctx = ctx_with_fake_source("lazydb1").await?;
     let owner = int_column(
         &ctx,
         "SELECT relowner FROM pg_catalog.pg_class WHERE relname = 'users'",
@@ -1051,7 +1067,6 @@ async fn test_lazy_catalog_user_database_wins_over_builtin() -> DFResult<()> {
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
     )
     .await?;
 
@@ -1078,7 +1093,6 @@ async fn test_lazy_catalog_duplicate_database_errors() -> DFResult<()> {
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
     )
     .await?;
 
@@ -1111,13 +1125,13 @@ async fn test_lazy_catalog_duplicate_relation_errors() -> DFResult<()> {
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
     )
     .await?;
     register_lazy_catalog(
         &ctx,
         Arc::new(DuplicateRelationSource),
         LazyCatalogOptions::all(),
+        "dupdb",
     )
     .await?;
 
@@ -1196,10 +1210,14 @@ async fn test_pg_config_callback_overrides_and_extends() -> DFResult<()> {
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
     )
     .await?;
-    register_lazy_catalog(&ctx, Arc::new(ConfigSource), LazyCatalogOptions::all()).await?;
+    register_database_independent_lazy_catalog(
+        &ctx,
+        Arc::new(ConfigSource),
+        LazyCatalogOptions::with_tables(vec![CatalogTable::PgConfig, CatalogTable::PgSettings]),
+    )
+    .await?;
 
     // The override replaces the built-in VERSION row (not duplicated).
     let version = string_column(
@@ -1237,10 +1255,14 @@ async fn test_pg_settings_callback_overrides_value() -> DFResult<()> {
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
     )
     .await?;
-    register_lazy_catalog(&ctx, Arc::new(ConfigSource), LazyCatalogOptions::all()).await?;
+    register_database_independent_lazy_catalog(
+        &ctx,
+        Arc::new(ConfigSource),
+        LazyCatalogOptions::with_tables(vec![CatalogTable::PgConfig, CatalogTable::PgSettings]),
+    )
+    .await?;
 
     // The callback's live value for search_path replaces the snapshot row.
     let search_path = string_column(
@@ -1271,7 +1293,6 @@ async fn test_pg_settings_defaults_without_callback() -> DFResult<()> {
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
     )
     .await?;
     let rows = ctx
@@ -1296,7 +1317,6 @@ async fn test_pg_config_defaults_without_callback() -> DFResult<()> {
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
     )
     .await?;
     let version = string_column(
@@ -1367,9 +1387,9 @@ async fn test_pg_get_viewdef_uses_registered_resolver() -> DFResult<()> {
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
         Arc::new(ViewSource),
         LazyCatalogOptions::all(),
+        "viewdb".to_string(),
     )
     .await?;
 
@@ -1435,9 +1455,9 @@ async fn test_pg_get_indexdef_uses_index_resolver_for_expression_index() -> DFRe
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
         Arc::new(IndexedSource),
         LazyCatalogOptions::all(),
+        "idxdb".to_string(),
     )
     .await?;
 
@@ -1498,18 +1518,18 @@ async fn test_pg_get_indexdef_uses_index_resolver_for_expression_index() -> DFRe
 #[tokio::test(flavor = "multi_thread")]
 async fn test_source_public_schema_replaces_the_builtin_one() -> DFResult<()> {
     // The built-in catalog carries `public` at PostgreSQL's canonical oid 2200.
-    // A source-supplied `public` gets a generated oid instead, because a
-    // flattened catalog cannot give every database's public the same oid. Those
-    // oids never match, so shadowing built-ins by oid left both rows in place:
-    // the built-in one owning nothing while holding the oid clients treat as
-    // canonical, which hid every table from anything resolving public to 2200.
+    // A source-supplied `public` gets a generated oid instead. Those oids never
+    // match, so shadowing built-ins by oid left both rows in place: the built-in
+    // one owning nothing while holding the oid clients treat as canonical, which
+    // hid every table from anything resolving public to 2200. Shadowing by name
+    // is what keeps exactly one row here.
     let (ctx, _log) = get_base_session_context_with_lazy_catalog(
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
         Arc::new(FakeSource),
         LazyCatalogOptions::all(),
+        "lazydb1".to_string(),
     )
     .await?;
 
@@ -1519,12 +1539,13 @@ async fn test_source_public_schema_replaces_the_builtin_one() -> DFResult<()> {
     )
     .await?;
 
-    // FakeSource models two databases, each with its own public schema, so two
-    // rows are correct here -- but neither may be the built-in 2200.
+    // FakeSource models two databases, each with its own public schema, but this
+    // context serves lazydb1, so only lazydb1's public appears -- and it is not
+    // the built-in 2200.
     assert_eq!(
         oids,
-        vec![SCHEMA1_OID.to_string(), SCHEMA2_OID.to_string()],
-        "expected only the source's public schemas, got {oids:?}"
+        vec![SCHEMA1_OID.to_string()],
+        "expected only the served database's public schema, got {oids:?}"
     );
     assert!(
         !oids.contains(&"2200".to_string()),
@@ -1533,41 +1554,185 @@ async fn test_source_public_schema_replaces_the_builtin_one() -> DFResult<()> {
     Ok(())
 }
 
-#[tokio::test(flavor = "multi_thread")]
-async fn test_same_schema_name_in_two_databases_stays_two_rows() -> DFResult<()> {
-    // Shadowing built-ins by name must not collapse the flattened catalog's
-    // legitimate case: one `public` per database, each with its own oid and its
-    // own relations. Identity is still keyed by oid, so these stay distinct.
+/// Build a context serving `database` from `FakeSource`, with the source
+/// installed before the views so they bind to it.
+async fn ctx_serving_database_from_fake_source(
+    database: &str,
+) -> DFResult<datafusion::execution::context::SessionContext> {
+    // The DataFusion catalog is named after the database, which is what the view
+    // bodies inline current_database() to.
     let (ctx, _log) = get_base_session_context_with_lazy_catalog(
+        Some("pg_catalog_data/pg_schema"),
+        database.to_string(),
+        "public".to_string(),
+        Arc::new(FakeSource),
+        LazyCatalogOptions::all(),
+        database.to_string(),
+    )
+    .await?;
+    Ok(ctx)
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_each_database_gets_its_own_context_and_sees_only_its_own_objects() -> DFResult<()> {
+    // The whole point of one context per database. FakeSource reports two
+    // databases that each own a `public` schema holding one relation; a
+    // connection to either must see its own and nothing of the other's, which is
+    // what a PostgreSQL connection sees.
+    let db1 = ctx_serving_database_from_fake_source("lazydb1").await?;
+    let db2 = ctx_serving_database_from_fake_source("lazydb2").await?;
+
+    // Exactly one `public` per context, each carrying its own database's oid.
+    for (ctx, expected_oid, label) in [
+        (&db1, SCHEMA1_OID, "lazydb1"),
+        (&db2, SCHEMA2_OID, "lazydb2"),
+    ] {
+        let oids = text_column(
+            ctx,
+            "SELECT oid FROM pg_catalog.pg_namespace WHERE nspname = 'public' ORDER BY oid",
+        )
+        .await?;
+        assert_eq!(
+            oids,
+            vec![expected_oid.to_string()],
+            "{label} must see exactly its own public schema, got {oids:?}"
+        );
+    }
+
+    // And only its own relation, through the join that resolves the namespace.
+    let relations_sql = "SELECT c.relname FROM pg_catalog.pg_class c \
+         JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace \
+         WHERE n.nspname = 'public' AND c.relkind = 'r' ORDER BY c.relname";
+    assert_eq!(
+        string_column(&db1, relations_sql).await?,
+        vec!["users".to_string()],
+        "lazydb1 must not see lazydb2's events"
+    );
+    assert_eq!(
+        string_column(&db2, relations_sql).await?,
+        vec!["events".to_string()],
+        "lazydb2 must not see lazydb1's users"
+    );
+
+    // pg_database is the exception: every database is listed from either one,
+    // which is how PostgreSQL answers "\l".
+    let databases_sql =
+        "SELECT datname FROM pg_catalog.pg_database WHERE datname LIKE 'lazydb%' ORDER BY datname";
+    let both = vec!["lazydb1".to_string(), "lazydb2".to_string()];
+    assert_eq!(string_column(&db1, databases_sql).await?, both);
+    assert_eq!(string_column(&db2, databases_sql).await?, both);
+
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_views_report_the_database_their_context_serves() -> DFResult<()> {
+    // information_schema.tables.table_catalog comes from a view body whose
+    // current_database() is inlined at CREATE VIEW time. One context per
+    // database is what makes that inlined literal correct: each context inlines
+    // its own database rather than a single shared catalog name.
+    for (database, relation) in [("lazydb1", "users"), ("lazydb2", "events")] {
+        let ctx = ctx_serving_database_from_fake_source(database).await?;
+        // text_column, not string_column: table_catalog reaches the client
+        // through an information_schema domain cast, so its Arrow flavor is not
+        // guaranteed to be plain Utf8.
+        let catalogs = text_column(
+            &ctx,
+            &format!(
+                "SELECT table_catalog FROM information_schema.tables \
+                 WHERE table_name = '{relation}'"
+            ),
+        )
+        .await?;
+        assert_eq!(
+            catalogs,
+            vec![database.to_string()],
+            "{database}'s views must report {database} as the catalog"
+        );
+    }
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_registering_a_database_the_source_does_not_report_is_an_error() -> DFResult<()> {
+    // A database name that will never match anything must fail here rather than
+    // present as a catalog that is mysteriously empty.
+    let (ctx, _log) = get_base_session_context(
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
+    )
+    .await?;
+
+    let result = register_lazy_catalog(
+        &ctx,
         Arc::new(FakeSource),
         LazyCatalogOptions::all(),
+        "lazydb3",
+    )
+    .await;
+
+    let message = result.expect_err("an unknown database must fail registration").to_string();
+    assert!(
+        message.contains("lazydb3") && message.contains("lazydb1"),
+        "the error must name the database asked for and those available, got: {message}"
+    );
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_lazy_catalog_error_surfaces_at_registration() -> DFResult<()> {
+    // Validation asks the source for its databases, so a source that cannot
+    // answer fails the build rather than producing a context that errors later
+    // on every catalog query.
+    let (ctx, _log) = get_base_session_context(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
     )
     .await?;
 
-    let count = text_column(
+    let result = register_lazy_catalog(
         &ctx,
-        "SELECT count(*) FROM pg_catalog.pg_namespace WHERE nspname = 'public'",
+        Arc::new(FailingSource),
+        LazyCatalogOptions::all(),
+        "anydb",
     )
-    .await?;
-    assert_eq!(count, vec!["2".to_string()]);
+    .await;
 
-    // Each database's public still owns its own relation, which is what the
-    // separate oids are for.
-    let relations = string_column(
-        &ctx,
-        "SELECT c.relname FROM pg_catalog.pg_class c \
-         JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace \
-         WHERE n.nspname = 'public' AND c.relkind = 'r' ORDER BY c.relname",
+    let message = result.expect_err("a failing source must fail registration").to_string();
+    assert!(
+        message.contains("boom from source"),
+        "expected the source's own error, got: {message}"
+    );
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn test_a_database_scoped_table_cannot_be_registered_as_global() -> DFResult<()> {
+    // register_database_independent_lazy_catalog serves its tables a placeholder
+    // database, so letting a scoped table through would report an empty catalog
+    // -- the same silent-empty failure the validation above prevents.
+    let (ctx, _log) = get_base_session_context(
+        Some("pg_catalog_data/pg_schema"),
+        "pgtry".to_string(),
+        "public".to_string(),
     )
     .await?;
-    assert_eq!(
-        relations,
-        vec!["events".to_string(), "users".to_string()],
-        "each database's public should keep its own relation"
+
+    let result = register_database_independent_lazy_catalog(
+        &ctx,
+        Arc::new(FakeSource),
+        LazyCatalogOptions::with_tables(vec![CatalogTable::PgDatabase, CatalogTable::PgClass]),
+    )
+    .await;
+
+    let message = result
+        .expect_err("a database-scoped table must be refused")
+        .to_string();
+    assert!(
+        message.contains("pg_class"),
+        "the error must name the offending table, got: {message}"
     );
     Ok(())
 }
@@ -1581,7 +1746,6 @@ async fn test_builtin_public_survives_without_a_lazy_source() -> DFResult<()> {
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
     )
     .await?;
 

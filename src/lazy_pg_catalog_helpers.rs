@@ -4,8 +4,8 @@ use datafusion::error::Result as DFResult;
 use datafusion::execution::context::SessionContext;
 
 use crate::lazy_catalog::{
-    register_lazy_catalog, CatalogTable, ColumnSpec, DatabaseDef, LazyCatalogOptions,
-    LazyCatalogSource, RelationDef, SchemaDef,
+    register_database_independent_lazy_catalog, CatalogTable, ColumnSpec, DatabaseDef,
+    LazyCatalogOptions, LazyCatalogSource, RelationDef, SchemaDef,
 };
 
 /// A single database row for lazy population of `pg_catalog.pg_database`.
@@ -140,9 +140,15 @@ impl LazyCatalogSource for DatabaseOnlySource {
 /// and `datdba` are mandatory; missing fields default to PostgreSQL-compatible
 /// values (e.g., `encoding=6` UTF8, `datistemplate=false`, `datallowconn=true`).
 ///
-/// This is a thin shim over [`register_lazy_catalog`]: the callback rows are
+/// This is a thin shim over the lazy catalog machinery: the callback rows are
 /// **merged** with the built-in `pg_database` rows (postgres/template0/template1)
 /// rather than replacing them, and they are re-pulled fresh on every scan.
+///
+/// Unlike [`register_lazy_catalog`], this takes no database to serve. It
+/// registers `pg_database` and nothing else, and `pg_database` is the one
+/// catalog table that is not scoped to a database - every database on the
+/// server is visible from every other, as PostgreSQL does it. So there is no
+/// database for the caller to name here.
 pub async fn register_user_database_with_callback(
     ctx: &SessionContext,
     fetch_databases: Arc<dyn Fn() -> Vec<LazyDatabaseRow> + Send + Sync>,
@@ -150,7 +156,7 @@ pub async fn register_user_database_with_callback(
     let source: Arc<dyn LazyCatalogSource> = Arc::new(DatabaseOnlySource {
         fetch: fetch_databases,
     });
-    register_lazy_catalog(
+    register_database_independent_lazy_catalog(
         ctx,
         source,
         LazyCatalogOptions::with_tables(vec![CatalogTable::PgDatabase]),

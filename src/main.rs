@@ -61,7 +61,6 @@ async fn run() -> anyhow::Result<()> {
         Some(schema_path),
         default_catalog.clone(),
         default_schema.clone(),
-        None,
     )
     .await?;
 

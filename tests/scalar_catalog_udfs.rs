@@ -194,13 +194,18 @@ async fn test_generated_stat_resolver_default_null_then_resolver() -> DFResult<(
     Ok(())
 }
 
-/// `current_user` / `session_user` read the mutable session-user slot, so they reflect
-/// `set_session_user` at call time (this is what lets a view body's `CURRENT_USER`,
-/// planned at startup, resolve to the querying connection's user).
+/// `current_user` / `session_user` read the session's own `ClientOpts` at call time,
+/// so they reflect `set_session_user` on that session (this is what lets a view body's
+/// `CURRENT_USER`, planned at startup, resolve to the querying connection's user).
+///
+/// Checked here against a context built from the real catalog, which
+/// `tests/session_identity.rs` does not do - it isolates the mechanism on a bare
+/// context. Both matter: this one would catch the catalog's own build overwriting or
+/// shadowing the identity functions.
 #[tokio::test]
-async fn test_session_user_reflects_slot() -> DFResult<()> {
+async fn test_session_user_reflects_client_opts() -> DFResult<()> {
     use arrow::array::StringArray;
-    use datafusion_pg_catalog::set_session_user;
+    use datafusion_pg_catalog::session::set_session_user;
 
     let ctx = base_ctx().await?;
     let read = |label: &'static str| {
@@ -224,13 +229,13 @@ async fn test_session_user_reflects_slot() -> DFResult<()> {
         }
     };
 
-    set_session_user("alice");
+    set_session_user(&ctx, "alice")?;
     assert_eq!(
         read("alice").await?,
         ("alice".to_string(), "alice".to_string())
     );
 
-    set_session_user("bob");
+    set_session_user(&ctx, "bob")?;
     assert_eq!(read("bob").await?, ("bob".to_string(), "bob".to_string()));
     Ok(())
 }

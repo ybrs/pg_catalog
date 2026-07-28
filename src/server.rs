@@ -819,7 +819,9 @@ impl SimpleQueryHandler for DatafusionBackend {
 
         let _ = self.register_current_database(client);
         if let Some(user) = client.metadata().get(pgwire::api::METADATA_USER) {
-            crate::user_functions::set_session_user(user);
+            // self.ctx is this connection's own context (see start_server), so
+            // recording the role here does not leak it to other connections.
+            let _ = crate::session::set_session_user(&self.ctx, user);
         }
 
         let dispatch_result =
@@ -970,7 +972,9 @@ impl ExtendedQueryHandler for DatafusionBackend {
 
         let _ = self.register_current_database(client);
         if let Some(user) = client.metadata().get(pgwire::api::METADATA_USER) {
-            crate::user_functions::set_session_user(user);
+            // self.ctx is this connection's own context (see start_server), so
+            // recording the role here does not leak it to other connections.
+            let _ = crate::session::set_session_user(&self.ctx, user);
         }
 
         let dispatch_result = dispatch_query(
@@ -1251,7 +1255,11 @@ pub async fn start_server(
     loop {
         let (socket, _) = listener.accept().await?;
         if let Some(socket) = detect_gssencmode(socket).await {
-            let ctx = base_ctx.clone();
+            // Every connection gets its own context over the shared base. The
+            // catalog and its planned views are shared, but the session config
+            // is not - which is what lets each connection carry its own role
+            // and client settings instead of overwriting the previous one's.
+            let ctx = Arc::new(SessionContext::new_with_state(base_ctx.state().clone()));
             let factory = Arc::new(DatafusionBackendFactory {
                 handler: Arc::new(DatafusionBackend::new(
                     Arc::clone(&ctx),

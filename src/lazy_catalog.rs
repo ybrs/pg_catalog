@@ -42,6 +42,19 @@ use crate::session::rows_to_record_batch;
 /// consumed by [`rows_to_record_batch`]. Columns not present default to NULL.
 pub type Row = std::collections::BTreeMap<String, Value>;
 
+/// The first OID PostgreSQL leaves to user objects; everything below is reserved
+/// for the built-in catalog.
+pub const FIRST_USER_OID: i32 = 16384;
+
+/// The role that owns catalog objects whose host did not name an owner.
+///
+/// `10` is the bootstrap superuser in the embedded `pg_authid`, so it is a role
+/// that actually exists. That matters more than it looks:
+/// `information_schema.schemata` joins `pg_namespace.nspowner` to `pg_authid.oid`
+/// with an INNER join, so a schema owned by an OID no role has is not merely
+/// shown with a blank owner - it is missing from the view entirely.
+pub const DEFAULT_OWNER_ROLE_OID: i32 = 10;
+
 /// One user database fed into `pg_catalog.pg_database`.
 ///
 /// This is an alias for [`LazyDatabaseRow`] so the rich optional metadata
@@ -632,6 +645,22 @@ pub enum CatalogTable {
 }
 
 impl CatalogTable {
+    /// Whether this table's rows are the same whichever database you are
+    /// connected to.
+    ///
+    /// `pg_database` lists every database on the server, and `pg_config` /
+    /// `pg_settings` describe the server build and its GUCs; none of the three
+    /// belongs to a database. Every other table here holds one database's
+    /// schemas, relations or columns and is scoped to it. The corresponding arms
+    /// of [`build_rows_for`] are exactly the ones that ignore its `database`
+    /// argument.
+    pub fn is_database_independent(&self) -> bool {
+        matches!(
+            self,
+            CatalogTable::PgDatabase | CatalogTable::PgConfig | CatalogTable::PgSettings
+        )
+    }
+
     /// The `(schema_name, table_name)` this catalog table lives under, used to
     /// look up and replace its provider during registration.
     pub fn location(&self) -> (&'static str, &'static str) {
@@ -902,7 +931,10 @@ pub fn build_pg_namespace_row(def: &SchemaDef) -> Row {
     let mut row = Row::new();
     row.insert("oid".to_string(), json!(def.oid));
     row.insert("nspname".to_string(), json!(def.name));
-    row.insert("nspowner".to_string(), json!(def.owner_oid.unwrap_or(10)));
+    row.insert(
+        "nspowner".to_string(),
+        json!(def.owner_oid.unwrap_or(DEFAULT_OWNER_ROLE_OID)),
+    );
     row.insert("nspacl".to_string(), Value::Null);
     row
 }
@@ -1257,8 +1289,24 @@ pub fn build_info_schemata_row(catalog: &str, def: &SchemaDef) -> Row {
 }
 
 /// Walk the source hierarchy as far as `table` requires and build that table's
-/// user rows. Any error from the source propagates unchanged.
-pub fn build_rows_for(table: CatalogTable, source: &dyn LazyCatalogSource) -> DFResult<Vec<Row>> {
+/// user rows for the one database `database` names. Any error from the source
+/// propagates unchanged.
+///
+/// Every table here is scoped to `database` except `pg_database` itself:
+/// PostgreSQL shows a connection only its own database's schemas, relations and
+/// attributes, while `pg_database` lists every database on the server. The
+/// tables that hold no per-database data at all (`pg_config`, `pg_settings`)
+/// never consulted the database hierarchy and still do not.
+///
+/// A `database` the source does not report yields no user rows, which is the
+/// right answer for a database that has been dropped. Registration validates the
+/// name up front (see [`register_lazy_catalog`]) so a typo fails loudly there
+/// rather than showing up as an empty catalog here.
+pub fn build_rows_for(
+    table: CatalogTable,
+    source: &dyn LazyCatalogSource,
+    database: &str,
+) -> DFResult<Vec<Row>> {
     let mut rows = Vec::new();
     match table {
         CatalogTable::PgConfig => {
@@ -1272,48 +1320,42 @@ pub fn build_rows_for(table: CatalogTable, source: &dyn LazyCatalogSource) -> DF
             }
         }
         CatalogTable::PgDatabase => {
+            // Deliberately unscoped: every database is visible from every
+            // database, which is how PostgreSQL answers "\l".
             for db in fetch_databases(source)? {
                 rows.push(build_pg_database_row(&db));
             }
         }
         CatalogTable::PgNamespace => {
-            for db in fetch_databases(source)? {
-                for schema in fetch_schemas(source, &db.datname)? {
-                    rows.push(build_pg_namespace_row(&schema));
-                }
+            for schema in fetch_schemas(source, database)? {
+                rows.push(build_pg_namespace_row(&schema));
             }
         }
         CatalogTable::PgClass => {
-            for db in fetch_databases(source)? {
-                for schema in fetch_schemas(source, &db.datname)? {
-                    for rel in fetch_relations(source, &db.datname, &schema.name)? {
-                        let natts = fetch_columns(source, &db.datname, &schema.name, &rel.name)?
-                            .len() as i32;
-                        rows.push(build_pg_class_row(&rel, schema.oid, natts));
-                    }
-                    // An index is itself a relation, so it gets its own pg_class
-                    // row (relkind 'i') alongside the tables in this schema.
-                    for index in fetch_indexes(source, &db.datname, &schema.name)? {
-                        rows.push(build_index_pg_class_row(&index, schema.oid));
-                    }
+            for schema in fetch_schemas(source, database)? {
+                for rel in fetch_relations(source, database, &schema.name)? {
+                    let natts =
+                        fetch_columns(source, database, &schema.name, &rel.name)?.len() as i32;
+                    rows.push(build_pg_class_row(&rel, schema.oid, natts));
+                }
+                // An index is itself a relation, so it gets its own pg_class
+                // row (relkind 'i') alongside the tables in this schema.
+                for index in fetch_indexes(source, database, &schema.name)? {
+                    rows.push(build_index_pg_class_row(&index, schema.oid));
                 }
             }
         }
         CatalogTable::PgIndex => {
-            for db in fetch_databases(source)? {
-                for schema in fetch_schemas(source, &db.datname)? {
-                    for index in fetch_indexes(source, &db.datname, &schema.name)? {
-                        rows.push(build_pg_index_row(&index));
-                    }
+            for schema in fetch_schemas(source, database)? {
+                for index in fetch_indexes(source, database, &schema.name)? {
+                    rows.push(build_pg_index_row(&index));
                 }
             }
         }
         CatalogTable::PgConstraint => {
-            for db in fetch_databases(source)? {
-                for schema in fetch_schemas(source, &db.datname)? {
-                    for constraint in fetch_constraints(source, &db.datname, &schema.name)? {
-                        rows.push(build_pg_constraint_row(&constraint));
-                    }
+            for schema in fetch_schemas(source, database)? {
+                for constraint in fetch_constraints(source, database, &schema.name)? {
+                    rows.push(build_pg_constraint_row(&constraint));
                 }
             }
         }
@@ -1323,72 +1365,56 @@ pub fn build_rows_for(table: CatalogTable, source: &dyn LazyCatalogSource) -> DF
             // (consumers join on adrelid+adnum), so only stability within a scan
             // matters, and the build order is deterministic.
             let mut synthetic_oid = SYNTHETIC_ATTRDEF_OID_BASE;
-            for db in fetch_databases(source)? {
-                for schema in fetch_schemas(source, &db.datname)? {
-                    for rel in fetch_relations(source, &db.datname, &schema.name)? {
-                        let columns = fetch_columns(source, &db.datname, &schema.name, &rel.name)?;
-                        for (idx, col) in columns.iter().enumerate() {
-                            if col.has_default {
-                                rows.push(build_pg_attrdef_row(
-                                    synthetic_oid,
-                                    rel.oid,
-                                    (idx + 1) as i32,
-                                ));
-                                synthetic_oid += 1;
-                            }
+            for schema in fetch_schemas(source, database)? {
+                for rel in fetch_relations(source, database, &schema.name)? {
+                    let columns = fetch_columns(source, database, &schema.name, &rel.name)?;
+                    for (idx, col) in columns.iter().enumerate() {
+                        if col.has_default {
+                            rows.push(build_pg_attrdef_row(synthetic_oid, rel.oid, (idx + 1) as i32));
+                            synthetic_oid += 1;
                         }
                     }
                 }
             }
         }
         CatalogTable::PgType => {
-            for db in fetch_databases(source)? {
-                for schema in fetch_schemas(source, &db.datname)? {
-                    for rel in fetch_relations(source, &db.datname, &schema.name)? {
-                        rows.push(build_pg_type_rowtype_row(&rel, schema.oid));
-                    }
+            for schema in fetch_schemas(source, database)? {
+                for rel in fetch_relations(source, database, &schema.name)? {
+                    rows.push(build_pg_type_rowtype_row(&rel, schema.oid));
                 }
             }
         }
         CatalogTable::PgAttribute => {
-            for db in fetch_databases(source)? {
-                for schema in fetch_schemas(source, &db.datname)? {
-                    for rel in fetch_relations(source, &db.datname, &schema.name)? {
-                        let cols = fetch_columns(source, &db.datname, &schema.name, &rel.name)?;
-                        rows.extend(build_pg_attribute_rows(rel.oid, &cols));
-                    }
+            for schema in fetch_schemas(source, database)? {
+                for rel in fetch_relations(source, database, &schema.name)? {
+                    let cols = fetch_columns(source, database, &schema.name, &rel.name)?;
+                    rows.extend(build_pg_attribute_rows(rel.oid, &cols));
                 }
             }
         }
         CatalogTable::InformationSchemaTables => {
-            for db in fetch_databases(source)? {
-                for schema in fetch_schemas(source, &db.datname)? {
-                    for rel in fetch_relations(source, &db.datname, &schema.name)? {
-                        rows.push(build_info_tables_row(&db.datname, &schema.name, &rel));
-                    }
+            for schema in fetch_schemas(source, database)? {
+                for rel in fetch_relations(source, database, &schema.name)? {
+                    rows.push(build_info_tables_row(database, &schema.name, &rel));
                 }
             }
         }
         CatalogTable::InformationSchemaColumns => {
-            for db in fetch_databases(source)? {
-                for schema in fetch_schemas(source, &db.datname)? {
-                    for rel in fetch_relations(source, &db.datname, &schema.name)? {
-                        let cols = fetch_columns(source, &db.datname, &schema.name, &rel.name)?;
-                        rows.extend(build_info_columns_rows(
-                            &db.datname,
-                            &schema.name,
-                            &rel.name,
-                            &cols,
-                        ));
-                    }
+            for schema in fetch_schemas(source, database)? {
+                for rel in fetch_relations(source, database, &schema.name)? {
+                    let cols = fetch_columns(source, database, &schema.name, &rel.name)?;
+                    rows.extend(build_info_columns_rows(
+                        database,
+                        &schema.name,
+                        &rel.name,
+                        &cols,
+                    ));
                 }
             }
         }
         CatalogTable::InformationSchemaSchemata => {
-            for db in fetch_databases(source)? {
-                for schema in fetch_schemas(source, &db.datname)? {
-                    rows.push(build_info_schemata_row(&db.datname, &schema));
-                }
+            for schema in fetch_schemas(source, database)? {
+                rows.push(build_info_schemata_row(database, &schema));
             }
         }
     }
@@ -1485,6 +1511,13 @@ pub struct LazyCatalogTableProvider {
     builtin_batches: Vec<RecordBatch>,
     /// The user's callback object.
     source: Arc<dyn LazyCatalogSource>,
+    /// The one database whose objects this provider serves, fixed when the
+    /// context was built.
+    ///
+    /// A context serves exactly one database, so this is a build-time constant
+    /// rather than something read from the scanning session. Serving several
+    /// databases means building several contexts.
+    database: String,
 }
 
 impl std::fmt::Debug for LazyCatalogTableProvider {
@@ -1521,7 +1554,7 @@ impl TableProvider for LazyCatalogTableProvider {
         filters: &[Expr],
         limit: Option<usize>,
     ) -> DFResult<Arc<dyn ExecutionPlan>> {
-        let user_rows = build_rows_for(self.table, &*self.source)?;
+        let user_rows = build_rows_for(self.table, &*self.source, &self.database)?;
         let key_cols = self.table.key_columns();
 
         // Collect the user rows' identities. Two user rows sharing a key mean the
@@ -1618,17 +1651,77 @@ impl Default for LazyCatalogOptions {
 }
 
 /// Install lazy providers over the catalog + information_schema tables, sourcing
-/// user rows from `source`.
+/// user rows from `source`, for the single database `database` names.
 ///
 /// MUST be called right after [`crate::get_base_session_context`] and BEFORE any
 /// static `register_user_*` call, so the captured built-in batches contain only
 /// the YAML system rows. For each target table this captures the current
 /// provider's rows (the built-ins), then swaps in a [`LazyCatalogTableProvider`]
 /// that merges those built-ins with whatever the source returns per scan.
+///
+/// `database` is a build-time choice: the resulting context shows that
+/// database's schemas and relations and no other database's, exactly as a
+/// PostgreSQL connection does. `pg_database` still lists every database the
+/// source reports. To serve several databases, build one context per database.
+///
+/// Fails if `source` does not report `database`, so a name that will never match
+/// anything is caught here rather than presenting as a catalog that is
+/// mysteriously empty.
 pub async fn register_lazy_catalog(
     ctx: &SessionContext,
     source: Arc<dyn LazyCatalogSource>,
     opts: LazyCatalogOptions,
+    database: &str,
+) -> DFResult<()> {
+    let known = fetch_databases(&*source)?;
+    if !known.iter().any(|def| def.datname == database) {
+        let available: Vec<&str> = known.iter().map(|def| def.datname.as_str()).collect();
+        return Err(DataFusionError::Execution(format!(
+            "lazy catalog source does not report database '{database}'; it reports {available:?}"
+        )));
+    }
+
+    install_lazy_providers(ctx, source, opts, database).await
+}
+
+/// Install lazy providers over catalog tables that hold no per-database data.
+///
+/// The counterpart to [`register_lazy_catalog`] for a source that contributes
+/// only server-wide rows: the databases the server hosts (`pg_database`), the
+/// build settings (`pg_config`) or the GUCs (`pg_settings`). There is no
+/// database to name, because the arms of [`build_rows_for`] these tables use
+/// never read one, and demanding a name would force such a source to invent one.
+///
+/// Rejects any table that is database-scoped. Such a table would be served the
+/// placeholder below and would report an empty catalog - the silent-empty
+/// failure that [`register_lazy_catalog`]'s validation exists to prevent,
+/// arriving by a different door.
+pub async fn register_database_independent_lazy_catalog(
+    ctx: &SessionContext,
+    source: Arc<dyn LazyCatalogSource>,
+    opts: LazyCatalogOptions,
+) -> DFResult<()> {
+    if let Some(scoped) = opts.tables.iter().find(|t| !t.is_database_independent()) {
+        let (schema_name, table_name) = scoped.location();
+        return Err(DataFusionError::Execution(format!(
+            "{schema_name}.{table_name} holds one database's rows and cannot be registered \
+             as a global table; use register_lazy_catalog and name the database"
+        )));
+    }
+    // Never read: every table above ignores it. Named so that a value reaching
+    // build_rows_for by mistake is obvious in the failure rather than looking
+    // like a real database.
+    const NO_DATABASE: &str = "\u{0}global\u{0}";
+    install_lazy_providers(ctx, source, opts, NO_DATABASE).await
+}
+
+/// Swap a [`LazyCatalogTableProvider`] over each of `opts.tables` and re-plan the
+/// views that were bound to the providers being replaced.
+async fn install_lazy_providers(
+    ctx: &SessionContext,
+    source: Arc<dyn LazyCatalogSource>,
+    opts: LazyCatalogOptions,
+    database: &str,
 ) -> DFResult<()> {
     let default_catalog = {
         let state = ctx.state();
@@ -1667,6 +1760,7 @@ pub async fn register_lazy_catalog(
             schema: table_schema,
             builtin_batches: builtin,
             source: source.clone(),
+            database: database.to_string(),
         });
 
         let _ = schema_provider.deregister_table(table_name);

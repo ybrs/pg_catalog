@@ -381,13 +381,17 @@ async fn main() -> anyhow::Result<()> {
     // providers and reflect the live SQLite schema too - not just the base tables.
     let source: Arc<dyn LazyCatalogSource> = Arc::new(SqliteCatalogSource { conn: conn.clone() });
     let load_started = Instant::now();
+    // The context serves DB_NAME, and DataFusion's default catalog carries the
+    // same name: current_database() reports the session's default catalog, so
+    // the two must agree or information_schema reports a database that
+    // pg_database has never heard of.
     let (ctx, _log) = get_base_session_context_with_lazy_catalog(
         None,
-        "datafusion".to_string(),
+        DB_NAME.to_string(),
         "public".to_string(),
-        None,
         source,
         LazyCatalogOptions::all(),
+        DB_NAME.to_string(),
     )
     .await?;
     println!(

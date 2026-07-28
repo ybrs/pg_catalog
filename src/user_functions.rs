@@ -22,6 +22,14 @@ use datafusion::logical_expr::{
 use datafusion::logical_expr::{Expr, TableType};
 use datafusion::prelude::SessionContext;
 use datafusion::prelude::*;
+
+use crate::session::{ClientOpts, DEFAULT_SESSION_USER};
+
+/// The schema a session falls back to when its search path names none.
+const DEFAULT_USER_SCHEMA: &str = "public";
+
+/// The schema PostgreSQL searches before the search path without listing it.
+const IMPLICIT_SYSTEM_SCHEMA: &str = "pg_catalog";
 use once_cell::sync::Lazy;
 use std::collections::HashMap;
 use std::future::Future;
@@ -338,43 +346,68 @@ pub fn register_scalar_pg_proc_oid(ctx: &SessionContext) -> Result<()> {
     register_name_to_oid_udf(ctx, "pg_proc_oid", "pg_catalog.pg_proc", "proname")
 }
 
-/// The current session user reported by `current_user` / `session_user`, read at call
-/// time. A live catalog view is planned eagerly at startup and captures the UDF
-/// instances its body references, so these UDFs must read a mutable slot rather than a
-/// value baked in at registration - otherwise a view body's `CURRENT_USER` would freeze
-/// to the startup value. The connection handler keeps it current via [`set_session_user`].
-static SESSION_USER: Lazy<std::sync::RwLock<String>> =
-    Lazy::new(|| std::sync::RwLock::new("postgres".to_string()));
-
-/// Set the user reported by `current_user` / `session_user` / `current_role`.
-pub fn set_session_user(user: &str) {
-    *SESSION_USER.write().expect("session user slot poisoned") = user.to_string();
-}
-
 /// Register `current_user` / `session_user` / `current_role` (and their
-/// `pg_catalog`-qualified aliases) as no-argument UDFs reporting the current session
-/// user. They read the mutable [`SESSION_USER`] slot at call time, so a view body's
-/// `CURRENT_USER` - planned eagerly at startup, before any client connects - both plans
-/// then and resolves to the querying connection's user at execution.
+/// `pg_catalog`-qualified aliases) as no-argument UDFs reporting the role the
+/// querying connection authenticated as.
+///
+/// The value comes from [`ClientOpts::session_user`] on the session running the
+/// query, read at the moment the function is called. That indirection is what
+/// makes per-connection identity possible at all: a catalog view is planned once
+/// at startup, before any client exists, and freezes which UDF *instance* its
+/// body calls - so nothing captured at registration can ever vary by connection.
+/// It does call that instance on every SELECT, and DataFusion hands it the
+/// executing session's config, so reading the config at call time gives a view
+/// body's `CURRENT_USER` the querying connection's role.
+///
+/// Write the role with [`crate::session::set_session_user`], on the connection's
+/// own context.
 pub fn register_session_identity(ctx: &SessionContext) -> Result<()> {
+    /// The shared implementation behind all three names. They are separate
+    /// PostgreSQL functions but report the same value: riffq has no notion of
+    /// a role changing within a session (no SET ROLE), so the session role and
+    /// the current role cannot diverge.
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    struct SessionIdentity {
+        name: String,
+        signature: Signature,
+    }
+
+    impl ScalarUDFImpl for SessionIdentity {
+        fn name(&self) -> &str {
+            &self.name
+        }
+        fn signature(&self) -> &Signature {
+            &self.signature
+        }
+        fn return_type(&self, _args: &[ArrowDataType]) -> Result<ArrowDataType> {
+            Ok(ArrowDataType::Utf8)
+        }
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            // A session built by something other than this crate carries no
+            // ClientOpts; report the default role rather than failing a query
+            // over it.
+            let user = args
+                .config_options
+                .extensions
+                .get::<ClientOpts>()
+                .map(|opts| opts.session_user.clone())
+                .unwrap_or_else(|| DEFAULT_SESSION_USER.to_string());
+            Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(user))))
+        }
+    }
+
     for (name, alias) in [
         ("current_user", "pg_catalog.current_user"),
         ("session_user", "pg_catalog.session_user"),
         ("current_role", "pg_catalog.current_role"),
     ] {
-        let udf = create_udf(
-            name,
-            vec![],
-            ArrowDataType::Utf8,
-            Volatility::Stable,
-            Arc::new(|_args| {
-                let user = SESSION_USER
-                    .read()
-                    .expect("session user slot poisoned")
-                    .clone();
-                Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(user))))
-            }),
-        )
+        let udf = ScalarUDF::new_from_impl(SessionIdentity {
+            name: name.to_string(),
+            // Stable, not Immutable: the value is fixed within one query but
+            // differs between connections, so it must not be folded away at
+            // planning time into the value the planning session happened to see.
+            signature: Signature::nullary(Volatility::Stable),
+        })
         .with_aliases([alias]);
         ctx.register_udf(udf);
     }
@@ -2056,64 +2089,174 @@ pub fn register_nameconcatoid(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// Register `current_schema()` returning the constant `public`.
-pub fn register_current_schema(
-    ctx: &SessionContext,
-    get_current_schemas: Arc<dyn Fn(&SessionContext) -> Vec<String> + Send + Sync>,
-) -> Result<()> {
-    let ctx_arc = Arc::new(ctx.clone());
-    let get_current_schemas = get_current_schemas.clone();
+/// Register `current_database()` (and its `pg_catalog`-qualified alias) reporting
+/// the database the querying connection is attached to.
+///
+/// The value is the session's default catalog, which for a context built by this
+/// crate *is* its database: one context serves one database and carries its name
+/// (see [`crate::session::get_base_session_context_with_lazy_catalog`]). Reading
+/// it at call time replaces the previous approach of rewriting the SQL text of
+/// every view body that called `current_database()` and substituting a literal
+/// before planning - which froze one name into plans shared by every connection,
+/// and gave 48 views a different answer from the function itself.
+///
+/// The `pg_catalog.` alias is not decoration: the router decides a bare call is
+/// the catalog's to answer by looking up `pg_catalog.<name>` in the function
+/// registry (see `router::function_is_catalog`), so without it a plain
+/// `SELECT current_database()` would be handed to the host instead.
+pub fn register_current_database(ctx: &SessionContext) -> Result<()> {
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    struct CurrentDatabase {
+        name: String,
+        signature: Signature,
+    }
 
-    let udf = create_udf(
-        "current_schema",
-        vec![],
-        ArrowDataType::Utf8,
-        Volatility::Immutable,
-        {
-            let ctx = ctx_arc.clone();
-            let get = get_current_schemas.clone();
-            std::sync::Arc::new(move |_args| {
-                let schema = (get)(&ctx).into_iter().next().unwrap_or_default();
-                Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(schema))))
-            })
-        },
-    )
-    .with_aliases(["pg_catalog.current_schema"]);
-    ctx_arc.register_udf(udf);
+    impl ScalarUDFImpl for CurrentDatabase {
+        fn name(&self) -> &str {
+            &self.name
+        }
+        fn signature(&self) -> &Signature {
+            &self.signature
+        }
+        fn return_type(&self, _args: &[ArrowDataType]) -> Result<ArrowDataType> {
+            Ok(ArrowDataType::Utf8)
+        }
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            let database = args.config_options.catalog.default_catalog.clone();
+            Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(database))))
+        }
+    }
+
+    let udf = ScalarUDF::new_from_impl(CurrentDatabase {
+        name: "current_database".to_string(),
+        // Stable, not Immutable: fixed within a query but different between
+        // connections to different databases, so it must not be folded into a
+        // plan that other connections share.
+        signature: Signature::nullary(Volatility::Stable),
+    })
+    .with_aliases(["pg_catalog.current_database"]);
+    ctx.register_udf(udf);
     Ok(())
 }
 
-/// Register `current_schemas(boolean)` returning `[pg_catalog, public]`.
-pub fn register_current_schemas(
-    ctx: &SessionContext,
-    get_current_schemas: Arc<dyn Fn(&SessionContext) -> Vec<String> + Send + Sync>,
-) -> Result<()> {
-    use arrow::array::{ArrayRef, ListBuilder, StringBuilder};
-    use arrow::datatypes::{DataType, Field};
-    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
-    use std::sync::Arc;
-
-    let ctx_arc = Arc::new(ctx.clone());
-    let get_current_schemas = get_current_schemas.clone();
-
-    let fun = move |_args: &[ColumnarValue]| -> Result<ColumnarValue> {
-        let schemas = (get_current_schemas)(&ctx_arc);
-        let mut builder = ListBuilder::new(StringBuilder::new());
-        for s in schemas {
-            builder.values().append_value(s);
-        }
-        builder.append(true);
-        Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
+/// The schemas on this session's search path, in order, with `$user` dropped.
+///
+/// PostgreSQL resolves `"$user"` to a schema named after the session role and
+/// skips the entry when no such schema exists. Nothing here creates per-role
+/// schemas - they all come from the host's registrations - so the entry never
+/// resolves and is always skipped.
+fn search_path_schemas(config: &datafusion::config::ConfigOptions) -> Vec<String> {
+    let Some(opts) = config.extensions.get::<ClientOpts>() else {
+        return vec![DEFAULT_USER_SCHEMA.to_string()];
     };
+    let schemas: Vec<String> = opts
+        .search_path
+        .split(',')
+        .map(|entry| entry.trim().trim_matches('"').trim().to_string())
+        .filter(|entry| !entry.is_empty() && entry != "$user")
+        .collect();
+    if schemas.is_empty() {
+        vec![DEFAULT_USER_SCHEMA.to_string()]
+    } else {
+        schemas
+    }
+}
 
-    let list_dt = DataType::List(Arc::new(Field::new("item", DataType::Utf8, true)));
-    let udf = create_udf(
-        "current_schemas",
-        vec![DataType::Boolean],
-        list_dt.clone(),
-        Volatility::Stable,
-        Arc::new(fun),
-    )
+/// Register `current_schema()`, the first schema on the session's search path.
+///
+/// That is the schema an unqualified `CREATE` would write to, so `pg_catalog` is
+/// specifically not it: `pg_catalog` is searched first but is implicit, and
+/// PostgreSQL reports the first *explicit* entry. Returning `pg_catalog` here -
+/// which is what taking the head of `current_schemas(true)` did - told every
+/// client its working schema was the system catalog.
+pub fn register_current_schema(ctx: &SessionContext) -> Result<()> {
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    struct CurrentSchema {
+        signature: Signature,
+    }
+
+    impl ScalarUDFImpl for CurrentSchema {
+        fn name(&self) -> &str {
+            "current_schema"
+        }
+        fn signature(&self) -> &Signature {
+            &self.signature
+        }
+        fn return_type(&self, _args: &[ArrowDataType]) -> Result<ArrowDataType> {
+            Ok(ArrowDataType::Utf8)
+        }
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            let schema = search_path_schemas(&args.config_options)
+                .into_iter()
+                .next()
+                .unwrap_or_else(|| DEFAULT_USER_SCHEMA.to_string());
+            Ok(ColumnarValue::Scalar(ScalarValue::Utf8(Some(schema))))
+        }
+    }
+
+    let udf = ScalarUDF::new_from_impl(CurrentSchema {
+        // Stable rather than Immutable: SET search_path changes it, and it
+        // differs between connections, so it must not be folded into a shared
+        // plan.
+        signature: Signature::nullary(Volatility::Stable),
+    })
+    .with_aliases(["pg_catalog.current_schema"]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
+/// Register `current_schemas(include_implicit boolean)`, the session's search
+/// path as an array.
+///
+/// With `include_implicit` true the implicitly-searched `pg_catalog` is
+/// prepended, as PostgreSQL does; with it false only the explicit entries are
+/// reported.
+pub fn register_current_schemas(ctx: &SessionContext) -> Result<()> {
+    use arrow::array::{ArrayRef, ListBuilder, StringBuilder};
+    use arrow::datatypes::Field;
+
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    struct CurrentSchemas {
+        signature: Signature,
+    }
+
+    impl ScalarUDFImpl for CurrentSchemas {
+        fn name(&self) -> &str {
+            "current_schemas"
+        }
+        fn signature(&self) -> &Signature {
+            &self.signature
+        }
+        fn return_type(&self, _args: &[ArrowDataType]) -> Result<ArrowDataType> {
+            Ok(ArrowDataType::List(Arc::new(Field::new(
+                "item",
+                ArrowDataType::Utf8,
+                true,
+            ))))
+        }
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            let include_implicit = matches!(
+                args.args.first(),
+                Some(ColumnarValue::Scalar(ScalarValue::Boolean(Some(true))))
+            );
+            let mut schemas = Vec::new();
+            if include_implicit {
+                schemas.push(IMPLICIT_SYSTEM_SCHEMA.to_string());
+            }
+            schemas.extend(search_path_schemas(&args.config_options));
+
+            let mut builder = ListBuilder::new(StringBuilder::new());
+            for schema in schemas {
+                builder.values().append_value(schema);
+            }
+            builder.append(true);
+            Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
+        }
+    }
+
+    let udf = ScalarUDF::new_from_impl(CurrentSchemas {
+        signature: Signature::exact(vec![ArrowDataType::Boolean], Volatility::Stable),
+    })
     .with_aliases(["pg_catalog.current_schemas"]);
     ctx.register_udf(udf);
     Ok(())
@@ -5009,15 +5152,23 @@ mod tests {
         Ok(())
     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn current_schemas_returns_defaults() -> Result<()> {
-        use arrow::array::{ListArray, StringArray};
-        let ctx = SessionContext::new();
+    /// Build a context carrying `search_path`, the way the catalog builds one.
+    fn ctx_with_search_path(search_path: &str) -> SessionContext {
+        let mut opts = ClientOpts::default();
+        opts.search_path = search_path.to_string();
+        SessionContext::new_with_config(
+            datafusion::execution::context::SessionConfig::new().with_option_extension(opts),
+        )
+    }
 
-        register_current_schemas(
-            &ctx,
-            Arc::new(|_| vec!["pg_catalog".to_string(), "public".to_string()]),
-        )?;
+    #[tokio::test(flavor = "multi_thread")]
+    async fn current_schemas_prepends_the_implicit_pg_catalog() -> Result<()> {
+        use arrow::array::{ListArray, StringArray};
+        // The PostgreSQL default search path. "$user" is dropped: it names a
+        // schema per role, and nothing here creates those.
+        let ctx = ctx_with_search_path("\"$user\", public");
+
+        register_current_schemas(&ctx)?;
 
         let batches = ctx
             .sql("SELECT current_schemas(true) AS v")
@@ -5037,14 +5188,13 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
-    async fn current_schema_uses_callable() -> Result<()> {
+    async fn current_schema_is_the_first_explicit_search_path_entry() -> Result<()> {
         use arrow::array::StringArray;
-        let ctx = SessionContext::new();
+        // Not pg_catalog: that is searched implicitly, and reporting it told
+        // every client its working schema was the system catalog.
+        let ctx = ctx_with_search_path("myschema, other");
 
-        register_current_schema(
-            &ctx,
-            Arc::new(|_| vec!["myschema".to_string(), "other".to_string()]),
-        )?;
+        register_current_schema(&ctx)?;
 
         let batches = ctx
             .sql("SELECT current_schema() AS v")

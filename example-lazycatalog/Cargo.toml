@@ -6,7 +6,10 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.102"
 arrow = "58.3.0"
-datafusion = "53.1.0"
+# Must track the parent crate's datafusion (Cargo.toml at the repo root).
+# The two are linked into one binary, so a version skew makes DataFusionError
+# and every other shared type two distinct types and the example stops building.
+datafusion = "54.0.0"
 # Use the local pg_catalog crate so this example exercises the in-tree
 # lazy-catalog mechanism (LazyCatalogSource / register_lazy_catalog).
 datafusion_pg_catalog = { path = ".." }

@@ -13,6 +13,6 @@ use datafusion_pg_catalog::get_base_session_context;
 /// uses, with no YAML parsing). Catalog `pgtry`, schema `public`.
 pub async fn base_ctx() -> DFResult<SessionContext> {
     let (ctx, _log) =
-        get_base_session_context(None, "pgtry".to_string(), "public".to_string(), None).await?;
+        get_base_session_context(None, "pgtry".to_string(), "public".to_string()).await?;
     Ok(ctx)
 }

@@ -39,7 +39,6 @@ async fn test_pg_get_userbyid_matches_rolname_for_every_role() -> DFResult<()> {
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
     )
     .await?;
 
@@ -89,7 +88,6 @@ async fn test_pg_get_userbyid_null_and_unknown() -> DFResult<()> {
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
     )
     .await?;
 
@@ -109,7 +107,6 @@ async fn test_pg_get_userbyid_dedups_repeated_oids() -> DFResult<()> {
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
     )
     .await?;
 

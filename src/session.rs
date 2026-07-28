@@ -40,8 +40,9 @@ use std::sync::{Arc, Mutex};
 use zip::ZipArchive;
 
 use crate::user_functions::{
-    register_acldefault, register_aclexplode, register_array_agg, register_current_schema,
-    register_current_schemas, register_encode, register_format, register_getdatabaseencoding,
+    register_acldefault, register_aclexplode, register_array_agg, register_current_database,
+    register_current_schema, register_current_schemas, register_encode, register_format,
+    register_getdatabaseencoding,
     register_has_database_privilege, register_has_privilege_family, register_has_schema_privilege,
     register_nameconcatoid, register_pg_available_extension_versions, register_pg_char_max_length,
     register_pg_char_octet_length, register_pg_column_is_updatable, register_pg_expandarray,
@@ -157,7 +158,22 @@ pub struct ClientOpts {
     pub application_name: String,
     pub datestyle: String,
     pub search_path: String,
+    /// The role this connection authenticated as, reported by `current_user`,
+    /// `session_user` and `current_role`.
+    ///
+    /// Per connection, and read at the moment those functions are called rather
+    /// than when they are registered: the catalog views are planned once at
+    /// startup, before any client exists, so anything baked in at registration
+    /// would freeze every connection to one role. See
+    /// [`crate::user_functions::register_session_identity`].
+    ///
+    /// Defaults to `postgres` for a host that never sets it, which is the value
+    /// every connection used to get.
+    pub session_user: String,
 }
+
+/// The role a connection reports before its host has said who connected.
+pub const DEFAULT_SESSION_USER: &str = "postgres";
 
 impl Default for ClientOpts {
     fn default() -> Self {
@@ -165,8 +181,33 @@ impl Default for ClientOpts {
             application_name: String::new(),
             datestyle: "ISO, MDY".to_string(),
             search_path: "\"$user\", public".to_string(),
+            session_user: DEFAULT_SESSION_USER.to_string(),
         }
     }
+}
+
+/// Record the role `user` authenticated as on `ctx`, so that connection's
+/// `current_user` / `session_user` / `current_role` report it.
+///
+/// `ctx` must be the connection's own context - a clone of the shared base, not
+/// the base itself - or every connection sharing that context reports the last
+/// role written. Returns an error if the context carries no [`ClientOpts`],
+/// which means it was not built by this crate.
+pub fn set_session_user(ctx: &SessionContext, user: &str) -> datafusion::error::Result<()> {
+    let state_ref = ctx.state_ref();
+    let mut state = state_ref.write();
+    let opts = state
+        .config_mut()
+        .options_mut()
+        .extensions
+        .get_mut::<ClientOpts>()
+        .ok_or_else(|| {
+            DataFusionError::Execution(
+                "this session has no ClientOpts, so the session user cannot be recorded".to_string(),
+            )
+        })?;
+    opts.session_user = user.to_string();
+    Ok(())
 }
 
 impl ConfigExtension for ClientOpts {
@@ -200,6 +241,10 @@ impl ExtensionOptions for ClientOpts {
                 self.search_path = value.to_string();
                 Ok(())
             }
+            "session_user" => {
+                self.session_user = value.to_string();
+                Ok(())
+            }
             "extra_float_digits" => Ok(()),
             _ => config_err!("unknown key {key}"),
         }
@@ -220,6 +265,11 @@ impl ExtensionOptions for ClientOpts {
             ConfigEntry {
                 key: "search_path".to_string(),
                 value: Some(self.search_path.clone()),
+                description: "",
+            },
+            ConfigEntry {
+                key: "session_user".to_string(),
+                value: Some(self.session_user.clone()),
                 description: "",
             },
         ]
@@ -257,14 +307,17 @@ struct ViewToRegister {
     sql: String,
 }
 
-// Declared views the server serves as `CREATE VIEW`s (re-derived from the base
-// tables on every query) instead of as frozen MemTable snapshots. A listed view
-// whose body fails to plan falls back to its MemTable snapshot (see
-// `create_registered_views`), so listing one can only upgrade it to a live view,
-// never break startup or drop it.
+// Declared views the server serves as `CREATE VIEW`s, re-derived from the base
+// tables on every query. Every view the embedded catalog declares is listed, so
+// no view is served as a frozen snapshot.
 //
-// A view stays off this list when its body cannot yet be served correctly (noted
-// inline next to the gap), so it keeps its MemTable snapshot.
+// A listed view whose body fails to plan FAILS STARTUP naming the view; it is
+// not substituted by anything. Adding a view here therefore means committing to
+// a body that plans -- see `create_registered_views`.
+//
+// A declared view left off this list would be registered as a MemTable holding
+// its snapshot rows, which is not view semantics at all. Nothing is off the list
+// today, and nothing should be.
 const VIEWS_TO_REGISTER: &[(&str, &str)] = &[
     ("pg_catalog", "pg_views"),
     ("pg_catalog", "pg_tables"),
@@ -430,10 +483,10 @@ const VIEWS_TO_REGISTER: &[(&str, &str)] = &[
 
 /// Whether to attempt registering a declared view as a `CREATE VIEW`.
 ///
-/// Only views on the `VIEWS_TO_REGISTER` list are attempted, so startup stays fast
-/// (the dozens of views not served live are not planned every boot). A listed view
-/// whose body fails to plan falls back to its MemTable snapshot in
-/// [`create_registered_views`], so listing one never removes the object.
+/// Only views on the `VIEWS_TO_REGISTER` list are attempted. Every declared view
+/// is on it, so in practice every view is served live; the list is the record of
+/// that commitment rather than a subset. A listed view whose body fails to plan
+/// fails startup in [`create_registered_views`] -- it is not substituted.
 fn should_attempt_as_view(schema_name: &str, table_name: &str, is_view: bool) -> bool {
     is_view
         && VIEWS_TO_REGISTER
@@ -464,20 +517,6 @@ fn normalize_view_sql(sql: &str) -> String {
     let trimmed = sql.trim();
     let without_semicolon = trimmed.trim_end_matches(';').trim();
     without_semicolon.to_string()
-}
-
-/// Replace `current_database()` calls in a catalog view body with `catalog` as a
-/// string literal.
-///
-/// A live view is planned eagerly at session setup (`CREATE VIEW`), but
-/// `current_database()` is a per-connection UDF registered only once a client
-/// connects, so it is unresolved at setup time. In this single-catalog layer the
-/// current database is always the default catalog, so substituting its name as a
-/// literal is both sufficient and correct - and confines the dependency to view
-/// creation rather than requiring the connection-scoped UDF up front.
-fn inline_current_database(sql: &str, catalog: &str) -> String {
-    let literal = format!("'{}'", catalog.replace('\'', "''"));
-    sql.replace("current_database()", &literal)
 }
 
 async fn set_default_schema(ctx: &SessionContext, schema: &str) -> datafusion::error::Result<()> {
@@ -1451,7 +1490,6 @@ fn simplified_view_body(schema: &str, name: &str) -> Option<&'static str> {
 async fn try_create_view(
     ctx: &SessionContext,
     view: &ViewToRegister,
-    default_catalog: &str,
     body_resolution_schema: &str,
 ) -> datafusion::error::Result<(), DataFusionError> {
     let qualified = format_fully_qualified_name(&view.catalog, &view.schema, &view.name);
@@ -1467,8 +1505,11 @@ async fn try_create_view(
     }
 
     let rewritten_select = {
-        let inlined = inline_current_database(&definition, default_catalog);
-        let rewritten = rewrite_srf_to_unnest(&inlined)?;
+        // current_database() is left alone: it is a registered UDF that reads the
+        // executing session's default catalog when called, so a view body can
+        // call it directly rather than having a literal substituted in before
+        // planning.
+        let rewritten = rewrite_srf_to_unnest(&definition)?;
         // rewrite_filters aliases every unnamed top-level column to `alias_N` for
         // result-set disambiguation and returns the alias -> real-name map. A view
         // keeps its projection names as its schema, so restore the real names before
@@ -1525,7 +1566,6 @@ pub async fn discover_view_creation_order() -> datafusion::error::Result<Vec<Str
         None,
         "datafusion".to_string(),
         "public".to_string(),
-        None,
         None,
         ViewOrder::Discover,
     )
@@ -1599,7 +1639,6 @@ async fn create_registered_views(
 
     let state = ctx.state();
     let original_default_schema = state.config_options().catalog.default_schema.clone();
-    let default_catalog = state.config_options().catalog.default_catalog.clone();
     drop(state);
 
     // Catalog view bodies reference their base tables (pg_class, pg_attribute,
@@ -1633,7 +1672,7 @@ async fn create_registered_views(
             let mut created_this_pass = 0usize;
             let mut last_error: Option<(String, DataFusionError)> = None;
             for view in pending {
-                match try_create_view(ctx, &view, &default_catalog, VIEW_BODY_RESOLUTION_SCHEMA)
+                match try_create_view(ctx, &view, VIEW_BODY_RESOLUTION_SCHEMA)
                     .await
                 {
                     Ok(()) => {
@@ -1695,29 +1734,15 @@ async fn create_registered_views(
     Ok(created_order)
 }
 
-fn default_current_schemas(ctx: &SessionContext) -> Vec<String> {
-    let state = ctx.state();
-    let options = state.config_options();
-    let default_schema = options.catalog.default_schema.clone();
-    let user_schema = if default_schema == "pg_catalog" {
-        "public".to_string()
-    } else {
-        default_schema
-    };
-    vec!["pg_catalog".to_string(), user_schema]
-}
-
 pub async fn get_base_session_context(
     schema_path: Option<&str>,
     default_catalog: String,
     default_schema: String,
-    current_schemas_getter: Option<Arc<dyn Fn(&SessionContext) -> Vec<String> + Send + Sync>>,
 ) -> datafusion::error::Result<(SessionContext, Arc<Mutex<Vec<ScanTrace>>>)> {
     build_base_session_context(
         schema_path,
         default_catalog,
         default_schema,
-        current_schemas_getter,
         None,
     )
     .await
@@ -1734,20 +1759,25 @@ pub async fn get_base_session_context(
 /// Calling [`register_lazy_catalog`] *after* `get_base_session_context` only
 /// rebinds the base tables; the already-created views keep pointing at the
 /// original providers and never see the lazy rows.
+///
+/// The resulting context serves the single database `database` names, and
+/// `default_catalog` should be that same name: `current_database()` reports the
+/// executing session's default catalog, so a context whose catalog and database
+/// disagree serves one database's rows while naming another. Serving several
+/// databases means calling this once per database.
 pub async fn get_base_session_context_with_lazy_catalog(
     schema_path: Option<&str>,
     default_catalog: String,
     default_schema: String,
-    current_schemas_getter: Option<Arc<dyn Fn(&SessionContext) -> Vec<String> + Send + Sync>>,
     source: Arc<dyn LazyCatalogSource>,
     options: LazyCatalogOptions,
+    database: String,
 ) -> datafusion::error::Result<(SessionContext, Arc<Mutex<Vec<ScanTrace>>>)> {
     build_base_session_context(
         schema_path,
         default_catalog,
         default_schema,
-        current_schemas_getter,
-        Some((source, options)),
+        Some((source, options, database)),
     )
     .await
 }
@@ -1760,15 +1790,13 @@ async fn build_base_session_context(
     schema_path: Option<&str>,
     default_catalog: String,
     default_schema: String,
-    current_schemas_getter: Option<Arc<dyn Fn(&SessionContext) -> Vec<String> + Send + Sync>>,
-    lazy_catalog: Option<(Arc<dyn LazyCatalogSource>, LazyCatalogOptions)>,
+    lazy_catalog: Option<(Arc<dyn LazyCatalogSource>, LazyCatalogOptions, String)>,
 ) -> datafusion::error::Result<(SessionContext, Arc<Mutex<Vec<ScanTrace>>>)> {
     let order = precomputed_view_order();
     let (ctx, _created) = build_base_session_context_inner(
         schema_path,
         default_catalog,
         default_schema,
-        current_schemas_getter,
         lazy_catalog,
         ViewOrder::Precomputed(&order),
     )
@@ -1785,13 +1813,9 @@ async fn build_base_session_context_inner(
     schema_path: Option<&str>,
     default_catalog: String,
     default_schema: String,
-    current_schemas_getter: Option<Arc<dyn Fn(&SessionContext) -> Vec<String> + Send + Sync>>,
-    lazy_catalog: Option<(Arc<dyn LazyCatalogSource>, LazyCatalogOptions)>,
+    lazy_catalog: Option<(Arc<dyn LazyCatalogSource>, LazyCatalogOptions, String)>,
     view_order: ViewOrder<'_>,
 ) -> datafusion::error::Result<((SessionContext, Arc<Mutex<Vec<ScanTrace>>>), Vec<String>)> {
-    let current_schemas_fn: Arc<dyn Fn(&SessionContext) -> Vec<String> + Send + Sync> =
-        current_schemas_getter.unwrap_or_else(|| Arc::new(default_current_schemas));
-
     let scan_traces: Arc<Mutex<Vec<ScanTrace>>> = Arc::new(Mutex::new(Vec::new()));
 
     // Session construction takes seconds, and which phase owns that time is not
@@ -1835,8 +1859,8 @@ async fn build_base_session_context_inner(
         Arc::new(crate::user_functions::RegClassOidFunc),
     );
 
-    register_current_schema(&ctx, current_schemas_fn.clone())?;
-    register_current_schemas(&ctx, current_schemas_fn.clone())?;
+    register_current_schema(&ctx)?;
+    register_current_schemas(&ctx)?;
 
     register_scalar_pg_get_expr(&ctx)?;
     register_scalar_pg_get_partkeydef(&ctx)?;
@@ -1861,6 +1885,7 @@ async fn build_base_session_context_inner(
     register_pg_sequence_last_value(&ctx)?;
     register_row_security_active(&ctx)?;
     register_session_identity(&ctx)?;
+    register_current_database(&ctx)?;
     crate::runtime_function_resolvers::register_all_scalar_resolvers(&ctx);
     crate::runtime_function_resolvers::register_all_table_resolvers(&ctx);
     register_pg_column_is_updatable(&ctx)?;
@@ -1899,8 +1924,8 @@ async fn build_base_session_context_inner(
 
     // Install the lazy catalog providers BEFORE the views are created, so the
     // catalog views plan against the lazy providers and reflect their rows.
-    if let Some((source, options)) = lazy_catalog {
-        register_lazy_catalog(&ctx, source, options).await?;
+    if let Some((source, options, database)) = lazy_catalog {
+        register_lazy_catalog(&ctx, source, options, &database).await?;
     }
     log_phase("register_lazy_catalog");
 
@@ -1923,32 +1948,6 @@ mod tests {
     use arrow::datatypes::DataType;
     use std::io::Write;
     use tempfile::NamedTempFile;
-
-    #[test]
-    fn test_inline_current_database_substitutes_every_call() {
-        // Each current_database() call site becomes the catalog name as a quoted
-        // literal; text that does not call it is untouched.
-        let sql = "SELECT current_database() AS a, current_database() AS b FROM t";
-        assert_eq!(
-            inline_current_database(sql, "pgtry"),
-            "SELECT 'pgtry' AS a, 'pgtry' AS b FROM t"
-        );
-        assert_eq!(
-            inline_current_database("SELECT 1", "pgtry"),
-            "SELECT 1",
-            "SQL without current_database() must pass through unchanged"
-        );
-    }
-
-    #[test]
-    fn test_inline_current_database_escapes_single_quotes() {
-        // A catalog name containing a single quote must be doubled so the inlined
-        // literal stays a single, well-formed string literal.
-        assert_eq!(
-            inline_current_database("SELECT current_database()", "od'd"),
-            "SELECT 'od''d'"
-        );
-    }
 
     #[test]
     fn test_parse_schema_file() {

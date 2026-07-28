@@ -126,11 +126,16 @@ def test_show_search_path(server):
 
 
 def test_current_user(server):
+    # current_schema() is the first EXPLICIT schema on the search path, which is
+    # the one an unqualified CREATE would write to. pg_catalog is searched before
+    # it but implicitly, so reporting pg_catalog here - as this did until the
+    # search-path functions started reading the session - told every client its
+    # working schema was the system catalog.
     with psycopg.connect(CONN_STR) as conn:
         cur = conn.cursor()
         cur.execute("SELECT current_database(), current_schema(), current_user")
         row = cur.fetchone()
-    assert row == ("pgtry", "pg_catalog", "dbuser")
+    assert row == ("pgtry", "public", "dbuser")
 
 
 def test_current_schemas(server):

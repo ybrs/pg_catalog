@@ -96,8 +96,6 @@ KNOWN_COUNT_MISMATCHES = {
     "information_schema.role_table_grants": "derives from empty table_privileges view",
     "information_schema.role_udt_grants": "derives from empty udt_privileges view",
     "information_schema.role_usage_grants": "derives from partial usage_privileges view",
-    # One role short: we don't fully model pg_auth_members role membership yet.
-    "information_schema.applicable_roles": "role membership (pg_auth_members) not fully modeled",
     # The pg_stat_get_* functions are now registered (resolver-backed, NULL by
     # default), so these views enumerate their objects with NULL statistics instead
     # of erroring. Their snapshots were captured empty, so the counts now differ.
