@@ -55,9 +55,7 @@ pub fn map_pg_type(pg_type: &str) -> DataType {
         // Floating-point types. Map to the matching Arrow width so the wire type
         // is faithful: real/float4 -> Float32 (advertised as FLOAT4, OID 700);
         // double precision/float8 -> Float64 (FLOAT8, OID 701). Bare `float` is
-        // double precision in PostgreSQL. (Before any float arm existed these
-        // fell to the Utf8 default and their numeric values silently became NULL,
-        // e.g. pg_class.reltuples, pg_stats columns.)
+        // double precision in PostgreSQL.
         "real" | "float4" => DataType::Float32,
         "float" | "double" | "double precision" | "float8" => DataType::Float64,
         "bool" | "boolean" => DataType::Boolean,

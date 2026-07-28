@@ -547,7 +547,7 @@ fn is_reserved_type_keyword(typname: &str) -> bool {
 ///
 /// Array types (whose `typname` starts with `_`) print their element type's SQL
 /// name followed by `[]`. An OID absent from `by_oid` (no such `pg_type` row)
-/// falls back to the bare OID text, matching the previous behavior for unknowns.
+/// falls back to the bare OID text.
 fn format_type_name(oid: i64, typmod: Option<i64>, by_oid: &HashMap<i64, String>) -> String {
     match by_oid.get(&oid) {
         Some(typname) if typname.starts_with('_') => {
@@ -1631,14 +1631,15 @@ fn pg_datetime_precision(typid: Option<i64>, typmod: Option<i64>) -> Option<i32>
 /// `typmod` for the bit-string types, NULL otherwise.
 fn pg_char_max_length(typid: Option<i64>, typmod: Option<i64>) -> Option<i32> {
     match typid? {
-        // typmod is `length + VARHDRSZ(4)` and PostgreSQL caps a declared character
-        // length at 10485760, so the length always fits an i32; a value that does
-        // not is not a real length, and NULL says "no declared maximum".
+        // typmod is `length + VARHDRSZ(4)`. `try_from` reports a value that does
+        // not fit an i32 after subtracting VARHDRSZ as `None` rather than
+        // truncating it into a wrong length.
         OID_BPCHAR | OID_VARCHAR => match typmod? {
             -1 => None,
             m => i32::try_from(m - 4).ok(),
         },
-        // A bit-string typmod IS the length, capped the same way.
+        // A bit-string typmod IS the length; out-of-range values fall out the
+        // same way, via the same `try_from` check.
         OID_BIT | OID_VARBIT => typmod.and_then(|m| i32::try_from(m).ok()),
         _ => None,
     }
@@ -2028,6 +2029,8 @@ pub fn register_pg_expandarray(ctx: &SessionContext) -> Result<()> {
         }
         /// Emit one `(element, ordinal)` struct per element of each row's array;
         /// a NULL array stays NULL and an unreadable element becomes a NULL `x`.
+        /// Errors on an array holding more elements than the `int4` ordinal
+        /// column can number.
         fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
             let arrays = ColumnarValue::values_to_arrays(&args.args)?;
             let input = arrays[0].as_any().downcast_ref::<ListArray>();
@@ -2041,18 +2044,26 @@ pub fn register_pg_expandarray(ctx: &SessionContext) -> Result<()> {
                 match elems {
                     None => builder.append_null(),
                     Some(elems) => {
+                        // The array is the caller's value - any expression the
+                        // client sent, not something this crate sized - while the
+                        // ordinal column is int4. Range-check the element count
+                        // once here so the ordinals below are known to fit, rather
+                        // than wrapping a position into a negative ordinal.
+                        let element_count = i32::try_from(elems.len()).map_err(|_| {
+                            DataFusionError::Execution(format!(
+                                "_pg_expandarray: an array of {} elements cannot be numbered with the int4 ordinal this function returns",
+                                elems.len()
+                            ))
+                        })?;
                         let struct_builder = builder.values();
-                        for j in 0..elems.len() {
+                        // 1-based ordinals paired with the 0-based element index
+                        // they describe, so no position is narrowed separately.
+                        for (index, ordinal) in (1..=element_count).enumerate() {
                             let x = struct_builder.field_builder::<Int64Builder>(0).unwrap();
-                            match element_as_i64(elems.as_ref(), j) {
+                            match element_as_i64(elems.as_ref(), index) {
                                 Some(v) => x.append_value(v),
                                 None => x.append_null(),
                             }
-                            // PostgreSQL types the ordinal as int4, and no catalog
-                            // array carries 2^31 elements, so the 1-based position
-                            // always fits an i32.
-                            #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
-                            let ordinal = (j + 1) as i32;
                             struct_builder
                                 .field_builder::<Int32Builder>(1)
                                 .unwrap()
@@ -2410,10 +2421,9 @@ pub fn register_nameconcatoid(ctx: &SessionContext) -> Result<()> {
 /// The value is the session's default catalog, which for a context built by this
 /// crate *is* its database: one context serves one database and carries its name
 /// (see [`crate::session::get_base_session_context_with_lazy_catalog`]). Reading
-/// it at call time replaces the previous approach of rewriting the SQL text of
-/// every view body that called `current_database()` and substituting a literal
-/// before planning - which froze one name into plans shared by every connection,
-/// and gave 48 views a different answer from the function itself.
+/// it at call time - rather than baking a literal into each view body at plan time -
+/// keeps the one set of view plans shared by every connection correct for whichever
+/// database each connection is attached to.
 ///
 /// The `pg_catalog.` alias is not decoration: the router decides a bare call is
 /// the catalog's to answer by looking up `pg_catalog.<name>` in the function
@@ -2494,9 +2504,8 @@ fn search_path_schemas(config: &datafusion::config::ConfigOptions) -> Vec<String
 ///
 /// That is the schema an unqualified `CREATE` would write to, so `pg_catalog` is
 /// specifically not it: `pg_catalog` is searched first but is implicit, and
-/// `PostgreSQL` reports the first *explicit* entry. Returning `pg_catalog` here -
-/// which is what taking the head of `current_schemas(true)` did - told every
-/// client its working schema was the system catalog.
+/// `PostgreSQL` reports the first *explicit* entry. Reporting `pg_catalog` here
+/// would tell every client its working schema was the system catalog.
 ///
 /// # Errors
 ///
@@ -2793,9 +2802,8 @@ impl ScalarUDFImpl for PgGetUserById {
         let len = arr.len();
 
         // Decode every row's OID first, then resolve the DISTINCT ones with a
-        // single catalog query. The previous implementation looked each row up
-        // individually, turning pg_get_userbyid(<column>) into one pg_authid
-        // query per row (e.g. ~400ms for `SELECT * FROM pg_tables`).
+        // single catalog query, so pg_get_userbyid(<column>) costs one pg_authid
+        // query for the whole column rather than one query per row.
         let mut oids: Vec<Option<i64>> = Vec::with_capacity(len);
         for i in 0..len {
             let scalar = ScalarValue::try_from_array(arr, i)?;
@@ -3451,8 +3459,10 @@ impl TableFunctionImpl for PostmasterStartTimeFunc {
 ///
 /// # Errors
 ///
-/// Never fails. The `Result` is the shared shape of every `register_*` entry point
-/// so a session builder can chain them with `?`.
+/// Errors if the system clock reads so far past the Unix epoch that the elapsed
+/// microseconds do not fit the `i64` microsecond timestamp this function reports.
+/// Registration itself never fails; the `Result` is also the shared shape of every
+/// `register_*` entry point so a session builder can chain them with `?`.
 ///
 /// # Panics
 ///
@@ -3462,13 +3472,19 @@ pub fn register_pg_postmaster_start_time(ctx: &SessionContext) -> Result<()> {
     use arrow::datatypes::{DataType, Field, Schema, TimeUnit};
     use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
     use std::sync::Arc;
-    // Microseconds since the Unix epoch stay far inside i64 (it would take until
-    // year 294247 to overflow), so narrowing from u128 cannot lose the instant.
-    #[allow(clippy::cast_possible_truncation)]
-    let ts = std::time::SystemTime::now()
+    // The reading comes from the host's clock, which this crate neither sets nor
+    // bounds, while the timestamp column is an i64 microsecond count. Check the
+    // narrowing instead of assuming a sane clock: a machine set far enough ahead
+    // would otherwise report a start time that wrapped into the distant past.
+    let microseconds_since_epoch = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .expect("system clock reads earlier than the Unix epoch")
-        .as_micros() as i64;
+        .as_micros();
+    let ts = i64::try_from(microseconds_since_epoch).map_err(|_| {
+        DataFusionError::Execution(format!(
+            "system clock reads {microseconds_since_epoch} microseconds after the Unix epoch, beyond the int64 microsecond timestamp pg_postmaster_start_time reports"
+        ))
+    })?;
 
     let schema = Arc::new(Schema::new(vec![Field::new(
         "pg_postmaster_start_time",
@@ -5165,11 +5181,11 @@ mod tests {
     /// Catalog queries nested three deep still complete on a two-worker runtime.
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_run_catalog_query_nested_does_not_deadlock() {
-        // Three levels of nested catalog queries on a 2-worker runtime - the size
-        // of the old bounded CATALOG_QUERY_RT, which deadlocked here because each
-        // blocked caller parked a worker with no free worker left to run the inner
-        // task. block_in_place hands the worker back, so the runtime grows and this
-        // completes. (A hang here is the regression this guards.)
+        // Three levels of nested catalog queries on a 2-worker runtime, each
+        // blocking its caller while it runs. block_in_place hands each blocked
+        // worker back to the runtime, which grows to run the nested query instead
+        // of deadlocking with every worker parked. (A hang here is the regression
+        // this guards against.)
         let value = run_catalog_query(async {
             run_catalog_query(async { run_catalog_query(async { 42 }) })
         });
@@ -5380,7 +5396,7 @@ mod tests {
         .map(|(o, n)| (o, n.to_string()))
         .collect();
 
-        // The cases that used to print the bare OID now resolve to a SQL name.
+        // Each case resolves to a SQL name rather than printing the bare OID.
         assert_eq!(format_type_name(19, None, &by_oid), "name");
         assert_eq!(
             format_type_name(1184, None, &by_oid),
@@ -5958,8 +5974,8 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn current_schema_is_the_first_explicit_search_path_entry() -> Result<()> {
         use arrow::array::StringArray;
-        // Not pg_catalog: that is searched implicitly, and reporting it told
-        // every client its working schema was the system catalog.
+        // Not pg_catalog: that is searched implicitly, and reporting it would
+        // tell every client its working schema was the system catalog.
         let ctx = ctx_with_search_path("myschema, other");
 
         register_current_schema(&ctx)?;

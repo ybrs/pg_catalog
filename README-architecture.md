@@ -23,8 +23,9 @@ have. The crate closes that gap with a SQL-rewriting layer, a set of emulated
 UDFs, and an on-demand ("lazy") catalog.
 
 It is consumed as a library by the sibling projects (`pg_catalog` is used by
-`riffq` for Python pgwire compatibility) and depends on `corr-subq-udf-rs` for
-correlated-subquery support inside DataFusion.
+`riffq` for Python pgwire compatibility). Correlated-subquery support is handled
+in this crate's own SQL-rewrite layer (`scalar_to_cte.rs`, `rewrite_exists_to_count`,
+`decorrelate_lateral_aggregate`, ...), not by an external dependency.
 
 ## 2. High-level architecture
 
@@ -343,9 +344,9 @@ user databases with the built-in `postgres`/`template0`/`template1`.
 ### 7.3 pg_catalog_helpers.rs
 The eager (DDL-like) registration path: synchronously insert user databases,
 schemas, tables, views, indexes, and constraints into the in-memory catalog
-MemTables. It owns OID allocation (a process-global `NEXT_OID` atomic) and the
-`DATABASE_SCHEMAS` registry that tracks which schemas belong to which database for
-cleanup. Key entry points: `register_user_database`, `register_schema`,
+MemTables. It owns OID allocation (`next_catalog_oid` queries `max(oid)` across the
+catalog tables and hands out one past it) and the `DATABASE_SCHEMAS` registry that
+tracks which schemas belong to which database for cleanup. Key entry points: `register_user_database`, `register_schema`,
 `register_user_tables` / `register_user_view` (via `register_user_relation`, which
 writes the matching `pg_class` + `pg_type` + `pg_attribute` + `pg_attrdef` rows),
 `register_user_index`, and `register_user_constraint`; each has an `unregister_*`
@@ -545,8 +546,10 @@ Because the Python tests launch the server via `cargo run`, `cargo` must be on
 - Never fail silently. Unparseable SQL and unexpected types return errors to the
   client rather than falling back to a guess; the test suites fail loudly on a new
   divergence.
-- OID stability. OIDs come from the captured data or the caller and are written
-  verbatim; the catalog does not invent or cache them.
+- OID stability. The lazy path takes OIDs verbatim from the source and never
+  invents or caches them. The eager path allocates a new OID itself
+  (`next_catalog_oid`: one past the current `max(oid)` across the catalog tables)
+  since its callers do not supply one.
 - Fix the gap in SQL, not in the engine where possible. Most compatibility lives
   in the `sqlparser`-level rewrite passes (small, independently testable
   functions) rather than in DataFusion internals; only `StripPgGetOne` is a

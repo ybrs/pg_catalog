@@ -181,8 +181,7 @@ pub struct ClientOpts {
     /// would freeze every connection to one role. See
     /// [`crate::user_functions::register_session_identity`].
     ///
-    /// Defaults to `postgres` for a host that never sets it, which is the value
-    /// every connection used to get.
+    /// Defaults to `postgres` for a host that never sets it.
     pub session_user: String,
 }
 
@@ -1397,7 +1396,9 @@ fn build_table(def: TableDef) -> ParsedTable {
 ///
 /// Returns an error if the built columns do not form a valid batch under
 /// `schema`. One column is built per field, in order, so this means a field whose
-/// Arrow type the column builders cannot produce values for.
+/// Arrow type the column builders cannot produce values for. Also returns an error
+/// if a value is outside the range its column's type can represent and narrowing
+/// it would silently change it - see [`json_values_to_array`].
 pub fn rows_to_record_batch(
     schema: &SchemaRef,
     rows: &[BTreeMap<String, serde_json::Value>],
@@ -1418,7 +1419,7 @@ pub fn rows_to_record_batch(
         .iter()
         .zip(cols)
         .map(|(field, column_values)| json_values_to_array(field.data_type(), column_values))
-        .collect::<Vec<_>>();
+        .collect::<Result<Vec<_>, DataFusionError>>()?;
 
     RecordBatch::try_new(schema.clone(), arrays).map_err(DataFusionError::from)
 }
@@ -1429,14 +1430,25 @@ pub fn rows_to_record_batch(
 /// the whole batch: these rows come from the checked-in catalog and from the lazy
 /// catalog's row builders, where a single odd cell must not take an entire
 /// catalog table out of service. A `data_type` with no dedicated arm falls back to
-/// the value's JSON text, which is what this catalog's remaining columns hold.
-fn json_values_to_array(data_type: &DataType, values: Vec<serde_json::Value>) -> ArrayRef {
+/// the value's JSON text, which is how this catalog stores its rarer column types.
+///
+/// # Errors
+///
+/// Returns `DataFusionError::Execution` for a `float4` column holding a number
+/// whose magnitude an `f32` cannot represent - see [`json_value_as_f32`]. That is
+/// the one case that fails the batch instead of yielding NULL, because narrowing
+/// such a value hands the client infinity or zero in its place, which reads as a
+/// legitimate measurement.
+fn json_values_to_array(
+    data_type: &DataType,
+    values: Vec<serde_json::Value>,
+) -> Result<ArrayRef, DataFusionError> {
     use arrow::array::{
         BinaryBuilder, BooleanArray, Float32Array, Float64Array, Int32Array, Int64Array,
         StringArray,
     };
 
-    match data_type {
+    let array: ArrayRef = match data_type {
         DataType::Utf8 => Arc::new(StringArray::from(
             values
                 .into_iter()
@@ -1451,9 +1463,13 @@ fn json_values_to_array(data_type: &DataType, values: Vec<serde_json::Value>) ->
         )),
         // `as_f64` accepts both integer and float JSON numbers, so a row
         // written as `json!(0)` or `json!(410.0)` both materialize here.
-        DataType::Float32 => Arc::new(Float32Array::from(
-            values.iter().map(json_value_as_f32).collect::<Vec<_>>(),
-        )),
+        DataType::Float32 => {
+            let narrowed = values
+                .iter()
+                .map(json_value_as_f32)
+                .collect::<Result<Vec<_>, DataFusionError>>()?;
+            Arc::new(Float32Array::from(narrowed))
+        }
         DataType::Float64 => Arc::new(Float64Array::from(
             values.into_iter().map(|v| v.as_f64()).collect::<Vec<_>>(),
         )),
@@ -1485,7 +1501,8 @@ fn json_values_to_array(data_type: &DataType, values: Vec<serde_json::Value>) ->
                 .map(|v| Some(v.to_string()))
                 .collect::<Vec<_>>(),
         )),
-    }
+    };
+    Ok(array)
 }
 
 /// A JSON value as an `i32`, or `None` when it is not a number or does not fit
@@ -1498,14 +1515,42 @@ fn json_value_as_i32(value: &serde_json::Value) -> Option<i32> {
     value.as_i64().and_then(|number| i32::try_from(number).ok())
 }
 
-/// A JSON value as an `f32`, or `None` when it is not a number.
+/// A JSON value narrowed to an `f32`, or `None` when it is not a number.
 ///
 /// `serde_json` parses every number as `f64`, so a `float4` column has to narrow
-/// here. The narrowing is the column's declared precision rather than a loss the
-/// caller could avoid: the value is one `PostgreSQL` itself stores as a float4.
-#[allow(clippy::cast_possible_truncation)]
-fn json_value_as_f32(value: &serde_json::Value) -> Option<f32> {
-    value.as_f64().map(|number| number as f32)
+/// here, and the value being narrowed comes from outside this crate: a catalog
+/// YAML or IPC artifact, or a row built for an embedder-supplied table. Nothing
+/// on that path bounds its magnitude. An unchecked `as f32` would turn anything
+/// past `f32::MAX` into infinity and anything under the smallest subnormal into
+/// zero, so the client would receive a different, plausible-looking number; both
+/// are reported as errors instead. Dropping mantissa digits is not an error -
+/// that is exactly the precision the column's declared `float4` type asks for.
+///
+/// # Errors
+///
+/// Returns `DataFusionError::Execution`, naming the value, when the value is a
+/// number whose magnitude a `float4` cannot hold.
+fn json_value_as_f32(value: &serde_json::Value) -> Result<Option<f32>, DataFusionError> {
+    let Some(number) = value.as_f64() else {
+        return Ok(None);
+    };
+    // Guarded narrowing: the two checks below reject every input whose magnitude
+    // f32 cannot hold, so what the cast is allowed to lose here is mantissa
+    // precision, which is the declared width of the column.
+    #[allow(clippy::cast_possible_truncation)]
+    let narrowed = number as f32;
+    if number.is_finite() && !narrowed.is_finite() {
+        return Err(DataFusionError::Execution(format!(
+            "catalog value {number} is too large for a float4 column (max magnitude {})",
+            f32::MAX
+        )));
+    }
+    if number != 0.0 && narrowed == 0.0 {
+        return Err(DataFusionError::Execution(format!(
+            "catalog value {number} is too small for a float4 column: it narrows to 0"
+        )));
+    }
+    Ok(Some(narrowed))
 }
 
 /// Build a `List<Utf8>` column from one column's JSON values.
@@ -2358,10 +2403,9 @@ public:
     /// integers.
     #[test]
     fn test_float_column_round_trips() {
-        // Regression: a float column used to map to Utf8 and its numeric values
-        // silently became NULL. It must now keep its values at the matching Arrow
-        // width (float4 -> Float32, double precision -> Float64), whether written
-        // as a float (1.5) or an integer (3) in the YAML.
+        // A float column keeps its values at the matching Arrow width (float4 ->
+        // Float32, double precision -> Float64), whether written as a float (1.5)
+        // or an integer (3) in the YAML.
         use arrow::array::{Array, Float32Array, Float64Array};
 
         let yaml = r"
@@ -2412,6 +2456,43 @@ public:
         // An integer literal in a float column also materializes (not NULL).
         assert!(ratio.is_valid(0) && (ratio.value(0) - 3.0).abs() < f64::EPSILON);
         assert!(ratio.is_valid(1) && (ratio.value(1) - 1.25).abs() < f64::EPSILON);
+    }
+
+    /// A float4 value whose magnitude an `f32` cannot hold fails the batch with a
+    /// message naming the value, rather than reaching the client as infinity or
+    /// zero.
+    #[test]
+    fn test_float4_value_outside_f32_range_is_reported() {
+        let schema: SchemaRef = Arc::new(Schema::new(vec![Field::new(
+            "est",
+            DataType::Float32,
+            true,
+        )]));
+        let row_with = |value: serde_json::Value| -> Vec<BTreeMap<String, serde_json::Value>> {
+            vec![[("est".to_string(), value)].into_iter().collect()]
+        };
+
+        let overflow = rows_to_record_batch(&schema, &row_with(serde_json::json!(1e300)))
+            .expect_err("1e300 is past f32::MAX and must not become infinity");
+        assert!(
+            overflow.to_string().contains("too large for a float4"),
+            "unexpected error: {overflow}"
+        );
+
+        let underflow = rows_to_record_batch(&schema, &row_with(serde_json::json!(1e-300)))
+            .expect_err("1e-300 narrows to zero and must not be reported as 0");
+        assert!(
+            underflow.to_string().contains("too small for a float4"),
+            "unexpected error: {underflow}"
+        );
+
+        // Values a float4 can hold, including an exact zero, still materialize.
+        let batch = rows_to_record_batch(&schema, &row_with(serde_json::json!(410.0)))
+            .expect("410.0 fits a float4 column");
+        assert_eq!(batch.num_rows(), 1);
+        let batch = rows_to_record_batch(&schema, &row_with(serde_json::json!(0.0)))
+            .expect("0.0 fits a float4 column");
+        assert_eq!(batch.num_rows(), 1);
     }
 
     /// Renaming every column rewrites the names while reusing the original
@@ -2585,10 +2666,10 @@ mod view_failure_tests {
     /// registered under the view's name.
     #[tokio::test(flavor = "multi_thread")]
     async fn test_unplannable_view_fails_startup_instead_of_being_materialized() {
-        // The regression guard for the removed fallback. A body that cannot be
-        // planned used to be replaced by the view's snapshot from the embedded
-        // PostgreSQL dump, which served another server's rows under this
-        // server's view name. It must now fail loudly instead.
+        // A body that cannot be planned must fail startup loudly rather than
+        // being replaced by the view's snapshot from the embedded PostgreSQL
+        // dump, which would serve another server's rows under this server's
+        // view name.
         let ctx = context_with_pg_catalog();
         let views = vec![ViewToRegister {
             catalog: "datafusion".to_string(),

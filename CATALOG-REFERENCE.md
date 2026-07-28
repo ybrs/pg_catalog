@@ -400,4 +400,4 @@ and match, kept for context when touching the planner pipeline
   (`rewrite_pg_truetypid_composite_args`); `pg_column_is_updatable` stub added; a
   spurious `GROUP BY` fabricated from `= ANY(ARRAY[...])` predicates fixed.
 - **`tables`, `views`** - non-literal `::regclass` / `::oid` casts dropped
-  (`rewrite_remaining_oid_regclass_casts`); EXISTS/IN subquery tables qualified.
+  (`drop_redundant_oid_and_regclass_casts`); EXISTS/IN subquery tables qualified.

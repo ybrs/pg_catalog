@@ -866,6 +866,35 @@ fn string_value_at(col: &ArrayRef, row_idx: usize) -> Option<String> {
     Some(text)
 }
 
+/// Split a count of sub-second units since the Unix epoch into whole seconds and
+/// the sub-second part, still counted in those units.
+///
+/// Euclidean division is what makes pre-1970 instants work. Plain `/` and `%`
+/// truncate toward zero, so -`1_500_000` microseconds would yield -1 second with a
+/// remainder of -`500_000`, and that negative remainder turns into a huge number
+/// the moment it is narrowed to an unsigned type. `div_euclid` / `rem_euclid`
+/// floor instead: the sub-second part stays in `0..units_per_second` and the
+/// borrow moves into the seconds.
+///
+/// # Panics
+///
+/// Panics if `units_per_second` is zero, which no caller passes: the callers use
+/// the literal units-per-second of their Arrow time unit.
+fn split_epoch_count_into_seconds_and_subsecond_units(
+    count: i64,
+    units_per_second: u32,
+) -> (i64, u32) {
+    let divisor = i64::from(units_per_second);
+    let seconds = count.div_euclid(divisor);
+    // Bounded by construction, not by any assumption about the data: `rem_euclid`
+    // with a positive divisor returns a value in `0..divisor`, and `divisor` is a
+    // widened `u32`, so the remainder is non-negative and always fits a `u32` for
+    // every possible `count`.
+    #[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+    let subsecond_units = count.rem_euclid(divisor) as u32;
+    (seconds, subsecond_units)
+}
+
 /// Format the timestamp at `row_idx` the way `PostgreSQL` renders `timestamp`
 /// in text, with the sub-second precision of `unit`.
 ///
@@ -886,8 +915,8 @@ fn format_timestamp_value_at(col: &ArrayRef, unit: TimeUnit, row_idx: usize) -> 
         return None;
     }
 
-    // Floored (Euclidean) division keeps the sub-second part in [0, unit) for
-    // negative (pre-1970) timestamps, and `map` instead of `unwrap` turns an
+    // The seconds/sub-second split is Euclidean so pre-1970 (negative) instants
+    // keep a non-negative sub-second part, and `map` instead of `unwrap` turns an
     // out-of-range value into NULL rather than panicking the connection.
     match unit {
         TimeUnit::Microsecond => {
@@ -896,11 +925,7 @@ fn format_timestamp_value_at(col: &ArrayRef, unit: TimeUnit, row_idx: usize) -> 
                 .downcast_ref::<TimestampMicrosecondArray>()
                 .unwrap()
                 .value(row_idx); // micro-seconds
-            let secs = v.div_euclid(1_000_000);
-            // rem_euclid with a positive divisor lands in 0..1_000_000, so the
-            // sub-second part always fits in a u32.
-            #[allow(clippy::cast_possible_truncation)]
-            let micros = v.rem_euclid(1_000_000) as u32;
+            let (secs, micros) = split_epoch_count_into_seconds_and_subsecond_units(v, 1_000_000);
             chrono::DateTime::from_timestamp(secs, micros * 1_000)
                 .map(|ts| ts.format("%Y-%m-%d %H:%M:%S%.6f").to_string())
         }
@@ -910,11 +935,7 @@ fn format_timestamp_value_at(col: &ArrayRef, unit: TimeUnit, row_idx: usize) -> 
                 .downcast_ref::<TimestampMillisecondArray>()
                 .unwrap()
                 .value(row_idx); // milli-seconds
-            let secs = v.div_euclid(1_000);
-            // rem_euclid with a positive divisor lands in 0..1_000, so the
-            // sub-second part always fits in a u32.
-            #[allow(clippy::cast_possible_truncation)]
-            let millis = v.rem_euclid(1_000) as u32;
+            let (secs, millis) = split_epoch_count_into_seconds_and_subsecond_units(v, 1_000);
             chrono::DateTime::from_timestamp(secs, millis * 1_000_000)
                 .map(|ts| ts.format("%Y-%m-%d %H:%M:%S%.3f").to_string())
         }
@@ -924,11 +945,8 @@ fn format_timestamp_value_at(col: &ArrayRef, unit: TimeUnit, row_idx: usize) -> 
                 .downcast_ref::<TimestampNanosecondArray>()
                 .unwrap()
                 .value(row_idx); // nano-seconds
-            let secs = v.div_euclid(1_000_000_000);
-            // rem_euclid with a positive divisor lands in 0..1_000_000_000, so
-            // the sub-second part always fits in a u32.
-            #[allow(clippy::cast_possible_truncation)]
-            let nanos = v.rem_euclid(1_000_000_000) as u32;
+            let (secs, nanos) =
+                split_epoch_count_into_seconds_and_subsecond_units(v, 1_000_000_000);
             chrono::DateTime::from_timestamp(secs, nanos)
                 .map(|ts| ts.format("%Y-%m-%d %H:%M:%S%.9f").to_string())
         }

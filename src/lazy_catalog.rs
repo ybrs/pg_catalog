@@ -893,26 +893,57 @@ fn string_list_to_json(items: Option<&[String]>) -> Value {
 
 /// Turn a zero-based position in a column or key list into the 1-based number
 /// `PostgreSQL` uses for it (`pg_attribute.attnum`, `pg_attrdef.adnum`,
-/// `information_schema.columns.ordinal_position`).
+/// `information_schema.columns.ordinal_position`), rejecting a list too long to
+/// be numbered that way.
 ///
-/// The position indexes a `Vec` already materialized in memory, so it cannot
-/// reach `i32::MAX`: `PostgreSQL` caps a relation at 1600 columns, and even
-/// without that cap a vector of that many column descriptions could not be
-/// allocated. The narrowing is therefore exact.
-#[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
-fn one_based_position(index: usize) -> i32 {
-    (index + 1) as i32
+/// The list is whatever the embedder's [`LazyCatalogSource`] callback handed
+/// back - a host object, another engine's catalog, anything - and no code in
+/// this crate limits how many entries it may hold. The narrowing to the int4
+/// width of those catalog columns is therefore range-checked, not assumed: a
+/// wrapped position would be written out as a plausible-looking attribute number
+/// pointing at the wrong column.
+///
+/// `relation` is only used to name the offending object in the error.
+///
+/// # Errors
+///
+/// Returns an error when the 1-based position does not fit in `i32`.
+fn one_based_position(index: usize, relation: &str) -> DFResult<i32> {
+    i32::try_from(index)
+        .ok()
+        .and_then(|zero_based| zero_based.checked_add(1))
+        .ok_or_else(|| {
+            DataFusionError::Execution(format!(
+                "column at zero-based position {index} of '{relation}' cannot be numbered: \
+                 its 1-based position does not fit the int4 attribute number PostgreSQL uses \
+                 in pg_attribute.attnum (maximum {})",
+                i32::MAX
+            ))
+        })
 }
 
 /// Narrow the length of a column or key list to the `i32` width `PostgreSQL`
-/// uses for its counts (`pg_class.relnatts`, `pg_index.indnatts`).
+/// uses for its counts (`pg_class.relnatts`, `pg_index.indnatts`), rejecting a
+/// list too long for that width.
 ///
-/// Bounded by the same argument as [`one_based_position`]: the list is already
-/// held in memory and `PostgreSQL` caps a relation at 1600 columns and an index
-/// at 32 key columns, so the count cannot reach `i32::MAX`.
-#[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
-fn attribute_count_as_i32(len: usize) -> i32 {
-    len as i32
+/// Unbounded for the same reason as [`one_based_position`]: the list comes from
+/// the embedder's catalog callbacks and nothing here caps it. A wrapped count
+/// would be written to `relnatts`/`indnatts` and silently disagree with the
+/// attribute rows built from the very same list.
+///
+/// `relation` is only used to name the offending object in the error.
+///
+/// # Errors
+///
+/// Returns an error when `count` does not fit in `i32`.
+fn attribute_count_as_i32(count: usize, relation: &str) -> DFResult<i32> {
+    i32::try_from(count).map_err(|_| {
+        DataFusionError::Execution(format!(
+            "'{relation}' reports {count} attributes, more than the int4 count PostgreSQL keeps \
+             in pg_class.relnatts / pg_index.indnatts can hold (maximum {})",
+            i32::MAX
+        ))
+    })
 }
 
 /// Build one `pg_catalog.pg_config` row (a `name`/`setting` pair) from a
@@ -1114,9 +1145,17 @@ pub fn build_index_pg_class_row(def: &IndexDef, namespace_oid: i32) -> Row {
 /// node-tree columns (`indexprs`/`indpred`) and the per-column option vectors
 /// (`indcollation`/`indclass`/`indoption`) are left NULL - a plain column index
 /// needs none of them, and the node trees are out of scope.
+///
+/// The caller must have range-checked `key_attnums.len()` into an `i32`; see the
+/// comment on `natts` below for why the check cannot live here.
 #[must_use]
 pub fn build_pg_index_row(def: &IndexDef) -> Row {
-    let natts = attribute_count_as_i32(def.key_attnums.len());
+    // `key_attnums` is embedder-supplied and nothing in this crate bounds its
+    // length, but this builder returns a plain `Row` and so has no channel to
+    // report an oversized list on. The check therefore sits with the callers:
+    // `collect_pg_index_rows` runs `attribute_count_as_i32` before calling here.
+    #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
+    let natts = def.key_attnums.len() as i32;
     let mut row = Row::new();
     row.insert("indexrelid".to_string(), json!(def.index_oid));
     row.insert("indrelid".to_string(), json!(def.table_oid));
@@ -1257,6 +1296,9 @@ fn column_collation(type_oid: i32) -> i32 {
 /// introspection (`attlen`/`attbyval`/`attalign`/`attstorage`/`attcollation`) are
 /// derived from each column's type OID; `atthasdef` reflects whether the column
 /// has a default (its `pg_attrdef` handle).
+///
+/// The caller must have range-checked `columns.len()` into an `i32`; see the
+/// comment on `attnum` below for why the check cannot live here.
 #[must_use]
 pub fn build_pg_attribute_rows(attrelid: i32, columns: &[ColumnSpec]) -> Vec<Row> {
     columns
@@ -1264,11 +1306,19 @@ pub fn build_pg_attribute_rows(attrelid: i32, columns: &[ColumnSpec]) -> Vec<Row
         .enumerate()
         .map(|(idx, col)| {
             let (attlen, attbyval, attalign, attstorage) = column_type_storage(col.type_oid);
+            // 1-based attnum. `columns` is embedder-supplied and unbounded here,
+            // but this builder returns a plain `Vec<Row>` and so has no channel
+            // to report an oversized list on. The check therefore sits with the
+            // callers: `collect_pg_attribute_rows` runs `attribute_count_as_i32`
+            // and `register_user_relation` (pg_catalog_helpers.rs) range-checks
+            // the same length into `pg_class.relnatts` before calling here.
+            #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
+            let attnum = (idx + 1) as i32;
             let mut row = Row::new();
             row.insert("attrelid".to_string(), json!(attrelid));
             row.insert("attname".to_string(), json!(col.name));
             row.insert("atttypid".to_string(), json!(col.type_oid));
-            row.insert("attnum".to_string(), json!(one_based_position(idx)));
+            row.insert("attnum".to_string(), json!(attnum));
             row.insert("atttypmod".to_string(), json!(-1));
             row.insert("attnotnull".to_string(), json!(!col.nullable));
             row.insert("atthasdef".to_string(), json!(col.has_default));
@@ -1336,19 +1386,25 @@ pub fn build_info_tables_row(catalog: &str, schema: &str, def: &RelationDef) -> 
 
 /// Build the `information_schema.columns` rows for a relation's columns. The
 /// `data_type`/`udt_name` strings are derived from each column's `pg_type` OID.
-#[must_use]
+///
+/// # Errors
+///
+/// Returns an error when `columns` holds more entries than
+/// `information_schema.columns.ordinal_position` can number. The list comes from
+/// the embedder's catalog callback and nothing in this crate bounds its length,
+/// so the ordinal is range-checked rather than narrowed on trust.
 pub fn build_info_columns_rows(
     catalog: &str,
     schema: &str,
     relation: &str,
     columns: &[ColumnSpec],
-) -> Vec<Row> {
+) -> DFResult<Vec<Row>> {
     columns
         .iter()
         .enumerate()
         .map(|(idx, col)| {
             let (data_type, udt_name) = oid_to_type_names(col.type_oid);
-            let ordinal = one_based_position(idx);
+            let ordinal = one_based_position(idx, relation)?;
             let mut row = Row::new();
             row.insert("table_catalog".to_string(), json!(catalog));
             row.insert("table_schema".to_string(), json!(schema));
@@ -1368,7 +1424,7 @@ pub fn build_info_columns_rows(
             row.insert("is_identity".to_string(), json!("NO"));
             row.insert("is_generated".to_string(), json!("NEVER"));
             row.insert("is_updatable".to_string(), json!("YES"));
-            row
+            Ok(row)
         })
         .collect()
 }
@@ -1387,6 +1443,10 @@ pub fn build_info_schemata_row(catalog: &str, def: &SchemaDef) -> Row {
 /// user rows for the one database `database` names. Any error from the source
 /// propagates unchanged.
 ///
+/// Each arm delegates to the `collect_*` function that walks the hierarchy for
+/// that one table, so this match stays the single place where every
+/// [`CatalogTable`] variant is listed and a table left unserved is visible here.
+///
 /// Every table here is scoped to `database` except `pg_database` itself:
 /// `PostgreSQL` shows a connection only its own database's schemas, relations and
 /// attributes, while `pg_database` lists every database on the server. The
@@ -1403,130 +1463,237 @@ pub fn build_info_schemata_row(catalog: &str, def: &SchemaDef) -> Row {
 /// Returns the first error the source raises from `databases`, `schemas`,
 /// `relations`, `columns`, `indexes`, `constraints`, `config` or `settings`
 /// while the requested table's hierarchy is walked.
-// One arm per CatalogTable variant, so the length is the number of catalog
-// tables served rather than tangled logic. Splitting it into helpers would put
-// the arms out of sight of the match and make a missing table easy to overlook.
-#[allow(clippy::too_many_lines)]
 pub fn build_rows_for(
     table: CatalogTable,
     source: &dyn LazyCatalogSource,
     database: &str,
 ) -> DFResult<Vec<Row>> {
-    let mut rows = Vec::new();
     match table {
-        CatalogTable::PgConfig => {
-            for setting in fetch_config(source)? {
-                rows.push(build_pg_config_row(&setting));
-            }
+        CatalogTable::PgConfig => collect_pg_config_rows(source),
+        CatalogTable::PgSettings => collect_pg_settings_rows(source),
+        CatalogTable::PgDatabase => collect_pg_database_rows(source),
+        CatalogTable::PgNamespace => collect_pg_namespace_rows(source, database),
+        CatalogTable::PgClass => collect_pg_class_rows(source, database),
+        CatalogTable::PgType => collect_pg_type_rows(source, database),
+        CatalogTable::PgAttribute => collect_pg_attribute_rows(source, database),
+        CatalogTable::PgIndex => collect_pg_index_rows(source, database),
+        CatalogTable::PgConstraint => collect_pg_constraint_rows(source, database),
+        CatalogTable::PgAttrdef => collect_pg_attrdef_rows(source, database),
+        CatalogTable::InformationSchemaTables => collect_info_tables_rows(source, database),
+        CatalogTable::InformationSchemaColumns => collect_info_columns_rows(source, database),
+        CatalogTable::InformationSchemaSchemata => collect_info_schemata_rows(source, database),
+    }
+}
+
+/// Build the `pg_catalog.pg_config` rows from the source's build settings. These
+/// describe the server build rather than a database, so no hierarchy is walked.
+fn collect_pg_config_rows(source: &dyn LazyCatalogSource) -> DFResult<Vec<Row>> {
+    let mut rows = Vec::new();
+    for setting in fetch_config(source)? {
+        rows.push(build_pg_config_row(&setting));
+    }
+    Ok(rows)
+}
+
+/// Build the `pg_catalog.pg_settings` rows from the source's parameters. These
+/// describe the server rather than a database, so no hierarchy is walked.
+fn collect_pg_settings_rows(source: &dyn LazyCatalogSource) -> DFResult<Vec<Row>> {
+    let mut rows = Vec::new();
+    for setting in fetch_settings(source)? {
+        rows.push(build_pg_settings_row(&setting));
+    }
+    Ok(rows)
+}
+
+/// Build the `pg_catalog.pg_database` rows for every database the source reports.
+///
+/// Deliberately unscoped: every database is visible from every database, which is
+/// how `PostgreSQL` answers "\l".
+fn collect_pg_database_rows(source: &dyn LazyCatalogSource) -> DFResult<Vec<Row>> {
+    let mut rows = Vec::new();
+    for db in fetch_databases(source)? {
+        rows.push(build_pg_database_row(&db));
+    }
+    Ok(rows)
+}
+
+/// Build the `pg_catalog.pg_namespace` rows for the schemas of `database`.
+fn collect_pg_namespace_rows(source: &dyn LazyCatalogSource, database: &str) -> DFResult<Vec<Row>> {
+    let mut rows = Vec::new();
+    for schema in fetch_schemas(source, database)? {
+        rows.push(build_pg_namespace_row(&schema));
+    }
+    Ok(rows)
+}
+
+/// Build the `pg_catalog.pg_class` rows for `database`: one per relation, and one
+/// per index as well, because an index is itself a relation and gets its own row
+/// (`relkind = 'i'`) alongside the tables in its schema.
+///
+/// A relation's columns are fetched only to count them for `relnatts`.
+///
+/// # Errors
+///
+/// Returns an error if a relation reports more columns than `relnatts` can hold.
+fn collect_pg_class_rows(source: &dyn LazyCatalogSource, database: &str) -> DFResult<Vec<Row>> {
+    let mut rows = Vec::new();
+    for schema in fetch_schemas(source, database)? {
+        for rel in fetch_relations(source, database, &schema.name)? {
+            let columns = fetch_columns(source, database, &schema.name, &rel.name)?;
+            let natts = attribute_count_as_i32(columns.len(), &rel.name)?;
+            rows.push(build_pg_class_row(&rel, schema.oid, natts));
         }
-        CatalogTable::PgSettings => {
-            for setting in fetch_settings(source)? {
-                rows.push(build_pg_settings_row(&setting));
-            }
+        for index in fetch_indexes(source, database, &schema.name)? {
+            rows.push(build_index_pg_class_row(&index, schema.oid));
         }
-        CatalogTable::PgDatabase => {
-            // Deliberately unscoped: every database is visible from every
-            // database, which is how PostgreSQL answers "\l".
-            for db in fetch_databases(source)? {
-                rows.push(build_pg_database_row(&db));
-            }
+    }
+    Ok(rows)
+}
+
+/// Build the `pg_catalog.pg_type` rows for `database`: the composite rowtype of
+/// each relation.
+fn collect_pg_type_rows(source: &dyn LazyCatalogSource, database: &str) -> DFResult<Vec<Row>> {
+    let mut rows = Vec::new();
+    for schema in fetch_schemas(source, database)? {
+        for rel in fetch_relations(source, database, &schema.name)? {
+            rows.push(build_pg_type_rowtype_row(&rel, schema.oid));
         }
-        CatalogTable::PgNamespace => {
-            for schema in fetch_schemas(source, database)? {
-                rows.push(build_pg_namespace_row(&schema));
-            }
+    }
+    Ok(rows)
+}
+
+/// Build the `pg_catalog.pg_attribute` rows for every column of every relation in
+/// `database`.
+///
+/// # Errors
+///
+/// Returns an error if a relation reports more columns than an attribute number
+/// can address. The count is checked here because [`build_pg_attribute_rows`]
+/// narrows each column's position to int4 itself and returns a plain `Vec<Row>`,
+/// leaving it no way to report an oversized column list.
+fn collect_pg_attribute_rows(source: &dyn LazyCatalogSource, database: &str) -> DFResult<Vec<Row>> {
+    let mut rows = Vec::new();
+    for schema in fetch_schemas(source, database)? {
+        for rel in fetch_relations(source, database, &schema.name)? {
+            let columns = fetch_columns(source, database, &schema.name, &rel.name)?;
+            // Range-check only: the checked count itself is not written to any
+            // pg_attribute column, but every attnum below is derived from this
+            // length and build_pg_attribute_rows cannot reject an oversized list.
+            attribute_count_as_i32(columns.len(), &rel.name)?;
+            rows.extend(build_pg_attribute_rows(rel.oid, &columns));
         }
-        CatalogTable::PgClass => {
-            for schema in fetch_schemas(source, database)? {
-                for rel in fetch_relations(source, database, &schema.name)? {
-                    let natts = attribute_count_as_i32(
-                        fetch_columns(source, database, &schema.name, &rel.name)?.len(),
-                    );
-                    rows.push(build_pg_class_row(&rel, schema.oid, natts));
+    }
+    Ok(rows)
+}
+
+/// Build the `pg_catalog.pg_index` rows for the indexes of `database`.
+///
+/// # Errors
+///
+/// Returns an error if an index reports more key columns than `indnatts` can
+/// hold. The count is checked here because [`build_pg_index_row`] narrows it
+/// itself and returns a plain `Row`, leaving it no way to report an oversized
+/// key list.
+fn collect_pg_index_rows(source: &dyn LazyCatalogSource, database: &str) -> DFResult<Vec<Row>> {
+    let mut rows = Vec::new();
+    for schema in fetch_schemas(source, database)? {
+        for index in fetch_indexes(source, database, &schema.name)? {
+            // Range-check only: build_pg_index_row recomputes the count for
+            // indnatts/indnkeyatts but cannot reject an oversized key list.
+            attribute_count_as_i32(index.key_attnums.len(), &index.index_name)?;
+            rows.push(build_pg_index_row(&index));
+        }
+    }
+    Ok(rows)
+}
+
+/// Build the `pg_catalog.pg_constraint` rows for the constraints of `database`.
+fn collect_pg_constraint_rows(
+    source: &dyn LazyCatalogSource,
+    database: &str,
+) -> DFResult<Vec<Row>> {
+    let mut rows = Vec::new();
+    for schema in fetch_schemas(source, database)? {
+        for constraint in fetch_constraints(source, database, &schema.name)? {
+            rows.push(build_pg_constraint_row(&constraint));
+        }
+    }
+    Ok(rows)
+}
+
+/// Build the `pg_catalog.pg_attrdef` rows for `database`: one per column flagged
+/// as having a default.
+///
+/// The OID is synthesized from a per-scan counter: nothing reads `pg_attrdef.oid`
+/// (consumers join on `adrelid`+`adnum`), so only stability within a scan
+/// matters, and the build order is deterministic.
+///
+/// # Errors
+///
+/// Returns an error if a relation reports more columns than an attribute number
+/// can address.
+fn collect_pg_attrdef_rows(source: &dyn LazyCatalogSource, database: &str) -> DFResult<Vec<Row>> {
+    let mut rows = Vec::new();
+    let mut synthetic_oid = SYNTHETIC_ATTRDEF_OID_BASE;
+    for schema in fetch_schemas(source, database)? {
+        for rel in fetch_relations(source, database, &schema.name)? {
+            let columns = fetch_columns(source, database, &schema.name, &rel.name)?;
+            for (idx, col) in columns.iter().enumerate() {
+                if col.has_default {
+                    let adnum = one_based_position(idx, &rel.name)?;
+                    rows.push(build_pg_attrdef_row(synthetic_oid, rel.oid, adnum));
+                    synthetic_oid += 1;
                 }
-                // An index is itself a relation, so it gets its own pg_class
-                // row (relkind 'i') alongside the tables in this schema.
-                for index in fetch_indexes(source, database, &schema.name)? {
-                    rows.push(build_index_pg_class_row(&index, schema.oid));
-                }
             }
         }
-        CatalogTable::PgIndex => {
-            for schema in fetch_schemas(source, database)? {
-                for index in fetch_indexes(source, database, &schema.name)? {
-                    rows.push(build_pg_index_row(&index));
-                }
-            }
+    }
+    Ok(rows)
+}
+
+/// Build the `information_schema.tables` rows for the relations of `database`,
+/// which is also the catalog name those rows carry.
+fn collect_info_tables_rows(source: &dyn LazyCatalogSource, database: &str) -> DFResult<Vec<Row>> {
+    let mut rows = Vec::new();
+    for schema in fetch_schemas(source, database)? {
+        for rel in fetch_relations(source, database, &schema.name)? {
+            rows.push(build_info_tables_row(database, &schema.name, &rel));
         }
-        CatalogTable::PgConstraint => {
-            for schema in fetch_schemas(source, database)? {
-                for constraint in fetch_constraints(source, database, &schema.name)? {
-                    rows.push(build_pg_constraint_row(&constraint));
-                }
-            }
+    }
+    Ok(rows)
+}
+
+/// Build the `information_schema.columns` rows for every column of every relation
+/// in `database`, which is also the catalog name those rows carry.
+///
+/// # Errors
+///
+/// Returns an error if a relation reports more columns than `ordinal_position`
+/// can number.
+fn collect_info_columns_rows(source: &dyn LazyCatalogSource, database: &str) -> DFResult<Vec<Row>> {
+    let mut rows = Vec::new();
+    for schema in fetch_schemas(source, database)? {
+        for rel in fetch_relations(source, database, &schema.name)? {
+            let columns = fetch_columns(source, database, &schema.name, &rel.name)?;
+            rows.extend(build_info_columns_rows(
+                database,
+                &schema.name,
+                &rel.name,
+                &columns,
+            )?);
         }
-        CatalogTable::PgAttrdef => {
-            // One pg_attrdef row per column flagged as having a default. The OID
-            // is synthesized from a per-scan counter: nothing reads pg_attrdef.oid
-            // (consumers join on adrelid+adnum), so only stability within a scan
-            // matters, and the build order is deterministic.
-            let mut synthetic_oid = SYNTHETIC_ATTRDEF_OID_BASE;
-            for schema in fetch_schemas(source, database)? {
-                for rel in fetch_relations(source, database, &schema.name)? {
-                    let columns = fetch_columns(source, database, &schema.name, &rel.name)?;
-                    for (idx, col) in columns.iter().enumerate() {
-                        if col.has_default {
-                            rows.push(build_pg_attrdef_row(
-                                synthetic_oid,
-                                rel.oid,
-                                one_based_position(idx),
-                            ));
-                            synthetic_oid += 1;
-                        }
-                    }
-                }
-            }
-        }
-        CatalogTable::PgType => {
-            for schema in fetch_schemas(source, database)? {
-                for rel in fetch_relations(source, database, &schema.name)? {
-                    rows.push(build_pg_type_rowtype_row(&rel, schema.oid));
-                }
-            }
-        }
-        CatalogTable::PgAttribute => {
-            for schema in fetch_schemas(source, database)? {
-                for rel in fetch_relations(source, database, &schema.name)? {
-                    let cols = fetch_columns(source, database, &schema.name, &rel.name)?;
-                    rows.extend(build_pg_attribute_rows(rel.oid, &cols));
-                }
-            }
-        }
-        CatalogTable::InformationSchemaTables => {
-            for schema in fetch_schemas(source, database)? {
-                for rel in fetch_relations(source, database, &schema.name)? {
-                    rows.push(build_info_tables_row(database, &schema.name, &rel));
-                }
-            }
-        }
-        CatalogTable::InformationSchemaColumns => {
-            for schema in fetch_schemas(source, database)? {
-                for rel in fetch_relations(source, database, &schema.name)? {
-                    let cols = fetch_columns(source, database, &schema.name, &rel.name)?;
-                    rows.extend(build_info_columns_rows(
-                        database,
-                        &schema.name,
-                        &rel.name,
-                        &cols,
-                    ));
-                }
-            }
-        }
-        CatalogTable::InformationSchemaSchemata => {
-            for schema in fetch_schemas(source, database)? {
-                rows.push(build_info_schemata_row(database, &schema));
-            }
-        }
+    }
+    Ok(rows)
+}
+
+/// Build the `information_schema.schemata` rows for the schemas of `database`,
+/// which is also the catalog name those rows carry.
+fn collect_info_schemata_rows(
+    source: &dyn LazyCatalogSource,
+    database: &str,
+) -> DFResult<Vec<Row>> {
+    let mut rows = Vec::new();
+    for schema in fetch_schemas(source, database)? {
+        rows.push(build_info_schemata_row(database, &schema));
     }
     Ok(rows)
 }

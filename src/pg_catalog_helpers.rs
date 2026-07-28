@@ -174,8 +174,9 @@ pub(crate) fn oid_to_type_names(oid: i32) -> (String, String) {
 /// # Errors
 ///
 /// Errors if the `max(oid)` query over the catalog tables cannot be planned or
-/// executed, if it yields no batch at all, or if its single column does not come
-/// back as `Int64` (the type the explicit `::bigint` cast asks for).
+/// executed, if it yields no batch at all, if its single column does not come
+/// back as `Int64` (the type the explicit `::bigint` cast asks for), or if the
+/// maximum it reports does not fit the `int4` oid this catalog hands out.
 async fn next_catalog_oid(ctx: &SessionContext) -> DFResult<i32> {
     // Cast in SQL rather than guessing the Arrow type here: the oid columns are
     // int4, so an uncast max() comes back as Int32 and does not match the Int64
@@ -201,7 +202,7 @@ async fn next_catalog_oid(ctx: &SessionContext) -> DFResult<i32> {
         .first()
         .map(|batch| batch.column(0))
         .ok_or_else(|| DataFusionError::Execution("max(oid) returned no rows".to_string()))?;
-    let highest = column
+    let highest_oid_column = column
         .as_any()
         .downcast_ref::<Int64Array>()
         .ok_or_else(|| {
@@ -211,17 +212,26 @@ async fn next_catalog_oid(ctx: &SessionContext) -> DFResult<i32> {
             ))
         })?;
 
-    // NULL only if every source table is empty, which the floor covers. Every oid
-    // column unioned above is int4 and is i64 here only because the query casts it
-    // to bigint, so the maximum always fits back into i32.
-    #[allow(clippy::cast_possible_truncation)]
-    let highest = if highest.is_empty() || highest.is_null(0) {
+    // NULL only if every source table is empty, which the floor covers.
+    //
+    // The maximum is i64 only because the query widens it with ::bigint, but the
+    // oids behind it were written by whoever registered those objects - this
+    // crate's counter for some, the embedder's own numbering for others - so the
+    // narrowing back to i32 is range-checked rather than assumed. An oid that
+    // does not fit int4 is not an oid this catalog could have handed out, and
+    // truncating it here would restart numbering somewhere already in use.
+    let highest_oid = if highest_oid_column.is_empty() || highest_oid_column.is_null(0) {
         0
     } else {
-        highest.value(0) as i32
+        let widened_oid = highest_oid_column.value(0);
+        i32::try_from(widened_oid).map_err(|_| {
+            DataFusionError::Execution(format!(
+                "highest catalog oid {widened_oid} does not fit the int4 oid columns this catalog uses"
+            ))
+        })?
     };
 
-    Ok(std::cmp::max(FIRST_USER_OID, highest.saturating_add(1)))
+    Ok(std::cmp::max(FIRST_USER_OID, highest_oid.saturating_add(1)))
 }
 
 /// Register a database in `pg_catalog.pg_database` and remember it in the
@@ -366,8 +376,9 @@ fn column_specs_from_defs(columns: &[BTreeMap<String, ColumnDef>]) -> Vec<Column
 ///
 /// # Errors
 ///
-/// Errors if `schema_oid` names no namespace in `pg_namespace`, or if any of the
-/// catalog queries, OID allocations or row appends fail.
+/// Errors if `schema_oid` names no namespace in `pg_namespace`, if `columns`
+/// holds more columns than the `int4` `pg_class.relnatts` column can carry, or if
+/// any of the catalog queries, OID allocations or row appends fail.
 async fn register_user_relation(
     ctx: &SessionContext,
     _database_name: &str,
@@ -419,11 +430,17 @@ async fn register_user_relation(
         row_security: false,
     };
 
-    // A relation's column count is bounded by what the caller could build in
-    // memory as a Vec of per-column maps, which is orders of magnitude below
-    // i32::MAX (PostgreSQL itself caps a relation at 1600 columns).
-    #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
-    let column_count = column_specs.len() as i32;
+    // The column list arrives from the embedder (a host callback describing its
+    // own relation); nothing in this crate bounds how many entries it contains,
+    // so the count is range-checked instead of narrowed on trust. A truncated
+    // count would be written to pg_class.relnatts and silently disagree with the
+    // pg_attribute rows emitted below.
+    let column_count = i32::try_from(column_specs.len()).map_err(|_| {
+        DataFusionError::Execution(format!(
+            "relation '{relation_name}' was registered with {} columns, more than the int4 pg_class.relnatts column can hold",
+            column_specs.len()
+        ))
+    })?;
 
     // pg_class identity row, its composite rowtype in pg_type, and one
     // pg_attribute row per column - all from the same builders the lazy
@@ -452,8 +469,9 @@ async fn register_user_relation(
     // the structural handle clients join on.
     for (idx, col) in column_specs.iter().enumerate() {
         if col.has_default {
-            // 1-based attnum. Bounded by the column count, which cannot reach
-            // i32::MAX (see the column_count cast above).
+            // 1-based attnum. `idx` indexes `column_specs`, whose length was
+            // range-checked into `column_count` above, so `idx + 1` is at most
+            // `column_count` and fits an i32 by that check.
             #[allow(clippy::cast_possible_truncation, clippy::cast_possible_wrap)]
             let adnum = (idx + 1) as i32;
             let attrdef_oid = next_catalog_oid(ctx).await?;
@@ -797,7 +815,8 @@ async fn get_schema_name(ctx: &SessionContext, schema_oid: i32) -> DFResult<Opti
 /// # Errors
 ///
 /// Errors if the first column is neither an `Int32Array` nor an `Int64Array`,
-/// which means the caller selected something other than an oid column.
+/// which means the caller selected something other than an oid column, or if an
+/// `Int64` cell holds a value outside the `int4` range oids live in.
 fn first_oid_cell(batches: &[RecordBatch], kind: &str) -> DFResult<Option<i32>> {
     if batches.is_empty() || batches[0].num_rows() == 0 {
         return Ok(None);
@@ -807,10 +826,17 @@ fn first_oid_cell(batches: &[RecordBatch], kind: &str) -> DFResult<Option<i32>> 
     if let Some(arr) = array.as_any().downcast_ref::<Int32Array>() {
         Ok(Some(arr.value(0)))
     } else if let Some(arr) = array.as_any().downcast_ref::<Int64Array>() {
-        // Every catalog oid column is int4; an Int64 result only arises when the
-        // query widened one on the way out, so the value fits back in i32.
-        #[allow(clippy::cast_possible_truncation)]
-        let oid = arr.value(0) as i32;
+        // An Int64 cell means the query or the engine widened an oid on the way
+        // out. The row behind it was written by whoever registered the object, so
+        // the narrowing is range-checked: a value that does not fit int4 names no
+        // object this catalog holds, and truncating it would return the oid of a
+        // different one.
+        let widened_oid = arr.value(0);
+        let oid = i32::try_from(widened_oid).map_err(|_| {
+            DataFusionError::Execution(format!(
+                "{kind} oid {widened_oid} does not fit the int4 oid columns this catalog uses"
+            ))
+        })?;
         Ok(Some(oid))
     } else {
         Err(DataFusionError::Execution(format!(

@@ -19,7 +19,6 @@ Note: This is WIP heavily and API can change.
   - `pg_proc`
 
 - Supports PostgreSQL-specific built-in functions:
-  - `pg_get_constraintdef(oid)`
   - `current_database()`
   - `has_schema_privilege(...)`
 
@@ -230,8 +229,10 @@ list, in Rust.
 ## Roadmap
 - [ ] Hook into `CREATE TABLE` to auto-populate metadata
 - [x] `pg_index` registration (eager `register_user_index` + lazy `LazyCatalogSource::indexes()`)
-- [ ] Add remaining catalog tables for user objects (`pg_constraint`, `pg_attrdef`, ...)
-- [ ] Deparse for `pg_get_indexdef` / `pg_get_viewdef` / `pg_get_ruledef`
+- [x] `pg_constraint` / `pg_attrdef` registration for user objects (eager `register_user_constraint` /
+      `register_user_tables`, lazy `LazyCatalogSource::constraints()` / `columns()`)
+- [x] `pg_get_indexdef` / `pg_get_viewdef` text via an integration-supplied resolver (see
+      "Runtime functions" below); `pg_get_ruledef` remains a NULL stub - see [`TODO.md`](TODO.md)
 - [ ] Catalog persistence to disk or external store
 - [ ] Enhanced type inference and function overloads
 

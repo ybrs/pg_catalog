@@ -805,9 +805,7 @@ pub fn rewrite_boolean_scalar_subquery_to_exists(sql: &str) -> Result<String> {
 /// list, etc.) - exactly how the `information_schema` views use it. It *can*,
 /// however, decorrelate an equivalent correlated **scalar** subquery. So we turn
 /// the EXISTS subquery's projection into `count(*)` and compare it against zero,
-/// which `DataFusion` handles natively in any expression position. This replaces
-/// the old `df_subquery_udf` rewrite for the one pattern `DataFusion` still can't
-/// do on its own.
+/// which `DataFusion` handles natively in any expression position.
 ///
 /// Only simple `SELECT` subqueries are transformed (no `GROUP BY`, `HAVING`, or
 /// set operation), since `count(*)` is existence-equivalent only there; other
