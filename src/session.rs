@@ -16,10 +16,10 @@ use crate::clean_duplicate_columns::{
 };
 use crate::replace::{
     alias_subquery_tables, decorrelate_lateral_aggregate, drop_oid_array_cast,
-    drop_redundant_oid_and_regclass_casts, regclass_udfs, replace_regclass,
-    replace_set_command_with_namespace, resolve_order_by_names_to_output_positions,
-    resolve_regproc_columns_to_oids_in_comparisons, rewrite_array_agg_varchar_cast,
-    rewrite_array_subquery, rewrite_array_upper_to_array_length,
+    drop_redundant_oid_and_regclass_casts, name_set_returning_function_column_after_its_alias,
+    regclass_udfs, replace_regclass, replace_set_command_with_namespace,
+    resolve_order_by_names_to_output_positions, resolve_regproc_columns_to_oids_in_comparisons,
+    rewrite_array_agg_varchar_cast, rewrite_array_subquery, rewrite_array_upper_to_array_length,
     rewrite_available_extension_versions_source, rewrite_available_updates,
     rewrite_boolean_column_char_comparisons, rewrite_boolean_scalar_subquery_to_exists,
     rewrite_brace_array_literal, rewrite_char_cast, rewrite_correlated_limit_one_subquery_to_max,
@@ -40,13 +40,13 @@ use std::sync::{Arc, Mutex};
 use zip::ZipArchive;
 
 use crate::user_functions::{
-    register_acldefault, register_aclexplode, register_array_agg, register_current_database,
-    register_current_schema, register_current_schemas, register_encode, register_format,
-    register_getdatabaseencoding, register_has_database_privilege, register_has_privilege_family,
-    register_has_schema_privilege, register_nameconcatoid,
+    register_acldefault, register_aclexplode, register_array_agg, register_comment_lookups,
+    register_current_database, register_current_schema, register_current_schemas, register_encode,
+    register_format, register_getdatabaseencoding, register_has_database_privilege,
+    register_has_privilege_family, register_has_schema_privilege, register_nameconcatoid,
     register_pg_available_extension_versions, register_pg_char_max_length,
-    register_pg_char_octet_length, register_pg_column_is_updatable, register_pg_expandarray,
-    register_pg_get_array, register_pg_get_function_arg_default,
+    register_pg_char_octet_length, register_pg_column_is_updatable, register_pg_database_size,
+    register_pg_expandarray, register_pg_get_array, register_pg_get_function_arg_default,
     register_pg_get_function_arguments, register_pg_get_function_result,
     register_pg_get_function_sqlbody, register_pg_get_indexdef, register_pg_get_keywords,
     register_pg_get_one, register_pg_get_ruledef, register_pg_get_statisticsobjdef_columns,
@@ -54,8 +54,9 @@ use crate::user_functions::{
     register_pg_index_position, register_pg_is_other_temp_schema, register_pg_my_temp_schema,
     register_pg_numeric_helpers, register_pg_options_to_table, register_pg_postmaster_start_time,
     register_pg_relation_is_publishable, register_pg_relation_is_updatable,
-    register_pg_relation_size, register_pg_sequence_last_value, register_pg_total_relation_size,
-    register_pg_truetypid_helpers, register_quote_ident, register_row_security_active,
+    register_pg_relation_size, register_pg_sequence_last_value, register_pg_size_pretty,
+    register_pg_table_size, register_pg_total_relation_size, register_pg_truetypid_helpers,
+    register_qualified_array_length, register_quote_ident, register_row_security_active,
     register_scalar_array_to_string, register_scalar_format_type, register_scalar_pg_age,
     register_scalar_pg_encoding_to_char, register_scalar_pg_get_expr,
     register_scalar_pg_get_partkeydef, register_scalar_pg_get_userbyid,
@@ -741,6 +742,10 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     let sql = rewrite_pg_truetypid_composite_args(&sql)?;
     let sql = rewrite_information_schema_casts(&sql)?;
     let sql = rewrite_schema_qualified_udtfs(&sql)?;
+    // After the prefix strip, so `pg_catalog.unnest(...) x` is recognised as the
+    // unnest it now spells; PostgreSQL names such a function's single column
+    // after the alias and the surrounding query refers to it that way.
+    let sql = name_set_returning_function_column_after_its_alias(&sql)?;
     let sql = rewrite_available_extension_versions_source(&sql)?;
     let sql = rewrite_char_cast(&sql)?;
     let sql = rewrite_array_upper_to_array_length(&sql)?;
@@ -1723,7 +1728,7 @@ fn register_catalogs_from_schemas(
                 }
 
                 let table_name = table.clone();
-                log::debug!("-- table {:?}", &table);
+                log::debug!("-- table {table:?}");
 
                 let base =
                     ScanRecordingMemTable::new(table_name, schema_ref, Arc::clone(log), batches);
@@ -2310,6 +2315,11 @@ async fn register_pg_compatibility_functions(
     register_pg_postmaster_start_time(ctx)?;
     register_pg_relation_size(ctx)?;
     register_pg_total_relation_size(ctx)?;
+    register_pg_table_size(ctx)?;
+    register_pg_database_size(ctx)?;
+    register_pg_size_pretty(ctx)?;
+    register_comment_lookups(ctx)?;
+    register_qualified_array_length(ctx)?;
     register_scalar_pg_age(ctx)?;
     register_scalar_pg_is_in_recovery(ctx)?;
     register_scalar_txid_current(ctx)?;

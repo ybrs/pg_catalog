@@ -273,6 +273,8 @@ mod rewriter {
         GroupByExpr, HashSet, Ident, Join, JoinConstraint, JoinOperator, ObjectNamePart, Query,
         Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins, With,
     };
+    use sqlparser::ast::visit_expressions;
+    use std::ops::ControlFlow;
 
     /// Everything the rewriter learned about one scalar sub-query: enough to
     /// emit the CTE, the LEFT JOIN back to the outer query, and the column
@@ -903,8 +905,12 @@ mod rewriter {
             /// nested joins so no table factor is missed.
             fn qualify_factor(tf: &mut TableFactor) {
                 match tf {
-                    TableFactor::Table { name, .. } => {
-                        if name.0.len() == 1 {
+                    // `args` present means this is a table function call, not a
+                    // relation. Those resolve against the function registry,
+                    // where earlier rewrites have already put the spelling the
+                    // planner accepts, so qualifying one would undo that.
+                    TableFactor::Table { name, args, .. } => {
+                        if name.0.len() == 1 && args.is_none() {
                             name.0
                                 .insert(0, ObjectNamePart::Identifier(Ident::new("pg_catalog")));
                         }
@@ -1026,7 +1032,7 @@ mod rewriter {
                 }
                 let outer_only = unique;
 
-                Some(CorrelatedInfo {
+                let info = CorrelatedInfo {
                     cte_ident: self.fresh_name(),
                     subquery: sub.clone(),
                     on_pairs: pairs,
@@ -1036,20 +1042,41 @@ mod rewriter {
                         SelectItem::ExprWithAlias { alias, .. } => Some(alias.clone()),
                         _ => None,
                     },
-                })
+                };
+
+                // Lifting only works when the CTE can stand on its own. A
+                // sub-query that still names an outer alias after cleaning
+                // would become a CTE selecting from a table it cannot see, so
+                // leave it in place for the planner to deal with rather than
+                // emit SQL that is certain to fail.
+                let dangling =
+                    Self::unresolved_outer_aliases(&Self::cleaned_subquery(&info), outer_aliases);
+                if !dangling.is_empty() {
+                    return None;
+                }
+
+                Some(info)
             } else {
                 None
             }
         }
 
         /// Append the CTE described by `info` to `outer_with`.
-        ///
-        /// The sub-query is cloned and cleaned first: correlated filters move
-        /// to the JOIN, the scalar value is exposed as `col`, every join key is
-        /// projected, and unqualified tables gain the `pg_catalog` prefix.
         fn push_cte(outer_with: &mut Option<With>, info: &CorrelatedInfo) {
             let w = Self::ensure_with(outer_with);
+            let subquery = Self::cleaned_subquery(info);
+            w.cte_tables
+                .push(Self::make_cte(&info.cte_ident, Box::new(subquery)));
+        }
 
+        /// The sub-query as it will read inside the CTE.
+        ///
+        /// Correlated filters move to the JOIN, the scalar value is exposed as
+        /// `col`, every join key is projected, and unqualified tables gain the
+        /// `pg_catalog` prefix. Separate from [`push_cte`] because the decision
+        /// of whether to lift at all is made by inspecting this result -- see
+        /// [`unresolved_outer_aliases`](Self::unresolved_outer_aliases).
+        fn cleaned_subquery(info: &CorrelatedInfo) -> Query {
             // --- clone & strip correlated filters ------------------
             let mut subq = (*info.subquery).clone();
             if let SetExpr::Select(inner_sel) = subq.body.as_mut() {
@@ -1107,9 +1134,139 @@ mod rewriter {
             // prefix unqualified tables inside the CTE with pg_catalog
             Self::qualify_pg_catalog_tables(&mut subq);
 
-            // * use *subq* we just cleaned, not the original
-            w.cte_tables
-                .push(Self::make_cte(&info.cte_ident, Box::new(subq)));
+            subq
+        }
+
+        /// The outer aliases `subquery` still names once detached from the
+        /// query it was written in.
+        ///
+        /// Correlation is carried into the CTE as equality join keys, so an
+        /// outer column used any other way -- as a table function's argument,
+        /// an array subscript, or a bare term in the projection -- is left
+        /// behind. The CTE then selects from an alias that is not in its scope
+        /// and the planner rejects it with a field-not-found naming that alias.
+        /// Detecting the situation lets the rewriter decline to lift instead of
+        /// emitting SQL that cannot plan.
+        ///
+        /// An alias the sub-query itself defines is not an outer reference,
+        /// however deeply it is defined: psql's `\d <table>` selects from an
+        /// inner `c` (`pg_collation`) beneath an outer `c` (`pg_class`). Aliases
+        /// are therefore gathered from every FROM clause in the sub-query, at
+        /// any depth, and only the names left over count as unresolved. That
+        /// bias is deliberate -- missing one leaves today's behaviour intact,
+        /// while a false positive would stop lifting a sub-query that works.
+        fn unresolved_outer_aliases(subquery: &Query, outer_aliases: &[Ident]) -> Vec<Ident> {
+            let mut defined = Vec::new();
+            Self::collect_defined_aliases(subquery, &mut defined);
+
+            let mut referenced = Vec::new();
+            let _ = visit_expressions(subquery, |expr| {
+                if let Expr::CompoundIdentifier(parts) = expr {
+                    if let Some(head) = parts.first() {
+                        referenced.push(head.clone());
+                    }
+                }
+                ControlFlow::<()>::Continue(())
+            });
+
+            let same = |left: &Ident, right: &Ident| left.value.eq_ignore_ascii_case(&right.value);
+            let mut unresolved: Vec<Ident> = Vec::new();
+            for alias in outer_aliases {
+                let is_referenced = referenced.iter().any(|head| same(head, alias));
+                let is_defined_here = defined.iter().any(|own| same(own, alias));
+                let already_listed = unresolved.iter().any(|seen| same(seen, alias));
+                if is_referenced && !is_defined_here && !already_listed {
+                    unresolved.push(alias.clone());
+                }
+            }
+            unresolved
+        }
+
+        /// Collect every name a query's FROM clauses bind, at any depth.
+        ///
+        /// A table factor binds its explicit alias when it has one, and
+        /// otherwise the last part of its own name (`pg_catalog.pg_class`
+        /// binds `pg_class`). Sub-queries reached through expressions are
+        /// walked too, so a name bound three levels down still counts as
+        /// defined rather than outer.
+        fn collect_defined_aliases(query: &Query, out: &mut Vec<Ident>) {
+            /// Record one FROM item's binding and descend into what it holds.
+            fn from_table_factor(factor: &TableFactor, out: &mut Vec<Ident>) {
+                match factor {
+                    TableFactor::Table { name, alias, .. } => {
+                        if let Some(alias) = alias {
+                            out.push(alias.name.clone());
+                        } else if let Some(ObjectNamePart::Identifier(last)) = name.0.last() {
+                            out.push(last.clone());
+                        }
+                    }
+                    TableFactor::Derived {
+                        subquery, alias, ..
+                    } => {
+                        if let Some(alias) = alias {
+                            out.push(alias.name.clone());
+                        }
+                        collect_defined_aliases_inner(subquery, out);
+                    }
+                    TableFactor::NestedJoin {
+                        table_with_joins,
+                        alias,
+                    } => {
+                        if let Some(alias) = alias {
+                            out.push(alias.name.clone());
+                        }
+                        from_table_with_joins(table_with_joins, out);
+                    }
+                    // The factor shapes catalog SQL reaches for besides a
+                    // plain relation: a table function call and UNNEST. The
+                    // remaining variants (JSON_TABLE, PIVOT, MATCH_RECOGNIZE
+                    // and friends) appear in no PostgreSQL catalog query.
+                    TableFactor::Function { alias, .. }
+                    | TableFactor::TableFunction { alias, .. }
+                    | TableFactor::UNNEST { alias, .. } => {
+                        if let Some(alias) = alias {
+                            out.push(alias.name.clone());
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            /// Record one FROM entry: its own relation plus each join's.
+            fn from_table_with_joins(entry: &TableWithJoins, out: &mut Vec<Ident>) {
+                from_table_factor(&entry.relation, out);
+                for join in &entry.joins {
+                    from_table_factor(&join.relation, out);
+                }
+            }
+
+            /// Walk one query: its CTEs, its body, and any sub-query in an
+            /// expression.
+            fn collect_defined_aliases_inner(query: &Query, out: &mut Vec<Ident>) {
+                if let Some(with) = &query.with {
+                    for cte in &with.cte_tables {
+                        out.push(cte.alias.name.clone());
+                        collect_defined_aliases_inner(&cte.query, out);
+                    }
+                }
+                if let SetExpr::Select(select) = query.body.as_ref() {
+                    for entry in &select.from {
+                        from_table_with_joins(entry, out);
+                    }
+                }
+                let _ = visit_expressions(query, |expr| {
+                    if let Expr::Subquery(inner)
+                    | Expr::Exists {
+                        subquery: inner, ..
+                    } = expr
+                    {
+                        collect_defined_aliases_inner(inner.as_ref(), out);
+                    }
+                    ControlFlow::<()>::Continue(())
+                });
+            }
+
+            collect_defined_aliases_inner(query, out);
         }
 
         /// Attach the CTE described by `info` to the outer SELECT: as a LEFT
@@ -1335,10 +1492,13 @@ mod rewriter {
             match q.body.as_mut() {
                 SetExpr::Select(sel) => self.visit_select_mut(&mut q.with, sel),
                 // A set operation's branches are ordinary queries, each with
-                // its own projection that may hold a correlated scalar.
+                // its own projection that may hold a correlated scalar. A
+                // branch cannot carry a WITH of its own, so the CTEs their
+                // scalars lift out are hung on this query's WITH, where SQL
+                // scoping makes them visible to every branch.
                 SetExpr::SetOperation { left, right, .. } => {
-                    self.visit_setexpr_mut(left);
-                    self.visit_setexpr_mut(right);
+                    self.visit_setexpr_mut(&mut q.with, left);
+                    self.visit_setexpr_mut(&mut q.with, right);
                 }
                 SetExpr::Query(inner) => self.visit_query_mut(inner),
                 _ => {}
@@ -1347,18 +1507,19 @@ mod rewriter {
 
         /// Recurse into a set-expression branch, which may itself be a SELECT,
         /// a nested query, or a further set operation.
-        fn visit_setexpr_mut(&mut self, body: &mut SetExpr) {
+        ///
+        /// `enclosing_with` is the WITH clause of the query the set operation
+        /// belongs to. A branch has no WITH of its own -- SQL only allows one
+        /// per query, before the first branch -- so a CTE lifted out of a
+        /// branch's projection is hung there. That is the scope the branch
+        /// resolves names in, so the reference the rewriter leaves behind
+        /// (`__cteN.col`) finds its definition.
+        fn visit_setexpr_mut(&mut self, enclosing_with: &mut Option<With>, body: &mut SetExpr) {
             match body {
-                SetExpr::Select(sel) => {
-                    // A branch of a set operation has no WITH of its own to
-                    // hang a CTE on, so any CTE this produces would have
-                    // nowhere valid to go. Recurse into its FROM only.
-                    let mut no_with = None;
-                    self.visit_select_mut(&mut no_with, sel);
-                }
+                SetExpr::Select(sel) => self.visit_select_mut(enclosing_with, sel),
                 SetExpr::SetOperation { left, right, .. } => {
-                    self.visit_setexpr_mut(left);
-                    self.visit_setexpr_mut(right);
+                    self.visit_setexpr_mut(enclosing_with, left);
+                    self.visit_setexpr_mut(enclosing_with, right);
                 }
                 SetExpr::Query(inner) => self.visit_query_mut(inner),
                 _ => {}
@@ -1570,6 +1731,53 @@ mod tests {
         let stmt = parse_sql(sql)?;
         let finder = ScalarFinder::find(&stmt);
         assert_eq!(finder.scalars.len(), 2);
+        Ok(())
+    }
+
+    /// A scalar sub-query in a UNION branch lifts into a CTE on the enclosing
+    /// query, where every branch can see it.
+    ///
+    /// psql's `\d <table>` sends exactly this shape: its publication lookup
+    /// unions three selects and the middle one carries a correlated scalar.
+    /// Rewriting the reference while dropping the definition left the branch
+    /// selecting from a CTE that was never emitted.
+    #[test]
+    fn scalar_in_union_branch_lifts_to_the_enclosing_with() -> Result<()> {
+        let sql = "SELECT pubname, NULL FROM pg_publication \
+                   UNION \
+                   SELECT pubname, (SELECT string_agg(attname, ', ') FROM pg_attribute \
+                   WHERE attrelid = pr.prrelid) FROM pg_publication_rel pr";
+        let out = rewrite_scalar_subqueries_to_ctes(sql)?;
+        assert!(
+            out.sql.starts_with("WITH __cte1"),
+            "the lifted CTE has to be defined on the enclosing query: {}",
+            out.sql
+        );
+        assert!(
+            out.sql.contains("__cte1.col"),
+            "the branch should select the lifted value: {}",
+            out.sql
+        );
+        Ok(())
+    }
+
+    /// A table function in a lifted sub-query keeps the bare name earlier
+    /// rewrites gave it, rather than being qualified like a relation.
+    #[test]
+    fn lifted_table_functions_are_not_schema_qualified() -> Result<()> {
+        let sql = "SELECT (SELECT string_agg(attname, ', ') FROM generate_series(0, 2) s, \
+                   pg_attribute WHERE attrelid = c.oid AND attnum = s) FROM pg_class c";
+        let out = rewrite_scalar_subqueries_to_ctes(sql)?;
+        assert!(
+            !out.sql.contains("pg_catalog.generate_series"),
+            "generate_series is a function, not a relation to qualify: {}",
+            out.sql
+        );
+        assert!(
+            out.sql.contains("pg_catalog.pg_attribute"),
+            "a real catalog table still needs qualifying: {}",
+            out.sql
+        );
         Ok(())
     }
 

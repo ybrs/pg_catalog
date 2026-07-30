@@ -412,6 +412,16 @@ scalar_resolvers! {
     pg_table_is_visible (oid) -> bool = true;
     pg_function_is_visible (oid) -> bool = true;
     pg_type_is_visible (oid) -> bool = true;
+    pg_collation_is_visible (oid) -> bool = true;
+    pg_conversion_is_visible (oid) -> bool = true;
+    pg_opclass_is_visible (oid) -> bool = true;
+    pg_operator_is_visible (oid) -> bool = true;
+    pg_opfamily_is_visible (oid) -> bool = true;
+    pg_statistics_obj_is_visible (oid) -> bool = true;
+    pg_ts_config_is_visible (oid) -> bool = true;
+    pg_ts_dict_is_visible (oid) -> bool = true;
+    pg_ts_parser_is_visible (oid) -> bool = true;
+    pg_ts_template_is_visible (oid) -> bool = true;
     pg_stat_get_analyze_count (oid) -> int8;
     pg_stat_get_autoanalyze_count (oid) -> int8;
     pg_stat_get_autovacuum_count (oid) -> int8;

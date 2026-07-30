@@ -529,31 +529,80 @@ pub fn rewrite_schema_qualified_text(sql: &str) -> Result<String> {
         .join(" "))
 }
 
-/// Treat schema qualified casts to built-in types (regclass, regtype,
-/// regnamespace, ...) as plain `TEXT` casts so `DataFusion` can parse them.
+/// Rewrite `pg_catalog.`-qualified type names in casts to the types
+/// `DataFusion` knows.
+///
+/// `psql` spells every type in its describe queries schema-qualified, e.g.
+/// `stxrelid::pg_catalog.regclass` and `pr.prattrs::pg_catalog.int2[]`.
+/// `DataFusion`'s parser has no `pg_catalog` schema for types and rejects the
+/// whole name, so each is mapped here: the object-identifier types become TEXT
+/// (their readable form, which is what a client selects them for), and the
+/// internal integer and float aliases become the SQL types they name. Array
+/// spellings are rewritten through their element type, so `pg_catalog.int2[]`
+/// becomes `SMALLINT[]`.
 ///
 /// # Errors
 ///
 /// Returns an error if `sql` does not parse as `PostgreSQL`.
 pub fn rewrite_schema_qualified_custom_types(sql: &str) -> Result<String> {
     use sqlparser::ast::{
-        visit_expressions_mut, visit_statements_mut, DataType, Expr, ObjectName, ObjectNamePart,
+        visit_expressions_mut, visit_statements_mut, ArrayElemTypeDef, DataType, Expr, ObjectName,
+        ObjectNamePart,
     };
     use sqlparser::dialect::PostgreSqlDialect;
     use sqlparser::parser::Parser;
     use std::ops::ControlFlow;
 
-    /// Does `name` spell the built-in type `t` as `pg_catalog.<t>`?
-    fn is_pg_type(name: &ObjectName, t: &str) -> bool {
-        name.0.len() == 2
-            && matches!(
-                (&name.0[0], &name.0[1]),
-                (
-                    ObjectNamePart::Identifier(a),
-                    ObjectNamePart::Identifier(b)
-                ) if a.value.eq_ignore_ascii_case("pg_catalog")
-                     && b.value.eq_ignore_ascii_case(t)
-            )
+    /// The `pg_catalog` type name each qualified cast is rewritten to, keyed by
+    /// the bare name after the schema. The object-identifier types resolve to
+    /// TEXT because that is the form they print as.
+    fn datafusion_type_for(bare_name: &str) -> Option<DataType> {
+        let lowered = bare_name.to_ascii_lowercase();
+        match lowered.as_str() {
+            "text" | "regtype" | "regnamespace" | "regclass" | "regproc" | "regoper" => {
+                Some(DataType::Text)
+            }
+            "int2" => Some(DataType::SmallInt(None)),
+            "int4" => Some(DataType::Int(None)),
+            "int8" => Some(DataType::BigInt(None)),
+            "float4" => Some(DataType::Real),
+            "float8" => Some(DataType::DoublePrecision),
+            "bool" => Some(DataType::Boolean),
+            _ => None,
+        }
+    }
+
+    /// The bare type name of a `pg_catalog.<type>` object name, if it is one.
+    fn pg_catalog_type_name(name: &ObjectName) -> Option<&str> {
+        if name.0.len() != 2 {
+            return None;
+        }
+        match (&name.0[0], &name.0[1]) {
+            (ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(bare))
+                if schema.value.eq_ignore_ascii_case("pg_catalog") =>
+            {
+                Some(bare.value.as_str())
+            }
+            _ => None,
+        }
+    }
+
+    /// Rewrite one cast target in place, descending through array wrappers so
+    /// the element type of `pg_catalog.int2[]` is reached.
+    fn resolve_type(data_type: &mut DataType) {
+        match data_type {
+            DataType::Custom(name, _) => {
+                if let Some(resolved) = pg_catalog_type_name(name).and_then(datafusion_type_for) {
+                    *data_type = resolved;
+                }
+            }
+            DataType::Array(
+                ArrayElemTypeDef::AngleBracket(element)
+                | ArrayElemTypeDef::SquareBracket(element, _)
+                | ArrayElemTypeDef::Parenthesis(element),
+            ) => resolve_type(element),
+            _ => {}
+        }
     }
 
     let dialect = PostgreSqlDialect {};
@@ -563,15 +612,7 @@ pub fn rewrite_schema_qualified_custom_types(sql: &str) -> Result<String> {
     let _ = visit_statements_mut(&mut stmts, |stmt| {
         let () = visit_expressions_mut(stmt, |e| {
             if let Expr::Cast { data_type, .. } = e {
-                if let DataType::Custom(obj, _) = data_type {
-                    if is_pg_type(obj, "text")
-                        || is_pg_type(obj, "regtype")
-                        || is_pg_type(obj, "regnamespace")
-                        || is_pg_type(obj, "regclass")
-                    {
-                        *data_type = DataType::Text;
-                    }
-                }
+                resolve_type(data_type);
             }
             ControlFlow::<()>::Continue(())
         })?;
@@ -2522,6 +2563,122 @@ pub fn decorrelate_lateral_aggregate(sql: &str) -> Result<String> {
         .join("; "))
 }
 
+/// The set-returning functions that produce exactly one output column, so a
+/// bare alias on them names that column as well as the relation.
+///
+/// `PostgreSQL` gives a function-call FROM item's single output column the
+/// alias's own name: in `FROM unnest(c.reloptions) x` the column is `x`.
+/// `DataFusion` names the relation `x` but calls the column after the
+/// expression that produced it, so the query's own `x` references do not bind.
+/// Only single-column functions belong here -- for a function returning a
+/// composite, `PostgreSQL` exposes the fields under their own names and the
+/// alias refers to the whole row.
+const SINGLE_COLUMN_SET_RETURNING_FUNCTIONS: [&str; 2] = ["unnest", "generate_series"];
+
+/// Name a set-returning function's output column after its table alias, the way
+/// `PostgreSQL` does.
+///
+/// `FROM unnest(c.reloptions) x` becomes `FROM unnest(c.reloptions) AS x (x)`,
+/// which is how the surrounding query already refers to the value. Only the
+/// functions in [`SINGLE_COLUMN_SET_RETURNING_FUNCTIONS`] are touched, and only
+/// when the alias carries no column list of its own, so an explicit naming is
+/// never overwritten.
+///
+/// psql's `\d+ <table>` needs this: it reads a relation's storage options with
+/// `array(SELECT 'toast.' || x FROM pg_catalog.unnest(tc.reloptions) x)`.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
+pub fn name_set_returning_function_column_after_its_alias(sql: &str) -> Result<String> {
+    use sqlparser::ast::{visit_statements_mut, TableAliasColumnDef};
+    use sqlparser::dialect::PostgreSqlDialect;
+    use sqlparser::parser::Parser;
+    use std::ops::ControlFlow;
+
+    /// Does this FROM item call one of the single-column functions?
+    fn is_single_column_set_returning(factor: &TableFactor) -> bool {
+        match factor {
+            // `unnest(...)` parses to its own factor, so reaching it is
+            // enough; the name is implied.
+            TableFactor::UNNEST { .. } => true,
+            // Any other function call carries its name, and `args` present is
+            // what distinguishes a call from a plain relation.
+            TableFactor::Table { name, args, .. } => {
+                args.is_some()
+                    && name.0.last().is_some_and(|part| match part {
+                        ObjectNamePart::Identifier(ident) => SINGLE_COLUMN_SET_RETURNING_FUNCTIONS
+                            .iter()
+                            .any(|known| ident.value.eq_ignore_ascii_case(known)),
+                        ObjectNamePart::Function(_) => false,
+                    })
+            }
+            _ => false,
+        }
+    }
+
+    /// Give one FROM item's alias a column list naming the alias itself.
+    fn name_column_after_alias(factor: &mut TableFactor) {
+        if !is_single_column_set_returning(factor) {
+            return;
+        }
+        let (TableFactor::UNNEST { alias, .. } | TableFactor::Table { alias, .. }) = factor else {
+            return;
+        };
+        let Some(alias) = alias else { return };
+        if !alias.columns.is_empty() {
+            return;
+        }
+        alias.columns = vec![TableAliasColumnDef {
+            name: alias.name.clone(),
+            data_type: None,
+        }];
+    }
+
+    /// Walk one FROM entry: its own relation, each join's, and any nested join.
+    fn name_columns_in_from_entry(entry: &mut TableWithJoins) {
+        name_column_after_alias(&mut entry.relation);
+        for join in &mut entry.joins {
+            name_column_after_alias(&mut join.relation);
+        }
+    }
+
+    let dialect = PostgreSqlDialect {};
+    let mut statements =
+        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
+
+    let _ = visit_statements_mut(&mut statements, |stmt| {
+        let _ = visit_expressions_mut(stmt, |expr| {
+            if let Expr::Subquery(query)
+            | Expr::Exists {
+                subquery: query, ..
+            } = expr
+            {
+                if let SetExpr::Select(select) = query.body.as_mut() {
+                    for entry in &mut select.from {
+                        name_columns_in_from_entry(entry);
+                    }
+                }
+            }
+            ControlFlow::<()>::Continue(())
+        });
+        if let Statement::Query(query) = stmt {
+            if let SetExpr::Select(select) = query.body.as_mut() {
+                for entry in &mut select.from {
+                    name_columns_in_from_entry(entry);
+                }
+            }
+        }
+        ControlFlow::<()>::Continue(())
+    });
+
+    Ok(statements
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join("; "))
+}
+
 /// Remove the `pg_catalog.` prefix from known table functions such as
 /// `pg_get_keywords` so unqualified calls work inside user queries.
 ///
@@ -2547,6 +2704,10 @@ pub fn rewrite_schema_qualified_udtfs(sql: &str) -> Result<String> {
                         "pg_get_keywords",
                         "pg_postmaster_start_time",
                         "generate_series",
+                        // psql's \d+ expands a relation's reloptions with
+                        // pg_catalog.unnest; DataFusion plans unnest as a
+                        // built-in, which only the bare name reaches.
+                        "unnest",
                     ]
                     .iter()
                     .any(|f| func.value.eq_ignore_ascii_case(f)) =>
@@ -3699,13 +3860,20 @@ pub fn alias_subquery_tables(sql: &str) -> Result<String> {
         counter: &mut usize,
         table_alias_pairs: &mut Vec<(String, String)>,
     ) {
-        if let TableFactor::Table { name, alias, .. } = tf {
+        if let TableFactor::Table {
+            name, alias, args, ..
+        } = tf
+        {
             // The bare table name the subquery body refers to (last name part).
             let bare = name.0.last().and_then(|p| match p {
                 ObjectNamePart::Identifier(i) => Some(i.value.clone()),
                 ObjectNamePart::Function(_) => None,
             });
-            if name.0.len() == 1 {
+            // `args` present means a table function call, e.g.
+            // `generate_series(0, 2) s`. Those resolve against the function
+            // registry rather than a schema, so qualifying one turns a name the
+            // planner knows into one it does not.
+            if name.0.len() == 1 && args.is_none() {
                 name.0
                     .insert(0, ObjectNamePart::Identifier(Ident::new("pg_catalog")));
             }
@@ -3803,6 +3971,29 @@ mod tests {
                 "SELECT CAST(y AS pg_catalog.regtype)",
                 "SELECT CAST(y AS TEXT)",
             ),
+        ];
+
+        for (input, expected) in cases {
+            assert_eq!(
+                rewrite_schema_qualified_custom_types(input).unwrap(),
+                expected,
+                "Failed for input: {input}"
+            );
+        }
+    }
+
+    /// The internal numeric type names keep their numeric meaning, and an array
+    /// spelling is resolved through its element type. psql's `\d <table>` casts
+    /// a publication's column list with `::pg_catalog.int2[]`.
+    #[test]
+    fn test_rewrite_pg_custom_types_resolves_numeric_and_array_spellings() {
+        let cases = vec![
+            ("SELECT x::pg_catalog.int2", "SELECT x::SMALLINT"),
+            ("SELECT x::pg_catalog.int4", "SELECT x::INT"),
+            ("SELECT x::pg_catalog.int8", "SELECT x::BIGINT"),
+            ("SELECT x::pg_catalog.float8", "SELECT x::DOUBLE PRECISION"),
+            ("SELECT x::pg_catalog.bool", "SELECT x::BOOLEAN"),
+            ("SELECT x::pg_catalog.int2[]", "SELECT x::SMALLINT[]"),
         ];
 
         for (input, expected) in cases {
@@ -4536,6 +4727,24 @@ mod tests {
         assert_eq!(rewrite_schema_qualified_udtfs(plain).unwrap(), plain);
     }
 
+    /// A table function called inside a scalar sub-query loses its prefix too:
+    /// psql's `\d <table>` reaches `pg_catalog.generate_series` only there.
+    #[test]
+    fn test_rewrite_schema_qualified_udtfs_inside_scalar_subquery() {
+        let input = "SELECT (SELECT string_agg(attname, ', ') FROM \
+                     pg_catalog.generate_series(0, 2) s, pg_catalog.pg_attribute \
+                     WHERE attnum = s) AS c";
+        let out = rewrite_schema_qualified_udtfs(input).unwrap();
+        assert!(
+            out.contains("FROM generate_series(0, 2) s"),
+            "generate_series kept its schema: {out}"
+        );
+        assert!(
+            out.contains("pg_catalog.pg_attribute"),
+            "a real catalog table must stay qualified: {out}"
+        );
+    }
+
     /// Tuple equality decomposes into one `AND`-ed comparison per element.
     #[test]
     fn test_rewrite_tuple_equality() {
@@ -4546,6 +4755,26 @@ mod tests {
         // unchanged if no tuples
         let plain = "SELECT 1";
         assert_eq!(rewrite_tuple_equality(plain).unwrap(), plain);
+    }
+
+    /// A table function in a sub-query's FROM is aliased but not qualified:
+    /// psql's `\d <table>` selects from `generate_series` there, and a
+    /// `pg_catalog.` prefix would leave the planner looking for a schema.
+    #[test]
+    fn test_alias_subquery_tables_leaves_table_functions_unqualified(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let sql = "SELECT (SELECT string_agg(attname, ', ') FROM generate_series(0, 2) s, \
+                   pg_attribute WHERE attnum = s) FROM pg_class c";
+        let out = alias_subquery_tables(sql)?;
+        assert!(
+            !out.contains("pg_catalog.generate_series"),
+            "generate_series is a function, not a relation to qualify: {out}"
+        );
+        assert!(
+            out.contains("pg_catalog.pg_attribute"),
+            "a real catalog table still needs qualifying: {out}"
+        );
+        Ok(())
     }
 
     /// A subquery's table is schema-qualified and aliased, while the outer

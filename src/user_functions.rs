@@ -5119,27 +5119,68 @@ pub fn register_pg_get_keywords(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
+/// Register `<base_name>` as a function of `arg_count` arguments that ignores
+/// them and always answers `value`, under `pg_catalog.<base_name>` with the bare
+/// name as an alias.
+///
+/// The signature accepts any argument types on purpose. `PostgreSQL` overloads
+/// these by object identifier and by name -- `pg_database_size` takes an oid or
+/// a datname, `obj_description` an oid of whichever width the catalog column
+/// has -- and a constant answer is right for every overload, so one permissive
+/// registration beats one exact registration per spelling a client might use.
+fn register_constant_answer(
+    ctx: &SessionContext,
+    base_name: &'static str,
+    arg_count: usize,
+    value: ScalarValue,
+) {
+    use datafusion::logical_expr::{
+        ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, Volatility,
+    };
+
+    /// A function whose answer does not depend on what it is called with.
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    struct ConstantAnswer {
+        /// The name this instance was registered under.
+        name: String,
+        /// Accepts `arg_count` arguments of any type.
+        signature: Signature,
+        /// The value every call returns.
+        value: ScalarValue,
+    }
+
+    impl ScalarUDFImpl for ConstantAnswer {
+        /// The registered function name.
+        fn name(&self) -> &str {
+            &self.name
+        }
+        /// Any argument types, at the arity this was registered with.
+        fn signature(&self) -> &Signature {
+            &self.signature
+        }
+        /// The constant's own type, whatever it was called with.
+        fn return_type(&self, _args: &[ArrowDataType]) -> Result<ArrowDataType> {
+            Ok(self.value.data_type())
+        }
+        /// The constant, ignoring the arguments.
+        fn invoke_with_args(&self, _args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            Ok(ColumnarValue::Scalar(self.value.clone()))
+        }
+    }
+
+    let udf = ScalarUDF::new_from_impl(ConstantAnswer {
+        name: format!("pg_catalog.{base_name}"),
+        signature: Signature::any(arg_count, Volatility::Stable),
+        value,
+    })
+    .with_aliases([base_name]);
+    ctx.register_udf(udf);
+}
+
 /// Register a relation-size stub `<base_name>(oid) -> int8` that returns zero for
 /// now, under `pg_catalog.<base_name>` with the bare name as an alias.
 fn register_zero_relation_size(ctx: &SessionContext, base_name: &'static str) {
-    use arrow::datatypes::DataType;
-    use datafusion::common::ScalarValue;
-    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
-    use std::sync::Arc;
-
-    let fun = |_args: &[ColumnarValue]| -> Result<ColumnarValue> {
-        Ok(ColumnarValue::Scalar(ScalarValue::Int64(Some(0))))
-    };
-
-    let udf = create_udf(
-        &format!("pg_catalog.{base_name}"),
-        vec![DataType::Int64],
-        DataType::Int64,
-        Volatility::Stable,
-        Arc::new(fun),
-    )
-    .with_aliases([base_name]);
-    ctx.register_udf(udf);
+    register_constant_answer(ctx, base_name, 1, ScalarValue::Int64(Some(0)));
 }
 
 /// Register `pg_relation_size(oid)` returning zero for now.
@@ -5161,6 +5202,182 @@ pub fn register_pg_relation_size(ctx: &SessionContext) -> Result<()> {
 /// so a session builder can chain them with `?`.
 pub fn register_pg_total_relation_size(ctx: &SessionContext) -> Result<()> {
     register_zero_relation_size(ctx, "pg_total_relation_size");
+    Ok(())
+}
+
+/// Register `pg_table_size(oid)` returning zero for now.
+///
+/// `psql`'s `\dt+` reports it through `pg_size_pretty`, so it has to resolve
+/// even though the emulated relations occupy no storage of their own.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
+pub fn register_pg_table_size(ctx: &SessionContext) -> Result<()> {
+    register_zero_relation_size(ctx, "pg_table_size");
+    Ok(())
+}
+
+/// Register `pg_database_size(oid)` returning zero for now.
+///
+/// `psql`'s `\l+` reports it through `pg_size_pretty`, so it has to resolve
+/// even though the emulated databases occupy no storage of their own.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
+pub fn register_pg_database_size(ctx: &SessionContext) -> Result<()> {
+    register_zero_relation_size(ctx, "pg_database_size");
+    Ok(())
+}
+
+/// Format a byte count the way `PostgreSQL`'s `pg_size_pretty` does.
+///
+/// Steps up through bytes, kB, MB, GB, TB and PB, staying in a unit while the
+/// magnitude is under 10 kB of it. Each step shifts one bit further than the
+/// unit needs and then halves with rounding, which is how `PostgreSQL` gets a
+/// half-up result without a floating-point divide.
+fn format_byte_size(size: i64) -> String {
+    /// Halve `value`, rounding a tie away from zero.
+    fn half_rounded(value: i64) -> i64 {
+        // The midpoint of `value` and a unit step in its own direction is
+        // `(value +/- 1) / 2`, computed without the overflow that spelling has.
+        let step_away_from_zero = if value < 0 { -1 } else { 1 };
+        i64::midpoint(value, step_away_from_zero)
+    }
+
+    // The magnitude at which the next unit takes over. `bytes` switches at
+    // 10 kB; every later unit is compared after a shift that keeps one spare
+    // bit for rounding, so its limit is twice as large, less one.
+    const BYTES_LIMIT: i64 = 10 * 1024;
+    const SHIFTED_LIMIT: i64 = 20 * 1024 - 1;
+
+    if size.abs() < BYTES_LIMIT {
+        return format!("{size} bytes");
+    }
+    // Shift 9 rather than 10: the extra bit is what half_rounded consumes.
+    let mut scaled = size >> 9;
+    for unit in ["kB", "MB", "GB", "TB"] {
+        if scaled.abs() < SHIFTED_LIMIT {
+            return format!("{} {unit}", half_rounded(scaled));
+        }
+        scaled >>= 10;
+    }
+    format!("{} PB", half_rounded(scaled))
+}
+
+/// Register `pg_size_pretty(bigint)`, the human-readable byte formatter
+/// `psql`'s `\dt+`, `\di+` and `\l+` wrap every size column in.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
+pub fn register_pg_size_pretty(ctx: &SessionContext) -> Result<()> {
+    use arrow::array::StringBuilder;
+    use arrow::datatypes::DataType;
+    use datafusion::common::ScalarValue;
+    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
+    use std::sync::Arc;
+
+    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
+        match &args[0] {
+            ColumnarValue::Scalar(value) => {
+                let size = match value {
+                    ScalarValue::Int64(inner) => *inner,
+                    other => other.cast_to(&DataType::Int64).ok().and_then(|cast| {
+                        if let ScalarValue::Int64(inner) = cast {
+                            inner
+                        } else {
+                            None
+                        }
+                    }),
+                };
+                Ok(ColumnarValue::Scalar(ScalarValue::Utf8(
+                    size.map(format_byte_size),
+                )))
+            }
+            ColumnarValue::Array(array) => {
+                let sizes = arrow::compute::cast(array, &DataType::Int64)?;
+                let sizes = sizes
+                    .as_any()
+                    .downcast_ref::<arrow::array::Int64Array>()
+                    .ok_or_else(|| {
+                        DataFusionError::Internal("pg_size_pretty expects a byte count".into())
+                    })?;
+                let mut formatted = StringBuilder::new();
+                for index in 0..sizes.len() {
+                    if sizes.is_null(index) {
+                        formatted.append_null();
+                    } else {
+                        formatted.append_value(format_byte_size(sizes.value(index)));
+                    }
+                }
+                Ok(ColumnarValue::Array(Arc::new(formatted.finish())))
+            }
+        }
+    };
+
+    let udf = create_udf(
+        "pg_catalog.pg_size_pretty",
+        vec![DataType::Int64],
+        DataType::Utf8,
+        Volatility::Immutable,
+        Arc::new(fun),
+    )
+    .with_aliases(["pg_size_pretty"]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
+/// Register a two-argument comment lookup `<base_name>` that always reports no
+/// comment, under `pg_catalog.<base_name>` with the bare name as an alias.
+///
+/// Nothing in the emulated catalog stores `COMMENT ON` text, and `PostgreSQL`
+/// itself returns NULL for an object that carries no comment, so a NULL here is
+/// the truthful answer rather than a placeholder.
+fn register_absent_comment(ctx: &SessionContext, base_name: &'static str) {
+    register_constant_answer(ctx, base_name, 2, ScalarValue::Utf8(None));
+}
+
+/// Register the comment lookups `psql`'s describe commands select:
+/// `obj_description(oid, catalog)`, `col_description(oid, column)` and
+/// `shobj_description(oid, catalog)`.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
+pub fn register_comment_lookups(ctx: &SessionContext) -> Result<()> {
+    register_absent_comment(ctx, "obj_description");
+    register_absent_comment(ctx, "col_description");
+    register_absent_comment(ctx, "shobj_description");
+    Ok(())
+}
+
+/// Register `pg_catalog.array_length` as an alias of `DataFusion`'s own
+/// `array_length`.
+///
+/// `psql` writes every catalog function fully qualified, so `\l`'s access
+/// privileges column calls `pg_catalog.array_length(d.datacl, 1)`. `DataFusion`
+/// ships the function under the bare name only, and an alias keeps both
+/// spellings on one implementation rather than a second copy of it.
+///
+/// # Errors
+///
+/// Returns an error if `DataFusion`'s `array_length` is not registered on
+/// `ctx`, which would mean the array function package was not loaded.
+pub fn register_qualified_array_length(ctx: &SessionContext) -> Result<()> {
+    use datafusion::execution::FunctionRegistry;
+
+    let array_length = ctx.udf("array_length")?;
+    ctx.register_udf(
+        (*array_length)
+            .clone()
+            .with_aliases(["pg_catalog.array_length"]),
+    );
     Ok(())
 }
 
@@ -5779,7 +5996,7 @@ mod tests {
             .unwrap()
             .value(0);
 
-        assert!(v2 == v1 + 1);
+        assert_eq!(v2, v1 + 1);
         Ok(())
     }
 
@@ -5848,6 +6065,154 @@ mod tests {
             .downcast_ref::<Int64Array>()
             .unwrap();
         assert_eq!(arr.value(0), 0);
+        Ok(())
+    }
+
+    /// `pg_table_size()` and `pg_database_size()` report zero, the two sizes
+    /// psql's `\dt+` and `\l+` wrap in `pg_size_pretty`.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn table_and_database_size_return_zero() -> Result<()> {
+        use arrow::array::Int64Array;
+        let ctx = SessionContext::new();
+        register_pg_table_size(&ctx)?;
+        register_pg_database_size(&ctx)?;
+        let batches = ctx
+            .sql("SELECT pg_catalog.pg_table_size(1), pg_catalog.pg_database_size(1)")
+            .await?
+            .collect()
+            .await?;
+        for column in 0..2 {
+            let arr = batches[0]
+                .column(column)
+                .as_any()
+                .downcast_ref::<Int64Array>()
+                .unwrap();
+            assert_eq!(arr.value(0), 0);
+        }
+        Ok(())
+    }
+
+    /// The size and comment stubs take whatever a client hands them: psql's
+    /// `\l+` calls `pg_database_size` with a datname, and `\do` calls
+    /// `obj_description` with an oid the catalog reports as text.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn size_and_comment_stubs_accept_any_argument_type() -> Result<()> {
+        let ctx = SessionContext::new();
+        register_pg_database_size(&ctx)?;
+        register_comment_lookups(&ctx)?;
+        let batches = ctx
+            .sql(
+                "SELECT pg_catalog.pg_database_size('memory'), \
+                 pg_catalog.obj_description('16384', 'pg_operator')",
+            )
+            .await?
+            .collect()
+            .await?;
+        let size = batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<Int64Array>()
+            .unwrap();
+        assert_eq!(size.value(0), 0);
+        assert!(batches[0].column(1).is_null(0));
+        Ok(())
+    }
+
+    /// `pg_size_pretty` matches `PostgreSQL` at each unit boundary, including the
+    /// half-up rounding it applies from kB upwards.
+    #[test]
+    fn pg_size_pretty_matches_postgres_units() {
+        assert_eq!(format_byte_size(0), "0 bytes");
+        assert_eq!(format_byte_size(1023), "1023 bytes");
+        // Below 10 kB the count stays in bytes, exactly as PostgreSQL reports.
+        assert_eq!(format_byte_size(10 * 1024 - 1), "10239 bytes");
+        assert_eq!(format_byte_size(10 * 1024), "10 kB");
+        // 1536 bytes into a kB rounds the half up rather than truncating.
+        assert_eq!(format_byte_size(11 * 1024 + 512), "12 kB");
+        assert_eq!(format_byte_size(10 * 1024 * 1024), "10 MB");
+        assert_eq!(format_byte_size(10 * 1024 * 1024 * 1024), "10 GB");
+        assert_eq!(format_byte_size(10 * 1024_i64.pow(4)), "10 TB");
+        assert_eq!(format_byte_size(10 * 1024_i64.pow(5)), "10 PB");
+        // A negative count keeps its sign; PostgreSQL formats it the same way.
+        assert_eq!(format_byte_size(-10 * 1024), "-10 kB");
+    }
+
+    /// `pg_size_pretty` reads a whole column, which is how psql calls it: once
+    /// per relation in `\dt+`.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn pg_size_pretty_formats_every_row() -> Result<()> {
+        use arrow::array::StringArray;
+        let ctx = SessionContext::new();
+        register_pg_size_pretty(&ctx)?;
+        let batches = ctx
+            .sql(
+                "SELECT pg_catalog.pg_size_pretty(size) FROM \
+                 (VALUES (0), (10240), (NULL)) AS t(size)",
+            )
+            .await?
+            .collect()
+            .await?;
+        let arr = batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .unwrap();
+        assert_eq!(arr.value(0), "0 bytes");
+        assert_eq!(arr.value(1), "10 kB");
+        assert!(arr.is_null(2));
+        Ok(())
+    }
+
+    /// The comment lookups report no comment rather than failing to resolve:
+    /// psql selects all three in its describe commands.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn comment_lookups_report_no_comment() -> Result<()> {
+        use arrow::array::StringArray;
+        let ctx = SessionContext::new();
+        register_comment_lookups(&ctx)?;
+        let batches = ctx
+            .sql(
+                "SELECT pg_catalog.obj_description(1, 'pg_class'), \
+                 pg_catalog.col_description(1, 1), \
+                 pg_catalog.shobj_description(1, 'pg_database')",
+            )
+            .await?
+            .collect()
+            .await?;
+        for column in 0..3 {
+            let arr = batches[0]
+                .column(column)
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .unwrap();
+            assert!(arr.is_null(0));
+        }
+        Ok(())
+    }
+
+    /// `pg_catalog.array_length` answers the same as the bare function psql's
+    /// `\l` would otherwise miss.
+    #[tokio::test(flavor = "multi_thread")]
+    async fn qualified_array_length_matches_the_bare_function() -> Result<()> {
+        let ctx = SessionContext::new();
+        register_qualified_array_length(&ctx)?;
+        let batches = ctx
+            .sql(
+                "SELECT pg_catalog.array_length(make_array(1, 2, 3), 1) \
+                 = array_length(make_array(1, 2, 3), 1)",
+            )
+            .await?
+            .collect()
+            .await?;
+        let arr = batches[0]
+            .column(0)
+            .as_any()
+            .downcast_ref::<arrow::array::BooleanArray>()
+            .unwrap();
+        assert!(
+            arr.value(0),
+            "the alias must answer as the bare function does"
+        );
         Ok(())
     }
 
