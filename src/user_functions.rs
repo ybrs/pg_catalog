@@ -3352,6 +3352,25 @@ pub fn register_array_agg(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
+/// Register the `string_agg` aggregate under its `pg_catalog` name.
+///
+/// `DataFusion` ships the function and answers to the bare name already; what
+/// was missing is the qualified spelling, which is the one psql writes -
+/// `\d <table>` lists a publication's columns with
+/// `pg_catalog.string_agg(attname, ', ')`.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
+pub fn register_string_agg(ctx: &SessionContext) -> Result<()> {
+    use datafusion_functions_aggregate::string_agg::string_agg_udaf;
+    let udaf = string_agg_udaf();
+    ctx.register_udaf((*udaf).clone());
+    ctx.register_udaf((*udaf).clone().with_aliases(["pg_catalog.string_agg"]));
+    Ok(())
+}
+
 /// Register `pg_catalog.pg_wrap_array_elements(prefix, arr, suffix)`, which
 /// answers `arr` with every element rendered as `prefix || element || suffix`.
 ///

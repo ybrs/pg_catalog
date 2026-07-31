@@ -12,8 +12,8 @@ use datafusion::prelude::SessionContext;
 use sqlparser::ast::Statement;
 use sqlparser::ast::{visit_expressions_mut, visit_statements_mut, ValueWithSpan};
 use sqlparser::ast::{
-    Array, BinaryOperator, CastKind, DataType, FunctionArgumentList, GroupByExpr, Query,
-    SelectItem, SetExpr, TableAlias, TableFactor, TableWithJoins,
+    AccessExpr, Array, BinaryOperator, CastKind, DataType, FunctionArgumentList, GroupByExpr,
+    Query, Select, SelectItem, SetExpr, Subscript, TableAlias, TableFactor, TableWithJoins,
 };
 use sqlparser::ast::{
     Expr, Function, FunctionArg, FunctionArgExpr, FunctionArguments, Ident, ObjectName,
@@ -3524,6 +3524,244 @@ fn unnest_roundtrip_replacement(arg_expr: &Expr) -> Option<Expr> {
         });
     }
     None
+}
+
+/// `expr` with any layer of casts peeled off.
+fn without_casts(expr: &Expr) -> &Expr {
+    match expr {
+        Expr::Cast { expr: inner, .. } | Expr::Nested(inner) => without_casts(inner),
+        _ => expr,
+    }
+}
+
+/// The series alias and the array whose indexes a `generate_series` FROM item
+/// walks, for the shape `generate_series(<from>, array_upper(<arr>, 1)) s`.
+///
+/// The array comes back without its casts, and from the BOUND rather than from
+/// the subscript. That is deliberate: psql writes the bound qualified
+/// (`pr.prattrs`) and the subscript bare (`prattrs`), and only the qualified
+/// spelling can be read once the comparison moves out of this sub-query.
+///
+/// `array_length` is accepted alongside `array_upper` so the match survives
+/// whichever of the two the earlier passes have left in place.
+fn series_alias_and_indexed_array(relation: &TableFactor) -> Option<(Ident, Expr)> {
+    let TableFactor::Table {
+        name,
+        args: Some(args),
+        alias: Some(alias),
+        ..
+    } = relation
+    else {
+        return None;
+    };
+    if !object_name_ends_with(name, "generate_series") || !alias.columns.is_empty() {
+        return None;
+    }
+    let [_lower, FunctionArg::Unnamed(FunctionArgExpr::Expr(upper))] = args.args.as_slice() else {
+        return None;
+    };
+
+    let Expr::Function(bound) = without_casts(upper) else {
+        return None;
+    };
+    if !object_name_ends_with(&bound.name, "array_upper")
+        && !object_name_ends_with(&bound.name, "array_length")
+    {
+        return None;
+    }
+    let FunctionArguments::List(bound_args) = &bound.args else {
+        return None;
+    };
+    let [FunctionArg::Unnamed(FunctionArgExpr::Expr(array)), FunctionArg::Unnamed(FunctionArgExpr::Expr(dimension))] =
+        bound_args.args.as_slice()
+    else {
+        return None;
+    };
+    // Only the first dimension is a flat list of elements; any other is a
+    // shape this rewrite cannot speak for.
+    if !matches!(
+        without_casts(dimension),
+        Expr::Value(ValueWithSpan { value: Value::Number(text, _), .. }) if text == "1"
+    ) {
+        return None;
+    }
+
+    Some((alias.name.clone(), without_casts(array).clone()))
+}
+
+/// Whether `expr` subscripts something by exactly `series_alias`, as
+/// `prattrs[s]` does.
+fn is_subscript_by(expr: &Expr, series_alias: &Ident) -> bool {
+    let Expr::CompoundFieldAccess { access_chain, .. } = expr else {
+        return false;
+    };
+    matches!(
+        access_chain.as_slice(),
+        [AccessExpr::Subscript(Subscript::Index { index })]
+            if matches!(index, Expr::Identifier(ident)
+                if ident.value.eq_ignore_ascii_case(&series_alias.value))
+    )
+}
+
+/// Turn every `<value> = <array>[<series alias>]` inside `expr` into
+/// `<value> = ANY(<array>)`, reporting whether anything changed.
+fn replace_index_comparisons_with_any(expr: &mut Expr, series_alias: &Ident, array: &Expr) -> bool {
+    let mut replaced = false;
+    let _ = visit_expressions_mut(expr, |candidate| {
+        if let Expr::BinaryOp {
+            left,
+            op: BinaryOperator::Eq,
+            right,
+        } = candidate
+        {
+            let value = if is_subscript_by(right, series_alias) {
+                Some(left.clone())
+            } else if is_subscript_by(left, series_alias) {
+                Some(right.clone())
+            } else {
+                None
+            };
+            if let Some(value) = value {
+                *candidate = Expr::AnyOp {
+                    left: value,
+                    compare_op: BinaryOperator::Eq,
+                    right: Box::new(array.clone()),
+                    is_some: false,
+                };
+                replaced = true;
+            }
+        }
+        ControlFlow::<()>::Continue(())
+    });
+    replaced
+}
+
+/// Whether anything in `select` still names `alias`.
+fn select_references_identifier(select: &Select, alias: &Ident) -> bool {
+    let mut found = false;
+    let _ = sqlparser::ast::visit_expressions(select, |expr| {
+        match expr {
+            Expr::Identifier(ident) if ident.value.eq_ignore_ascii_case(&alias.value) => {
+                found = true;
+            }
+            Expr::CompoundIdentifier(parts)
+                if parts
+                    .first()
+                    .is_some_and(|part| part.value.eq_ignore_ascii_case(&alias.value)) =>
+            {
+                found = true;
+            }
+            _ => {}
+        }
+        ControlFlow::<()>::Continue(())
+    });
+    found
+}
+
+/// Rewrite "walk an array's indexes and compare each element" into a
+/// membership test over the array itself.
+///
+/// psql's `\d <table>` lists a publication's columns like this:
+///
+/// ```sql
+/// FROM pg_catalog.generate_series(0, pg_catalog.array_upper(pr.prattrs, 1)) s,
+///      pg_catalog.pg_attribute
+/// WHERE attrelid = pr.prrelid AND attnum = prattrs[s]
+/// ```
+///
+/// which says nothing more than "attnum is one of the values in prattrs", so it
+/// becomes
+///
+/// ```sql
+/// FROM pg_catalog.pg_attribute
+/// WHERE attrelid = pr.prrelid AND attnum = ANY(pr.prattrs)
+/// ```
+///
+/// WHY IT HAS TO GO. `DataFusion`'s `generate_series` table function demands
+/// LITERAL bounds; `array_upper(pr.prattrs, 1)` is a per-row value and is
+/// rejected at planning with "Argument #2 must be an INTEGER or NULL". A table
+/// function returns one static provider, so no amount of decorrelation reaches
+/// it - the construct has to go rather than be planned around.
+///
+/// It also removes the reason to read the bare `prattrs`: the array is taken
+/// from the bound, which psql qualifies, so the rewritten predicate names
+/// `pr.prattrs` and stays resolvable once the sub-query is lifted.
+///
+/// WHAT IS CHECKED BEFORE REWRITING. The series alias must be used for nothing
+/// but the subscripts being replaced - if anything else still names it once
+/// they are gone, the FROM item is load-bearing and the whole select is left
+/// alone. Dropping the last FROM item is likewise refused.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
+pub fn rewrite_array_index_iteration_to_any_comparison(sql: &str) -> Result<String> {
+    /// Rewrite one SELECT in place when it holds the whole construct.
+    fn rewrite_select(select: &mut Select) {
+        let Some(position) = select.from.iter().position(|entry| {
+            entry.joins.is_empty() && series_alias_and_indexed_array(&entry.relation).is_some()
+        }) else {
+            return;
+        };
+        // The series is one side of a comma join; without another FROM item
+        // there would be nothing left to select from.
+        if select.from.len() < 2 {
+            return;
+        }
+        let Some((series_alias, array)) =
+            series_alias_and_indexed_array(&select.from[position].relation)
+        else {
+            return;
+        };
+
+        // Build the result separately so a half-applied rewrite is never left
+        // behind when one of the checks below rejects it.
+        let mut candidate = select.clone();
+        let Some(selection) = candidate.selection.as_mut() else {
+            return;
+        };
+        if !replace_index_comparisons_with_any(selection, &series_alias, &array) {
+            return;
+        }
+        candidate.from.remove(position);
+        if select_references_identifier(&candidate, &series_alias) {
+            return;
+        }
+        *select = candidate;
+    }
+
+    let dialect = PostgreSqlDialect {};
+    let mut statements =
+        Parser::parse_sql(&dialect, sql).map_err(|e| DataFusionError::External(Box::new(e)))?;
+
+    let _ = visit_statements_mut(&mut statements, |stmt| {
+        // Sub-queries first: psql writes this construct inside a scalar
+        // sub-query nested in a CASE, which only the expression walk reaches.
+        let _ = visit_expressions_mut(stmt, |expr| {
+            if let Expr::Subquery(query)
+            | Expr::Exists {
+                subquery: query, ..
+            } = expr
+            {
+                if let SetExpr::Select(select) = query.body.as_mut() {
+                    rewrite_select(select);
+                }
+            }
+            ControlFlow::<()>::Continue(())
+        });
+        if let Statement::Query(query) = stmt {
+            if let SetExpr::Select(select) = query.body.as_mut() {
+                rewrite_select(select);
+            }
+        }
+        ControlFlow::<()>::Continue(())
+    });
+
+    Ok(statements
+        .into_iter()
+        .map(|s| s.to_string())
+        .collect::<Vec<_>>()
+        .join("; "))
 }
 
 /// The array a sub-query unnests, and the name its element answers to.

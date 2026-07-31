@@ -19,12 +19,13 @@ use crate::replace::{
     drop_redundant_oid_and_regclass_casts, name_set_returning_function_column_after_its_alias,
     regclass_udfs, replace_regclass, replace_set_command_with_namespace,
     resolve_order_by_names_to_output_positions, resolve_regproc_columns_to_oids_in_comparisons,
-    rewrite_array_agg_varchar_cast, rewrite_array_over_unnest_to_array_expression,
-    rewrite_array_subquery, rewrite_array_upper_to_array_length,
-    rewrite_available_extension_versions_source, rewrite_available_updates,
-    rewrite_boolean_column_char_comparisons, rewrite_boolean_scalar_subquery_to_exists,
-    rewrite_brace_array_literal, rewrite_char_cast, rewrite_correlated_limit_one_subquery_to_max,
-    rewrite_exists_to_count, rewrite_information_schema_casts, rewrite_name_cast, rewrite_oid_cast,
+    rewrite_array_agg_varchar_cast, rewrite_array_index_iteration_to_any_comparison,
+    rewrite_array_over_unnest_to_array_expression, rewrite_array_subquery,
+    rewrite_array_upper_to_array_length, rewrite_available_extension_versions_source,
+    rewrite_available_updates, rewrite_boolean_column_char_comparisons,
+    rewrite_boolean_scalar_subquery_to_exists, rewrite_brace_array_literal, rewrite_char_cast,
+    rewrite_correlated_limit_one_subquery_to_max, rewrite_exists_to_count,
+    rewrite_information_schema_casts, rewrite_name_cast, rewrite_oid_cast,
     rewrite_pg_custom_operator, rewrite_pg_truetypid_composite_args, rewrite_regoper_cast,
     rewrite_regoperator_cast, rewrite_regproc_cast, rewrite_regprocedure_cast,
     rewrite_regtype_cast, rewrite_schema_qualified_custom_types, rewrite_schema_qualified_text,
@@ -64,7 +65,7 @@ use crate::user_functions::{
     register_scalar_pg_is_in_recovery, register_scalar_pg_proc_oid,
     register_scalar_pg_table_is_visible, register_scalar_pg_tablespace_location,
     register_scalar_regclass_oid, register_scalar_txid_current, register_session_identity,
-    register_translate, register_upper, register_version_fn,
+    register_string_agg, register_translate, register_upper, register_version_fn,
 };
 
 use crate::scalar_to_cte::rewrite_subquery_as_cte;
@@ -733,6 +734,11 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     let sql = rewrite_regprocedure_cast(&sql)?;
     let sql = rewrite_regproc_cast(&sql)?;
     let sql = rewrite_available_updates(&sql)?;
+    // Before rewrite_array_upper_to_array_length and the prefix strip, so the
+    // construct is still spelled the way psql wrote it. generate_series cannot
+    // take the per-row bound this shape gives it, so the whole construct is
+    // replaced by the membership test it stands for rather than planned around.
+    let sql = rewrite_array_index_iteration_to_any_comparison(&sql)?;
     // Before rewrite_array_subquery, which turns every ARRAY(...) into
     // pg_get_array over a sub-query and so hides the shape this pass matches.
     // An ARRAY that only unnests an array becomes an expression over that
@@ -2290,6 +2296,7 @@ async fn register_pg_compatibility_functions(
     register_pg_get_one(ctx)?;
     register_pg_get_array(ctx)?;
     register_array_agg(ctx)?;
+    register_string_agg(ctx)?;
     register_pg_get_statisticsobjdef_columns(ctx)?;
     register_pg_relation_is_publishable(ctx)?;
     register_has_database_privilege(ctx)?;

@@ -600,6 +600,56 @@ mod rewriter {
             found
         }
 
+        /// The function names this rewriter treats as aggregates.
+        ///
+        /// It has to recognise an aggregate to know that the other columns in
+        /// the same projection need a GROUP BY. A name missing from this list
+        /// is not a harmless omission: the projection then looks like plain
+        /// columns, no GROUP BY is injected, and the CTE this rewriter emits is
+        /// rejected at planning with "column ... must appear in the GROUP BY
+        /// clause". That is exactly how `string_agg` - which psql's `\d` uses
+        /// to list a publication's columns - went unhandled.
+        ///
+        /// Kept as a list because this pass has no `SessionContext` to ask, and
+        /// it holds `PostgreSQL`'s general-purpose and statistical aggregates
+        /// rather than only the ones a query has needed so far, so the next
+        /// catalog query to use one does not fail the same way. `array` and
+        /// `pg_get_array` are here because the ARRAY sub-query rewrite turns
+        /// `ARRAY(...)` into an aggregate over the lifted rows.
+        const AGGREGATE_FUNCTION_NAMES: &[&str] = &[
+            "array",
+            "array_agg",
+            "avg",
+            "bit_and",
+            "bit_or",
+            "bit_xor",
+            "bool_and",
+            "bool_or",
+            "corr",
+            "count",
+            "covar_pop",
+            "covar_samp",
+            "every",
+            "json_agg",
+            "json_object_agg",
+            "jsonb_agg",
+            "jsonb_object_agg",
+            "max",
+            "min",
+            "pg_get_array",
+            "range_agg",
+            "range_intersect_agg",
+            "stddev",
+            "stddev_pop",
+            "stddev_samp",
+            "string_agg",
+            "sum",
+            "var_pop",
+            "var_samp",
+            "variance",
+            "xmlagg",
+        ];
+
         /// Walk an expression tree and report what a GROUP BY would need:
         ///
         /// * `has_aggr` - set when any aggregate function was seen,
@@ -627,17 +677,7 @@ mod rewriter {
                         .unwrap_or_default();
 
                     // is this an aggregate we need to regard specially?
-                    let is_aggr = [
-                        "count",
-                        "sum",
-                        "avg",
-                        "min",
-                        "max",
-                        "pg_get_array",
-                        "array_agg",
-                        "array",
-                    ]
-                    .contains(&base_name.as_str());
+                    let is_aggr = Self::AGGREGATE_FUNCTION_NAMES.contains(&base_name.as_str());
 
                     if is_aggr {
                         *has_aggr = true;
