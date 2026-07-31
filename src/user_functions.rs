@@ -4643,6 +4643,60 @@ pub fn clear_index_definition_resolver() {
     INDEX_DEFINITION_RESOLVER.clear();
 }
 
+/// Identifies the constraint whose definition text a
+/// [`ConstraintDefinitionResolver`] is asked to produce. `oid` is the
+/// `pg_constraint.oid`; `schema` and `table` name the constrained relation;
+/// `name` is the constraint's own name; `constraint_type` is `pg_constraint.contype`
+/// (`c` check, `f` foreign key, `p` primary key, `u` unique, ...), so a resolver
+/// can answer only the kinds it knows how to render.
+#[derive(Clone, Debug)]
+pub struct ConstraintIdentity {
+    /// The constraint's `pg_constraint.oid`.
+    pub oid: i64,
+    /// The schema (namespace) of the constrained relation.
+    pub schema: String,
+    /// The constrained relation's name.
+    pub table: String,
+    /// The constraint's own name.
+    pub name: String,
+    /// `pg_constraint.contype`, one character.
+    pub constraint_type: String,
+}
+
+/// Resolver supplying the text `pg_get_constraintdef` returns - the trailing
+/// part of a constraint's DDL, e.g. `CHECK ((price > 0))` or
+/// `FOREIGN KEY (customer_id) REFERENCES customers(id)`; see
+/// [`set_constraint_definition_resolver`].
+pub type ConstraintDefinitionResolver = DefinitionResolver<ConstraintIdentity>;
+
+/// The process-wide constraint-definition resolver, read by
+/// `pg_get_constraintdef` at call time so an embedder can install or change it
+/// after session construction.
+static CONSTRAINT_DEFINITION_RESOLVER: std::sync::LazyLock<
+    DefinitionResolverSlot<ConstraintIdentity>,
+> = std::sync::LazyLock::new(DefinitionResolverSlot::new);
+
+/// Install the [`ConstraintDefinitionResolver`] that `pg_get_constraintdef`
+/// consults, replacing any previously installed one.
+///
+/// This is a resolver rather than a deparser on purpose, and for the same
+/// reason `pg_get_viewdef` and `pg_get_indexdef` are: rendering a constraint
+/// back to SQL means deparsing a node tree this catalog does not hold, and
+/// guessing at that text would be worse than admitting it is not known. With no
+/// resolver installed the function answers NULL, which is what a client that
+/// wraps it - pgAdmin takes `substring(pg_get_constraintdef(oid), 7)` - degrades
+/// through without erroring.
+pub fn set_constraint_definition_resolver(resolver: ConstraintDefinitionResolver) {
+    CONSTRAINT_DEFINITION_RESOLVER.set(resolver);
+}
+
+/// Remove any installed [`ConstraintDefinitionResolver`], so
+/// `pg_get_constraintdef` returns NULL again. Primarily for tests that must not
+/// leak a resolver into other tests.
+pub fn clear_constraint_definition_resolver() {
+    CONSTRAINT_DEFINITION_RESOLVER.clear();
+}
+
 /// A process-wide slot holding an optional integration callback, read at call
 /// time. Like [`DefinitionResolverSlot`] but for callbacks that return values
 /// other than definition text (a sequence's last value, a row-security flag, ...).
@@ -4907,6 +4961,193 @@ fn fetch_view_identities(
         }
         Ok::<_, DataFusionError>(out)
     })
+}
+
+/// Resolve constraint OIDs to their identities with one catalog query.
+///
+/// Mirrors [`fetch_view_identities`]; the join runs through `pg_class` and
+/// `pg_namespace` because a constraint is named relative to the relation it
+/// constrains, and a resolver needs that relation to know what it is rendering.
+fn fetch_constraint_identities(
+    ctx: Arc<SessionContext>,
+    oids: &[i64],
+) -> Result<HashMap<i64, ConstraintIdentity>> {
+    let mut out: HashMap<i64, ConstraintIdentity> = HashMap::new();
+    if oids.is_empty() {
+        return Ok(out);
+    }
+    let in_list = oids
+        .iter()
+        .map(std::string::ToString::to_string)
+        .collect::<Vec<_>>()
+        .join(", ");
+    run_catalog_query(async move {
+        let sql = format!(
+            "SELECT k.oid, k.conname, k.contype, c.relname, n.nspname AS schemaname \
+             FROM pg_catalog.pg_constraint k \
+             JOIN pg_catalog.pg_class c ON c.oid = k.conrelid \
+             JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace \
+             WHERE k.oid IN ({in_list})"
+        );
+        let batches = ctx.sql(&sql).await?.collect().await?;
+        for batch in &batches {
+            for row in 0..batch.num_rows() {
+                let (Some(oid), Some(name), Some(table), Some(schema)) = (
+                    column_oid_at(batch, "oid", row)?,
+                    column_string_at(batch, "conname", row)?,
+                    column_string_at(batch, "relname", row)?,
+                    column_string_at(batch, "schemaname", row)?,
+                ) else {
+                    continue;
+                };
+                let constraint_type = column_string_at(batch, "contype", row)?.unwrap_or_default();
+                out.insert(
+                    oid,
+                    ConstraintIdentity {
+                        oid,
+                        schema,
+                        table,
+                        name,
+                        constraint_type,
+                    },
+                );
+            }
+        }
+        Ok::<_, DataFusionError>(out)
+    })
+}
+
+/// `pg_catalog.pg_get_constraintdef(oid [, pretty])`. It resolves each row's
+/// constraint OID to its identity from the live catalog, then asks the
+/// process-wide [`ConstraintDefinitionResolver`] for the text - returning NULL
+/// where the OID is NULL, names no constraint, no resolver is installed, or the
+/// resolver declines.
+struct PgGetConstraintDef {
+    /// The one- and two-argument call shapes, over arguments of any type.
+    sig: Signature,
+    /// The session the identity lookup is issued through.
+    ctx: Arc<SessionContext>,
+}
+
+impl PgGetConstraintDef {
+    /// Build the UDF over a clone of the session context it resolves identities
+    /// through.
+    ///
+    /// Both call shapes are accepted because real clients use both: pgAdmin
+    /// writes `pg_get_constraintdef(c.oid)` and psql 18 writes
+    /// `pg_get_constraintdef(r.oid, true)`. The pretty flag is ignored - the
+    /// resolver owns formatting, as it does for `pg_get_viewdef`.
+    fn new(ctx: Arc<SessionContext>) -> Self {
+        Self {
+            sig: Signature::one_of(
+                vec![TypeSignature::Any(1), TypeSignature::Any(2)],
+                Volatility::Stable,
+            ),
+            ctx,
+        }
+    }
+}
+
+impl std::fmt::Debug for PgGetConstraintDef {
+    /// Format without the (non-Debug) session context.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PgGetConstraintDef").finish()
+    }
+}
+
+impl PartialEq for PgGetConstraintDef {
+    /// Two instances are equal when they share the same session context.
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.ctx, &other.ctx)
+    }
+}
+
+impl Eq for PgGetConstraintDef {}
+
+impl std::hash::Hash for PgGetConstraintDef {
+    /// Hash by the identity of the shared session context.
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        (Arc::as_ptr(&self.ctx) as usize).hash(state);
+    }
+}
+
+impl ScalarUDFImpl for PgGetConstraintDef {
+    /// The schema-qualified function name.
+    fn name(&self) -> &'static str {
+        "pg_catalog.pg_get_constraintdef"
+    }
+
+    /// The accepted argument signature (an OID, optionally with a pretty flag).
+    fn signature(&self) -> &Signature {
+        &self.sig
+    }
+
+    /// `pg_get_constraintdef` returns the constraint definition as `text`.
+    fn return_type(&self, _arg_types: &[ArrowDataType]) -> Result<ArrowDataType> {
+        Ok(ArrowDataType::Utf8)
+    }
+
+    /// Decode every row's constraint OID, resolve the DISTINCT ones to identities
+    /// with a single catalog query, then ask the installed resolver for each.
+    fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+        let arrays = ColumnarValue::values_to_arrays(&args.args)?;
+        let arr = &arrays[0];
+        let len = arr.len();
+
+        let mut oids: Vec<Option<i64>> = Vec::with_capacity(len);
+        for i in 0..len {
+            oids.push(oid_at(arr, i)?);
+        }
+
+        let resolver = CONSTRAINT_DEFINITION_RESOLVER.get();
+        // With no resolver installed every definition is NULL, so there is
+        // nothing to gain from querying the catalog for identities.
+        let identities = if resolver.is_some() {
+            let mut distinct: Vec<i64> = oids.iter().flatten().copied().collect();
+            distinct.sort_unstable();
+            distinct.dedup();
+            fetch_constraint_identities(self.ctx.clone(), &distinct)?
+        } else {
+            HashMap::new()
+        };
+
+        let mut builder = StringBuilder::with_capacity(len, 64 * len.max(1));
+        for oid in oids {
+            let def = match (&resolver, oid.and_then(|oid| identities.get(&oid))) {
+                (Some(resolve), Some(identity)) => resolve(identity),
+                _ => None,
+            };
+            match def {
+                Some(text) => builder.append_value(&text),
+                None => builder.append_null(),
+            }
+        }
+        Ok(ColumnarValue::Array(Arc::new(builder.finish()) as ArrayRef))
+    }
+}
+
+/// Register `pg_catalog.pg_get_constraintdef(oid [, pretty])`.
+///
+/// Answers NULL until an embedder installs a
+/// [`ConstraintDefinitionResolver`] with [`set_constraint_definition_resolver`].
+/// NULL is the deliberate answer rather than an error: psql's `\dD` and `\d`
+/// call this, and pgAdmin wraps it in `substring(...)`, all of which carry a
+/// NULL through to an empty column instead of failing the whole query.
+///
+/// The row stays in `pg_proc` either way, because that is what `PostgreSQL`'s
+/// own catalog reports and removing it would make introspection disagree with
+/// the seed snapshot. "Advertised" and "useful" therefore differ here, which is
+/// the trade this function documents rather than hides.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
+pub fn register_pg_get_constraintdef(ctx: &SessionContext) -> Result<()> {
+    let udf = ScalarUDF::new_from_impl(PgGetConstraintDef::new(Arc::new(ctx.clone())))
+        .with_aliases(["pg_get_constraintdef"]);
+    ctx.register_udf(udf);
+    Ok(())
 }
 
 /// `pg_catalog.pg_get_viewdef(oid [, pretty])`. It resolves each row's view OID to
