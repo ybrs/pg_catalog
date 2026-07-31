@@ -19,7 +19,8 @@ use crate::replace::{
     drop_redundant_oid_and_regclass_casts, name_set_returning_function_column_after_its_alias,
     regclass_udfs, replace_regclass, replace_set_command_with_namespace,
     resolve_order_by_names_to_output_positions, resolve_regproc_columns_to_oids_in_comparisons,
-    rewrite_array_agg_varchar_cast, rewrite_array_subquery, rewrite_array_upper_to_array_length,
+    rewrite_array_agg_varchar_cast, rewrite_array_over_unnest_to_array_expression,
+    rewrite_array_subquery, rewrite_array_upper_to_array_length,
     rewrite_available_extension_versions_source, rewrite_available_updates,
     rewrite_boolean_column_char_comparisons, rewrite_boolean_scalar_subquery_to_exists,
     rewrite_brace_array_literal, rewrite_char_cast, rewrite_correlated_limit_one_subquery_to_max,
@@ -56,9 +57,9 @@ use crate::user_functions::{
     register_pg_relation_is_publishable, register_pg_relation_is_updatable,
     register_pg_relation_size, register_pg_sequence_last_value, register_pg_size_pretty,
     register_pg_table_size, register_pg_total_relation_size, register_pg_truetypid_helpers,
-    register_qualified_array_length, register_quote_ident, register_row_security_active,
-    register_scalar_array_to_string, register_scalar_format_type, register_scalar_pg_age,
-    register_scalar_pg_encoding_to_char, register_scalar_pg_get_expr,
+    register_pg_wrap_array_elements, register_qualified_array_length, register_quote_ident,
+    register_row_security_active, register_scalar_array_to_string, register_scalar_format_type,
+    register_scalar_pg_age, register_scalar_pg_encoding_to_char, register_scalar_pg_get_expr,
     register_scalar_pg_get_partkeydef, register_scalar_pg_get_userbyid,
     register_scalar_pg_is_in_recovery, register_scalar_pg_proc_oid,
     register_scalar_pg_table_is_visible, register_scalar_pg_tablespace_location,
@@ -732,6 +733,12 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     let sql = rewrite_regprocedure_cast(&sql)?;
     let sql = rewrite_regproc_cast(&sql)?;
     let sql = rewrite_available_updates(&sql)?;
+    // Before rewrite_array_subquery, which turns every ARRAY(...) into
+    // pg_get_array over a sub-query and so hides the shape this pass matches.
+    // An ARRAY that only unnests an array becomes an expression over that
+    // array, which is the one way to run it when the array is an outer column:
+    // the correlation a table function's argument creates has no physical plan.
+    let sql = rewrite_array_over_unnest_to_array_expression(&sql)?;
     let sql = rewrite_array_subquery(&sql).unwrap();
     let sql = rewrite_brace_array_literal(&sql).unwrap();
     let sql = rewrite_pg_custom_operator(&sql)?;
@@ -2320,6 +2327,7 @@ async fn register_pg_compatibility_functions(
     register_pg_size_pretty(ctx)?;
     register_comment_lookups(ctx)?;
     register_qualified_array_length(ctx)?;
+    register_pg_wrap_array_elements(ctx)?;
     register_scalar_pg_age(ctx)?;
     register_scalar_pg_is_in_recovery(ctx)?;
     register_scalar_txid_current(ctx)?;

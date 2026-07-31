@@ -12,8 +12,8 @@ use datafusion::prelude::SessionContext;
 use sqlparser::ast::Statement;
 use sqlparser::ast::{visit_expressions_mut, visit_statements_mut, ValueWithSpan};
 use sqlparser::ast::{
-    Array, BinaryOperator, CastKind, DataType, FunctionArgumentList, Query, SelectItem, SetExpr,
-    TableAlias, TableFactor, TableWithJoins,
+    Array, BinaryOperator, CastKind, DataType, FunctionArgumentList, GroupByExpr, Query,
+    SelectItem, SetExpr, TableAlias, TableFactor, TableWithJoins,
 };
 use sqlparser::ast::{
     Expr, Function, FunctionArg, FunctionArgExpr, FunctionArguments, Ident, ObjectName,
@@ -3524,6 +3524,260 @@ fn unnest_roundtrip_replacement(arg_expr: &Expr) -> Option<Expr> {
         });
     }
     None
+}
+
+/// The array a sub-query unnests, and the name its element answers to.
+struct UnnestedArray {
+    /// The expression handed to `unnest`, which becomes the rewritten call's
+    /// array argument.
+    array: Expr,
+    /// The element's name inside the sub-query: a table alias for
+    /// `unnest(a) x`, or the single column alias for `unnest(a) AS t(x)`.
+    element_name: Ident,
+}
+
+/// The array and element name of a FROM item that is nothing but `unnest(...)`.
+///
+/// Three spellings reach here and all three mean the same thing. `unnest(a) x`
+/// parses as `TableFactor::UNNEST` because sqlparser knows the bare keyword;
+/// `pg_catalog.unnest(a) x` is schema-qualified and so parses as an ordinary
+/// table function; and `pg_catalog.unnest(a) AS t(x)` names the column rather
+/// than the relation. Only a single-argument `unnest` counts - the multi-array
+/// form has different semantics and is left alone.
+fn unnested_array_of_from_item(relation: &TableFactor) -> Option<UnnestedArray> {
+    match relation {
+        TableFactor::UNNEST {
+            alias: Some(alias),
+            array_exprs,
+            ..
+        } if array_exprs.len() == 1 => Some(UnnestedArray {
+            array: array_exprs[0].clone(),
+            element_name: element_name_of_alias(alias)?,
+        }),
+        TableFactor::Table {
+            name,
+            args: Some(args),
+            alias: Some(alias),
+            ..
+        } if object_name_ends_with(name, "unnest") => {
+            let [FunctionArg::Unnamed(FunctionArgExpr::Expr(array))] = args.args.as_slice() else {
+                return None;
+            };
+            Some(UnnestedArray {
+                array: array.clone(),
+                element_name: element_name_of_alias(alias)?,
+            })
+        }
+        _ => None,
+    }
+}
+
+/// The name a set-returning function's single output column answers to.
+///
+/// `unnest(a) x` names both the relation and the column `x`, the way
+/// `PostgreSQL` does; `unnest(a) AS t(x)` names the column explicitly. An alias
+/// listing more than one column cannot be a single-column unnest, so it is not
+/// one of the shapes handled here.
+fn element_name_of_alias(alias: &TableAlias) -> Option<Ident> {
+    match alias.columns.as_slice() {
+        [] => Some(alias.name.clone()),
+        [only] => Some(only.name.clone()),
+        _ => None,
+    }
+}
+
+/// Whether `name`'s last part is `base_name`, ignoring any schema qualification.
+fn object_name_ends_with(name: &ObjectName, base_name: &str) -> bool {
+    name.0
+        .last()
+        .and_then(ObjectNamePart::as_ident)
+        .is_some_and(|ident| ident.value.eq_ignore_ascii_case(base_name))
+}
+
+/// Whether `expr` is a plain reference to the element named `element_name`.
+fn is_reference_to_element(expr: &Expr, element_name: &Ident) -> bool {
+    match expr {
+        Expr::Identifier(ident) => ident.value.eq_ignore_ascii_case(&element_name.value),
+        // `x.x` for `unnest(a) x`, which PostgreSQL accepts because the alias
+        // names the relation and its only column alike.
+        Expr::CompoundIdentifier(parts) => matches!(
+            parts.as_slice(),
+            [_, last] if last.value.eq_ignore_ascii_case(&element_name.value)
+        ),
+        Expr::Nested(inner) => is_reference_to_element(inner, element_name),
+        _ => false,
+    }
+}
+
+/// The literal string `expr` holds, if it is one.
+fn single_quoted_string_of(expr: &Expr) -> Option<String> {
+    match expr {
+        Expr::Value(ValueWithSpan {
+            value: Value::SingleQuotedString(text),
+            ..
+        }) => Some(text.clone()),
+        Expr::Nested(inner) => single_quoted_string_of(inner),
+        _ => None,
+    }
+}
+
+/// Rewrite `ARRAY(SELECT <element expression> FROM unnest(<arr>) x)` into an
+/// expression over `<arr>` itself, leaving no sub-query behind.
+///
+/// WHY. Written against an outer column, this shape cannot be executed at all.
+/// psql's `\d+` reads a toast relation's storage options as
+/// `array(SELECT 'toast.' || x FROM unnest(tc.reloptions) x)`. The correlation
+/// is a table function's ARGUMENT rather than a predicate, so there is no key
+/// to decorrelate on, and every spelling that keeps the correlation dies at
+/// physical planning with "Physical plan does not support logical expression
+/// OuterReferenceColumn": as a correlated scalar sub-query with the aggregate
+/// inside, as a lateral unnest in FROM, and as a lateral unnest with an
+/// aggregate. All three were measured, not assumed.
+///
+/// What is left is to stop it being a sub-query. `ARRAY(SELECT f(x) FROM
+/// unnest(a) x)` is a map over `a` - a pure function of the row - so writing it
+/// as one removes the correlation rather than relocating it. It also makes the
+/// qualification of `<arr>` irrelevant, which is why this reaches shapes that
+/// name their outer column without an alias.
+///
+/// WHAT IT DELIBERATELY DOES NOT DO. Only two element expressions are handled:
+/// the element itself, and the element concatenated with a string literal on
+/// one side. Anything else - a function call, a CASE, a second column - is left
+/// alone, because this is a narrow construct rewrite and not general
+/// decorrelation. A sub-query with a WHERE, GROUP BY, ORDER BY, DISTINCT, LIMIT
+/// or a join is likewise left alone: each changes which elements appear or in
+/// what order, and none of them can be expressed by mapping over the array.
+///
+/// The bare-element shape becomes the array expression itself rather than a
+/// call, so the element type survives. That leaves one difference from
+/// `PostgreSQL`, taken knowingly: a NULL array answers NULL where `PostgreSQL`
+/// answers `{}`, since `unnest(NULL)` yields no rows. The concatenating shapes
+/// go through `pg_wrap_array_elements`, which handles NULL as `PostgreSQL`
+/// does, because their result is `text[]` either way.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
+pub fn rewrite_array_over_unnest_to_array_expression(sql: &str) -> Result<String> {
+    rewrite_each_expression(sql, |expr| {
+        if let Some(replacement) = array_expression_for_array_over_unnest(expr) {
+            *expr = replacement;
+        }
+    })
+}
+
+/// The expression that replaces one `ARRAY(SELECT ... FROM unnest(...))`, or
+/// `None` when `expr` is not that shape.
+fn array_expression_for_array_over_unnest(expr: &Expr) -> Option<Expr> {
+    let Expr::Function(function) = expr else {
+        return None;
+    };
+    if !object_name_ends_with(&function.name, "array") {
+        return None;
+    }
+    // `array(SELECT ...)` parses as a dedicated Subquery argument rather than
+    // an argument list; the list spelling is accepted too so a parenthesised
+    // sub-query reaches the same place.
+    let query = match &function.args {
+        FunctionArguments::Subquery(query) => query,
+        FunctionArguments::List(arguments) => match arguments.args.as_slice() {
+            [FunctionArg::Unnamed(FunctionArgExpr::Expr(Expr::Subquery(query)))] => query,
+            _ => return None,
+        },
+        FunctionArguments::None => return None,
+    };
+
+    // Anything that reorders, filters or limits the elements cannot be a map
+    // over the array.
+    if query.with.is_some()
+        || query.order_by.is_some()
+        || query.limit_clause.is_some()
+        || query.fetch.is_some()
+    {
+        return None;
+    }
+    let SetExpr::Select(select) = query.body.as_ref() else {
+        return None;
+    };
+    if select.selection.is_some()
+        || select.having.is_some()
+        || select.qualify.is_some()
+        || select.distinct.is_some()
+        || !matches!(&select.group_by, GroupByExpr::Expressions(exprs, _) if exprs.is_empty())
+    {
+        return None;
+    }
+    let [from] = select.from.as_slice() else {
+        return None;
+    };
+    if !from.joins.is_empty() {
+        return None;
+    }
+    let unnested = unnested_array_of_from_item(&from.relation)?;
+
+    let [projection] = select.projection.as_slice() else {
+        return None;
+    };
+    let (SelectItem::UnnamedExpr(projected)
+    | SelectItem::ExprWithAlias {
+        expr: projected, ..
+    }) = projection
+    else {
+        return None;
+    };
+
+    // The element alone: the array already is the answer, and returning it
+    // unchanged keeps its element type.
+    if is_reference_to_element(projected, &unnested.element_name) {
+        return Some(unnested.array);
+    }
+
+    // The element with a string literal concatenated on one side.
+    let Expr::BinaryOp {
+        left,
+        op: BinaryOperator::StringConcat,
+        right,
+    } = projected
+    else {
+        return None;
+    };
+    let (prefix, suffix) = if is_reference_to_element(right, &unnested.element_name) {
+        (single_quoted_string_of(left)?, String::new())
+    } else if is_reference_to_element(left, &unnested.element_name) {
+        (String::new(), single_quoted_string_of(right)?)
+    } else {
+        return None;
+    };
+
+    Some(wrap_array_elements_call(&prefix, unnested.array, &suffix))
+}
+
+/// Build `pg_catalog.pg_wrap_array_elements(prefix, arr, suffix)`.
+fn wrap_array_elements_call(prefix: &str, array: Expr, suffix: &str) -> Expr {
+    fn string_literal(text: &str) -> Expr {
+        Expr::Value(Value::SingleQuotedString(text.to_string()).into())
+    }
+    Expr::Function(Function {
+        name: ObjectName(vec![
+            ObjectNamePart::Identifier(Ident::new("pg_catalog")),
+            ObjectNamePart::Identifier(Ident::new("pg_wrap_array_elements")),
+        ]),
+        args: FunctionArguments::List(FunctionArgumentList {
+            duplicate_treatment: None,
+            clauses: vec![],
+            args: vec![
+                FunctionArg::Unnamed(FunctionArgExpr::Expr(string_literal(prefix))),
+                FunctionArg::Unnamed(FunctionArgExpr::Expr(array)),
+                FunctionArg::Unnamed(FunctionArgExpr::Expr(string_literal(suffix))),
+            ],
+        }),
+        over: None,
+        filter: None,
+        within_group: vec![],
+        null_treatment: None,
+        parameters: FunctionArguments::None,
+        uses_odbc_syntax: false,
+    })
 }
 
 /// Re-write  ARRAY( <sub-query> )

@@ -3352,6 +3352,136 @@ pub fn register_array_agg(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
+/// Register `pg_catalog.pg_wrap_array_elements(prefix, arr, suffix)`, which
+/// answers `arr` with every element rendered as `prefix || element || suffix`.
+///
+/// NOT a `PostgreSQL` function. It exists so that
+/// `ARRAY(SELECT <literal> || x FROM unnest(<arr>) x)` can be written as a
+/// scalar expression over `<arr>`, with no sub-query and so no correlation
+/// left - see `rewrite_array_over_unnest_to_array_expression` in `replace.rs`,
+/// which is its only caller. The correlated form cannot be executed at all:
+/// a table function reading an outer column reaches physical planning as an
+/// `OuterReferenceColumn`, which `DataFusion` has no physical plan for in any
+/// spelling.
+///
+/// Two `PostgreSQL` behaviours it reproduces deliberately:
+/// - a NULL array answers `{}`, not NULL, because `unnest(NULL)` yields no
+///   rows and `ARRAY(<no rows>)` is the empty array;
+/// - a NULL element, prefix or suffix answers a NULL element, because
+///   concatenating with NULL is NULL.
+///
+/// The result is always a `text[]`, whatever the input array's element type,
+/// which is right for this function because concatenation produces text in
+/// `PostgreSQL` too. The rewrite never routes the "bare element" shape here for
+/// that reason - it emits the array itself, keeping the element type.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
+pub fn register_pg_wrap_array_elements(ctx: &SessionContext) -> Result<()> {
+    use arrow::array::{Array, ListArray, ListBuilder, StringArray, StringBuilder};
+    use arrow::datatypes::{DataType, Field};
+    use datafusion::logical_expr::{
+        ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, Volatility,
+    };
+    use std::sync::Arc;
+
+    /// The `text[]` type this function reads its array argument as and returns.
+    fn text_array_type() -> DataType {
+        DataType::List(Arc::new(Field::new("item", DataType::Utf8, true)))
+    }
+
+    /// Wraps each element of an array between a prefix and a suffix.
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    struct WrapArrayElements {
+        /// Three arguments of any type, so an array of any element type and a
+        /// literal of any string type are all accepted and cast here rather
+        /// than rejected by an exact signature.
+        signature: Signature,
+    }
+
+    impl ScalarUDFImpl for WrapArrayElements {
+        /// The registered function name.
+        fn name(&self) -> &'static str {
+            "pg_catalog.pg_wrap_array_elements"
+        }
+        /// Three arguments of any type.
+        fn signature(&self) -> &Signature {
+            &self.signature
+        }
+        /// Always `text[]`; see the note on concatenation above.
+        fn return_type(&self, _args: &[ArrowDataType]) -> Result<ArrowDataType> {
+            Ok(text_array_type())
+        }
+        /// Build the wrapped array one row at a time.
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            let columns = ColumnarValue::values_to_arrays(&args.args)?;
+            let [prefixes, arrays, suffixes] = columns.as_slice() else {
+                return Err(DataFusionError::Internal(
+                    "pg_wrap_array_elements expects three arguments".into(),
+                ));
+            };
+
+            // Cast rather than require: the catalog stores oid vectors as
+            // List(Int64) and acl columns as List(Utf8), and a caller may pass
+            // either. Casting here is what makes the text[] return type honest.
+            let prefixes = arrow::compute::cast(prefixes, &DataType::Utf8)?;
+            let suffixes = arrow::compute::cast(suffixes, &DataType::Utf8)?;
+            let arrays = arrow::compute::cast(arrays, &text_array_type())?;
+
+            let prefixes = prefixes
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .ok_or_else(|| DataFusionError::Internal("prefix did not cast to Utf8".into()))?;
+            let suffixes = suffixes
+                .as_any()
+                .downcast_ref::<StringArray>()
+                .ok_or_else(|| DataFusionError::Internal("suffix did not cast to Utf8".into()))?;
+            let arrays = arrays.as_any().downcast_ref::<ListArray>().ok_or_else(|| {
+                DataFusionError::Internal("array argument did not cast to text[]".into())
+            })?;
+
+            let mut built = ListBuilder::new(StringBuilder::new());
+            for row in 0..arrays.len() {
+                // A NULL array is no rows to unnest, which collects as `{}`.
+                if arrays.is_null(row) {
+                    built.append(true);
+                    continue;
+                }
+                let elements = arrays.value(row);
+                let elements =
+                    elements
+                        .as_any()
+                        .downcast_ref::<StringArray>()
+                        .ok_or_else(|| {
+                            DataFusionError::Internal("array elements are not Utf8".into())
+                        })?;
+                let prefix = (!prefixes.is_null(row)).then(|| prefixes.value(row));
+                let suffix = (!suffixes.is_null(row)).then(|| suffixes.value(row));
+                for index in 0..elements.len() {
+                    match (prefix, suffix, elements.is_null(index)) {
+                        // Concatenating with a NULL of any part is NULL.
+                        (Some(prefix), Some(suffix), false) => built
+                            .values()
+                            .append_value(format!("{prefix}{}{suffix}", elements.value(index))),
+                        _ => built.values().append_null(),
+                    }
+                }
+                built.append(true);
+            }
+            Ok(ColumnarValue::Array(Arc::new(built.finish())))
+        }
+    }
+
+    let udf = ScalarUDF::new_from_impl(WrapArrayElements {
+        signature: Signature::any(3, Volatility::Immutable),
+    })
+    .with_aliases(["pg_wrap_array_elements"]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
 /// Register the table function `pg_get_array` used to materialize
 /// results of `ARRAY(subquery)` rewrites.
 ///
