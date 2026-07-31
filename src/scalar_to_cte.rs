@@ -553,6 +553,14 @@ mod rewriter {
         /// Source of the `__cteN` names, bumped for every CTE emitted so two
         /// sub-queries in one statement never share a name.
         cte_counter: usize,
+        /// How many lifted CTE bodies enclose the query being rewritten right
+        /// now: zero while rewriting the statement the caller handed in, and
+        /// one more for each body this rewriter descended into.
+        ///
+        /// Read by [`analyse_scalar`](Self::analyse_scalar), which refuses to
+        /// lift an uncorrelated sub-query while this is non-zero. See there for
+        /// why the two levels are not the same decision.
+        enclosing_lifted_bodies: usize,
     }
 
     impl ScalarToCte {
@@ -804,7 +812,7 @@ mod rewriter {
                 Expr::Subquery(_) => {
                     let wrapped_select_item = SelectItem::UnnamedExpr(expr.clone());
                     if let Some(info) = self.analyse_scalar(&wrapped_select_item, outer_aliases) {
-                        Self::push_cte(w, &info);
+                        self.push_cte(w, &info);
                         Self::add_join(sel, &info);
 
                         *expr = Self::make_cte_column_ref(&info);
@@ -1021,6 +1029,20 @@ mod rewriter {
                 }
                 let pairs = pair_unique;
 
+                // A sub-query with no correlation predicate can only be joined
+                // back on `ON true`, and the cross join that produces is then
+                // collapsed by an injected GROUP BY. At the top level that is
+                // fine: the GROUP BY reproduces the grouping the query's own
+                // projection already implies. Inside a lifted CTE body it is
+                // not, because the body's row count IS the answer -- it is one
+                // row per element of the array the enclosing aggregate builds,
+                // so collapsing it silently returns an array with the wrong
+                // contents rather than failing. Leave those for the planner,
+                // which rejects them loudly.
+                if self.enclosing_lifted_bodies > 0 && pairs.is_empty() {
+                    return None;
+                }
+
                 let mut unique = Vec::new();
                 for expr in outer_only {
                     if !unique
@@ -1061,12 +1083,30 @@ mod rewriter {
             }
         }
 
-        /// Append the CTE described by `info` to `outer_with`.
-        fn push_cte(outer_with: &mut Option<With>, info: &CorrelatedInfo) {
+        /// Append the CTE described by `info` to `outer_with`, after rewriting
+        /// the sub-queries the CTE's own body holds.
+        ///
+        /// A lifted body is an ordinary query and its projection can hold
+        /// sub-queries of its own -- `ARRAY(SELECT ... ARRAY(SELECT ...))`
+        /// writes one, and `rewrite_array_subquery` has already turned both
+        /// levels into `pg_get_array(<sub-query>)` by the time this runs.
+        /// Lifting only the outer one leaves the inner sub-query sitting in the
+        /// CTE as a plain scalar sub-query, and a scalar sub-query that returns
+        /// more than one row fails at execution rather than at planning. So the
+        /// body is rewritten here, on its way in.
+        ///
+        /// The body carries its own WITH clause, which is where its CTEs land.
+        /// That keeps each lifted sub-query in the scope that can see it, and
+        /// keeps this recursion from having to thread an outer WITH through.
+        /// Recursion terminates because each body is strictly smaller than the
+        /// query it was lifted out of.
+        fn push_cte(&mut self, outer_with: &mut Option<With>, info: &CorrelatedInfo) {
             let w = Self::ensure_with(outer_with);
-            let subquery = Self::cleaned_subquery(info);
-            w.cte_tables
-                .push(Self::make_cte(&info.cte_ident, Box::new(subquery)));
+            let mut subquery = Box::new(Self::cleaned_subquery(info));
+            self.enclosing_lifted_bodies += 1;
+            self.visit_query_mut(&mut subquery);
+            self.enclosing_lifted_bodies -= 1;
+            w.cte_tables.push(Self::make_cte(&info.cte_ident, subquery));
         }
 
         /// The sub-query as it will read inside the CTE.
@@ -1659,7 +1699,7 @@ mod rewriter {
 
             // ---------- 2nd pass: inject CTEs & JOINs ----------
             for (_, info) in &collected {
-                Self::push_cte(w, info);
+                self.push_cte(w, info);
                 Self::add_join(sel, info);
             }
 
