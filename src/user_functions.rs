@@ -375,6 +375,26 @@ pub fn register_scalar_pg_proc_oid(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
+/// Register `pg_type_oid(text)` which looks up a type OID from `pg_type`.
+///
+/// A `regtype` literal is a type's NAME standing for its OID, and clients cast one to
+/// compare it against an OID column: psql's `\df n` filters with
+/// `p.prorettype <> 'pg_catalog.trigger'::pg_catalog.regtype`, where `prorettype` holds
+/// the OID 2279. Resolving the literal here is what makes that comparison an integer one
+/// (see `replace::resolve_regtype_literals_to_type_oids`).
+///
+/// Like the other name lookups it reads a schema-qualified name, so
+/// `'pg_catalog.trigger'` and `'trigger'` resolve alike.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
+pub fn register_scalar_pg_type_oid(ctx: &SessionContext) -> Result<()> {
+    register_name_to_oid_udf(ctx, "pg_type_oid", "pg_catalog.pg_type", "typname");
+    Ok(())
+}
+
 /// Register `current_user` / `session_user` / `current_role` (and their
 /// `pg_catalog`-qualified aliases) as no-argument UDFs reporting the role the
 /// querying connection authenticated as.
@@ -3435,6 +3455,82 @@ pub fn register_pg_partition_ancestors(ctx: &SessionContext) -> Result<()> {
     })
     .with_aliases(["pg_partition_ancestors"]);
     ctx.register_udf(udf);
+    Ok(())
+}
+
+/// The `pg_catalog`-qualified spellings this catalog gives to functions
+/// `DataFusion` already provides under their bare names.
+///
+/// `PostgreSQL` puts every built-in function in the `pg_catalog` schema, and
+/// clients write them that way: psql's `\drg` calls
+/// `pg_catalog.concat_ws(', ', ...)`. `DataFusion` knows `concat_ws` and not
+/// `pg_catalog.concat_ws`, so the qualified call failed with "function
+/// `pg_catalog.concat_ws()` does not exist" even though the function was right
+/// there.
+///
+/// Every entry is a function `PostgreSQL` has under the same name and meaning,
+/// so the alias points at the same behaviour the client expects. A name absent
+/// from `DataFusion` is skipped rather than failing registration, and a name
+/// this crate has already registered qualified is left alone, so its own
+/// implementation wins over the builtin.
+const QUALIFIED_BUILTIN_ALIASES: &[&str] = &[
+    "pg_catalog.abs",
+    "pg_catalog.btrim",
+    "pg_catalog.ceil",
+    "pg_catalog.concat",
+    "pg_catalog.concat_ws",
+    "pg_catalog.floor",
+    "pg_catalog.left",
+    "pg_catalog.length",
+    "pg_catalog.lower",
+    "pg_catalog.ltrim",
+    "pg_catalog.md5",
+    "pg_catalog.repeat",
+    "pg_catalog.replace",
+    "pg_catalog.reverse",
+    "pg_catalog.right",
+    "pg_catalog.round",
+    "pg_catalog.rtrim",
+    "pg_catalog.split_part",
+    "pg_catalog.starts_with",
+    "pg_catalog.strpos",
+    "pg_catalog.substr",
+    "pg_catalog.to_hex",
+    "pg_catalog.translate",
+    "pg_catalog.upper",
+];
+
+/// Give `DataFusion`'s built-in functions the `pg_catalog`-qualified names
+/// clients call them by.
+///
+/// Registered LAST in a session's construction, so a function this crate
+/// implements itself under a `pg_catalog` name is never replaced by the
+/// builtin of the same bare name - the check below skips any qualified name
+/// that already resolves.
+///
+/// `ScalarUDF::with_aliases` keeps the aliases the function already carries and
+/// appends to them, so this adds a spelling rather than replacing one.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
+pub fn register_qualified_builtin_aliases(ctx: &SessionContext) -> Result<()> {
+    let registered = ctx.state().scalar_functions().clone();
+    for qualified in QUALIFIED_BUILTIN_ALIASES {
+        let Some(bare) = qualified.strip_prefix("pg_catalog.") else {
+            continue;
+        };
+        // Already answered under the qualified name by this crate's own
+        // registration; leave that one in place.
+        if registered.contains_key(*qualified) {
+            continue;
+        }
+        let Some(builtin) = registered.get(bare) else {
+            continue;
+        };
+        ctx.register_udf((**builtin).clone().with_aliases([*qualified]));
+    }
     Ok(())
 }
 

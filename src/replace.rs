@@ -250,6 +250,22 @@ pub fn replace_set_command_with_namespace(sql: &str) -> Result<String> {
         .join("; "))
 }
 
+/// Whether `data_type` is `regclass`, however it was spelled.
+///
+/// sqlparser gives the bare keyword its own variant, while the schema-qualified
+/// `pg_catalog.regclass` that `PostgreSQL` equally accepts arrives as a custom
+/// type. psql writes the qualified form - `\dx` casts
+/// `'pg_catalog.pg_extension'::pg_catalog.regclass` - so matching only the
+/// keyword left that cast in place, to fail later as a string compared against
+/// an integer column.
+fn is_regclass_type(data_type: &DataType) -> bool {
+    match data_type {
+        DataType::Regclass => true,
+        DataType::Custom(name, _) => object_name_matches(name, "regclass"),
+        _ => false,
+    }
+}
+
 /// Rewrite casts from text to `regclass` (and optionally `oid`) into
 /// explicit function calls so they can be executed by `DataFusion`.
 ///
@@ -338,11 +354,18 @@ pub fn replace_regclass(sql: &str) -> Result<String> {
                 }
 
                 /* ---------- 2. plain 'text'::regclass ---------- */
+                // Both spellings of the type. sqlparser gives the bare keyword
+                // its own DataType::Regclass, while the schema-qualified
+                // `pg_catalog.regclass` PostgreSQL also accepts arrives as a
+                // custom type - and psql writes the qualified form (`\dx` casts
+                // 'pg_catalog.pg_extension'::pg_catalog.regclass), so matching
+                // only the keyword left that cast in place to fail later as a
+                // string-to-integer comparison.
                 Expr::Cast {
                     expr: inner,
-                    data_type: DataType::Regclass,
+                    data_type,
                     ..
-                } => {
+                } if is_regclass_type(data_type) => {
                     if let Expr::Value(ValueWithSpan {
                         value: Value::SingleQuotedString(s),
                         ..
@@ -353,7 +376,9 @@ pub fn replace_regclass(sql: &str) -> Result<String> {
                         // regclass to compare it against an oid column (e.g.
                         // classoid = 'pg_class'::regclass); returning the string
                         // makes the planner try to cast 'pg_class' to the column's
-                        // Int type and fail. The oid() UDF resolves the name.
+                        // Int type and fail. The oid() UDF resolves the name, and
+                        // it reads a schema-qualified name too, so
+                        // 'pg_catalog.pg_class' resolves the same as 'pg_class'.
                         *expr = build_function_call_expr("oid", s);
                     }
                 }
@@ -554,12 +579,16 @@ pub fn rewrite_schema_qualified_custom_types(sql: &str) -> Result<String> {
     use std::ops::ControlFlow;
 
     /// The `pg_catalog` type name each qualified cast is rewritten to, keyed by
-    /// the bare name after the schema. The object-identifier types resolve to
-    /// TEXT because that is the form they print as.
+    /// the bare name after the schema. The object-identifier types listed here
+    /// resolve to TEXT because that is the form they print as.
+    ///
+    /// This map applies to every cast EXCEPT one whose operand is a string
+    /// literal; see the call site, which skips those so a name can be resolved
+    /// to its OID rather than flattened to text.
     fn datafusion_type_for(bare_name: &str) -> Option<DataType> {
         let lowered = bare_name.to_ascii_lowercase();
         match lowered.as_str() {
-            "text" | "regtype" | "regnamespace" | "regclass" | "regproc" | "regoper" => {
+            "text" | "regnamespace" | "regtype" | "regclass" | "regproc" | "regoper" => {
                 Some(DataType::Text)
             }
             "int2" => Some(DataType::SmallInt(None)),
@@ -611,8 +640,31 @@ pub fn rewrite_schema_qualified_custom_types(sql: &str) -> Result<String> {
 
     let _ = visit_statements_mut(&mut stmts, |stmt| {
         let () = visit_expressions_mut(stmt, |e| {
-            if let Expr::Cast { data_type, .. } = e {
-                resolve_type(data_type);
+            if let Expr::Cast {
+                expr: operand,
+                data_type,
+                ..
+            } = e
+            {
+                // A string LITERAL cast to regclass or regtype is a NAME
+                // standing for an OID, and flattening it to TEXT leaves the
+                // planner comparing a string against an integer column - how
+                // `\dx` ('pg_catalog.pg_extension'::pg_catalog.regclass) and
+                // `\df n` ('pg_catalog.trigger'::pg_catalog.regtype) failed.
+                // Those two are left for the passes further down that resolve
+                // the name to its OID, and which read the qualified spelling as
+                // well as the bare one.
+                //
+                // BOTH halves of that condition are load-bearing. A COLUMN cast
+                // to the same type has no name to look up - `\d` writes
+                // `conrelid::pg_catalog.regclass` - and skipping it leaves the
+                // planner an unsupported type. And a literal cast to any OTHER
+                // qualified type is an ordinary value: `'a'::pg_catalog.text`
+                // has to keep flattening to TEXT.
+                if !(is_string_literal_operand(operand) && names_a_resolvable_identifier(data_type))
+                {
+                    resolve_type(data_type);
+                }
             }
             ControlFlow::<()>::Continue(())
         })?;
@@ -624,6 +676,40 @@ pub fn rewrite_schema_qualified_custom_types(sql: &str) -> Result<String> {
         .map(|s| s.to_string())
         .collect::<Vec<_>>()
         .join(" "))
+}
+
+/// Whether `data_type` is an object-identifier type whose LITERALS a later pass
+/// resolves to an OID.
+///
+/// Only `regclass` and `regtype` qualify: [`replace_regclass`] and
+/// [`resolve_regtype_literals_to_type_oids`] look a name up for each. `regproc`
+/// and `regoper` have passes of their own that run earlier and render to text
+/// rather than resolving, and `regnamespace` has none at all, so a literal cast
+/// to any of those is better off flattened where it is.
+fn names_a_resolvable_identifier(data_type: &DataType) -> bool {
+    match data_type {
+        DataType::Regclass => true,
+        DataType::Custom(name, _) => {
+            object_name_matches(name, "regclass") || object_name_matches(name, "regtype")
+        }
+        _ => false,
+    }
+}
+
+/// Whether `expr` is a single-quoted string literal, possibly parenthesised.
+///
+/// Cast operands of this shape are names to be resolved rather than values to
+/// be re-typed; see the call site in
+/// [`rewrite_schema_qualified_custom_types`].
+fn is_string_literal_operand(expr: &Expr) -> bool {
+    match expr {
+        Expr::Value(ValueWithSpan {
+            value: Value::SingleQuotedString(_),
+            ..
+        }) => true,
+        Expr::Nested(inner) => is_string_literal_operand(inner),
+        _ => false,
+    }
 }
 
 /// Rename `array_upper(<arr>, <dim>)` calls to `DataFusion`'s
@@ -2196,6 +2282,62 @@ pub fn rewrite_pg_truetypid_composite_args(sql: &str) -> Result<String> {
         .map(|s| s.to_string())
         .collect::<Vec<_>>()
         .join(" "))
+}
+
+/// Resolve a type NAME cast to `regtype` into that type's OID.
+///
+/// A `regtype` literal is a type's name standing for its OID, and a client
+/// casts one to compare it against an OID column. psql's `\df n` and `\df t`
+/// filter with
+///
+/// ```sql
+/// AND p.prorettype <> 'pg_catalog.trigger'::pg_catalog.regtype
+/// ```
+///
+/// where `prorettype` holds the integer 2279. Left to
+/// [`rewrite_regtype_cast`] the literal becomes TEXT and the planner is asked
+/// to read `'pg_catalog.trigger'` as an integer, which fails the whole query.
+///
+/// Only a string LITERAL is resolved. A column cast to `regtype` is a different
+/// question - it asks for the type's name, not its OID - and stays with
+/// [`rewrite_regtype_cast`], which is why this runs first and leaves everything
+/// else alone.
+///
+/// This mirrors what [`replace_regclass`] does for relation names, including
+/// reading a schema-qualified literal the same as a bare one.
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
+pub fn resolve_regtype_literals_to_type_oids(sql: &str) -> Result<String> {
+    rewrite_each_expression(sql, |expr| {
+        let Expr::Cast {
+            expr: inner,
+            data_type,
+            ..
+        } = expr
+        else {
+            return;
+        };
+        let is_regtype = match data_type {
+            DataType::Custom(name, _) => object_name_matches(name, "regtype"),
+            _ => false,
+        };
+        if !is_regtype {
+            return;
+        }
+        let Expr::Value(ValueWithSpan {
+            value: Value::SingleQuotedString(name),
+            ..
+        }) = &**inner
+        else {
+            return;
+        };
+        *expr = function_call(
+            "pg_type_oid",
+            Expr::Value(Value::SingleQuotedString(name.clone()).into()),
+        );
+    })
 }
 
 /// Map casts to `regtype` (bare or `pg_catalog`-qualified) onto TEXT, since this
@@ -4470,6 +4612,44 @@ mod tests {
                 rewrite_schema_qualified_custom_types(input).unwrap(),
                 expected,
                 "Failed for input: {input}"
+            );
+        }
+    }
+
+    /// A literal cast to regclass or regtype is left for the passes that resolve
+    /// a name to an OID; every other literal cast still flattens here.
+    ///
+    /// Both halves were got wrong once. Flattening the identifier types broke
+    /// `\dx` and `\df n`, which compare a resolved OID against an integer
+    /// column; skipping every literal instead broke `'a'::pg_catalog.text`, and
+    /// skipping by TYPE alone broke `\d`, which casts a column with
+    /// `conrelid::pg_catalog.regclass`.
+    #[test]
+    fn only_a_resolvable_identifier_literal_is_left_for_the_name_lookups() {
+        let left_alone = [
+            "SELECT 'pg_catalog.pg_extension'::pg_catalog.regclass",
+            "SELECT 'pg_catalog.trigger'::pg_catalog.regtype",
+        ];
+        for input in left_alone {
+            assert_eq!(
+                rewrite_schema_qualified_custom_types(input).unwrap(),
+                input,
+                "a name to resolve must survive this pass: {input}"
+            );
+        }
+
+        let flattened = [
+            // Not an identifier type: an ordinary value cast.
+            ("SELECT 'a'::pg_catalog.text", "SELECT 'a'::TEXT"),
+            // An identifier type, but a column has no name to look up.
+            ("SELECT x::pg_catalog.regclass", "SELECT x::TEXT"),
+            ("SELECT x::pg_catalog.regtype", "SELECT x::TEXT"),
+        ];
+        for (input, expected) in flattened {
+            assert_eq!(
+                rewrite_schema_qualified_custom_types(input).unwrap(),
+                expected,
+                "should still flatten: {input}"
             );
         }
     }

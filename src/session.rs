@@ -19,13 +19,13 @@ use crate::replace::{
     drop_redundant_oid_and_regclass_casts, name_set_returning_function_column_after_its_alias,
     regclass_udfs, replace_regclass, replace_set_command_with_namespace,
     resolve_order_by_names_to_output_positions, resolve_regproc_columns_to_oids_in_comparisons,
-    rewrite_array_agg_varchar_cast, rewrite_array_index_iteration_to_any_comparison,
-    rewrite_array_over_unnest_to_array_expression, rewrite_array_subquery,
-    rewrite_array_upper_to_array_length, rewrite_available_extension_versions_source,
-    rewrite_available_updates, rewrite_boolean_column_char_comparisons,
-    rewrite_boolean_scalar_subquery_to_exists, rewrite_brace_array_literal, rewrite_char_cast,
-    rewrite_correlated_limit_one_subquery_to_max, rewrite_exists_to_count,
-    rewrite_information_schema_casts, rewrite_name_cast, rewrite_oid_cast,
+    resolve_regtype_literals_to_type_oids, rewrite_array_agg_varchar_cast,
+    rewrite_array_index_iteration_to_any_comparison, rewrite_array_over_unnest_to_array_expression,
+    rewrite_array_subquery, rewrite_array_upper_to_array_length,
+    rewrite_available_extension_versions_source, rewrite_available_updates,
+    rewrite_boolean_column_char_comparisons, rewrite_boolean_scalar_subquery_to_exists,
+    rewrite_brace_array_literal, rewrite_char_cast, rewrite_correlated_limit_one_subquery_to_max,
+    rewrite_exists_to_count, rewrite_information_schema_casts, rewrite_name_cast, rewrite_oid_cast,
     rewrite_pg_custom_operator, rewrite_pg_truetypid_composite_args, rewrite_regoper_cast,
     rewrite_regoperator_cast, rewrite_regproc_cast, rewrite_regprocedure_cast,
     rewrite_regtype_cast, rewrite_schema_qualified_custom_types, rewrite_schema_qualified_text,
@@ -59,14 +59,16 @@ use crate::user_functions::{
     register_pg_relation_is_publishable, register_pg_relation_is_updatable,
     register_pg_relation_size, register_pg_sequence_last_value, register_pg_size_pretty,
     register_pg_table_size, register_pg_total_relation_size, register_pg_truetypid_helpers,
-    register_pg_wrap_array_elements, register_qualified_array_length, register_quote_ident,
-    register_row_security_active, register_scalar_array_to_string, register_scalar_format_type,
-    register_scalar_pg_age, register_scalar_pg_encoding_to_char, register_scalar_pg_get_expr,
+    register_pg_wrap_array_elements, register_qualified_array_length,
+    register_qualified_builtin_aliases, register_quote_ident, register_row_security_active,
+    register_scalar_array_to_string, register_scalar_format_type, register_scalar_pg_age,
+    register_scalar_pg_encoding_to_char, register_scalar_pg_get_expr,
     register_scalar_pg_get_partkeydef, register_scalar_pg_get_userbyid,
     register_scalar_pg_is_in_recovery, register_scalar_pg_proc_oid,
     register_scalar_pg_table_is_visible, register_scalar_pg_tablespace_location,
-    register_scalar_regclass_oid, register_scalar_txid_current, register_session_identity,
-    register_string_agg, register_translate, register_upper, register_version_fn,
+    register_scalar_pg_type_oid, register_scalar_regclass_oid, register_scalar_txid_current,
+    register_session_identity, register_string_agg, register_translate, register_upper,
+    register_version_fn,
 };
 
 use crate::scalar_to_cte::rewrite_subquery_as_cte;
@@ -764,6 +766,9 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     let sql = rewrite_char_cast(&sql)?;
     let sql = rewrite_array_upper_to_array_length(&sql)?;
     let sql = replace_regclass(&sql)?;
+    // Before rewrite_regtype_cast, which would turn the literal into TEXT and
+    // leave the planner comparing a string against an OID column.
+    let sql = resolve_regtype_literals_to_type_oids(&sql)?;
     let sql = rewrite_regtype_cast(&sql)?;
     let sql = rewrite_xid_cast(&sql)?;
     let sql = rewrite_name_cast(&sql)?;
@@ -2278,6 +2283,7 @@ async fn register_pg_compatibility_functions(
 
     register_scalar_regclass_oid(ctx)?;
     register_scalar_pg_proc_oid(ctx)?;
+    register_scalar_pg_type_oid(ctx)?;
     register_scalar_pg_tablespace_location(ctx)?;
     register_scalar_format_type(ctx).await?;
     ctx.register_udtf(
@@ -2355,6 +2361,9 @@ async fn register_pg_compatibility_functions(
     register_encode(ctx)?;
     register_upper(ctx)?;
     register_version_fn(ctx)?;
+    // Last, so a pg_catalog name this crate implements itself is never
+    // replaced by the DataFusion builtin that shares its bare name.
+    register_qualified_builtin_aliases(ctx)?;
     Ok(())
 }
 
