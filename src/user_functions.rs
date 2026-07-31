@@ -3352,6 +3352,92 @@ pub fn register_array_agg(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
+/// Register `pg_catalog.pg_partition_ancestors(regclass)`, which answers the
+/// relation itself.
+///
+/// `PostgreSQL` declares this as `setof regclass`: the ancestor relations of a
+/// partition, INCLUDING the relation itself. This catalog models no
+/// partitioning, so no relation has an ancestor and the whole answer is always
+/// the one row holding the argument.
+///
+/// REGISTERED AS A SCALAR FUNCTION, not a table function, and that is a
+/// deliberate consequence of the above. psql calls it in a SELECT LIST, where a
+/// table function cannot be reached at all:
+///
+/// ```sql
+/// WHERE confrelid IN (SELECT pg_catalog.pg_partition_ancestors('16385')
+///                     UNION ALL VALUES ('16385'::pg_catalog.regclass))
+/// ```
+///
+/// A set-returning function that always returns exactly one row is
+/// indistinguishable from a scalar one, so this is exact rather than
+/// approximate FOR AS LONG AS no partitioning is modelled. If partitioned
+/// relations are ever added to this catalog, this has to become a real
+/// set-returning function and its callers rewritten to reach it; the two
+/// changes go together, and a test asserts the assumption they rest on.
+///
+/// The argument is whatever a `regclass` reduces to by the time it arrives -
+/// psql substitutes the OID it already resolved and passes it as the string
+/// `'16385'`. Anything that will not read as an OID answers NULL rather than
+/// failing the query, matching how the rest of this catalog treats an object
+/// reference it cannot resolve.
+///
+/// # Errors
+///
+/// Never fails. The `Result` is the shared shape of every `register_*` entry point
+/// so a session builder can chain them with `?`.
+pub fn register_pg_partition_ancestors(ctx: &SessionContext) -> Result<()> {
+    use arrow::datatypes::DataType;
+    use datafusion::logical_expr::{
+        ColumnarValue, ScalarFunctionArgs, ScalarUDF, ScalarUDFImpl, Signature, Volatility,
+    };
+
+    /// Answers the relation it was handed, since nothing here has an ancestor.
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    struct PartitionAncestors {
+        /// One argument of any type: a regclass arrives as an OID or as the
+        /// string spelling of one depending on the client.
+        signature: Signature,
+    }
+
+    impl ScalarUDFImpl for PartitionAncestors {
+        /// The registered function name.
+        fn name(&self) -> &'static str {
+            "pg_catalog.pg_partition_ancestors"
+        }
+        /// One argument of any type.
+        fn signature(&self) -> &Signature {
+            &self.signature
+        }
+        /// An OID, the width this catalog stores object identifiers as.
+        fn return_type(&self, _args: &[ArrowDataType]) -> Result<ArrowDataType> {
+            Ok(ArrowDataType::Int64)
+        }
+        /// The argument, read as an OID.
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            let columns = ColumnarValue::values_to_arrays(&args.args)?;
+            let [relation] = columns.as_slice() else {
+                return Err(DataFusionError::Internal(
+                    "pg_partition_ancestors expects one argument".into(),
+                ));
+            };
+            // A safe cast, so a value that is not an OID becomes NULL rather
+            // than failing every row alongside it.
+            Ok(ColumnarValue::Array(arrow::compute::cast(
+                relation,
+                &DataType::Int64,
+            )?))
+        }
+    }
+
+    let udf = ScalarUDF::new_from_impl(PartitionAncestors {
+        signature: Signature::any(1, Volatility::Stable),
+    })
+    .with_aliases(["pg_partition_ancestors"]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
 /// Register the `string_agg` aggregate under its `pg_catalog` name.
 ///
 /// `DataFusion` ships the function and answers to the bare name already; what

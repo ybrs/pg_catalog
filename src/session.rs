@@ -55,13 +55,13 @@ use crate::user_functions::{
     register_pg_get_statisticsobjdef_columns, register_pg_get_triggerdef, register_pg_get_viewdef,
     register_pg_has_role, register_pg_index_position, register_pg_is_other_temp_schema,
     register_pg_my_temp_schema, register_pg_numeric_helpers, register_pg_options_to_table,
-    register_pg_postmaster_start_time, register_pg_relation_is_publishable,
-    register_pg_relation_is_updatable, register_pg_relation_size, register_pg_sequence_last_value,
-    register_pg_size_pretty, register_pg_table_size, register_pg_total_relation_size,
-    register_pg_truetypid_helpers, register_pg_wrap_array_elements,
-    register_qualified_array_length, register_quote_ident, register_row_security_active,
-    register_scalar_array_to_string, register_scalar_format_type, register_scalar_pg_age,
-    register_scalar_pg_encoding_to_char, register_scalar_pg_get_expr,
+    register_pg_partition_ancestors, register_pg_postmaster_start_time,
+    register_pg_relation_is_publishable, register_pg_relation_is_updatable,
+    register_pg_relation_size, register_pg_sequence_last_value, register_pg_size_pretty,
+    register_pg_table_size, register_pg_total_relation_size, register_pg_truetypid_helpers,
+    register_pg_wrap_array_elements, register_qualified_array_length, register_quote_ident,
+    register_row_security_active, register_scalar_array_to_string, register_scalar_format_type,
+    register_scalar_pg_age, register_scalar_pg_encoding_to_char, register_scalar_pg_get_expr,
     register_scalar_pg_get_partkeydef, register_scalar_pg_get_userbyid,
     register_scalar_pg_is_in_recovery, register_scalar_pg_proc_oid,
     register_scalar_pg_table_is_visible, register_scalar_pg_tablespace_location,
@@ -2345,6 +2345,7 @@ async fn register_pg_compatibility_functions(
     register_pg_get_keywords(ctx)?;
     register_pg_get_viewdef(ctx)?;
     register_pg_get_constraintdef(ctx)?;
+    register_pg_partition_ancestors(ctx)?;
     register_pg_get_function_arguments(ctx)?;
     register_pg_get_function_result(ctx)?;
     register_pg_get_function_sqlbody(ctx)?;
