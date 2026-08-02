@@ -71,7 +71,7 @@ use crate::user_functions::{
     register_version_fn,
 };
 
-use crate::scalar_to_cte::rewrite_subquery_as_cte;
+use crate::scalar_to_cte::rewrite_scalar_subqueries_to_ctes;
 use bytes::Bytes;
 
 use datafusion::common::{config::ConfigEntry, config_err};
@@ -748,8 +748,11 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     // array, which is the one way to run it when the array is an outer column:
     // the correlation a table function's argument creates has no physical plan.
     let sql = rewrite_array_over_unnest_to_array_expression(&sql)?;
-    let sql = rewrite_array_subquery(&sql).unwrap();
-    let sql = rewrite_brace_array_literal(&sql).unwrap();
+    // `?`, not `.unwrap()`, like every neighbouring pass: a pass that cannot
+    // re-parse what an earlier one emitted must report that to the client, not
+    // abort the connection.
+    let sql = rewrite_array_subquery(&sql)?;
+    let sql = rewrite_brace_array_literal(&sql)?;
     let sql = rewrite_pg_custom_operator(&sql)?;
     let sql = rewrite_schema_qualified_text(&sql)?;
     let sql = rewrite_schema_qualified_custom_types(&sql)?;
@@ -804,7 +807,11 @@ pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<
     // two `nspname`s in constraint_column_usage's derived table).
     let sql = disambiguate_duplicate_columns(&sql)?;
     let (sql, aliases) = alias_unnamed_columns(&sql)?;
-    let sql = rewrite_subquery_as_cte(&sql);
+    // The Result form, not the panicking `rewrite_subquery_as_cte` wrapper.
+    // A statement holding no statement at all - `-- just a comment`, which the
+    // empty-string check in the server does not catch - reaches here and used
+    // to panic the connection instead of returning a parse error.
+    let sql = rewrite_scalar_subqueries_to_ctes(&sql)?.sql;
 
     log::debug!("before group by {sql}");
     let sql = rewrite_group_by_for_any(&sql);

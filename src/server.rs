@@ -35,7 +35,8 @@ use std::path::PathBuf;
 use tokio::net::TcpListener;
 
 use arrow::array::{
-    BooleanArray, Int32Array, Int64Array, LargeStringArray, ListArray, StringArray, StringViewArray,
+    BooleanArray, Int16Array, Int32Array, Int64Array, LargeStringArray, ListArray, StringArray,
+    StringViewArray,
 };
 use arrow::record_batch::RecordBatch;
 use datafusion::execution::context::SessionContext;
@@ -904,11 +905,11 @@ fn split_epoch_count_into_seconds_and_subsecond_units(
 ///
 /// # Panics
 ///
-/// Panics if `col` is not the timestamp array matching `unit`, or if `unit` is
-/// `TimeUnit::Second`, which Arrow does not produce for query results.
+/// Panics if `col` is not the timestamp array matching `unit`.
 fn format_timestamp_value_at(col: &ArrayRef, unit: TimeUnit, row_idx: usize) -> Option<String> {
     use arrow::array::{
         TimestampMicrosecondArray, TimestampMillisecondArray, TimestampNanosecondArray,
+        TimestampSecondArray,
     };
 
     if col.is_null(row_idx) {
@@ -950,7 +951,22 @@ fn format_timestamp_value_at(col: &ArrayRef, unit: TimeUnit, row_idx: usize) -> 
             chrono::DateTime::from_timestamp(secs, nanos)
                 .map(|ts| ts.format("%Y-%m-%d %H:%M:%S%.9f").to_string())
         }
-        TimeUnit::Second => unreachable!("TimeUnit::Second isn't used by Arrow today"),
+        // Reachable from a plain client query: DataFusion's own
+        // `to_timestamp_seconds` returns `Timestamp(Second, _)`, and
+        // `arrow_to_pg_type` advertises every unit as TIMESTAMP, so this arm
+        // used to panic and drop the connection on `SELECT
+        // to_timestamp_seconds(0)`. The value is already whole seconds, so
+        // there is no sub-second part to split out, and PostgreSQL prints such
+        // a timestamp with no fractional digits.
+        TimeUnit::Second => {
+            let v = col
+                .as_any()
+                .downcast_ref::<TimestampSecondArray>()
+                .unwrap()
+                .value(row_idx);
+            chrono::DateTime::from_timestamp(v, 0)
+                .map(|ts| ts.format("%Y-%m-%d %H:%M:%S").to_string())
+        }
     }
 }
 
@@ -971,6 +987,20 @@ fn encode_column_value(encoder: &mut DataRowEncoder, col: &ArrayRef, row_idx: us
             encoder
                 .encode_field(&string_value_at(col, row_idx))
                 .unwrap();
+        }
+        // Int16 has to be here because `arrow_to_pg_type` maps it to INT2 and
+        // tells the client to expect one. Without this arm the fallback below
+        // sent the literal text `[unsupported Int16]` under an INT2 column
+        // description - a wrong answer on the wire rather than an error, which
+        // `SELECT 1::smallint` was enough to produce.
+        DataType::Int16 => {
+            let array = col.as_any().downcast_ref::<Int16Array>().unwrap();
+            let value = if col.is_null(row_idx) {
+                None::<i16>
+            } else {
+                Some(array.value(row_idx))
+            };
+            encoder.encode_field(&value).unwrap();
         }
         DataType::Int32 => {
             let array = col.as_any().downcast_ref::<Int32Array>().unwrap();
@@ -1635,6 +1665,80 @@ mod tests {
         let buf = &null_row.data;
         assert_eq!(&buf[0..4], &(-1i32).to_be_bytes());
         assert_eq!(&buf[4..8], &(-1i32).to_be_bytes());
+    }
+
+    #[test]
+    fn test_batch_to_row_stream_second_precision_timestamp() {
+        // A second-precision timestamp used to hit `unreachable!()` and take the
+        // client's connection down with it. DataFusion's own
+        // `to_timestamp_seconds` returns this type, so `SELECT
+        // to_timestamp_seconds(0)` was enough to do it.
+        use arrow::array::TimestampSecondArray;
+        let schema = Arc::new(Schema::new(vec![Field::new(
+            "ts",
+            DataType::Timestamp(TimeUnit::Second, None),
+            true,
+        )]));
+        let arr = TimestampSecondArray::from(vec![Some(42i64), Some(-2i64), None]);
+        let batch = RecordBatch::try_new(schema, vec![Arc::new(arr) as ArrayRef]).unwrap();
+
+        let info = batch_to_field_info(&batch, &Format::UnifiedText);
+        let rows = futures::executor::block_on(
+            batch_to_row_stream(&batch, &Arc::new(info)).collect::<Vec<_>>(),
+        );
+        assert_eq!(rows.len(), 3);
+
+        // Whole seconds print with no fractional part, as PostgreSQL prints them.
+        for (row, needle) in [
+            (0usize, b"1970-01-01 00:00:42".as_slice()),
+            // Pre-epoch, so the euclidean split is exercised here too.
+            (1usize, b"1969-12-31 23:59:58".as_slice()),
+        ] {
+            let buf = &rows[row].as_ref().unwrap().data;
+            assert!(
+                buf.windows(needle.len()).any(|w| w == needle),
+                "row {row}: expected {:?}, got {:?}",
+                String::from_utf8_lossy(needle),
+                String::from_utf8_lossy(buf)
+            );
+        }
+        let null_row = &rows[2].as_ref().unwrap().data;
+        assert_eq!(&null_row[0..4], &(-1i32).to_be_bytes());
+    }
+
+    #[test]
+    fn test_batch_to_row_stream_encodes_int16_as_a_number() {
+        // `arrow_to_pg_type` describes an Int16 column as INT2, so the encoder
+        // has to send a number. Without an Int16 arm it fell through to the
+        // catch-all and sent the literal text "[unsupported Int16]" under an
+        // INT2 description - a wrong answer rather than an error, and `SELECT
+        // 1::smallint` produced it.
+        let schema = Arc::new(Schema::new(vec![Field::new("s", DataType::Int16, true)]));
+        let arr = Int16Array::from(vec![Some(1i16), Some(-32768i16), None]);
+        let batch = RecordBatch::try_new(schema, vec![Arc::new(arr) as ArrayRef]).unwrap();
+
+        let info = batch_to_field_info(&batch, &Format::UnifiedText);
+        assert_eq!(info[0].datatype(), &Type::INT2);
+
+        let rows = futures::executor::block_on(
+            batch_to_row_stream(&batch, &Arc::new(info)).collect::<Vec<_>>(),
+        );
+        for (row, needle) in [(0usize, b"1".as_slice()), (1usize, b"-32768".as_slice())] {
+            let buf = &rows[row].as_ref().unwrap().data;
+            assert!(
+                buf.windows(needle.len()).any(|w| w == needle),
+                "row {row}: expected {:?}, got {:?}",
+                String::from_utf8_lossy(needle),
+                String::from_utf8_lossy(buf)
+            );
+            assert!(
+                !buf.windows(11).any(|w| w == b"unsupported"),
+                "row {row} still went through the catch-all: {:?}",
+                String::from_utf8_lossy(buf)
+            );
+        }
+        let null_row = &rows[2].as_ref().unwrap().data;
+        assert_eq!(&null_row[0..4], &(-1i32).to_be_bytes());
     }
 
     /// A pre-1970 timestamp encodes as a formatted instant instead of
