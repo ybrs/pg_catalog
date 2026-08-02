@@ -115,6 +115,8 @@ fn registered_view_statements() -> &'static Mutex<HashMap<String, Vec<Registered
 /// which live in `pg_catalog`).
 #[derive(Clone)]
 struct RegisteredViewStatement {
+    /// The view's qualified name, so a re-plan failure can say which view.
+    qualified_name: String,
     body_resolution_schema: String,
     create_sql: String,
 }
@@ -125,13 +127,17 @@ struct RegisteredViewStatement {
 /// [`register_lazy_catalog`] calls this after swapping base table providers, so the
 /// views that derive from those base tables re-resolve against the lazy providers
 /// instead of the built-in snapshots they were first planned against. A view body
-/// that no longer plans is left as it was rather than dropped.
+/// that no longer plans is left as it was rather than dropped, so the object
+/// stays queryable - but the caller is told, because a view left in place is
+/// still bound to the provider that was just replaced.
 ///
 /// # Errors
 ///
-/// Returns an error if the `SET datafusion.catalog.default_schema` statements that
-/// bracket the replay fail - the view bodies themselves cannot fail this call,
-/// since a body that no longer plans is deliberately ignored.
+/// Returns an error if the `SET datafusion.catalog.default_schema` statements
+/// that bracket the replay fail, or if any view failed to re-plan or to execute
+/// its `CREATE OR REPLACE`. Every failing view is named in one error rather than
+/// stopping at the first: one unplannable body says nothing about the others,
+/// and a caller fixing a lazy source wants the whole list.
 ///
 /// # Panics
 ///
@@ -155,16 +161,42 @@ pub async fn replan_registered_views_against_current_providers(
         state.config_options().catalog.default_schema.clone()
     };
 
+    // Every failure, not the first: one unplannable view says nothing about the
+    // others, and a caller fixing a lazy source wants the whole list.
+    let mut failures: Vec<String> = Vec::new();
     for statement in statements {
         set_default_schema(ctx, &statement.body_resolution_schema).await?;
-        // A body that fails to re-plan leaves the prior view definition in place,
-        // so the object stays queryable rather than being dropped.
-        if let Ok(df) = ctx.sql(&statement.create_sql).await {
-            let _ = df.collect().await;
+        // A body that fails to re-plan leaves the prior view definition in
+        // place, so the object stays queryable rather than being dropped. That
+        // recovery is deliberate - but the caller still has to be TOLD, because
+        // the view it leaves behind is still bound to the provider that was just
+        // replaced, and serving rows from a superseded source silently is the
+        // worst shape this failure can take.
+        //
+        // Both halves are collected: planning can fail, and so can executing the
+        // CREATE OR REPLACE that planning produced.
+        let outcome = match ctx.sql(&statement.create_sql).await {
+            Ok(df) => df.collect().await.map(|_| ()),
+            Err(error) => Err(error),
+        };
+        if let Err(error) = outcome {
+            failures.push(format!("{}: {error}", statement.qualified_name));
         }
     }
 
-    set_default_schema(ctx, &original_default_schema).await
+    // Restore the schema before reporting, so a failure does not also leave the
+    // session pointing somewhere the caller did not choose.
+    set_default_schema(ctx, &original_default_schema).await?;
+
+    if failures.is_empty() {
+        return Ok(());
+    }
+    Err(DataFusionError::Execution(format!(
+        "{} view(s) could not be re-planned against the current providers and \
+         still read the ones they replaced: {}",
+        failures.len(),
+        failures.join("; ")
+    )))
 }
 
 /// The per-connection `PostgreSQL` GUCs this crate serves, carried on the session
@@ -1966,6 +1998,7 @@ async fn try_create_view(
         .entry(ctx.session_id())
         .or_default()
         .push(RegisteredViewStatement {
+            qualified_name: qualified.clone(),
             body_resolution_schema: body_resolution_schema.to_string(),
             create_sql,
         });

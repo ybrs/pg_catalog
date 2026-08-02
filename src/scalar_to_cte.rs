@@ -50,9 +50,9 @@ PARKING-LOT - IDEAS / TODOS
 
 use sqlparser::ast::ObjectNamePart;
 use sqlparser::ast::{
-    BinaryOperator, CaseWhen, Cte, Expr, FunctionArg, FunctionArgExpr, FunctionArguments, Ident,
-    Join, JoinConstraint, JoinOperator, Query, Select, SelectItem, SetExpr, Statement, TableFactor,
-    TableWithJoins, With,
+    BinaryOperator, CaseWhen, Cte, Expr, Function, FunctionArg, FunctionArgExpr,
+    FunctionArgumentList, FunctionArguments, Ident, Join, JoinConstraint, JoinOperator, ObjectName,
+    Query, Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins, Value, With,
 };
 use sqlparser::dialect::GenericDialect;
 use sqlparser::parser::Parser;
@@ -187,9 +187,10 @@ pub(crate) const AGGREGATE_FUNCTION_NAMES: &[&str] = &[
 
 mod rewriter {
     use super::{
-        BinaryOperator, CaseWhen, Cte, Expr, FunctionArg, FunctionArgExpr, FunctionArguments,
-        GroupByExpr, HashSet, Ident, Join, JoinConstraint, JoinOperator, ObjectNamePart, Query,
-        Select, SelectItem, SetExpr, Statement, TableFactor, TableWithJoins, With,
+        BinaryOperator, CaseWhen, Cte, Expr, Function, FunctionArg, FunctionArgExpr,
+        FunctionArgumentList, FunctionArguments, GroupByExpr, HashSet, Ident, Join, JoinConstraint,
+        JoinOperator, ObjectName, ObjectNamePart, Query, Select, SelectItem, SetExpr, Statement,
+        TableFactor, TableWithJoins, Value, With,
     };
     use sqlparser::ast::visit_expressions;
     use std::ops::ControlFlow;
@@ -1329,10 +1330,86 @@ mod rewriter {
             }
         }
 
+        /// Whether the sub-query's scalar value is a counting aggregate.
+        ///
+        /// `count` is the one aggregate whose value over an empty set is not
+        /// NULL - `PostgreSQL` answers 0, while `max`, `min` and `string_agg`
+        /// all answer NULL. That difference is invisible until the sub-query
+        /// matches nothing, which is exactly when the LEFT JOIN below supplies
+        /// a NULL of its own.
+        ///
+        /// Only a BARE count counts. `count(*) + 1` over an empty set is 1 in
+        /// `PostgreSQL`, and coalescing the join's NULL to 0 would not produce
+        /// that - the whole expression would need evaluating against an empty
+        /// input, which lifting the sub-query has already given up. Narrow on
+        /// purpose: it leaves that shape exactly as wrong as it was rather than
+        /// making it wrong in a new way.
+        fn projects_a_counting_aggregate(info: &CorrelatedInfo) -> bool {
+            /// The expression a projection item computes, without parentheses.
+            fn unwrapped(expr: &Expr) -> &Expr {
+                match expr {
+                    Expr::Nested(inner) => unwrapped(inner),
+                    other => other,
+                }
+            }
+
+            let SetExpr::Select(select) = info.subquery.body.as_ref() else {
+                return false;
+            };
+            let Some(
+                SelectItem::UnnamedExpr(projected)
+                | SelectItem::ExprWithAlias {
+                    expr: projected, ..
+                },
+            ) = select.projection.first()
+            else {
+                return false;
+            };
+            let Expr::Function(function) = unwrapped(projected) else {
+                return false;
+            };
+            function
+                .name
+                .0
+                .last()
+                .and_then(ObjectNamePart::as_ident)
+                .is_some_and(|ident| ident.value.eq_ignore_ascii_case("count"))
+        }
+
         /// The expression that takes the sub-query's place in the projection:
         /// `__cteN.col`, the alias `push_cte` gave the scalar value.
+        ///
+        /// Wrapped in `coalesce(..., 0)` for a counting aggregate. The LEFT JOIN
+        /// gives an outer row that matched nothing a NULL, which is the right
+        /// answer for `max` and the wrong one for `count`: `PostgreSQL` counts
+        /// an empty set as 0. Without this, a schema with no relations reported
+        /// NULL where `PostgreSQL` reports 0 - a silent wrong answer in one of
+        /// the most common catalog shapes there is, counting children per
+        /// parent.
         fn make_cte_column_ref(info: &CorrelatedInfo) -> Expr {
-            Expr::CompoundIdentifier(vec![info.cte_ident.clone(), Ident::new("col")])
+            let column = Expr::CompoundIdentifier(vec![info.cte_ident.clone(), Ident::new("col")]);
+            if !Self::projects_a_counting_aggregate(info) {
+                return column;
+            }
+            Expr::Function(Function {
+                name: ObjectName(vec![ObjectNamePart::Identifier(Ident::new("coalesce"))]),
+                args: FunctionArguments::List(FunctionArgumentList {
+                    duplicate_treatment: None,
+                    clauses: vec![],
+                    args: vec![
+                        FunctionArg::Unnamed(FunctionArgExpr::Expr(column)),
+                        FunctionArg::Unnamed(FunctionArgExpr::Expr(Expr::Value(
+                            Value::Number("0".to_string(), false).into(),
+                        ))),
+                    ],
+                }),
+                over: None,
+                filter: None,
+                within_group: vec![],
+                null_treatment: None,
+                parameters: FunctionArguments::None,
+                uses_odbc_syntax: false,
+            })
         }
 
         /// Build the LEFT JOIN onto `alias`, its ON clause being every
