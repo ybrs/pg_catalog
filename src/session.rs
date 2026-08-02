@@ -857,6 +857,125 @@ async fn plan_collect_and_rename(
     Ok((results, schema))
 }
 
+/// Read one bound parameter's wire bytes as the `ScalarValue` the planner binds.
+///
+/// `position` is the parameter's 1-based number, so an error names `$1` the way
+/// the client wrote it.
+///
+/// Every failure here is a REPORTED error rather than a panic, which is the
+/// point of the function existing: this decodes bytes a client chose, and the
+/// previous inline version unwrapped every width and every UTF-8 decode and
+/// called `panic!` for any type it did not know. Binding an ordinary `float8`,
+/// `bool` or `bytea` parameter - which psycopg does without being asked - took
+/// the connection down with it.
+///
+/// # Errors
+///
+/// Returns `DataFusionError::Plan` when the bytes are not the width the type
+/// declares, when a text parameter is not valid UTF-8, or when the type is one
+/// this catalog cannot bind.
+///
+/// `bytea` is deliberately in that last group even though a `ScalarValue` for
+/// it exists. Neither `arrow_to_pg_type` nor `encode_column_value` handles
+/// `Binary`, so binding one only moves the failure to the encoder, which would
+/// send the literal text `[unsupported Binary]` under whatever type the
+/// description claimed. Reporting it here is the honest answer until the
+/// encoder can carry it back.
+fn bind_parameter_as_scalar(
+    bytes: Option<&[u8]>,
+    declared_type: &Type,
+    position: usize,
+) -> datafusion::error::Result<ScalarValue> {
+    /// Read a fixed-width parameter, naming what arrived when the width is wrong.
+    ///
+    /// A wrong width is most often a client that sent this parameter in TEXT
+    /// format: nothing here reads Bind's per-parameter format codes, so a text
+    /// `1` arrives as one byte where a binary int4 would be four. The message
+    /// says so, because "invalid width" alone sends the reader looking in the
+    /// wrong place.
+    fn fixed_width<const N: usize>(
+        bytes: &[u8],
+        position: usize,
+        type_name: &str,
+    ) -> datafusion::error::Result<[u8; N]> {
+        bytes.try_into().map_err(|_| {
+            DataFusionError::Plan(format!(
+                "parameter ${position} declared {type_name} arrived as {} bytes, not {N}; \
+                 a parameter sent in text format rather than binary looks like this",
+                bytes.len()
+            ))
+        })
+    }
+
+    let Some(bytes) = bytes else {
+        // A NULL still has to carry its type, so the planner binds the same
+        // type it would have bound for a value.
+        return Ok(match *declared_type {
+            Type::INT2 => ScalarValue::Int16(None),
+            // OID binds as Int64 for the same reason the value arm below does,
+            // so a NULL oid must carry the same type.
+            Type::INT8 | Type::OID => ScalarValue::Int64(None),
+            Type::INT4 => ScalarValue::Int32(None),
+            Type::FLOAT4 => ScalarValue::Float32(None),
+            Type::FLOAT8 => ScalarValue::Float64(None),
+            Type::BOOL => ScalarValue::Boolean(None),
+            Type::VARCHAR | Type::TEXT | Type::BPCHAR | Type::NAME | Type::UNKNOWN => {
+                ScalarValue::Utf8(None)
+            }
+            ref unsupported => {
+                return Err(DataFusionError::Plan(format!(
+                    "parameter ${position} has type {unsupported}, which this catalog cannot bind"
+                )))
+            }
+        });
+    };
+
+    Ok(match *declared_type {
+        Type::INT2 => ScalarValue::Int16(Some(i16::from_be_bytes(fixed_width(
+            bytes, position, "int2",
+        )?))),
+        Type::INT4 => ScalarValue::Int32(Some(i32::from_be_bytes(fixed_width(
+            bytes, position, "int4",
+        )?))),
+        Type::INT8 => ScalarValue::Int64(Some(i64::from_be_bytes(fixed_width(
+            bytes, position, "int8",
+        )?))),
+        // OID values are 32-bit unsigned integers. We map them to BIGINT to
+        // align with `rewrite_oid_cast`, which rewrites `::oid` casts on
+        // parameters to BIGINT.
+        Type::OID => ScalarValue::Int64(Some(i64::from(u32::from_be_bytes(fixed_width(
+            bytes, position, "oid",
+        )?)))),
+        Type::FLOAT4 => ScalarValue::Float32(Some(f32::from_be_bytes(fixed_width(
+            bytes, position, "float4",
+        )?))),
+        Type::FLOAT8 => ScalarValue::Float64(Some(f64::from_be_bytes(fixed_width(
+            bytes, position, "float8",
+        )?))),
+        // One byte, zero or non-zero, as the binary wire format defines it.
+        Type::BOOL => match bytes {
+            [b] => ScalarValue::Boolean(Some(*b != 0)),
+            _ => {
+                return Err(DataFusionError::Plan(format!(
+                    "parameter ${position} declared bool arrived as {} bytes, not 1",
+                    bytes.len()
+                )))
+            }
+        },
+        Type::VARCHAR | Type::TEXT | Type::BPCHAR | Type::NAME | Type::UNKNOWN => {
+            let text = std::str::from_utf8(bytes).map_err(|error| {
+                DataFusionError::Plan(format!("parameter ${position} is not valid UTF-8: {error}"))
+            })?;
+            ScalarValue::Utf8(Some(text.to_string()))
+        }
+        ref unsupported => {
+            return Err(DataFusionError::Plan(format!(
+                "parameter ${position} has type {unsupported}, which this catalog cannot bind"
+            )))
+        }
+    })
+}
+
 /// Rewrite a client's `PostgreSQL` statement into SQL `DataFusion` can plan, run
 /// it on `ctx`, and return the result batches with the schema the client expects.
 ///
@@ -870,14 +989,9 @@ async fn plan_collect_and_rename(
 /// # Errors
 ///
 /// Returns an error if a rewrite pass cannot parse the statement, or if planning,
-/// parameter binding, or execution fails.
-///
-/// # Panics
-///
-/// Panics if a bound parameter cannot be decoded as its declared type: a
-/// fixed-width integer type whose value is not that many bytes wide, a text type
-/// whose bytes are not UTF-8, or a `PostgreSQL` type this crate has no mapping
-/// for yet. These are protocol-level mismatches from the client, not query errors.
+/// parameter binding, or execution fails. A parameter that cannot be decoded as
+/// its declared type is reported here rather than aborting the connection; see
+/// [`bind_parameter_as_scalar`].
 pub async fn rewrite_and_execute_sql(
     ctx: &SessionContext,
     sql: &str,
@@ -918,59 +1032,23 @@ pub async fn rewrite_and_execute_sql(
     // EXISTS it emits stays a native WHERE predicate.
     let sql = rewrite_tuple_in_subquery_to_exists(&sql)?;
 
-    let scalars: Option<Vec<ScalarValue>> = if let (Some(params), Some(types)) =
-        (param_values, param_types)
-    {
-        log::debug!("params {params:?}");
-        print_params(&params);
+    let scalars: Option<Vec<ScalarValue>> =
+        if let (Some(params), Some(types)) = (param_values, param_types) {
+            log::debug!("params {params:?}");
+            print_params(&params);
 
-        let mut scalars = Vec::new();
-        for (param, typ) in params.into_iter().zip(types) {
-            let value = match (param, typ) {
-                (Some(bytes), Type::INT2) => {
-                    let v = i16::from_be_bytes(bytes[..].try_into().unwrap());
-                    ScalarValue::Int16(Some(v))
-                }
-                (Some(bytes), Type::INT8) => {
-                    let v = i64::from_be_bytes(bytes[..].try_into().unwrap());
-                    ScalarValue::Int64(Some(v))
-                }
-                (Some(bytes), Type::INT4) => {
-                    let v = i32::from_be_bytes(bytes[..].try_into().unwrap());
-                    ScalarValue::Int32(Some(v))
-                }
-                (Some(bytes), Type::OID) => {
-                    // OID values are 32-bit unsigned integers. We map them to
-                    // BIGINT to align with `rewrite_oid_cast`, which rewrites
-                    // `::oid` casts on parameters to BIGINT.
-                    let v = u32::from_be_bytes(bytes[..].try_into().unwrap());
-                    ScalarValue::Int64(Some(i64::from(v)))
-                }
-                (
-                    Some(bytes),
-                    Type::VARCHAR | Type::TEXT | Type::BPCHAR | Type::NAME | Type::UNKNOWN,
-                ) => {
-                    let s = String::from_utf8(bytes.to_vec()).unwrap();
-                    ScalarValue::Utf8(Some(s))
-                }
-                (None, Type::INT2) => ScalarValue::Int16(None),
-                // OID binds as Int64 for the same reason the non-NULL arm above
-                // does, so a NULL oid must carry the same type.
-                (None, Type::INT8 | Type::OID) => ScalarValue::Int64(None),
-                (None, Type::INT4) => ScalarValue::Int32(None),
-                (None, Type::VARCHAR | Type::TEXT | Type::BPCHAR | Type::NAME | Type::UNKNOWN) => {
-                    ScalarValue::Utf8(None)
-                }
-                (param_bytes, unsupported_type) => {
-                    panic!("unsupported param {param_bytes:?} type {unsupported_type:?}");
-                }
-            };
-            scalars.push(value);
-        }
-        Some(scalars)
-    } else {
-        None
-    };
+            let mut scalars = Vec::new();
+            for (position, (param, typ)) in params.into_iter().zip(types).enumerate() {
+                scalars.push(bind_parameter_as_scalar(
+                    param.as_deref(),
+                    &typ,
+                    position + 1,
+                )?);
+            }
+            Some(scalars)
+        } else {
+            None
+        };
 
     let (results, schema) = plan_collect_and_rename(ctx, &sql, scalars, &aliases).await?;
 
