@@ -127,146 +127,64 @@ fn parse_sql(sql: &str) -> Result<Statement> {
         .ok_or_else(|| DataFusionError::Plan("Empty SQL string".into()))
 }
 
-/////////////////////////////////////////////////////////////////
-/// Read-only inspection of a statement's projection list: which scalar
-/// sub-queries does it contain? Kept separate from the rewriter so the shape
-/// of a query can be asserted without mutating it.
-/////////////////////////////////////////////////////////////////
-mod visitor {
-    use super::{
-        CaseWhen, Expr, FunctionArg, FunctionArgExpr, FunctionArguments, Query, Select, SelectItem,
-        SetExpr, Statement,
-    };
-
-    /// Read-only walker that records every scalar sub-query appearing
-    /// *directly* inside the projection list.
-    ///
-    /// Nothing in the rewriting path consumes it - the mutating rewriter finds
-    /// its own sub-queries - so it is only reachable from the unit tests, which
-    /// use it to assert which sub-queries a projection exposes.
-    #[allow(dead_code)]
-    #[derive(Default, Debug)]
-    pub struct ScalarFinder {
-        /// Every scalar sub-query expression found in the projection list,
-        /// cloned in the order they were encountered.
-        pub scalars: Vec<Expr>,
-    }
-
-    #[allow(dead_code)]
-    impl ScalarFinder {
-        /// Walk `stmt` and return a finder holding every scalar sub-query
-        /// found in its projection list.
-        pub fn find(stmt: &Statement) -> Self {
-            let mut this = Self::default();
-            this.visit_statement(stmt);
-            this
-        }
-
-        /* ------- recursive helpers ------- */
-
-        /// Descend into the query of a `SELECT` statement; other statement
-        /// kinds cannot hold a projection and are skipped.
-        fn visit_statement(&mut self, stmt: &Statement) {
-            if let Statement::Query(q) = stmt {
-                self.visit_query(q);
-            }
-        }
-
-        /// Descend into a query's `SELECT` body.
-        fn visit_query(&mut self, query: &Query) {
-            if let SetExpr::Select(select) = query.body.as_ref() {
-                self.visit_select(select);
-            }
-            // UNION / INTERSECT -> ignored for now
-        }
-
-        /// Visit every projection expression of a `SELECT`, aliased or not.
-        fn visit_select(&mut self, select: &Select) {
-            for item in &select.projection {
-                match item {
-                    //  SELECT (subq)               ...
-                    SelectItem::UnnamedExpr(expr)
-                    //  SELECT (subq) AS alias      ...
-                    | SelectItem::ExprWithAlias { expr, .. } => {
-                        self.visit_expr(expr);
-                    }
-                    _ => {} // Column*, Qualified*, Wildcard, etc.
-                }
-            }
-        }
-
-        /// Record `expr` if it is a sub-query, otherwise recurse into the
-        /// expression shapes that can wrap one.
-        fn visit_expr(&mut self, expr: &Expr) {
-            match expr {
-                // scalar sub-query and EXISTS both count as a sub-query here
-                Expr::Subquery(_) | Expr::Exists { .. } => self.scalars.push(expr.clone()),
-
-                Expr::Function(func) => {
-                    if let FunctionArguments::List(list) = &func.args {
-                        for arg in &list.args {
-                            match arg {
-                                // unnamed argument
-                                FunctionArg::Unnamed(FunctionArgExpr::Expr(expr_box))
-                                // named argument ( ..., name := <expr> )
-                                | FunctionArg::Named {
-                                    arg: FunctionArgExpr::Expr(expr_box),
-                                    ..
-                                } => {
-                                    // `expr_box` is `&Box<Expr>` - just pass it
-                                    self.visit_expr(expr_box);
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
-                }
-
-                // Binary
-                Expr::BinaryOp { left, right, .. } => {
-                    self.visit_expr(left);
-                    self.visit_expr(right);
-                }
-
-                // Nested
-                Expr::Nested(e) => self.visit_expr(e),
-
-                Expr::Case {
-                    operand,
-                    conditions,
-                    else_result,
-                    ..
-                } => {
-                    if let Some(op) = operand {
-                        self.visit_expr(op);
-                    }
-
-                    // walk WHEN ... THEN ... pairs
-                    for CaseWhen { condition, result } in conditions {
-                        self.visit_expr(condition);
-                        self.visit_expr(result);
-                    }
-
-                    if let Some(er) = else_result {
-                        self.visit_expr(er);
-                    }
-                }
-
-                // CAST (only one variant in this sqlparser version) and unary
-                // operators both wrap a single operand
-                Expr::Cast { expr, .. } | Expr::UnaryOp { expr, .. } => self.visit_expr(expr),
-
-                // everything else - literals / idents etc.
-                _ => {}
-            }
-        }
-    }
-}
-
 ////////////////////////////////////////////////////////////////
 /// Mutating rewriter: turns each correlated scalar sub-query into a CTE plus
 /// a LEFT JOIN, so the plan `DataFusion` receives holds no correlation at all.
 ////////////////////////////////////////////////////////////////
+/// The function names this crate treats as aggregates.
+///
+/// Shared, because two rewriters need it and a name missing from either is a
+/// defect - though of OPPOSITE kinds, which is why it is worth one list:
+///
+/// - `scalar_to_cte` consults it to decide whether a lifted CTE needs a GROUP
+///   BY. A missing name means no GROUP BY is injected and the CTE is rejected at
+///   planning. That is how a correlated `string_agg` broke psql's `\d`.
+/// - `replace::contains_aggregate_call` consults it to VETO the
+///   correlated-LIMIT-1 rewrite. A missing name means the rewrite fires on a
+///   projection that already aggregates, and the query stops planning: before
+///   this list was shared, `(SELECT stddev(x) FROM t WHERE t.k = o.k LIMIT 1)`
+///   failed while `(SELECT count(*) ...)` worked, purely because one name was
+///   listed and the other was not.
+///
+/// It holds `PostgreSQL`'s general-purpose and statistical aggregates rather
+/// than only the ones some query has needed so far, so the next catalog query to
+/// use one does not fail either way. `array` and `pg_get_array` are here because
+/// the ARRAY sub-query rewrite turns `ARRAY(...)` into an aggregate over the
+/// lifted rows.
+pub(crate) const AGGREGATE_FUNCTION_NAMES: &[&str] = &[
+    "array",
+    "array_agg",
+    "avg",
+    "bit_and",
+    "bit_or",
+    "bit_xor",
+    "bool_and",
+    "bool_or",
+    "corr",
+    "count",
+    "covar_pop",
+    "covar_samp",
+    "every",
+    "json_agg",
+    "json_object_agg",
+    "jsonb_agg",
+    "jsonb_object_agg",
+    "max",
+    "min",
+    "pg_get_array",
+    "range_agg",
+    "range_intersect_agg",
+    "stddev",
+    "stddev_pop",
+    "stddev_samp",
+    "string_agg",
+    "sum",
+    "var_pop",
+    "var_samp",
+    "variance",
+    "xmlagg",
+];
+
 mod rewriter {
     use super::{
         BinaryOperator, CaseWhen, Cte, Expr, FunctionArg, FunctionArgExpr, FunctionArguments,
@@ -600,56 +518,6 @@ mod rewriter {
             found
         }
 
-        /// The function names this rewriter treats as aggregates.
-        ///
-        /// It has to recognise an aggregate to know that the other columns in
-        /// the same projection need a GROUP BY. A name missing from this list
-        /// is not a harmless omission: the projection then looks like plain
-        /// columns, no GROUP BY is injected, and the CTE this rewriter emits is
-        /// rejected at planning with "column ... must appear in the GROUP BY
-        /// clause". That is exactly how `string_agg` - which psql's `\d` uses
-        /// to list a publication's columns - went unhandled.
-        ///
-        /// Kept as a list because this pass has no `SessionContext` to ask, and
-        /// it holds `PostgreSQL`'s general-purpose and statistical aggregates
-        /// rather than only the ones a query has needed so far, so the next
-        /// catalog query to use one does not fail the same way. `array` and
-        /// `pg_get_array` are here because the ARRAY sub-query rewrite turns
-        /// `ARRAY(...)` into an aggregate over the lifted rows.
-        const AGGREGATE_FUNCTION_NAMES: &[&str] = &[
-            "array",
-            "array_agg",
-            "avg",
-            "bit_and",
-            "bit_or",
-            "bit_xor",
-            "bool_and",
-            "bool_or",
-            "corr",
-            "count",
-            "covar_pop",
-            "covar_samp",
-            "every",
-            "json_agg",
-            "json_object_agg",
-            "jsonb_agg",
-            "jsonb_object_agg",
-            "max",
-            "min",
-            "pg_get_array",
-            "range_agg",
-            "range_intersect_agg",
-            "stddev",
-            "stddev_pop",
-            "stddev_samp",
-            "string_agg",
-            "sum",
-            "var_pop",
-            "var_samp",
-            "variance",
-            "xmlagg",
-        ];
-
         /// Walk an expression tree and report what a GROUP BY would need:
         ///
         /// * `has_aggr` - set when any aggregate function was seen,
@@ -677,7 +545,7 @@ mod rewriter {
                         .unwrap_or_default();
 
                     // is this an aggregate we need to regard specially?
-                    let is_aggr = Self::AGGREGATE_FUNCTION_NAMES.contains(&base_name.as_str());
+                    let is_aggr = super::AGGREGATE_FUNCTION_NAMES.contains(&base_name.as_str());
 
                     if is_aggr {
                         *has_aggr = true;
@@ -1770,7 +1638,6 @@ mod rewriter {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use visitor::ScalarFinder;
 
     /// A statement holding no sub-query comes back unchanged and reports
     /// nothing converted.
@@ -1796,22 +1663,6 @@ mod tests {
             !out.to_uppercase().contains("GROUP BY"),
             "no GROUP BY injected for a null-test projection: {out}"
         );
-    }
-
-    /// `ScalarFinder` reports every sub-query of a projection, correlated or
-    /// not, and ignores the plain columns around them.
-    #[test]
-    fn visitor_finds_two_scalars() -> Result<()> {
-        let sql = r"
-            SELECT
-              a,
-              (SELECT max(b) FROM t2) AS s1,
-              (SELECT count(*) FROM t3 WHERE t3.x = t1.x) AS s2
-            FROM t1";
-        let stmt = parse_sql(sql)?;
-        let finder = ScalarFinder::find(&stmt);
-        assert_eq!(finder.scalars.len(), 2);
-        Ok(())
     }
 
     /// A scalar sub-query in a UNION branch lifts into a CTE on the enclosing

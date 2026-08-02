@@ -1153,18 +1153,12 @@ fn contains_aggregate_call(expr: &sqlparser::ast::Expr) -> bool {
     use sqlparser::ast::{visit_expressions, Expr, ObjectNamePart};
     use std::ops::ControlFlow;
 
-    /// The aggregate function names a projection can be built from.
-    const AGGREGATES: &[&str] = &[
-        "min",
-        "max",
-        "sum",
-        "count",
-        "avg",
-        "array_agg",
-        "string_agg",
-        "bool_and",
-        "bool_or",
-    ];
+    // The shared list, not a local one. This is a VETO: a name missing here
+    // lets the correlated-LIMIT-1 rewrite fire on a projection that already
+    // aggregates, and the query then fails to plan. With a local nine-name list
+    // `(SELECT stddev(x) FROM t WHERE t.k = o.k LIMIT 1)` failed and
+    // `(SELECT count(*) ...)` worked, purely because one was listed.
+    use crate::scalar_to_cte::AGGREGATE_FUNCTION_NAMES as AGGREGATES;
 
     let mut found = false;
     let _ = visit_expressions(expr, |e| {
@@ -2481,6 +2475,20 @@ fn compound_reference_qualifier(e: &Expr) -> Option<&str> {
 /// Deliberately narrower than [`contains_aggregate_call`]: this decides whether
 /// a LATERAL subquery may be turned into a grouped join, so it only recognises
 /// the aggregate spellings the catalog views actually join on.
+/// Whether `e` computes an aggregate, for the purpose of TRIGGERING the
+/// lateral-aggregate decorrelation.
+///
+/// Deliberately NOT the shared `AGGREGATE_FUNCTION_NAMES` that
+/// [`contains_aggregate_call`] uses, and the asymmetry is the point. That one is
+/// a veto, so a name missing from it lets a rewrite fire when it must not and
+/// the query stops planning. This one is a trigger, so a name missing from it
+/// only means a decorrelation that could have happened did not - and the
+/// correlated form still answers. Probed against a live server: a LATERAL
+/// `string_agg`, `bool_or`, `count` and `max` all return correct rows, whether
+/// or not this fires.
+///
+/// So widening this list is a behaviour change - more queries rewritten - with
+/// no failure demonstrating the need. It stays narrow until one is found.
 fn expression_computes_aggregate(e: &Expr) -> bool {
     match e {
         Expr::Function(f) => {

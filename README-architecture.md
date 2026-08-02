@@ -269,12 +269,12 @@ theme:
 Converts correlated scalar subqueries in the projection into `WITH` CTEs that are
 `LEFT JOIN`ed back to the outer query, removing the correlation barrier so
 DataFusion's optimizer can see the join. `rewrite_scalar_subqueries_to_ctes` is
-the entry point (`rewrite_subquery_as_cte` is the convenience wrapper used by the
-pipeline). Internally a read-only `ScalarFinder` collects scalar subqueries in the
-projection, then a mutating `ScalarToCte` rewriter extracts correlation
-predicates, builds the CTE (auto-injecting `GROUP BY` when it mixes aggregates and
-grouping columns), and replaces each projection expression with a reference to the
-CTE column.
+the entry point; `rewrite_subquery_as_cte` is a convenience wrapper that panics
+rather than returning, so it is for callers that already know their SQL parses -
+the pipeline itself uses the `Result` form. The mutating `ScalarToCte` rewriter
+finds each scalar subquery, extracts its correlation predicates, builds the CTE
+(auto-injecting `GROUP BY` when it mixes aggregates and grouping columns), and
+replaces each projection expression with a reference to the CTE column.
 
 ### 6.3 clean_duplicate_columns.rs
 Ensures projection column names are unique so the DataFusion optimizer does not
