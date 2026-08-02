@@ -145,8 +145,16 @@ fn alias_columns_in_set_expr(
             alias_columns_in_set_expr(left, counter, alias_map, depth);
             alias_columns_in_set_expr(right, counter, alias_map, depth);
         }
+        // Same depth, NOT depth + 1: this is a parenthesised body, not a
+        // derived table. sqlparser wraps `(SELECT 1)` in SetExpr::Query, so
+        // raising the depth here pushed the client's own projection past the
+        // `depth == 0` guard above and left it unaliased - `(SELECT 1)` came
+        // back named `Int64(1)` and `(SELECT 1 + 1)` named
+        // `Int64(1) + Int64(1)`, DataFusion's internal expression names, where
+        // PostgreSQL says `?column?`. Parentheses do not introduce a scope, and
+        // the SetOperation arm above already treats its branches this way.
         SetExpr::Query(subquery) => {
-            alias_columns_in_query(subquery, counter, alias_map, depth + 1);
+            alias_columns_in_query(subquery, counter, alias_map, depth);
         }
         _ => {}
     }

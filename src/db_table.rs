@@ -2,7 +2,7 @@
 // tests can inspect which tables and columns were accessed. Also maps
 // PostgreSQL type names to Arrow types.
 
-use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
+use arrow::datatypes::{DataType, Field, SchemaRef};
 use arrow::record_batch::RecordBatch;
 use async_trait::async_trait;
 use datafusion::catalog::Session;
@@ -65,34 +65,6 @@ pub fn map_pg_type(pg_type: &str) -> DataType {
     }
 }
 
-/// Gives a recorded scan a schema to look column names up in.
-///
-/// A [`ScanTrace`] keeps column names and type names as plain strings rather
-/// than holding a `SchemaRef`, so the schema is rebuilt on demand when a
-/// projection index has to be resolved back to a column name.
-trait SchemaAccess {
-    /// Build the Arrow schema described by this value.
-    fn schema(&self) -> SchemaRef;
-}
-
-impl SchemaAccess for ScanTrace {
-    /// Rebuild a schema from the recorded column names, in the order they are
-    /// stored in `column_types`.
-    ///
-    /// Only the field names are consumed by callers; the field types are
-    /// whatever [`map_pg_type`] makes of the recorded type name, which is an
-    /// Arrow type name rather than a `PostgreSQL` one, so they are indicative
-    /// only.
-    fn schema(&self) -> SchemaRef {
-        Arc::new(Schema::new(
-            self.column_types
-                .iter()
-                .map(|(name, pg_type)| Field::new(name, map_pg_type(pg_type), true))
-                .collect::<Vec<_>>(),
-        ))
-    }
-}
-
 /// One recorded scan of a catalog table: which table was read, which columns
 /// were projected, and which filters were pushed down.
 ///
@@ -109,6 +81,15 @@ pub struct ScanTrace {
     /// Column name -> Arrow type name of the scanned table, kept in a `BTreeMap`
     /// so the recorded trace has a stable, name-sorted order across runs.
     column_types: BTreeMap<String, String>,
+    /// The scanned table's column names in DECLARATION order, which is what
+    /// `projection` indexes into.
+    ///
+    /// Kept separately from `column_types` precisely because that map is
+    /// name-sorted: resolving a projection index against the sorted order named
+    /// a different column whenever the two orders disagree, which for a catalog
+    /// table is most of the time - the six pseudo-columns (`ctid`, `xmin`, ...)
+    /// are appended after the declared ones rather than sorted among them.
+    column_names: Vec<String>,
 }
 
 /// An in-memory table provider that appends a [`ScanTrace`] to a shared log on
@@ -208,12 +189,19 @@ impl TableProvider for ScanRecordingMemTable {
         for field in self.schema.fields() {
             column_types.insert(field.name().clone(), field.data_type().to_string());
         }
+        let column_names = self
+            .schema
+            .fields()
+            .iter()
+            .map(|field| field.name().clone())
+            .collect();
 
         self.scan_traces.lock().unwrap().push(ScanTrace {
             table: self.table_name.clone(),
             projection: projection.cloned(),
             filters: filters.to_vec(),
             column_types,
+            column_names,
         });
 
         self.mem.scan(state, projection, filters, limit).await
@@ -288,9 +276,9 @@ pub fn log_scan_traces(scan_traces: &Arc<Mutex<Vec<ScanTrace>>>) {
             let columns: Vec<_> = match &trace.projection {
                 Some(projected) => projected
                     .iter()
-                    .map(|i| trace.schema().field(*i).name().clone())
+                    .filter_map(|i| trace.column_names.get(*i).cloned())
                     .collect(),
-                None => trace.column_types.keys().cloned().collect(),
+                None => trace.column_names.clone(),
             };
             json!({
                 "table": trace.table,

@@ -2371,10 +2371,6 @@ async fn register_pg_compatibility_functions(
     register_scalar_pg_type_oid(ctx)?;
     register_scalar_pg_tablespace_location(ctx)?;
     register_scalar_format_type(ctx).await?;
-    ctx.register_udtf(
-        "regclass_oid",
-        Arc::new(crate::user_functions::RegClassOidFunc),
-    );
 
     register_current_schema(ctx)?;
     register_current_schemas(ctx)?;

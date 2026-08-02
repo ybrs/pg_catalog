@@ -113,24 +113,25 @@ async fn run() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Start the async runtime and run the server, logging a crash instead of propagating it.
+/// Start the async runtime and run the server, reporting a crash as a non-zero exit.
 ///
-/// A failure is logged rather than returned so the process exits 0 after printing the
-/// cause, which keeps the message visible instead of letting the runtime print a bare
-/// `Error: ...` debug dump.
+/// The failure is logged for a readable message AND the process exits non-zero,
+/// because those are two different audiences. Logging alone is what this did
+/// before, and it meant a supervisor - systemd, a container runtime, a shell
+/// `&&` - saw a clean shutdown from a server that had crashed, and would not
+/// restart it.
 ///
-/// # Errors
-///
-/// Never returns an error: [`run`]'s failure is logged and swallowed. The `Result`
-/// return type is kept so `?` stays available inside `main`.
+/// [`std::process::exit`] rather than returning the error, so the operator still
+/// gets the logged message rather than the runtime's bare `Error: ...` debug
+/// dump on top of it.
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() {
     env_logger::init();
 
     if let Err(e) = run().await {
         log::error!("server crashed: {e:?}");
+        std::process::exit(1);
     }
-    Ok(())
 }
 
 #[cfg(test)]
