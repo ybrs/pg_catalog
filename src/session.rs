@@ -1531,7 +1531,13 @@ fn parse_schema_zip_reader<R: std::io::Read + std::io::Seek>(
     let mut all = HashMap::new();
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i).expect("Invalid zip entry");
-        if !has_extension(entry.name(), "yaml") {
+        // zip 9 reports an unreadable entry name as an error rather than
+        // returning it, so it fails here like any other invalid entry.
+        let entry_name = entry
+            .name()
+            .unwrap_or_else(|error| panic!("zip entry {i} has an unreadable name: {error}"))
+            .to_string();
+        if !has_extension(&entry_name, "yaml") {
             continue;
         }
         let mut contents = String::new();
@@ -1699,10 +1705,15 @@ fn parse_schema_ipc_bytes(
         let mut entry = archive
             .by_index(i)
             .unwrap_or_else(|e| panic!("embedded catalog entry {i} of {entry_count}: {e}"));
-        if !has_extension(entry.name(), "arrow") {
+        // zip 9 reports an unreadable entry name as an error rather than
+        // returning it, so it fails here like any other invalid entry.
+        let entry_name = entry
+            .name()
+            .unwrap_or_else(|error| panic!("zip entry {i} has an unreadable name: {error}"))
+            .to_string();
+        if !has_extension(&entry_name, "arrow") {
             continue;
         }
-        let entry_name = entry.name().to_string();
         let declared_size = entry.size();
         let mut buf: Vec<u8> = Vec::new();
         if let Err(e) = entry.read_to_end(&mut buf) {

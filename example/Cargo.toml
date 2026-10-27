@@ -5,11 +5,11 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0.102"
-arrow = "58.3.0"
+arrow = "59.3.2"
 # Must track the parent crate's datafusion (Cargo.toml at the repo root).
 # The two are linked into one binary, so a version skew makes DataFusionError
 # and every other shared type two distinct types and the example stops building.
-datafusion = "54.0.0"
+datafusion = "55.2.0"
 # The LOCAL crate, not the published one. Building against the git version meant
 # this example compiled a different library than the one in this tree: it still
 # called get_base_session_context with a fourth argument the local signature

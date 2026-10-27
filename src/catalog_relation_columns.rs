@@ -119,7 +119,19 @@ fn read_relation_columns_from_embedded_catalog(
                 continue;
             }
         };
-        let entry_name = entry.name().to_string();
+        // zip 9 reports an unreadable entry name instead of returning a
+        // placeholder, so it is handled like any other unreadable entry:
+        // logged and skipped, never silently dropped.
+        let entry_name = match entry.name() {
+            Ok(name) => name.to_string(),
+            Err(error) => {
+                log::error!(
+                    "embedded catalog entry {index} of {entry_count} has an unreadable name: {error}; \
+                     its relation is missing from the column map for the life of this process"
+                );
+                continue;
+            }
+        };
         let stream = match StreamReader::try_new(&mut entry, None) {
             Ok(stream) => stream,
             Err(error) => {
