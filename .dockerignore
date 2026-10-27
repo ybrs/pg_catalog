@@ -1,0 +1,9 @@
+target/
+.venv/
+.git/
+example/
+example-lazycatalog/
+postgres-17/
+postgres-data/
+captures/
+__pycache__/

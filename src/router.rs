@@ -19,6 +19,7 @@ use datafusion::execution::FunctionRegistry;
 use log::debug;
 
 use crate::session::{execute_sql, ClientOpts};
+use crate::session_identity_spellings::normalize_session_identity_spellings;
 use bytes::Bytes;
 use pgwire::api::Type;
 
@@ -302,12 +303,166 @@ fn query_has_catalog(ctx: &SessionContext, query: &Query) -> bool {
     false
 }
 
+/// The session variables a client may set over the wire, all stored in
+/// [`ClientOpts`].
+///
+/// `session_user` is deliberately NOT here even though [`ClientOpts`] stores
+/// it: the host's authentication is what says who connected, and a client
+/// that could `SET session_user` would be impersonating another role to
+/// `current_user` and every view that reads it. `extra_float_digits` IS here:
+/// drivers set it routinely at connection time, and [`ClientOpts`] accepts
+/// and ignores it.
+const WIRE_SETTABLE_SESSION_VARIABLES: &[&str] = &[
+    "application_name",
+    "datestyle",
+    "search_path",
+    "timezone",
+    "extra_float_digits",
+];
+
+/// How a statement relates to the session variables this crate stores.
+///
+/// This is the routing decision for `SET`: the embedding server asks before
+/// forwarding a statement to its host, so a `SET search_path` lands in the
+/// session's [`ClientOpts`] (and answers with a `SET` command tag) instead of
+/// reaching a host that has no such variable.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SetStatementDisposition {
+    /// A `SET` on a variable this crate stores: execute the statement against
+    /// the catalog context (the rewrite pipeline namespaces it into
+    /// [`ClientOpts`]) and answer the client with a `SET` command tag.
+    ApplyToSession,
+    /// A `SET LOCAL` on a variable this crate stores. LOCAL scopes the value
+    /// to the enclosing transaction, which this crate does not model, and
+    /// `PostgreSQL` outside a transaction warns and changes nothing - so the
+    /// faithful answer is a `SET` command tag with no effect.
+    AcknowledgeWithoutApplying,
+    /// Anything else - not a `SET`, or a `SET` on a variable this crate does
+    /// not store (the host may know it), or a role/authorization statement,
+    /// which is the host's authentication domain.
+    NotASessionSet,
+}
+
+/// Decide whether `sql` is a `SET` on a session variable this crate stores.
+///
+/// The name is matched case-insensitively like a `PostgreSQL` GUC, bare or
+/// `pg_catalog`-qualified. Only a single-statement string is classified: a
+/// multi-statement string cannot be answered with one `SET` tag, and a string
+/// that does not parse is the host's to reject, so both answer
+/// [`SetStatementDisposition::NotASessionSet`].
+#[must_use]
+pub fn classify_set_statement(sql: &str) -> SetStatementDisposition {
+    use sqlparser::ast::{ContextModifier, Set};
+
+    let dialect = PostgreSqlDialect {};
+    let Ok(statements) = Parser::parse_sql(&dialect, sql) else {
+        return SetStatementDisposition::NotASessionSet;
+    };
+    let [Statement::Set(set)] = statements.as_slice() else {
+        return SetStatementDisposition::NotASessionSet;
+    };
+
+    match set {
+        Set::SetTimeZone { local: true, .. } => SetStatementDisposition::AcknowledgeWithoutApplying,
+        Set::SetTimeZone { local: false, .. } => SetStatementDisposition::ApplyToSession,
+        Set::SingleAssignment {
+            scope, variable, ..
+        } => {
+            if !set_variable_is_wire_settable(variable) {
+                return SetStatementDisposition::NotASessionSet;
+            }
+            if matches!(scope, Some(ContextModifier::Local)) {
+                SetStatementDisposition::AcknowledgeWithoutApplying
+            } else {
+                SetStatementDisposition::ApplyToSession
+            }
+        }
+        _ => SetStatementDisposition::NotASessionSet,
+    }
+}
+
+/// Whether a `SET` variable name is one of [`WIRE_SETTABLE_SESSION_VARIABLES`],
+/// written bare (`search_path`) or qualified (`pg_catalog.search_path`).
+fn set_variable_is_wire_settable(variable: &ObjectName) -> bool {
+    let bare_name = match variable.0.as_slice() {
+        [ObjectNamePart::Identifier(name)] => name,
+        [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(name)]
+            if schema.value.eq_ignore_ascii_case("pg_catalog") =>
+        {
+            name
+        }
+        _ => return false,
+    };
+    WIRE_SETTABLE_SESSION_VARIABLES
+        .iter()
+        .any(|known| bare_name.value.eq_ignore_ascii_case(known))
+}
+
+/// The object-identifier types whose casts only the catalog can resolve.
+///
+/// `'now'::regproc` IS a catalog lookup - the literal resolves against
+/// `pg_proc` - so a statement casting to one of these is the catalog's to
+/// answer whatever else it mentions. psql's `\sf` depends on this: it
+/// resolves the function name with `SELECT '...'::pg_catalog.regproc::
+/// pg_catalog.oid` before ever calling `pg_get_functiondef`, a statement
+/// naming no catalog table or function at all, and forwarding it to the host
+/// fails on the spot (a `DuckDB` host answers "Type with name regproc does
+/// not exist"). The trade is explicit: a statement mixing a reg* cast with
+/// host tables routes to the catalog and fails on the host table - but such
+/// a statement was equally unanswerable by the host, which cannot resolve
+/// the cast.
+const OBJECT_IDENTIFIER_TYPE_NAMES: &[&str] = &[
+    "regproc",
+    "regprocedure",
+    "regclass",
+    "regtype",
+    "regoper",
+    "regoperator",
+    "regnamespace",
+    "regrole",
+    "regcollation",
+    "regconfig",
+    "regdictionary",
+];
+
+/// True when `stmt` casts anything to an object-identifier type, written bare
+/// (`::regproc`) or qualified (`::pg_catalog.regproc`).
+fn statement_casts_to_an_object_identifier_type(stmt: &Statement) -> bool {
+    use sqlparser::ast::{visit_expressions, DataType as AstDataType, Expr};
+    use std::ops::ControlFlow;
+
+    let mut found = false;
+    let _ = visit_expressions(stmt, |expr| {
+        if let Expr::Cast {
+            data_type: AstDataType::Custom(name, _),
+            ..
+        } = expr
+        {
+            let type_name = name.0.last().and_then(|part| part.as_ident());
+            if type_name.is_some_and(|ident| {
+                OBJECT_IDENTIFIER_TYPE_NAMES
+                    .iter()
+                    .any(|known| ident.value.eq_ignore_ascii_case(known))
+            }) {
+                found = true;
+                return ControlFlow::Break(());
+            }
+        }
+        ControlFlow::Continue(())
+    });
+    found
+}
+
 /// Inspect a [`Statement`] and return true if it touches catalog tables.
 fn statement_has_catalog(ctx: &SessionContext, stmt: &Statement) -> bool {
     use sqlparser::ast::{visit_expressions, Expr};
     use std::ops::ControlFlow;
 
     if matches!(stmt, Statement::Query(q) if query_has_catalog(ctx, q)) {
+        return true;
+    }
+
+    if statement_casts_to_an_object_identifier_type(stmt) {
         return true;
     }
 
@@ -345,6 +500,18 @@ fn is_catalog_query(ctx: &SessionContext, sql: &str) -> datafusion::error::Resul
 /// [`execute_sql`]. Otherwise the provided `handler` is awaited with the
 /// unmodified SQL.
 ///
+/// THE ROUTING DECISION IS MADE ON A NORMALISED COPY, not on what the client
+/// wrote. `SELECT current_role` reaches the parser as a bare column reference
+/// and `SELECT pg_catalog.current_user()` does not parse at all, so neither is
+/// recognisable as a catalog function in the form it arrives in - the first
+/// would be handed to the host and the second would fail outright, though
+/// `PostgreSQL` answers both. Normalising first makes them the calls they mean.
+///
+/// The HOST still receives the SQL exactly as the client wrote it: only the
+/// decision, and the statement executed here when the decision is "catalog", use
+/// the normalised copy. A host that recognises its own dialect should not have
+/// this crate's rewrites imposed on it.
+///
 /// # Errors
 ///
 /// Returns a `DataFusionError::Plan` if `sql` does not parse as `PostgreSQL` dialect -
@@ -363,9 +530,10 @@ where
     F: Fn(&'a SessionContext, &'a str, Option<Vec<Option<Bytes>>>, Option<Vec<Type>>) -> Fut,
     Fut: std::future::Future<Output = datafusion::error::Result<(Vec<RecordBatch>, Arc<Schema>)>>,
 {
-    if is_catalog_query(ctx, sql)? {
+    let routable = normalize_session_identity_spellings(sql)?;
+    if is_catalog_query(ctx, &routable)? {
         debug!("is_catalog_query True");
-        let qualified_sql = qualify_catalog_tables(ctx, sql)?;
+        let qualified_sql = qualify_catalog_tables(ctx, &routable)?;
         execute_sql(ctx, &qualified_sql, params, param_types).await
     } else {
         debug!("is_catalog_query False");

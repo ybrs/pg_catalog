@@ -2,14 +2,18 @@
 //!
 //! Parses CLI arguments, builds a `SessionContext` and starts the pgwire server,
 //! providing a simple way to run the `DataFusion`-backed `PostgreSQL` emulator.
+use datafusion_pg_catalog::catalog_oid_registry::{
+    CatalogOidRegistry, InMemoryCatalogOidRegistry, RedbCatalogOidRegistry,
+};
+use datafusion_pg_catalog::declared_catalog_source::DeclaredCatalogSource;
+use datafusion_pg_catalog::lazy_catalog::LazyCatalogOptions;
 use datafusion_pg_catalog::pg_catalog_helpers::ColumnDef;
-use datafusion_pg_catalog::{pg_catalog_helpers, register_user_database};
+use datafusion_pg_catalog::session::get_base_session_context_with_lazy_catalog;
 use std::collections::BTreeMap;
 use std::env;
 use std::sync::Arc;
 // use arrow::util::pretty;
 use datafusion_pg_catalog::server::start_server;
-use datafusion_pg_catalog::session::get_base_session_context;
 
 /// Build the demo server from the command line and serve it until the process ends.
 ///
@@ -71,15 +75,52 @@ async fn run() -> anyhow::Result<()> {
         .and_then(|i| args.get(i + 1))
         .cloned();
 
-    let (ctx, _log) = get_base_session_context(
+    // Where declared objects' oids are recorded so they survive restarts.
+    // Without it the demo falls back to an in-memory registry, which is
+    // deprecated: oids then restart from scratch with the process.
+    let oid_registry_path = args
+        .iter()
+        .position(|x| x == "--oid-registry")
+        .and_then(|i| args.get(i + 1))
+        .cloned();
+
+    let declared = demo_catalog(oid_registry_path)?;
+
+    let (ctx, _log) = get_base_session_context_with_lazy_catalog(
         Some(schema_path),
         default_catalog.clone(),
         default_schema.clone(),
+        Arc::new(declared),
+        LazyCatalogOptions::all(),
+        "pgtry".to_string(),
     )
     .await?;
 
-    register_user_database(&ctx, "pgtry").await?;
-    let public_oid = pg_catalog_helpers::register_schema(&ctx, "pgtry", "public").await?;
+    start_server(
+        Arc::new(ctx),
+        &address,
+        &default_catalog,
+        &default_schema,
+        capture_file.map(std::convert::Into::into),
+    )
+    .await?;
+
+    Ok(())
+}
+
+/// The demo catalog: one `pgtry` database holding one `public.users` table,
+/// declared the same way a riffq host declares its objects and served through
+/// the same lazy merge path. This binary is the retired eager API's old second
+/// consumer; both now drive one mechanism.
+///
+/// `oid_registry_path` selects where the declared objects' oids are recorded;
+/// `None` falls back to the deprecated in-memory registry, with a warning.
+///
+/// # Errors
+///
+/// Returns an error when the registry file cannot be opened or the declaration
+/// set is rejected.
+fn demo_catalog(oid_registry_path: Option<String>) -> anyhow::Result<DeclaredCatalogSource> {
     let mut c1 = BTreeMap::new();
     c1.insert(
         "id".to_string(),
@@ -98,19 +139,27 @@ async fn run() -> anyhow::Result<()> {
             has_default: false,
         },
     );
-    pg_catalog_helpers::register_user_tables(&ctx, "pgtry", public_oid, "users", vec![c1, c2])
-        .await?;
-
-    start_server(
-        Arc::new(ctx),
-        &address,
-        &default_catalog,
-        &default_schema,
-        capture_file.map(std::convert::Into::into),
-    )
-    .await?;
-
-    Ok(())
+    let registry: Box<dyn CatalogOidRegistry> = if let Some(path) = oid_registry_path {
+        Box::new(RedbCatalogOidRegistry::open(std::path::Path::new(&path))?)
+    } else {
+        log::warn!(
+            "no --oid-registry given: using the in-memory oid registry, so oids are \
+             not stable across restarts. This fallback is deprecated; pass \
+             --oid-registry <path>."
+        );
+        Box::new(InMemoryCatalogOidRegistry::new())
+    };
+    Ok(DeclaredCatalogSource::from_declarations(
+        &["pgtry".to_string()],
+        &[("pgtry".to_string(), "public".to_string())],
+        &[(
+            "pgtry".to_string(),
+            "public".to_string(),
+            "users".to_string(),
+            vec![c1, c2],
+        )],
+        registry.as_ref(),
+    )?)
 }
 
 /// Start the async runtime and run the server, reporting a crash as a non-zero exit.

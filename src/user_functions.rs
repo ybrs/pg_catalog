@@ -568,7 +568,11 @@ fn is_reserved_type_keyword(typname: &str) -> bool {
 /// Array types (whose `typname` starts with `_`) print their element type's SQL
 /// name followed by `[]`. An OID absent from `by_oid` (no such `pg_type` row)
 /// falls back to the bare OID text.
-fn format_type_name(oid: i64, typmod: Option<i64>, by_oid: &HashMap<i64, String>) -> String {
+pub(crate) fn format_type_name(
+    oid: i64,
+    typmod: Option<i64>,
+    by_oid: &HashMap<i64, String>,
+) -> String {
     match by_oid.get(&oid) {
         Some(typname) if typname.starts_with('_') => {
             format!("{}[]", sql_name_for_typname(&typname[1..], None))
@@ -580,7 +584,7 @@ fn format_type_name(oid: i64, typmod: Option<i64>, by_oid: &HashMap<i64, String>
 
 /// Read `pg_catalog.pg_type` into an `oid -> typname` map. The catalog is static
 /// once loaded, so this snapshot stays valid for the session's lifetime.
-async fn load_typname_by_oid(ctx: &SessionContext) -> Result<HashMap<i64, String>> {
+pub(crate) async fn load_typname_by_oid(ctx: &SessionContext) -> Result<HashMap<i64, String>> {
     use arrow::array::{Int64Array, StringArray};
     let mut by_oid = HashMap::new();
     let df = ctx
@@ -2642,6 +2646,210 @@ pub fn register_current_schemas(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
+/// Read `pg_catalog.pg_settings` into a name -> setting map, keyed by
+/// lowercase name so lookups match GUC names case-insensitively.
+async fn load_settings_by_lowercase_name(ctx: &SessionContext) -> Result<HashMap<String, String>> {
+    use arrow::array::StringArray;
+
+    let batches = ctx
+        .sql("SELECT name, setting FROM pg_catalog.pg_settings")
+        .await?
+        .collect()
+        .await?;
+    let mut settings_by_name: HashMap<String, String> = HashMap::new();
+    for batch in &batches {
+        let names = batch
+            .column(0)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .ok_or_else(|| {
+                DataFusionError::Internal("pg_settings.name is not a string column".to_string())
+            })?;
+        let settings = batch
+            .column(1)
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .ok_or_else(|| {
+                DataFusionError::Internal("pg_settings.setting is not a string column".to_string())
+            })?;
+        for row in 0..batch.num_rows() {
+            if names.is_null(row) || settings.is_null(row) {
+                continue;
+            }
+            settings_by_name.insert(
+                names.value(row).to_ascii_lowercase(),
+                settings.value(row).to_string(),
+            );
+        }
+    }
+    Ok(settings_by_name)
+}
+
+/// Reports a session GUC's value, erroring on unknown names unless the
+/// second argument says a missing parameter is acceptable. See
+/// [`register_scalar_current_setting`] for the two layers it answers from.
+#[derive(Debug)]
+struct CurrentSetting {
+    /// `(text)` or `(text, boolean)`, `Stable`.
+    signature: Signature,
+    /// `pg_settings` name -> setting, keyed lowercase, frozen at
+    /// registration.
+    snapshot_settings: Arc<HashMap<String, String>>,
+}
+
+impl PartialEq for CurrentSetting {
+    /// Two instances answer alike exactly when their snapshots match; the
+    /// signature is the same for every instance.
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.snapshot_settings, &other.snapshot_settings)
+    }
+}
+impl Eq for CurrentSetting {}
+impl std::hash::Hash for CurrentSetting {
+    /// Hash the snapshot's identity, matching the pointer equality above.
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        Arc::as_ptr(&self.snapshot_settings).hash(state);
+    }
+}
+
+impl ScalarUDFImpl for CurrentSetting {
+    /// The function name.
+    fn name(&self) -> &'static str {
+        "current_setting"
+    }
+    /// `(text)` or `(text, boolean)`.
+    fn signature(&self) -> &Signature {
+        &self.signature
+    }
+    /// Always text (a setting's value).
+    fn return_type(&self, _args: &[ArrowDataType]) -> Result<ArrowDataType> {
+        Ok(ArrowDataType::Utf8)
+    }
+    /// Resolve each row's parameter name against the live session options,
+    /// then the registration-time `pg_settings` snapshot.
+    fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+        use arrow::array::{BooleanArray, StringArray};
+
+        let live_options = args.config_options.extensions.get::<ClientOpts>();
+        let called_with_scalar = matches!(&args.args[0], ColumnarValue::Scalar(_));
+        let arrays = ColumnarValue::values_to_arrays(&args.args)?;
+        if arrays[0].data_type() == &ArrowDataType::Null {
+            return Ok(ColumnarValue::Scalar(ScalarValue::Utf8(None)));
+        }
+        let names = arrays[0]
+            .as_any()
+            .downcast_ref::<StringArray>()
+            .ok_or_else(|| {
+                DataFusionError::Execution("current_setting expects a text name".to_string())
+            })?;
+        let missing_ok = arrays
+            .get(1)
+            .map(|column| {
+                column
+                    .as_any()
+                    .downcast_ref::<BooleanArray>()
+                    .ok_or_else(|| {
+                        DataFusionError::Execution(
+                            "current_setting expects a boolean missing_ok".to_string(),
+                        )
+                    })
+            })
+            .transpose()?;
+
+        let mut builder = StringBuilder::new();
+        for row in 0..names.len() {
+            if names.is_null(row) {
+                builder.append_null();
+                continue;
+            }
+            let lowercase_name = names.value(row).to_ascii_lowercase();
+            let value = live_options
+                .and_then(|opts| live_session_setting(opts, &lowercase_name))
+                .or_else(|| self.snapshot_settings.get(&lowercase_name).cloned());
+            if let Some(value) = value {
+                builder.append_value(value);
+            } else {
+                let missing_is_ok =
+                    missing_ok.is_some_and(|column| !column.is_null(row) && column.value(row));
+                if missing_is_ok {
+                    builder.append_null();
+                } else {
+                    return Err(DataFusionError::Execution(format!(
+                        "unrecognized configuration parameter \"{}\"",
+                        names.value(row)
+                    )));
+                }
+            }
+        }
+        let resolved = Arc::new(builder.finish()) as ArrayRef;
+        if called_with_scalar {
+            return Ok(ColumnarValue::Scalar(ScalarValue::try_from_array(
+                &resolved, 0,
+            )?));
+        }
+        Ok(ColumnarValue::Array(resolved))
+    }
+}
+
+/// The value of the GUC `lowercase_name` when it lives in the session's
+/// [`ClientOpts`], or `None` when only the `pg_settings` snapshot can answer.
+///
+/// `session_authorization` reads the authenticated role: `PostgreSQL` exposes
+/// the session role under that GUC name, and [`ClientOpts`] stores it as
+/// `session_user`.
+fn live_session_setting(opts: &ClientOpts, lowercase_name: &str) -> Option<String> {
+    match lowercase_name {
+        "application_name" => Some(opts.application_name.clone()),
+        "datestyle" => Some(opts.datestyle.clone()),
+        "search_path" => Some(opts.search_path.clone()),
+        "timezone" => Some(opts.timezone.clone()),
+        "session_authorization" => Some(opts.session_user.clone()),
+        _ => None,
+    }
+}
+
+/// Register `current_setting(name[, missing_ok])`, reporting the session's
+/// runtime configuration the way `PostgreSQL` does.
+///
+/// Two layers answer, in order:
+/// 1. the session's live [`ClientOpts`] for the variables a connection can
+///    change (`application_name`, `datestyle`, `search_path`, `timezone`,
+///    `session_authorization`), read at call time so each connection sees its
+///    own values;
+/// 2. the `pg_catalog.pg_settings` rows as they stand when this function is
+///    registered - the measured `PostgreSQL` defaults, plus whatever settings
+///    the host's catalog source supplied - for every other parameter.
+///
+/// A name neither layer knows raises `unrecognized configuration parameter
+/// "<name>"` exactly as `PostgreSQL` spells it, unless `missing_ok` is true,
+/// which answers NULL. A NULL name answers NULL. Names are matched
+/// case-insensitively (`'TimeZone'` and `'timezone'` are the same GUC).
+///
+/// # Errors
+///
+/// Returns an error when the `pg_settings` snapshot cannot be read at
+/// registration, or when its columns are not the text pair this reader
+/// expects.
+pub async fn register_scalar_current_setting(ctx: &SessionContext) -> Result<()> {
+    let snapshot_settings = load_settings_by_lowercase_name(ctx).await?;
+    let udf = ScalarUDF::new_from_impl(CurrentSetting {
+        signature: Signature::one_of(
+            vec![
+                TypeSignature::Exact(vec![ArrowDataType::Utf8]),
+                TypeSignature::Exact(vec![ArrowDataType::Utf8, ArrowDataType::Boolean]),
+            ],
+            // Stable, not Immutable: the same call answers differently on
+            // sessions with different ClientOpts, so it must not be folded
+            // into a shared plan.
+            Volatility::Stable,
+        ),
+        snapshot_settings: Arc::new(snapshot_settings),
+    })
+    .with_aliases(["pg_catalog.current_setting"]);
+    ctx.register_udf(udf);
+    Ok(())
+}
+
 /// Stub for `pg_table_is_visible` which always reports `true`.
 ///
 /// # Errors
@@ -2879,37 +3087,215 @@ pub fn register_scalar_pg_get_userbyid(ctx: &SessionContext) -> Result<()> {
     Ok(())
 }
 
-/// Register `pg_encoding_to_char(int)` returning the encoding name as text.
+/// `PostgreSQL`'s fixed encoding id -> name table, indexed by the id.
+///
+/// The ids are compiled into `PostgreSQL` (`pg_wchar.h`), not read from any
+/// catalog, so a static table IS the faithful implementation. Measured against
+/// the bundled `PostgreSQL` 17.4 - `SELECT n, pg_encoding_to_char(n) FROM
+/// generate_series(0, 43) n` - including the edges: 42 and beyond render as
+/// the empty string, not an error.
+const ENCODING_NAMES: [&str; 42] = [
+    "SQL_ASCII",
+    "EUC_JP",
+    "EUC_CN",
+    "EUC_KR",
+    "EUC_TW",
+    "EUC_JIS_2004",
+    "UTF8",
+    "MULE_INTERNAL",
+    "LATIN1",
+    "LATIN2",
+    "LATIN3",
+    "LATIN4",
+    "LATIN5",
+    "LATIN6",
+    "LATIN7",
+    "LATIN8",
+    "LATIN9",
+    "LATIN10",
+    "WIN1256",
+    "WIN1258",
+    "WIN866",
+    "WIN874",
+    "KOI8R",
+    "WIN1251",
+    "WIN1252",
+    "ISO_8859_5",
+    "ISO_8859_6",
+    "ISO_8859_7",
+    "ISO_8859_8",
+    "WIN1250",
+    "WIN1253",
+    "WIN1254",
+    "WIN1255",
+    "WIN1257",
+    "KOI8U",
+    "SJIS",
+    "BIG5",
+    "GBK",
+    "UHC",
+    "GB18030",
+    "JOHAB",
+    "SHIFT_JIS_2004",
+];
+
+/// The encoding name for `id`, or the empty string for an id outside the
+/// table - which is what `PostgreSQL` answers, not an error.
+fn encoding_name_for_id(id: i64) -> &'static str {
+    usize::try_from(id)
+        .ok()
+        .and_then(|index| ENCODING_NAMES.get(index))
+        .copied()
+        .unwrap_or("")
+}
+
+/// The encoding id for `name` compared case-insensitively, or -1 for a name
+/// the table does not hold - `PostgreSQL`'s answer for an unknown encoding.
+fn encoding_id_for_name(name: &str) -> i32 {
+    ENCODING_NAMES
+        .iter()
+        .position(|known| known.eq_ignore_ascii_case(name))
+        .map_or(-1, |index| {
+            i32::try_from(index).expect("the table is 42 entries")
+        })
+}
+
+/// The integer value at `row` of an argument that may arrive as `Int32` (the
+/// catalog's own columns) or `Int64` (every SQL integer literal), widened.
+///
+/// The width difference is the whole reason this helper exists: the previous
+/// `Exact(Int32)` signature made `pg_encoding_to_char(6)` fail coercion, so
+/// the function was unusable with a literal.
+fn integer_argument_at(array: &arrow::array::ArrayRef, row: usize) -> Result<Option<i64>> {
+    use arrow::array::{Int32Array, Int64Array};
+    if array.is_null(row) {
+        return Ok(None);
+    }
+    if let Some(narrow) = array.as_any().downcast_ref::<Int32Array>() {
+        return Ok(Some(i64::from(narrow.value(row))));
+    }
+    if let Some(wide) = array.as_any().downcast_ref::<Int64Array>() {
+        return Ok(Some(wide.value(row)));
+    }
+    Err(DataFusionError::Execution(format!(
+        "expected an integer encoding id, got {}",
+        array.data_type()
+    )))
+}
+
+/// Register `pg_encoding_to_char(int)` -> the encoding's name, and
+/// `pg_char_to_encoding(name)` -> its integer id: both directions of
+/// `PostgreSQL`'s fixed encoding table.
+///
+/// psql's `\dO` calls the second inside
+/// `collencoding IN (-1, pg_char_to_encoding(getdatabaseencoding()))`, which
+/// is what made the missing direction a client-visible failure. Both accept
+/// what a query can actually pass: the id as `Int32` (a catalog column) or
+/// `Int64` (any integer literal), the name case-insensitively. An unknown id
+/// answers the empty string and an unknown name -1, exactly as `PostgreSQL`
+/// answers them rather than erroring.
 ///
 /// # Errors
 ///
 /// Never fails. The `Result` is the shared shape of every `register_*` entry point
 /// so a session builder can chain them with `?`.
-pub fn register_scalar_pg_encoding_to_char(ctx: &SessionContext) -> Result<()> {
-    use arrow::array::{ArrayRef, StringBuilder};
+pub fn register_scalar_encoding_name_functions(ctx: &SessionContext) -> Result<()> {
+    use arrow::array::{ArrayRef, Int32Builder, StringBuilder};
     use arrow::datatypes::DataType;
-    use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
-    use std::sync::Arc;
+    use datafusion::logical_expr::{ColumnarValue, ScalarUDF, Volatility};
 
-    let fun = |args: &[ColumnarValue]| -> Result<ColumnarValue> {
-        let len = match &args[0] {
-            ColumnarValue::Array(a) => a.len(),
-            ColumnarValue::Scalar(_) => 1,
-        };
-        let mut b = StringBuilder::with_capacity(len, 8 * len);
-        for _ in 0..len {
-            b.append_value("UTF8");
+    /// Both directions share everything but the answer type, so each is a
+    /// small `ScalarUDFImpl` rather than a `create_udf` closure - the id
+    /// direction needs a two-type signature `create_udf` cannot express.
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    struct EncodingIdToName {
+        /// Accepts the id as `Int32` or `Int64`.
+        signature: Signature,
+    }
+
+    impl ScalarUDFImpl for EncodingIdToName {
+        /// The unqualified name; the `pg_catalog.` spelling is an alias.
+        fn name(&self) -> &'static str {
+            "pg_encoding_to_char"
         }
-        Ok(ColumnarValue::Array(Arc::new(b.finish()) as ArrayRef))
-    };
+        /// One integer argument, either width.
+        fn signature(&self) -> &Signature {
+            &self.signature
+        }
+        /// Always text (an encoding name).
+        fn return_type(&self, _args: &[ArrowDataType]) -> Result<ArrowDataType> {
+            Ok(ArrowDataType::Utf8)
+        }
+        /// Look each id up in the fixed table.
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            let arrays = ColumnarValue::values_to_arrays(&args.args)?;
+            let ids = &arrays[0];
+            let mut names = StringBuilder::with_capacity(ids.len(), 8 * ids.len());
+            for row in 0..ids.len() {
+                match integer_argument_at(ids, row)? {
+                    Some(id) => names.append_value(encoding_name_for_id(id)),
+                    None => names.append_null(),
+                }
+            }
+            Ok(ColumnarValue::Array(Arc::new(names.finish()) as ArrayRef))
+        }
+    }
 
-    ctx.register_udf(create_udf(
-        "pg_catalog.pg_encoding_to_char",
-        vec![DataType::Int32], // single OID argument
-        DataType::Utf8,
-        Volatility::Stable,
-        Arc::new(fun),
-    ));
+    /// The name -> id direction, `pg_char_to_encoding`.
+    #[derive(Debug, PartialEq, Eq, Hash)]
+    struct EncodingNameToId {
+        /// Accepts the name as `Utf8`.
+        signature: Signature,
+    }
+
+    impl ScalarUDFImpl for EncodingNameToId {
+        /// The unqualified name; the `pg_catalog.` spelling is an alias.
+        fn name(&self) -> &'static str {
+            "pg_char_to_encoding"
+        }
+        /// One text argument.
+        fn signature(&self) -> &Signature {
+            &self.signature
+        }
+        /// Always the integer id, -1 for an unknown name.
+        fn return_type(&self, _args: &[ArrowDataType]) -> Result<ArrowDataType> {
+            Ok(ArrowDataType::Int32)
+        }
+        /// Look each name up in the fixed table, case-insensitively.
+        fn invoke_with_args(&self, args: ScalarFunctionArgs) -> Result<ColumnarValue> {
+            let arrays = ColumnarValue::values_to_arrays(&args.args)?;
+            let names = arrow::compute::cast(&arrays[0], &DataType::Utf8)?;
+            let names = arrow::array::as_string_array(&names);
+            let mut ids = Int32Builder::with_capacity(names.len());
+            for row in 0..names.len() {
+                if names.is_null(row) {
+                    ids.append_null();
+                } else {
+                    ids.append_value(encoding_id_for_name(names.value(row)));
+                }
+            }
+            Ok(ColumnarValue::Array(Arc::new(ids.finish()) as ArrayRef))
+        }
+    }
+
+    ctx.register_udf(
+        ScalarUDF::new_from_impl(EncodingIdToName {
+            signature: Signature::one_of(
+                vec![
+                    TypeSignature::Exact(vec![ArrowDataType::Int32]),
+                    TypeSignature::Exact(vec![ArrowDataType::Int64]),
+                ],
+                Volatility::Stable,
+            ),
+        })
+        .with_aliases(["pg_catalog.pg_encoding_to_char"]),
+    );
+    ctx.register_udf(
+        ScalarUDF::new_from_impl(EncodingNameToId {
+            signature: Signature::exact(vec![ArrowDataType::Utf8], Volatility::Stable),
+        })
+        .with_aliases(["pg_catalog.pg_char_to_encoding"]),
+    );
     Ok(())
 }
 
@@ -3780,6 +4166,69 @@ impl TableFunctionImpl for PostmasterStartTimeFunc {
             ts: self.ts,
         }))
     }
+}
+
+/// The `pg_available_extensions()` table function: the same rows the
+/// `pg_catalog.pg_available_extensions` RELATION serves, as the FUNCTION
+/// `PostgreSQL` defines that relation over.
+///
+/// psql 18 rewrote `\dx` to join the function form -
+/// `LEFT JOIN pg_catalog.pg_available_extensions() ae(...)` - which is how
+/// `PostgreSQL` itself defines the view, so a catalog serving only the
+/// relation failed the newer client. Three columns, not the relation's four:
+/// the FUNCTION returns `(name, default_version, comment)`, and the view
+/// derives `installed_version` by joining `pg_extension`.
+#[derive(Debug)]
+struct AvailableExtensionsFunc {
+    /// The three-column `(name, default_version, comment)` schema.
+    schema: SchemaRef,
+    /// The rows, captured from the relation at registration.
+    batches: Vec<RecordBatch>,
+}
+
+impl TableFunctionImpl for AvailableExtensionsFunc {
+    /// Hand out the captured rows; the function takes no arguments.
+    fn call(&self, _exprs: &[Expr]) -> Result<Arc<dyn TableProvider>> {
+        Ok(Arc::new(datafusion::datasource::MemTable::try_new(
+            self.schema.clone(),
+            vec![self.batches.clone()],
+        )?))
+    }
+}
+
+/// Register the `pg_available_extensions()` table function over the rows the
+/// relation of the same name serves, captured here at registration.
+///
+/// Captured, not re-read per call: the relation is a static snapshot table, so
+/// the two can never disagree, and a table function resolves against the
+/// function registry where no later provider swap reaches anyway.
+///
+/// # Errors
+///
+/// Errors if the `SELECT name, default_version, comment` over the relation
+/// cannot be planned or executed - the relation must be registered before this
+/// runs.
+pub async fn register_pg_available_extensions_function(ctx: &SessionContext) -> Result<()> {
+    let batches = ctx
+        .sql("SELECT name, default_version, comment FROM pg_catalog.pg_available_extensions")
+        .await?
+        .collect()
+        .await?;
+    let schema = batches.first().map_or_else(
+        || {
+            Arc::new(arrow::datatypes::Schema::new(vec![
+                arrow::datatypes::Field::new("name", ArrowDataType::Utf8, true),
+                arrow::datatypes::Field::new("default_version", ArrowDataType::Utf8, true),
+                arrow::datatypes::Field::new("comment", ArrowDataType::Utf8, true),
+            ]))
+        },
+        arrow::array::RecordBatch::schema,
+    );
+    ctx.register_udtf(
+        "pg_available_extensions",
+        Arc::new(AvailableExtensionsFunc { schema, batches }),
+    );
+    Ok(())
 }
 
 /// Register `pg_postmaster_start_time()` returning the current system

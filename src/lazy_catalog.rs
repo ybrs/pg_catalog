@@ -11,9 +11,16 @@
 //! OIDs). What backs a source - an embedded SQL engine, a network service, a
 //! file, an in-memory `Vec`, or nothing - is entirely opaque to `pg_catalog`.
 //!
-//! OIDs are supplied by the source and written through verbatim; `pg_catalog`
-//! never invents, derives, caches, or remembers them. Keeping OIDs stable and
-//! consistent across calls (so cross-table joins resolve) is the source's job.
+//! OIDs a source reports are written through verbatim - this module never
+//! second-guesses a live source's numbering, and keeping those OIDs stable
+//! and consistent across calls (so cross-table joins resolve) is that
+//! source's job. That is a statement about THIS module's merge path, not
+//! about the crate: [`crate::declared_catalog_source::DeclaredCatalogSource`]
+//! is itself a source that allocates OIDs from the persistent
+//! [`crate::catalog_oid_registry`] (redb-backed, so they survive restarts),
+//! and `collect_pg_attrdef_rows` in this very file synthesizes `pg_attrdef`
+//! row OIDs from `SYNTHETIC_ATTRDEF_OID_BASE`, because a column default is
+//! not an object a source names.
 
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -812,10 +819,25 @@ fn fetch_databases(source: &dyn LazyCatalogSource) -> DFResult<Vec<DatabaseDef>>
     Ok(out)
 }
 
-/// Pull the schemas of `database` from `source`.
+/// Pull the schemas of `database` from `source`, refusing duplicate names.
+///
+/// `nspname` is unique per database in `PostgreSQL` (`pg_namespace_nspname_index`),
+/// and the merge cannot enforce it: it shadows built-in namespace rows by name
+/// but keys USER rows by oid, so a source reporting two same-named schemas
+/// with different oids would insert both - a silently schizophrenic
+/// namespace. Refusing here keeps the failure loud and names the schema.
 fn fetch_schemas(source: &dyn LazyCatalogSource, database: &str) -> DFResult<Vec<SchemaDef>> {
     let mut out = Vec::new();
     source.schemas(database, &mut |rows| out.extend(rows))?;
+    let mut seen = HashSet::new();
+    for def in &out {
+        if !seen.insert(def.name.clone()) {
+            return Err(DataFusionError::Execution(format!(
+                "schema \"{}\" is reported more than once for database \"{database}\"",
+                def.name
+            )));
+        }
+    }
     Ok(out)
 }
 

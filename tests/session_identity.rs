@@ -41,17 +41,23 @@ async fn test_identity_functions_report_the_recorded_role() -> DFResult<()> {
     register_session_identity(&ctx)?;
     set_session_user(&ctx, "alice")?;
 
-    // The spellings a client can actually write. sqlparser treats current_user
-    // and session_user as keywords, so they take no parentheses and cannot be
-    // schema-qualified; current_role is not a keyword, so it needs the
-    // parentheses that the other two reject. All three quirks are the parser's
-    // and predate per-connection identity.
+    // The spellings DataFusion resolves on its own, which is what this file
+    // covers: it plans through `ctx.sql` directly, with none of the crate's
+    // rewrites in the way. sqlparser treats current_user and session_user as
+    // parenthesis-less keywords while current_role is not a keyword at all and
+    // needs the parentheses the other two reject - quirks of the parser, not of
+    // per-connection identity.
     //
-    // The pg_catalog-qualified aliases are registered even though no client can
-    // type them: the router decides whether a bare call belongs to the catalog
-    // by looking up "pg_catalog.<name>" in the function registry
-    // (router.rs function_is_catalog), so without them a plain SELECT
-    // current_user would be handed to the host instead of answered here.
+    // A CLIENT is not held to these three. Every spelling PostgreSQL accepts is
+    // normalised to one of them first; `session_identity_spellings.rs` owns that
+    // and `tests/session_identity_spellings.rs` measures it against a real
+    // PostgreSQL.
+    //
+    // The pg_catalog-qualified aliases matter to routing: the router decides
+    // whether a bare call belongs to the catalog by looking up
+    // "pg_catalog.<name>" in the function registry (router.rs
+    // function_is_catalog), so without them a plain SELECT current_user would be
+    // handed to the host instead of answered here.
     for sql in [
         "SELECT current_user",
         "SELECT session_user",

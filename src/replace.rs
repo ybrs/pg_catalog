@@ -204,9 +204,20 @@ pub fn regclass_udfs(_ctx: &SessionContext) -> Vec<ScalarUDF> {
 
 /// Qualify an unqualified `SET` variable name with the `pg_catalog` schema,
 /// leaving an already qualified name (`pg_catalog.work_mem`) as it is.
+///
+/// An unquoted name is lowercased on the way: `PostgreSQL` matches GUC names
+/// case-insensitively (`SET SEARCH_PATH` works), while the `ClientOpts`
+/// extension matches its keys exactly, so the canonical lowercase spelling is
+/// what must reach it. A quoted name keeps its case, as it would in
+/// `PostgreSQL`.
 fn add_namespace_to_set_command(obj: &mut ObjectName) {
     if obj.0.len() == 1 {
-        let ident = obj.0.remove(0);
+        let mut ident = obj.0.remove(0);
+        if let ObjectNamePart::Identifier(inner) = &mut ident {
+            if inner.quote_style.is_none() {
+                inner.value = inner.value.to_ascii_lowercase();
+            }
+        }
         obj.0
             .push(ObjectNamePart::Identifier(Ident::new("pg_catalog")));
         obj.0.push(ident);
@@ -215,6 +226,14 @@ fn add_namespace_to_set_command(obj: &mut ObjectName) {
 
 /// Prefix `SET` command variables with `pg_catalog` when they are
 /// unqualified so that clients using bare names still work.
+///
+/// `SET TIME ZONE <value>` is `PostgreSQL`'s alias for `SET timezone TO
+/// <value>` but parses as its own AST shape, so it is rewritten into the
+/// assignment it means and then namespaced like any other. The `SET LOCAL
+/// TIME ZONE` form is left alone: LOCAL scopes a value to the enclosing
+/// transaction, which this crate does not model, so applying it as a session
+/// assignment would be wrong - [`crate::router::classify_set_statement`] is
+/// what keeps that form from being executed here.
 ///
 /// # Errors
 ///
@@ -227,6 +246,31 @@ pub fn replace_set_command_with_namespace(sql: &str) -> Result<String> {
     let _ = visit_statements_mut(&mut statements, |stmt| {
         if let Statement::Set(set) = stmt {
             use sqlparser::ast::Set;
+            if let Set::SetTimeZone {
+                local: false,
+                value,
+            } = set
+            {
+                // `SET TIME ZONE DEFAULT` resets to the server default, which
+                // for this emulation is the fixed session default.
+                let assigned_value = match value {
+                    Expr::Identifier(ident) if ident.value.eq_ignore_ascii_case("default") => {
+                        Expr::Value(ValueWithSpan {
+                            value: Value::SingleQuotedString(
+                                crate::session::DEFAULT_TIMEZONE.to_string(),
+                            ),
+                            span: Span::empty(),
+                        })
+                    }
+                    other => other.clone(),
+                };
+                *set = Set::SingleAssignment {
+                    scope: None,
+                    hivevar: false,
+                    variable: ObjectName(vec![ObjectNamePart::Identifier(Ident::new("timezone"))]),
+                    values: vec![assigned_value],
+                };
+            }
             match set {
                 Set::SingleAssignment { variable, .. } => add_namespace_to_set_command(variable),
                 Set::ParenthesizedAssignments { variables, .. } => {
@@ -2829,6 +2873,64 @@ pub fn name_set_returning_function_column_after_its_alias(sql: &str) -> Result<S
         .join("; "))
 }
 
+/// Drop the `pg_catalog.` prefix from ANY table-FUNCTION factor - a
+/// `TableFactor::Table` whose `args` are present, which is what tells a
+/// function call apart from a table reference sharing the position.
+///
+/// Unconditional where the known-name list above is not, and for a second
+/// reason beyond resolution: `DataFusion` reports an unresolved COMPOUND
+/// table-function name by its FIRST part, so an unregistered
+/// `pg_catalog.something()` used to fail as "table function `pg_catalog`
+/// not found" - a diagnostic pointing at the schema instead of the
+/// function. Stripped, the same failure names `something`. Plain table
+/// references keep their qualifier untouched; only function factors are
+/// candidates.
+fn strip_table_function_factors(query: &mut sqlparser::ast::Query, rewritten: &mut bool) {
+    /// One factor: strip a function factor's qualifier, recurse into
+    /// derived tables and nested joins.
+    fn from_factor(factor: &mut sqlparser::ast::TableFactor, rewritten: &mut bool) {
+        match factor {
+            sqlparser::ast::TableFactor::Table {
+                name,
+                args: Some(_),
+                ..
+            } => {
+                if let [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(_)] =
+                    name.0.as_slice()
+                {
+                    if schema.value.eq_ignore_ascii_case("pg_catalog") {
+                        let function = name.0.pop().unwrap();
+                        name.0.clear();
+                        name.0.push(function);
+                        *rewritten = true;
+                    }
+                }
+            }
+            sqlparser::ast::TableFactor::Derived { subquery, .. } => {
+                strip_table_function_factors(subquery, rewritten);
+            }
+            sqlparser::ast::TableFactor::NestedJoin {
+                table_with_joins, ..
+            } => {
+                from_factor(&mut table_with_joins.relation, rewritten);
+                for join in &mut table_with_joins.joins {
+                    from_factor(&mut join.relation, rewritten);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    if let sqlparser::ast::SetExpr::Select(select) = query.body.as_mut() {
+        for entry in &mut select.from {
+            from_factor(&mut entry.relation, rewritten);
+            for join in &mut entry.joins {
+                from_factor(&mut join.relation, rewritten);
+            }
+        }
+    }
+}
+
 /// Remove the `pg_catalog.` prefix from known table functions such as
 /// `pg_get_keywords` so unqualified calls work inside user queries.
 ///
@@ -2853,6 +2955,13 @@ pub fn rewrite_schema_qualified_udtfs(sql: &str) -> Result<String> {
                     && [
                         "pg_get_keywords",
                         "pg_postmaster_start_time",
+                        // pg_available_extensions is deliberately NOT here:
+                        // it is BOTH a relation (psql 17 selects from it) and
+                        // a function (psql 18 joins it), and this list strips
+                        // relation references too - which turned the relation
+                        // form into an unresolvable bare name. The function
+                        // form is handled by strip_table_function_factors
+                        // below, which only touches factors WITH arguments.
                         "generate_series",
                         // psql's \d+ expands a relation's reloptions with
                         // pg_catalog.unnest; DataFusion plans unnest as a
@@ -2888,6 +2997,16 @@ pub fn rewrite_schema_qualified_udtfs(sql: &str) -> Result<String> {
         visit_relations_mut(stmt, |obj| {
             if strip_name(obj) {
                 rewritten = true;
+            }
+            ControlFlow::<()>::Continue(())
+        })?;
+        if let sqlparser::ast::Statement::Query(query) = stmt {
+            strip_table_function_factors(query, &mut rewritten);
+        }
+        // Sub-queries inside expressions are their own Query nodes.
+        visit_expressions_mut(stmt, |e| {
+            if let Expr::Subquery(query) = e {
+                strip_table_function_factors(query, &mut rewritten);
             }
             ControlFlow::<()>::Continue(())
         })?;
@@ -2999,6 +3118,66 @@ pub fn rewrite_oid_cast(sql: &str) -> Result<String> {
 
 /// Name of the UDF that resolves a function name to its `pg_catalog.pg_proc` OID.
 const PG_PROC_OID_FUNCTION: &str = "pg_proc_oid";
+
+/// Resolve `'name'::regproc::oid` to the named function's `pg_proc` OID.
+///
+/// This is how `psql`'s `\sf` resolves the function name the user typed:
+///
+/// ```sql
+/// SELECT 'now'::pg_catalog.regproc::pg_catalog.oid
+/// ```
+///
+/// A `regproc` literal is a function NAME standing for its OID, so casting one
+/// to `oid` asks for a `pg_proc` lookup. The pass has to run before
+/// [`rewrite_regproc_cast`], which flattens `'now'::regproc` to `'now'::TEXT`
+/// for display - correct when the value is selected as-is, but erasing the one
+/// fact [`rewrite_oid_cast`] would need to know that this text names a function
+/// rather than a relation. Left to that pass, the cast became `oid('now')`, a
+/// `pg_class` lookup that answers NULL, and `\sf` printed nothing.
+///
+/// Only the full literal-to-`regproc`-to-`oid` shape is rewritten. A bare
+/// `'now'::regproc` keeps rendering as text, and a `regproc` COLUMN cast to
+/// `oid` is already routed to `pg_proc_oid()` by [`rewrite_oid_cast`].
+///
+/// # Errors
+///
+/// Returns an error if `sql` does not parse as `PostgreSQL`.
+pub fn resolve_regproc_literals_to_function_oids(sql: &str) -> Result<String> {
+    rewrite_each_expression(sql, |e| {
+        let Expr::Cast {
+            expr: outer_operand,
+            data_type: outer_type,
+            ..
+        } = e
+        else {
+            return;
+        };
+        let DataType::Custom(outer_name, _) = outer_type else {
+            return;
+        };
+        if !object_name_matches(outer_name, "oid") {
+            return;
+        }
+        let Expr::Cast {
+            expr: function_name,
+            data_type: inner_type,
+            ..
+        } = outer_operand.as_ref()
+        else {
+            return;
+        };
+        let DataType::Custom(inner_name, _) = inner_type else {
+            return;
+        };
+        if !object_name_matches(inner_name, "regproc") {
+            return;
+        }
+        if !is_string_literal_operand(function_name) {
+            return;
+        }
+        *e = function_call(PG_PROC_OID_FUNCTION, *function_name.clone());
+    })
+}
 
 /// The catalog columns `PostgreSQL` declares as `regproc`.
 ///
@@ -5390,6 +5569,39 @@ mod tests {
         assert_eq!(
             rewrite_oid_cast("SELECT relname::oid FROM pg_class")?,
             "SELECT oid(relname) FROM pg_class"
+        );
+
+        Ok(())
+    }
+
+    /// A function name cast through `regproc` to `oid` - the shape `psql`'s
+    /// `\sf` resolves names with - becomes a `pg_proc` lookup, while the
+    /// shapes around it are left for their own passes.
+    #[test]
+    fn test_resolve_regproc_literals_to_function_oids() -> Result<(), Box<dyn std::error::Error>> {
+        // The exact query psql sends for `\sf now`.
+        assert_eq!(
+            resolve_regproc_literals_to_function_oids(
+                "SELECT 'now'::pg_catalog.regproc::pg_catalog.oid"
+            )?,
+            "SELECT pg_proc_oid('now')"
+        );
+        // The bare spellings resolve the same way.
+        assert_eq!(
+            resolve_regproc_literals_to_function_oids("SELECT 'now'::regproc::oid")?,
+            "SELECT pg_proc_oid('now')"
+        );
+        // A regproc literal NOT cast onward to oid keeps its cast: it renders
+        // as text, which rewrite_regproc_cast handles.
+        assert_eq!(
+            resolve_regproc_literals_to_function_oids("SELECT 'now'::regproc")?,
+            "SELECT 'now'::regproc"
+        );
+        // A regproc COLUMN cast to oid is rewrite_oid_cast's case, not this
+        // pass's: there is no literal to look up.
+        assert_eq!(
+            resolve_regproc_literals_to_function_oids("SELECT amhandler::regproc::oid FROM pg_am")?,
+            "SELECT amhandler::regproc::oid FROM pg_am"
         );
 
         Ok(())

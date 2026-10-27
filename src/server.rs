@@ -39,6 +39,7 @@ use arrow::array::{
     StringViewArray,
 };
 use arrow::record_batch::RecordBatch;
+use datafusion::common::config::ExtensionOptions;
 use datafusion::execution::context::SessionContext;
 
 use arrow::datatypes::{DataType, Field, Schema, TimeUnit};
@@ -381,6 +382,24 @@ impl DatafusionBackend {
         );
     }
 
+    /// Record the role this connection authenticated as on its own context.
+    ///
+    /// Runs before any statement is answered, including the builtin `SHOW`
+    /// responses: `SHOW session_user` reads the role back, so installing it
+    /// only on the planned-query path would answer `postgres` (the default)
+    /// to a client whose first statement is that `SHOW`, while `SELECT
+    /// session_user` on the same connection answered the real role.
+    fn install_authenticated_session_user<C>(&self, client: &C)
+    where
+        C: ClientInfo + ?Sized,
+    {
+        if let Some(user) = client.metadata().get(pgwire::api::METADATA_USER) {
+            // self.ctx is this connection's own context (see start_server),
+            // so recording the role here does not leak it to others.
+            let _ = crate::session::set_session_user(&self.ctx, user);
+        }
+    }
+
     /// Build a one-row, one-column result for `SHOW <name>` on the client
     /// settings this server tracks itself.
     ///
@@ -389,6 +408,11 @@ impl DatafusionBackend {
     /// encoded - in every case the caller falls back to planning the statement
     /// as a normal query.
     fn show_variable_response(&self, name: &str, format: FieldFormat) -> Option<Response> {
+        // `SHOW ALL` lists every tracked variable rather than one value, so
+        // it has its own multi-row response.
+        if name == "all" {
+            return self.show_all_variables_response(format);
+        }
         let state = self.ctx.state();
         let opts = state.config_options().extensions.get::<ClientOpts>()?;
 
@@ -396,6 +420,14 @@ impl DatafusionBackend {
             "application_name" => opts.application_name.as_str(),
             "datestyle" => opts.datestyle.as_str(),
             "search_path" => opts.search_path.as_str(),
+            "timezone" => opts.timezone.as_str(),
+            // `session_user` and its GUC spelling `session_authorization`
+            // report the authenticated role, so `SHOW session_user`
+            // agrees with `SELECT session_user` instead of falling through
+            // to a path that cannot answer it.
+            "session_user" | "session_authorization" => opts.session_user.as_str(),
+            "server_version" => SERVER_VERSION,
+            "transaction_isolation" => "read committed",
             _ => return None,
         };
 
@@ -412,6 +444,57 @@ impl DatafusionBackend {
         let row = encoder.take_row();
         let rows = stream::iter(vec![Ok(row)]);
         Some(Response::Query(QueryResponse::new(fields, rows)))
+    }
+
+    /// Build the `SHOW ALL` result: one `name` / `setting` / `description`
+    /// row per session variable this server tracks, plus `server_version`.
+    ///
+    /// Returns `None` when the connection carries no [`ClientOpts`], so the
+    /// caller falls back to planning the statement as a normal query.
+    fn show_all_variables_response(&self, format: FieldFormat) -> Option<Response> {
+        let state = self.ctx.state();
+        let opts = state.config_options().extensions.get::<ClientOpts>()?;
+
+        let fields = Arc::new(vec![
+            FieldInfo::new("name".to_string(), None, None, Type::TEXT, format),
+            FieldInfo::new("setting".to_string(), None, None, Type::TEXT, format),
+            FieldInfo::new("description".to_string(), None, None, Type::TEXT, format),
+        ]);
+
+        let mut entries: Vec<(String, String, String)> = opts
+            .entries()
+            .into_iter()
+            .map(|entry| {
+                (
+                    entry.key,
+                    entry.value.unwrap_or_default(),
+                    entry.description.to_string(),
+                )
+            })
+            .collect();
+        entries.push((
+            "server_version".to_string(),
+            SERVER_VERSION.to_string(),
+            String::new(),
+        ));
+        entries.push((
+            "transaction_isolation".to_string(),
+            "read committed".to_string(),
+            String::new(),
+        ));
+
+        let mut rows = Vec::with_capacity(entries.len());
+        for (name, setting, description) in &entries {
+            let mut encoder = DataRowEncoder::new(fields.clone());
+            encoder.encode_field(&Some(name.as_str())).ok()?;
+            encoder.encode_field(&Some(setting.as_str())).ok()?;
+            encoder.encode_field(&Some(description.as_str())).ok()?;
+            rows.push(Ok(encoder.take_row()));
+        }
+        Some(Response::Query(QueryResponse::new(
+            fields,
+            stream::iter(rows),
+        )))
     }
 
     /// Extract the variable name from a single `SHOW <name>` statement.
@@ -1133,6 +1216,7 @@ impl SimpleQueryHandler for DatafusionBackend {
         let lowercase = trimmed.to_lowercase();
         // println!("query > {:?}", lowercase);
 
+        self.install_authenticated_session_user(client);
         if let Some(responses) = self.simple_query_builtin_response(trimmed, &lowercase)? {
             return Ok(responses);
         }
@@ -1145,11 +1229,7 @@ impl SimpleQueryHandler for DatafusionBackend {
         log::debug!("database: {database:?} {user:?}");
 
         self.register_current_database(client);
-        if let Some(user) = client.metadata().get(pgwire::api::METADATA_USER) {
-            // self.ctx is this connection's own context (see start_server), so
-            // recording the role here does not leak it to other connections.
-            let _ = crate::session::set_session_user(&self.ctx, user);
-        }
+        self.install_authenticated_session_user(client);
 
         let dispatch_result =
             dispatch_query(&self.ctx, query, None, None, |ctx, sql, p, t| async move {
@@ -1261,6 +1341,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
         let sql_trim = portal.statement.statement.trim();
         let lowercase = sql_trim.to_lowercase();
 
+        self.install_authenticated_session_user(client);
         if let Some(response) = self.extended_query_builtin_response(
             sql_trim,
             &lowercase,
@@ -1270,11 +1351,7 @@ impl ExtendedQueryHandler for DatafusionBackend {
         }
 
         self.register_current_database(client);
-        if let Some(user) = client.metadata().get(pgwire::api::METADATA_USER) {
-            // self.ctx is this connection's own context (see start_server), so
-            // recording the role here does not leak it to other connections.
-            let _ = crate::session::set_session_user(&self.ctx, user);
-        }
+        self.install_authenticated_session_user(client);
 
         let dispatch_result = dispatch_query(
             &self.ctx,

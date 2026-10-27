@@ -192,8 +192,174 @@ mod rewriter {
         JoinOperator, ObjectName, ObjectNamePart, Query, Select, SelectItem, SetExpr, Statement,
         TableFactor, TableWithJoins, Value, With,
     };
-    use sqlparser::ast::visit_expressions;
+    use crate::catalog_relation_columns::columns_of_catalog_relation;
+    use sqlparser::ast::{visit_expressions, visit_expressions_mut};
     use std::ops::ControlFlow;
+
+    /// One relation a FROM clause binds, as far as resolving an unqualified
+    /// column against it needs to know it.
+    ///
+    /// Built only for relations the embedded catalog declares, so
+    /// [`BoundRelation::columns`] is the authoritative column list rather than
+    /// a guess - a relation this rewriter cannot look up never becomes one of
+    /// these.
+    struct BoundRelation {
+        /// The name a column reference has to be written with to reach this
+        /// relation: its alias when it has one, otherwise the last part of its
+        /// own name.
+        binding: Ident,
+        /// Every column the relation declares, lowercased.
+        columns: &'static HashSet<String>,
+    }
+
+    /// The key [`columns_of_catalog_relation`] is looked up by for a relation
+    /// written as `name`: its parts joined with dots, e.g. `pg_catalog.pg_roles`.
+    ///
+    /// A name with a part that is not a plain identifier (a quoted-string
+    /// spelling sqlparser models differently) yields `None`, which reads as
+    /// "unknown relation" and makes every caller decline.
+    fn relation_lookup_key(name: &ObjectName) -> Option<String> {
+        let mut parts = Vec::with_capacity(name.0.len());
+        for part in &name.0 {
+            parts.push(part.as_ident()?.value.clone());
+        }
+        Some(parts.join("."))
+    }
+
+    /// The name `factor` binds columns under: its alias, or the last part of
+    /// the relation's own name when it has none.
+    fn binding_name(
+        name: &ObjectName,
+        alias: Option<&sqlparser::ast::TableAlias>,
+    ) -> Option<Ident> {
+        if let Some(alias) = alias {
+            return Some(alias.name.clone());
+        }
+        name.0.last()?.as_ident().cloned()
+    }
+
+    /// Every table factor one FROM clause holds: each entry's own relation
+    /// plus the relation of each of its joins.
+    fn table_factors(from: &[TableWithJoins]) -> Vec<&TableFactor> {
+        let mut out = Vec::new();
+        for entry in from {
+            out.push(&entry.relation);
+            for join in &entry.joins {
+                out.push(&join.relation);
+            }
+        }
+        out
+    }
+
+    /// The relations `from` binds, described well enough to resolve an
+    /// unqualified column against them.
+    ///
+    /// Returns `None` as soon as one factor is something this rewriter cannot
+    /// look up - a derived table, a table function, or a relation the embedded
+    /// catalog does not declare (every user table). Refusing the whole clause
+    /// rather than skipping the unknown factor is the point: a column list that
+    /// is merely INCOMPLETE would make an inner column look like an outer one,
+    /// which is the one mistake here that produces a CTE that cannot resolve.
+    fn resolvable_relations(from: &[TableWithJoins]) -> Option<Vec<BoundRelation>> {
+        let mut out = Vec::new();
+        for factor in table_factors(from) {
+            // `args` present means a table function call rather than a
+            // relation; its columns come from the function, which this map
+            // knows nothing about.
+            let TableFactor::Table {
+                name,
+                alias,
+                args: None,
+                ..
+            } = factor
+            else {
+                return None;
+            };
+            let columns = columns_of_catalog_relation(&relation_lookup_key(name)?)?;
+            out.push(BoundRelation {
+                binding: binding_name(name, alias.as_ref())?,
+                columns,
+            });
+        }
+        Some(out)
+    }
+
+    /// Whether any of `relations` declares a column named `column`.
+    fn any_relation_declares(relations: &[BoundRelation], column: &str) -> bool {
+        let lowercased = column.to_ascii_lowercase();
+        relations
+            .iter()
+            .any(|relation| relation.columns.contains(&lowercased))
+    }
+
+    /// The single relation among `relations` that declares `column`, if
+    /// exactly one does.
+    ///
+    /// Two relations declaring it makes the reference ambiguous, which nothing
+    /// here can settle without a search path; `None` then leaves the column as
+    /// written.
+    fn sole_relation_declaring(relations: &[BoundRelation], column: &str) -> Option<Ident> {
+        let lowercased = column.to_ascii_lowercase();
+        let mut found: Option<Ident> = None;
+        for relation in relations {
+            if relation.columns.contains(&lowercased) {
+                if found.is_some() {
+                    return None;
+                }
+                found = Some(relation.binding.clone());
+            }
+        }
+        found
+    }
+
+    /// True when `expr` holds a sub-query anywhere inside it.
+    ///
+    /// [`qualify_columns_the_enclosing_query_declares`] refuses to touch a
+    /// WHERE clause this is true of: resolving a name inside a further
+    /// sub-query needs THAT sub-query's own FROM clause, and the walk below
+    /// only carries one level's.
+    fn contains_subquery(expr: &Expr) -> bool {
+        let mut found = false;
+        let _ = visit_expressions(expr, |node| {
+            if matches!(
+                node,
+                Expr::Subquery(_) | Expr::Exists { .. } | Expr::InSubquery { .. }
+            ) {
+                found = true;
+            }
+            ControlFlow::<()>::Continue(())
+        });
+        found
+    }
+
+    /// Write the enclosing query's table name onto each column of `where_clause`
+    /// that is declared by the enclosing query rather than by the sub-query's
+    /// own FROM clause.
+    ///
+    /// `inner` are the relations the sub-query selects from and `outer` those
+    /// the enclosing query does. A name the sub-query's own relations declare
+    /// is left alone, because that is the one SQL itself resolves to - the
+    /// inner scope wins. A name only the enclosing query declares becomes
+    /// `<binding>.<name>`, which is the spelling the correlation search reads.
+    ///
+    /// Nothing is guessed. A column neither side declares, and a column two
+    /// enclosing relations both declare, are both left exactly as written.
+    fn qualify_columns_the_enclosing_query_declares(
+        where_clause: &mut Expr,
+        inner: &[BoundRelation],
+        outer: &[BoundRelation],
+    ) {
+        let _ = visit_expressions_mut(where_clause, |node| {
+            if let Expr::Identifier(ident) = node {
+                if !any_relation_declares(inner, &ident.value) {
+                    if let Some(binding) = sole_relation_declaring(outer, &ident.value) {
+                        *node = Expr::CompoundIdentifier(vec![binding, ident.clone()]);
+                    }
+                }
+            }
+            ControlFlow::<()>::Continue(())
+        });
+    }
 
     /// Everything the rewriter learned about one scalar sub-query: enough to
     /// emit the CTE, the LEFT JOIN back to the outer query, and the column
@@ -460,6 +626,138 @@ mod rewriter {
         }
 
         false
+    }
+
+    /// Give every column a projection sub-query of `sel` borrows from `sel`
+    /// itself the table name that makes the borrowing visible.
+    ///
+    /// WHY THE REWRITER NEEDS THIS. Correlation is discovered by
+    /// [`collect_corr_preds`], which matches a predicate's `alias.column`
+    /// against the aliases the enclosing FROM clause binds. `PostgreSQL`
+    /// clients do not always write the alias: psql's `\dp` sends
+    ///
+    /// ```sql
+    /// FROM pg_catalog.pg_policy pol
+    ///   ... ARRAY(SELECT rolname FROM pg_catalog.pg_roles WHERE oid = ANY (polroles))
+    /// ```
+    ///
+    /// where `polroles` is a `pg_policy` column named from inside a sub-query
+    /// over `pg_roles`. Read as written, that sub-query looks uncorrelated, and
+    /// an uncorrelated sub-query inside a lifted body is deliberately left
+    /// alone (see [`ScalarToCte::analyse_scalar`]) - so it stays a multi-row
+    /// scalar sub-query and the analyzer rejects the whole statement. Spelling
+    /// the qualifier out first is what lets the existing correlation search see
+    /// it.
+    ///
+    /// The decision needs to know which relation declares which column, which
+    /// is what [`crate::catalog_relation_columns`] answers. It answers only for
+    /// relations the embedded catalog declares, so a sub-query touching a user
+    /// table is left exactly as written - as is one whose WHERE clause holds a
+    /// further sub-query, whose names would have to resolve against a scope
+    /// this pass is not carrying.
+    ///
+    /// Only the WHERE clause is rewritten, because that is the only part the
+    /// correlation search reads. Qualifying a projection would additionally
+    /// make [`ScalarToCte::unresolved_outer_aliases`] see an outer reference it
+    /// cannot carry into a CTE, turning sub-queries that lift today into ones
+    /// that do not.
+    fn qualify_outer_columns_in_projection_subqueries(sel: &mut Select) {
+        let Some(outer) = resolvable_relations(&sel.from) else {
+            return;
+        };
+        if outer.is_empty() {
+            return;
+        }
+        for item in &mut sel.projection {
+            if let SelectItem::UnnamedExpr(expr) | SelectItem::ExprWithAlias { expr, .. } = item {
+                qualify_outer_columns_in_subqueries_of(expr, &outer);
+            }
+        }
+    }
+
+    /// Descend through `expr` to each sub-query it holds and qualify that
+    /// sub-query's WHERE clause against `outer`.
+    ///
+    /// The descent stops at a sub-query rather than continuing through it: a
+    /// sub-query written inside another one is enclosed by THAT one, not by
+    /// `outer`, and it gets its own turn when the lifter rewrites the body it
+    /// ends up in.
+    ///
+    /// The expression shapes walked here are the ones
+    /// [`ScalarToCte::rewrite_expr`] walks, deliberately: a sub-query the
+    /// lifter cannot reach gains nothing from being qualified.
+    fn qualify_outer_columns_in_subqueries_of(expr: &mut Expr, outer: &[BoundRelation]) {
+        match expr {
+            Expr::Subquery(query) => qualify_outer_columns_in_subquery(query, outer),
+            Expr::Function(func) => {
+                if let FunctionArguments::List(list) = &mut func.args {
+                    for arg in &mut list.args {
+                        if let FunctionArg::Unnamed(FunctionArgExpr::Expr(boxed))
+                        | FunctionArg::Named {
+                            arg: FunctionArgExpr::Expr(boxed),
+                            ..
+                        } = arg
+                        {
+                            qualify_outer_columns_in_subqueries_of(boxed, outer);
+                        }
+                    }
+                }
+            }
+            Expr::BinaryOp { left, right, .. } => {
+                qualify_outer_columns_in_subqueries_of(left, outer);
+                qualify_outer_columns_in_subqueries_of(right, outer);
+            }
+            Expr::Nested(inner)
+            | Expr::UnaryOp { expr: inner, .. }
+            | Expr::Cast { expr: inner, .. } => {
+                qualify_outer_columns_in_subqueries_of(inner, outer);
+            }
+            Expr::Case {
+                operand,
+                conditions,
+                else_result,
+                ..
+            } => {
+                if let Some(op) = operand {
+                    qualify_outer_columns_in_subqueries_of(op, outer);
+                }
+                for CaseWhen { condition, result } in conditions {
+                    qualify_outer_columns_in_subqueries_of(condition, outer);
+                    qualify_outer_columns_in_subqueries_of(result, outer);
+                }
+                if let Some(er) = else_result {
+                    qualify_outer_columns_in_subqueries_of(er, outer);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// Qualify one sub-query's WHERE clause against the relations `outer`
+    /// binds, when every relation on both sides is one the embedded catalog
+    /// declares.
+    ///
+    /// Declines - leaving the sub-query byte-identical - when the sub-query
+    /// carries a WITH clause (whose CTEs bind names this pass cannot see), when
+    /// its FROM clause holds anything unresolvable, or when its WHERE clause
+    /// holds a sub-query of its own.
+    fn qualify_outer_columns_in_subquery(query: &mut Query, outer: &[BoundRelation]) {
+        if query.with.is_some() {
+            return;
+        }
+        let SetExpr::Select(select) = query.body.as_mut() else {
+            return;
+        };
+        let Some(inner) = resolvable_relations(&select.from) else {
+            return;
+        };
+        let Some(where_clause) = select.selection.as_mut() else {
+            return;
+        };
+        if contains_subquery(where_clause) {
+            return;
+        }
+        qualify_columns_the_enclosing_query_declares(where_clause, &inner, outer);
     }
 
     /// Mutating rewriter: walks a statement in place, lifting every correlated
@@ -1602,6 +1900,12 @@ mod rewriter {
             // DataFusion, which refuses to plan it.
             self.visit_from_mut(&mut sel.from);
 
+            // A correlation psql wrote without a table qualifier is invisible
+            // to the alias matching below, so spell the qualifier out first.
+            // Before the alias collection and both analysis passes, all of
+            // which read the sub-query's WHERE clause as it stands here.
+            qualify_outer_columns_in_projection_subqueries(sel);
+
             // ---------- outer alias (very first table name / alias) ----------
             // gather aliases from FROM clause (main table and joins)
             let mut outer_aliases: Vec<Ident> = Vec::new();
@@ -1636,7 +1940,7 @@ mod rewriter {
             // ---------- recurse into every projection expr first ----------
 
             // 1) Move everything out - ends the &mut borrow immediately.
-            let projection_items: Vec<SelectItem> = sel.projection.drain(..).collect();
+            let projection_items: Vec<SelectItem> = std::mem::take(&mut sel.projection);
 
             // 2) Rewrite while we own the items; we can pass &mut sel freely.
             let mut new_proj = Vec::with_capacity(projection_items.len());
@@ -1802,7 +2106,7 @@ mod tests {
               (SELECT max(b) FROM t2) AS s1
             FROM t1";
         let out = rewrite_scalar_subqueries_to_ctes(sql)?;
-        assert!(!out.sql.is_empty());
+        assert_ne!(out.sql, "");
         Ok(())
     }
 

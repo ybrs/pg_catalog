@@ -62,7 +62,11 @@ async fn test_pg_is_other_temp_schema_over_a_column() -> DFResult<()> {
         "SELECT pg_is_other_temp_schema(oid) FROM pg_catalog.pg_namespace",
     )
     .await?;
-    assert!(!rows.is_empty());
+    assert_ne!(
+        rows,
+        Vec::<Option<bool>>::new(),
+        "no rows returned, so the per-row check below would be vacuous"
+    );
     assert!(
         rows.iter().all(|r| *r == Some(false)),
         "pg_is_other_temp_schema must be false for every row, got {rows:?}"

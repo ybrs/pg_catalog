@@ -129,8 +129,9 @@ The crate is split into four layers, described in sections 4-7:
 ### main.rs
 The binary entry point. `run()` parses CLI flags
 (`--schema-directory`, `--default-catalog`, `--default-schema`, `--host`,
-`--port`, `--capture`), builds the session via `get_base_session_context`,
-registers a demo `public.users` table, and starts the server with
+`--port`, `--capture`), declares a demo `pgtry` database holding one
+`public.users` table in a `DeclaredCatalogSource`, builds the session over it
+via `get_base_session_context_with_lazy_catalog`, and starts the server with
 `start_server`. This file is also the smallest worked example of how to embed the
 library.
 
@@ -202,13 +203,13 @@ two concerns: setup and per-query execution.
 - `register_catalogs_from_schemas` populates DataFusion's catalog/schema tree,
   installing each catalog table as a `ScanRecordingMemTable` and collecting the
   list of views to create.
-- `create_registered_views` turns declared views into live `CREATE VIEW`s where
-  the engine can plan their bodies, and falls back to materializing the captured
-  snapshot rows as a table where it cannot (`register_view_as_table`). It runs as
-  a fixpoint retry loop to satisfy view-to-view dependencies. `VIEWS_TO_REGISTER`
-  lists the views attempted as live views; `SIMPLIFIED_VIEW_BODIES` supplies
-  engine-friendly bodies for a few views whose real definitions the engine cannot
-  yet plan.
+- `create_registered_views` turns every declared view into a live `CREATE VIEW`.
+  There is no fallback to materializing the captured snapshot rows as a table:
+  a listed view whose body fails to plan fails startup, so a served catalog
+  cannot silently hold frozen fixture rows where a view belongs. The views are
+  created in the precomputed dependency order `VIEWS_TO_REGISTER` lists (see
+  `bin/gen_view_order.rs`); `SIMPLIFIED_VIEW_BODIES` supplies engine-friendly
+  bodies for the few views whose real definitions the engine cannot yet plan.
 - All the emulated UDFs are registered here (the many `register_*` calls into
   `user_functions` and `runtime_function_resolvers`), and `StripPgGetOne` is
   added as an optimizer rule.
@@ -342,23 +343,55 @@ with PostgreSQL defaults). `DatabaseOnlySource` adapts a simple
 user databases with the built-in `postgres`/`template0`/`template1`.
 
 ### 7.3 pg_catalog_helpers.rs
-The eager (DDL-like) registration path: synchronously insert user databases,
-schemas, tables, views, indexes, and constraints into the in-memory catalog
-MemTables. It owns OID allocation (`next_catalog_oid` queries `max(oid)` across the
-catalog tables and hands out one past it) and the `DATABASE_SCHEMAS` registry that
-tracks which schemas belong to which database for cleanup. Key entry points: `register_user_database`, `register_schema`,
-`register_user_tables` / `register_user_view` (via `register_user_relation`, which
-writes the matching `pg_class` + `pg_type` + `pg_attribute` + `pg_attrdef` rows),
-`register_user_index`, and `register_user_constraint`; each has an `unregister_*`
-inverse. Rows are inserted with `append_catalog_row` (stage as a one-off MemTable,
-`INSERT ... SELECT`, drop) because literal `INSERT VALUES` cannot express complex
-columns such as `pg_index.indkey`. Lookups (`get_schema_oid`, `get_table_oid`,
-`first_oid_cell`, `collect_string_column`) and the type<->OID maps
-(`map_type_to_oid`, `oid_to_type_names`) round it out. Schemas are scoped by OID,
-not name, so the same schema name can exist under different databases in the
-flattened catalog.
+The wire-format column vocabulary both registration styles share: `ColumnDef`
+(a column as an integration spells it, with the type as text) and the
+type<->OID maps (`map_type_to_oid`, `oid_to_type_names`) that resolve those
+spellings for `pg_attribute` and `information_schema.columns`.
 
-### 7.4 db_table.rs
+This module used to hold a second, INSERT-based registration path
+(`register_user_database` and friends writing straight into the catalog
+MemTables, a `next_catalog_oid` counter, and a `DATABASE_SCHEMAS` registry).
+That path is gone: hosts that declare their objects up front now go through
+`declared_catalog_source.rs` below, so there is one registration mechanism.
+
+### 7.4 declared_catalog_source.rs
+`DeclaredCatalogSource`, a `LazyCatalogSource` built from up-front
+declarations - the shape riffq's `register_database` / `register_schema` /
+`register_table` record, and what this crate's own demo server in `main.rs`
+uses. OIDs come from the oid registry (below); a relation and its rowtype take
+consecutive values; a declared `public` keeps the built-in identity (OID 2200,
+owner 6171) so the canonical row survives the merge's shadow-by-name and never
+touches the registry. Uniqueness is PostgreSQL's: a duplicate declaration -
+same database twice, same schema twice under one database, same relation twice
+under one schema - is refused with an "already exists" error, and a
+declaration under an undeclared database with "does not exist". A host that
+supplies its own OIDs through a live source keeps them untouched.
+
+### 7.4a catalog_oid_registry.rs
+`CatalogOidRegistry`, the stateful allocator every declared object's OID comes
+from: get-or-allocate per name, one cluster-wide counter from 16384 up exactly
+as PostgreSQL's own OID counter is cluster-wide, never reusing a number.
+`RedbCatalogOidRegistry` persists it in a [redb](https://docs.rs/redb) file
+(pure Rust, ACID, fsync on commit, exclusive file lock) so OIDs survive
+restarts and declaration reordering; `InMemoryCatalogOidRegistry` holds the
+same semantics for hosts that configure no path, which is deprecated and
+warned about. Nothing anywhere in this crate derives an OID from a name by
+hashing - that was tried and rejected (silent birthday collisions for
+relations in a 31-bit space).
+
+### 7.5 combined_catalog_source.rs
+`CombinedCatalogSource`, the union of an ordered list of sources - every trait
+method answers with all sources' objects. A database or relation name claimed
+by TWO sources is refused loudly (PostgreSQL's uniqueness keys; serving either
+silently would hand clients rows from an object they did not name), while a
+shared SCHEMA name dedups to the earliest source - deliberately, because that
+is how a live source mounts tables into a declared database's `public`: they
+land under the canonical 2200 row beside the declared ones. A relation's
+columns come from the source that reported it. riffq composes
+`[declared, live]` when both `register_*` and `set_lazy_catalog` are
+configured.
+
+### 7.6 db_table.rs
 `map_pg_type` maps a PostgreSQL type name to an Arrow `DataType` (for example
 `oidvector` -> `List<Int64>`, `_int4` -> `List<Int32>`, `float4` -> `Float32`,
 `int2`/`int4` -> `Int32`), keeping integer arrays integer-typed so predicates like
@@ -366,12 +399,12 @@ flattened catalog.
 DataFusion `MemTable` and records every scan (table, projection, filters) into a
 shared `ScanTrace` log for test introspection; `log_scan_traces` serializes it.
 
-### 7.5 register_table.rs
+### 7.7 register_table.rs
 `register_table` is the small helper that creates a catalog/schema if missing and
 registers a new empty `MemTable` for application data (the table user `INSERT`s
 then populate), as opposed to the system catalog tables.
 
-### 7.6 user_functions.rs
+### 7.8 user_functions.rs
 The library of emulated PostgreSQL scalar and table functions (the largest single
 file). Grouped by category:
 
@@ -406,7 +439,7 @@ file). Grouped by category:
 catalog query (a future) to completion without deadlocking, on either a
 multi-thread or current-thread runtime.
 
-### 7.7 runtime_function_resolvers.rs
+### 7.9 runtime_function_resolvers.rs
 A process-global resolver-slot mechanism for functions whose values are live
 runtime state rather than static catalog data. Each function has a `ResolverSlot`;
 integration code installs a callback with `set_<name>_resolver(...)`, and with no

@@ -2,7 +2,7 @@
 
 Single source of truth for **what lives in the catalog**, **what each object is
 for**, **how it is populated** (seed vs. runtime registration), and **whether it
-actually works today**. Verified 2026-07-28.
+actually works today**. Verified 2026-08-17 by re-running the audit below.
 
 - **75 base tables** (71 `pg_catalog` + 4 `information_schema`) - all served as
   tables and queryable (**75 working**).
@@ -54,59 +54,58 @@ catalog tables; pick per embedding:
 
 | Path | Entry points | How it works |
 |---|---|---|
-| **Eager / pre-register** | `register_user_database`, `register_schema`, `register_user_tables`, `register_user_index`, `register_user_constraint` | Imperatively writes rows now (INSERT / batch-append). Use when objects are known up front. |
+| **Declared / pre-register** | `DeclaredCatalogSource::from_declarations` (in `declared_catalog_source.rs`) | Wraps up-front declarations in a `LazyCatalogSource`; OIDs come from the persistent `CatalogOidRegistry` (redb-backed), duplicates refused PostgreSQL-style. Use when objects are known up front. Served through the same merge path as the lazy row below. |
 | **Lazy / callback** | `register_lazy_catalog(source, opts)` + `register_user_database_with_callback` | The embedder implements `LazyCatalogSource`; on **every scan** the catalog calls back (`databases()`/`schemas()`/`relations()`/`columns()`/`indexes()`/`constraints()`/`config()`/`settings()`), builds rows, and merges them over the seed. Use when the live set changes. |
+| **Combined** | `CombinedCatalogSource::new(vec![...])` (in `combined_catalog_source.rs`) | Unions any number of sources; database/relation name collisions are refused loudly, shared schema names merge. How a declared base and a live source serve together. |
 
 Both paths share the same pure row-builders (`build_pg_class_row`,
 `build_pg_index_row`, ...) so the two stay in sync.
 
-### How a declared view is actually served (the core defect)
+### How a declared view is served
 
-A YAML object with `type: view` is **only a real view if the server registers it
-with `CREATE VIEW`** - `src/session.rs:1060-1090` does this for exactly the six
-names in `VIEW_ONLY_TABLES` and **materializes every other declared view as a
-`ScanRecordingMemTable`** (a table) seeded from its YAML `rows:`. So a "view" not in
-that list is a **frozen snapshot - a view in name only**: it is queryable but holds
-seed/fixture rows and does **not** re-derive from its base tables. This is read
-empirically here from each object's query plan (`EXPLAIN SELECT *`): a real view's
-plan root is `SubqueryAlias: <name>` over the base tables; a materialized one's is
-`TableScan: <name>`.
+Every YAML object with `type: view` is registered with a real `CREATE VIEW`:
+`VIEWS_TO_REGISTER` in `src/session.rs` lists exactly the 136 declared views in
+dependency order, and `create_registered_views` registers each one. A listed
+view whose body fails to plan **fails startup** - there is no fallback to a
+materialized table, so a served catalog cannot silently hold a frozen snapshot
+where a view belongs. Four views whose declared bodies use engine features the
+planner does not support are served via equivalent simplified bodies
+(`SIMPLIFIED_VIEW_BODIES`: `pg_group`, `pg_publication_tables`, `pg_stats_ext`,
+`pg_stats_ext_exprs`), lossless for the data this catalog holds.
 
-By that test, of the 136 declared views **only 6 are served as views**; the other
-**130 are served as tables** (or fail to scan) and are counted **broken** below - a
-view that is physically a table is broken, however cleanly it answers a `SELECT`.
+How this is verified rather than asserted: the audit reads each object's query
+plan (`EXPLAIN SELECT *`). A real view's plan root is `SubqueryAlias: <name>`
+over its base tables; a materialized table's would be `TableScan: <name>`. As
+of the 2026-08-17 run, **all 136 declared views plan as views** and zero as
+tables.
 
-- **view (real)** - the six in `VIEW_ONLY_TABLES`: `pg_tables`, `pg_views`, and the
-  four constraint views (`table_constraints`, `key_column_usage`,
-  `constraint_column_usage`, `referential_constraints`, over the registrable
-  `pg_constraint`). Re-derive from base tables on every query; reflect runtime
-  user objects.
-- **table (materialized) - BROKEN as a view** - everything else declared a view. A
-  `MemTable` snapshot. A few are also lazy/eager **merge** targets
-  (`information_schema.tables`/`columns`/`schemata`) that registration appends user
-  rows into, so they reflect user objects - but they are still tables, not views.
-
-The **Served as** column in the view tables below is `view` or `table`.
+This section used to describe the opposite state - a `VIEW_ONLY_TABLES`
+allow-list of six real views with the other 130 materialized as `MemTable`
+snapshots. That constant no longer exists; the promotion work is done and the
+failure mode it left open (a "view" answering from frozen fixture rows) is now
+a startup error instead of a silent wrong answer.
 
 ---
 
 ## Base tables (75)
 
 **Population**: **seed-only** (built-in rows; no user-object injection yet) or
-**eager + lazy** / **lazy** (also populated at runtime with the live database's
-objects, via the paths above). All 75 are served as tables and are queryable
-(working - each verified with `SELECT count(*)`).
+**declared + lazy** / **lazy** (also populated at runtime with the live
+database's objects, via the paths above - declarations and callbacks are the
+same `LazyCatalogSource` mechanism since the eager `register_*` path was
+deleted). All 75 are served as tables and are queryable (working - each
+verified with `SELECT count(*)`).
 
 ### Core relation catalog
 | Table | Purpose | Population |
 |---|---|---|
-| `pg_class` | Relations: tables, views, indexes, sequences, composite types. | **eager + lazy** (tables via `register_user_tables`; indexes via `register_user_index`; lazy `relations()`/`indexes()`) |
-| `pg_attribute` | Columns of every relation. | **eager + lazy** (`register_user_tables` / lazy `columns()`) |
-| `pg_namespace` | Schemas. | **eager + lazy** (`register_schema` / lazy `schemas()`) |
-| `pg_type` | Data types incl. each relation's composite rowtype. | **eager + lazy** (rowtype written with the relation) |
-| `pg_index` | Index structure: target table, key columns, unique/primary flags. | **eager + lazy** (`register_user_index` / lazy `indexes()`) |
-| `pg_attrdef` | Column defaults (node-tree `adbin`). | **eager + lazy** (one row per defaulted column via `register_user_tables` / lazy `columns()`) |
-| `pg_constraint` | Check/PK/FK/unique/exclusion constraints. | **eager + lazy** (`register_user_constraint` / lazy `constraints()`) - backs the four real constraint views |
+| `pg_class` | Relations: tables, views, indexes, sequences, composite types. | **declared + lazy** (declared tables via `DeclaredCatalogSource`; lazy `relations()`/`indexes()`) |
+| `pg_attribute` | Columns of every relation. | **declared + lazy** (`DeclaredCatalogSource` / lazy `columns()`) |
+| `pg_namespace` | Schemas. | **declared + lazy** (`register_schema` declarations via `DeclaredCatalogSource` / lazy `schemas()`) |
+| `pg_type` | Data types incl. each relation's composite rowtype. | **declared + lazy** (rowtype written with the relation) |
+| `pg_index` | Index structure: target table, key columns, unique/primary flags. | **lazy** (`LazyCatalogSource::indexes()`) |
+| `pg_attrdef` | Column defaults (node-tree `adbin`). | **declared + lazy** (one row per defaulted column via `DeclaredCatalogSource` / lazy `columns()`) |
+| `pg_constraint` | Check/PK/FK/unique/exclusion constraints. | **lazy** (`LazyCatalogSource::constraints()`) - backs the four real constraint views |
 | `pg_inherits` | Table inheritance / partition parent links. | seed-only |
 | `pg_partitioned_table` | Partition-key metadata for partitioned tables. | seed-only |
 | `pg_sequence` | Sequence parameters (start, increment, ...). | seed-only |
@@ -139,7 +138,7 @@ objects, via the paths above). All 75 are served as tables and are queryable
 |---|---|---|
 | `pg_authid` | Roles/users (with auth attributes). | seed-only |
 | `pg_auth_members` | Role-membership edges. | seed-only |
-| `pg_database` | Databases. | **eager + lazy** (`register_user_database` / `register_user_database_with_callback` / lazy `databases()`) |
+| `pg_database` | Databases. | **declared + lazy** (`DeclaredCatalogSource` / `register_user_database_with_callback` / lazy `databases()`) |
 | `pg_db_role_setting` | Per-database/role GUC overrides. | seed-only |
 | `pg_tablespace` | Tablespaces. | seed-only |
 
@@ -214,124 +213,74 @@ objects, via the paths above). All 75 are served as tables and are queryable
 
 ---
 
-## Views: the 6 actually served as views
+## Views: all 136 served as views; the 38 partial, by cause
 
-These are the only objects declared `type: view` that the server serves as real
-views (re-derived from base tables every query). `view_sql exec`/`content` are from
-running the definition against the PostgreSQL 17 snapshot.
+Every declared view is served as a real view (see "How a declared view is
+served" above), every `view_sql` executes, and none is served as a table. The
+2026-08-17 audit puts each view in one of two states: **98 working** (executes
+and reproduces the PostgreSQL 17 snapshot exactly) and **38 partial** (executes,
+but a named column or the row count diverges by design). Per-object detail is
+in `claude-scripts/catalog_audit.md`; the 38 partials fall into three causes.
 
-| View | Schema | Status | Diverging column | Reason |
-|---|---|---|---|---|
-| `pg_tables` | pg_catalog | working | - | - |
-| `pg_views` | pg_catalog | partial | `definition` | `pg_get_viewdef` reads an integration-supplied resolver (`set_view_definition_resolver`); NULL when none is installed. We never deparse node trees. |
-| `table_constraints` | information_schema | working | - | - |
-| `key_column_usage` | information_schema | working | - | - |
-| `constraint_column_usage` | information_schema | working | - | - |
-| `referential_constraints` | information_schema | working | - | - |
+### Definition text needs an integration-supplied resolver (8)
 
----
+This catalog never deparses node trees, so SQL text that PostgreSQL
+reconstructs from a node tree comes from a resolver an integration installs
+(`src/runtime_function_resolvers.rs`), and is NULL or a stub until one does.
 
-## Views: the 130 declared but served as tables (broken)
-
-These carry `type: view` in the YAML but the server materializes each as a
-`MemTable` (or, for one, fails to scan). They answer `SELECT` from frozen
-seed/snapshot rows and do **not** re-derive from their base tables, so they are
-broken as views. Promoting them to real views means adding them to `VIEW_ONLY_TABLES`
-and ensuring their `view_sql` plans.
-
-The secondary `view_sql` column below records whether the defining SQL would even
-run if promoted: **80 would run** (68 of those reproduce the snapshot exactly, 12
-diverge in a named column), **50 error today**. Per-object detail is in
-`claude-scripts/catalog_audit.md`; the meaningful groupings:
-
-### Their `view_sql` runs and matches the snapshot (would be working if promoted)
-Materialized today but the definition is correct - the cheapest to make real views.
-Includes `pg_indexes`, `pg_matviews`, `pg_roles`, `pg_shadow`, `pg_user`,
-`pg_user_mappings`, all `pg_stat[io]_{sys,user}_*` snapshot views, and most
-`information_schema` views (`routines`, `columns`-adjacent helpers, `domains`,
-`sequences`, `triggers`, the `role_*_grants`, the `foreign_*`, `element_types`,
-`attributes`, ...). Full list: rows with `view_sql exec = ok`, `content = match` in
-`catalog_audit.md`.
-
-### Their `view_sql` runs but a column diverges (would be partial if promoted)
 | View | Schema | Diverging | Reason |
 |---|---|---|---|
+| `pg_views` | pg_catalog | `definition` | `pg_get_viewdef` reads `set_view_definition_resolver`. |
 | `pg_rules` | pg_catalog | `definition` | `pg_get_ruledef` not implemented. |
-| `applicable_roles` | information_schema | (row count) | role membership (`pg_auth_members`) not fully modeled - one synthetic row. |
+| `pg_group` | pg_catalog | `grolist` | simplified body; membership array diverges from the snapshot. |
+| `views` | information_schema | `view_definition`, `is_updatable`, `is_insertable_into` | `pg_get_viewdef` resolver plus updatability stubs. |
 | `check_constraints` | information_schema | `check_clause` | raw node-tree; `pg_get_constraintdef` not reproduced. |
-| `columns` | information_schema | `is_updatable` | `pg_relation_is_updatable` stub returns 0. |
-| `parameters` | information_schema | `parameter_default` | `pg_get_function_arg_default` stub. |
+| `columns` | information_schema | `is_updatable` | `pg_relation_is_updatable` stub returns 0 (task 24). |
 | `tables` | information_schema | `is_insertable_into` | not reproduced for views. |
-| `views` | information_schema | `view_definition`, `is_updatable`, `is_insertable_into` | `pg_get_viewdef` not reproduced. |
-| `column_privileges`, `routine_privileges`, `table_privileges`, `udt_privileges`, `usage_privileges` | information_schema | (row count -> 0/partial) | GRANTs not modeled, so privilege views are empty. |
+| `parameters` | information_schema | `parameter_default` | `pg_get_function_arg_default` stub. |
 
-### Previously blocked engine/UDF gaps - all nine now execute
-Every view once listed here as failing to plan now runs. Seven reproduce the
-captured snapshot exactly; two execute but diverge from it.
+### GRANTs are not modeled, so privilege views run short or empty (10)
 
-| View | Status | Note |
-|---|---|---|
-| `pg_policies` | working | |
-| `pg_publication_tables` | working | |
-| `pg_seclabels` | working | `pg_table_is_visible()` is registered, returning true |
-| `pg_sequences` | working | `pg_sequence_last_value()` is a resolver slot, NULL until an integration installs one |
-| `pg_stats` | working | `row_security_active()` is a resolver slot |
-| `pg_stats_ext` | working | |
-| `pg_stats_ext_exprs` | working | `pg_get_statisticsobjdef_expressions()` is registered |
-| `pg_group` | partial | executes; `grolist` content diverges from the snapshot |
-| `pg_available_extension_versions` | partial | executes; row count diverges from the snapshot |
+`column_privileges`, `routine_privileges`, `table_privileges`,
+`udt_privileges`, `usage_privileges` and the five `role_*_grants` counterparts
+(all information_schema) execute but return no or few rows against the
+snapshot's thousands, because ACLs are not populated.
 
-### Their `view_sql` errors - need live server-runtime functions (41, all pg_catalog)
-Report live process/IO/WAL/lock/progress state via server-runtime table functions we
-don't host (inherently empty in a static catalog even if promoted). The missing
-function per view, from `catalog_audit.md`:
+### Runtime state answers from resolver slots, so row counts diverge (20)
 
-`pg_stat_activity`, `pg_stat_replication`, `pg_stat_gssapi`, `pg_stat_ssl`
-(`pg_stat_get_activity`); `pg_stat_all_tables`, `pg_stat_all_indexes`
-(`pg_stat_get_numscans`); `pg_statio_all_tables`, `pg_statio_all_indexes`,
-`pg_statio_all_sequences` (`pg_stat_get_blocks_fetched`); `pg_stat_xact_all_tables`
-(`pg_stat_get_xact_numscans`); `pg_stat_user_functions`
-(`pg_stat_get_function_calls`); `pg_stat_xact_user_functions`
-(`pg_stat_get_xact_function_calls`); `pg_stat_archiver`, `pg_stat_bgwriter`,
-`pg_stat_checkpointer`, `pg_stat_database`, `pg_stat_database_conflicts`,
-`pg_stat_io`, `pg_stat_recovery_prefetch`, `pg_stat_replication_slots`,
-`pg_stat_slru`, `pg_stat_subscription`, `pg_stat_subscription_stats`, `pg_stat_wal`,
-`pg_stat_wal_receiver` (`pg_stat_get_*`); the six `pg_stat_progress_*`
-(`pg_stat_get_progress_info`); `pg_locks` (`pg_lock_status`); `pg_cursors`
-(`pg_cursor`); `pg_prepared_statements` (`pg_prepared_statement`);
-`pg_prepared_xacts` (`pg_prepared_xact`); `pg_file_settings`
-(`pg_show_all_file_settings`); `pg_wait_events` (`pg_get_wait_events`);
-`pg_backend_memory_contexts` (`pg_get_backend_memory_contexts`);
-`pg_shmem_allocations` (`pg_get_shmem_allocations`);
-`pg_replication_origin_status` (`pg_show_replication_origin_status`);
-`pg_replication_slots` (`pg_get_replication_slots`).
-
-> The `pg_stat[io]_{sys,user}_*` views are in the "would-be-working" group above
-> because they select from the **materialized** `pg_stat[io]_all_*` snapshot tables;
-> the `*_all_*` parents' SQL is what needs these runtime functions.
+The stat / live-state views' server-runtime functions (`pg_stat_get_*`,
+`pg_show_all_file_settings`, `pg_get_wait_events`, ...) are wired as
+integration-installable resolvers that answer empty by default. The views
+execute - that is what moved them out of "broken" - but their row counts do
+not match the capture: the `pg_stat[io]_*` family produces zeroed rows (one
+per relation, or one per database / one global row for the collector views)
+where the capture stored none (17 views), and `pg_file_settings`,
+`pg_wait_events`, `pg_available_extension_versions` answer empty where the
+capture had rows (3 views).
 
 ---
 
 ## Summary
 
-| Scope | Declared | Served as view | working | partial | broken (served as table) |
+Regenerated from `claude-scripts/catalog_audit.json`, 2026-08-17.
+
+| Scope | Declared | Served as view | working | partial | broken |
 |---|---|---|---|---|---|
-| `pg_catalog` views | 71 | 2 | 1 | 1 | 69 |
-| `information_schema` views | 65 | 4 | 4 | 0 | 61 |
-| **views total** | **136** | **6** | **5** | **1** | **130** |
+| `pg_catalog` views | 71 | 71 | 48 | 23 | 0 |
+| `information_schema` views | 65 | 65 | 50 | 15 | 0 |
+| **views total** | **136** | **136** | **98** | **38** | **0** |
 | base tables | 75 | n/a (all tables) | 75 | 0 | 0 |
 
-Of the 130 views served as tables: **80** have a `view_sql` that runs (68 reproduce
-the snapshot, 12 diverge in a named column) and would become working/partial real
-views if registered as views; **50** error today (9 fixable engine/UDF gaps + 41
-needing live server-runtime functions). One of the 50, `pg_available_extension_versions`,
-is function-backed and fails even a plain scan.
+Every `view_sql` executes; nothing is served as a materialized table, and a
+view body that stopped planning would fail startup rather than degrade. The 38
+partials are the three cause groups above: resolver-backed definition text
+(8), unmodeled GRANTs (10), and resolver-backed runtime state (20).
 
 All 75 base tables are queryable; 13 also accept runtime user objects
-(`pg_class`, `pg_attribute`, `pg_attrdef`, `pg_namespace`, `pg_type`, `pg_index`,
-`pg_constraint`, `pg_database` eager+lazy; `pg_config`, `pg_settings` lazy; and
-`information_schema.tables`/`columns`/`schemata` as merge targets), the rest are
-seed-only.
+(`pg_class`, `pg_attribute`, `pg_attrdef`, `pg_namespace`, `pg_type`,
+`pg_index`, `pg_constraint`, `pg_database` declared+lazy; `pg_config`,
+`pg_settings` lazy; and `information_schema.tables`/`columns`/`schemata` as
+merge targets), the rest are seed-only.
 
 ---
 
@@ -366,9 +315,12 @@ regression test; they are not hand-maintained.
    RUST_LOG=off .venv/bin/python -m pytest tests/test_view_output_snapshot.py -q
    ```
 
-Promoting the remaining materialized views to real views means giving each a
-`view_sql` that plans against the base tables, then adding it to
-`VIEW_ONLY_TABLES` in `src/session.rs`.
+There are no materialized views left to promote: every declared view is on
+`VIEWS_TO_REGISTER` in `src/session.rs` and served with `CREATE VIEW`, and a
+listed body that fails to plan fails startup. Adding a NEW declared view means
+giving it a `view_sql` that plans against the base tables and adding it to
+that list in dependency order (`src/bin/gen_view_order.rs` computes the
+order).
 
 ---
 

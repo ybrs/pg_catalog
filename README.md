@@ -50,35 +50,52 @@ datafusion_pg_catalog = { git = "https://github.com/ybrs/pg_catalog" }
 
 ## Example Usage
 
-Create a `SessionContext` preloaded with the catalog tables and register your own schema:
+Create a `SessionContext` preloaded with the catalog tables and your own objects.
+Declare them up front and wrap the declarations in a `DeclaredCatalogSource` --
+the same mechanism a live `LazyCatalogSource` uses, so both styles of host share
+one code path:
 ```rust
 use std::collections::BTreeMap;
+use std::sync::Arc;
+use datafusion_pg_catalog::catalog_oid_registry::RedbCatalogOidRegistry;
+use datafusion_pg_catalog::declared_catalog_source::DeclaredCatalogSource;
 use datafusion_pg_catalog::{
-    get_base_session_context, register_user_database, register_schema,
-    register_user_tables, register_user_index, ColumnDef,
+    get_base_session_context_with_lazy_catalog, ColumnDef, LazyCatalogOptions,
 };
 
-let (ctx, _log) = get_base_session_context(
-    Some("pg_catalog_data/pg_schema"),
-    "pgtry".to_string(),
-    "public".to_string(),
-    None, // optional current_schemas getter
-).await?;
-
-register_user_database(&ctx, "crm").await?;
-register_schema(&ctx, "crm", "public").await?;
+// Declared objects get their oids from a persistent registry: the first
+// registration of a name allocates the next oid and records it, so oids
+// survive restarts and declaration reordering. (InMemoryCatalogOidRegistry
+// exists for tests; relying on it in a server is deprecated.)
+let registry = RedbCatalogOidRegistry::open(std::path::Path::new("catalog-oids.redb"))?;
 
 let mut cols = BTreeMap::new();
 cols.insert(
     "id".to_string(),
-    ColumnDef { col_type: "int".to_string(), nullable: false },
+    ColumnDef { col_type: "int".to_string(), nullable: false, has_default: false },
 );
-register_user_tables(&ctx, "crm", "public", "users", vec![cols]).await?;
+// Errors PostgreSQL-style on a duplicate declaration ("already exists").
+let declared = DeclaredCatalogSource::from_declarations(
+    &["crm".to_string()],
+    &[("crm".to_string(), "public".to_string())],
+    &[("crm".to_string(), "public".to_string(), "users".to_string(), vec![cols])],
+    &registry,
+)?;
 
-// Optionally register an index so pg_indexes / pg_get_indexdef can describe it.
-// Args: schema, index name, table, key column attnums, is_unique, is_primary.
-register_user_index(&ctx, "public", "users_pkey", "users", vec![1], true, true).await?;
+let (ctx, _log) = get_base_session_context_with_lazy_catalog(
+    Some("pg_catalog_data/pg_schema"),
+    "crm".to_string(),    // default catalog: the database this context serves
+    "public".to_string(), // default schema
+    Arc::new(declared),
+    LazyCatalogOptions::all(),
+    "crm".to_string(),    // the database the source is asked about
+).await?;
 ```
+
+A host whose objects change at runtime implements `LazyCatalogSource` itself
+instead of declaring them -- the source is consulted afresh on every catalog
+scan, and it can also express views, indexes, constraints, per-object owners
+and database metadata. See `example-lazycatalog/` for a complete server.
 
 Then you can run queries like:
 
@@ -142,7 +159,6 @@ async fn main() -> anyhow::Result<()> {
         Some("pg_catalog_data/pg_schema"),
         "pgtry".to_string(),
         "public".to_string(),
-        None,
     ).await?;
 
 start_server(Arc::new(ctx), "127.0.0.1:5433", "pgtry", "public", None).await?;
@@ -228,9 +244,10 @@ list, in Rust.
 
 ## Roadmap
 - [ ] Hook into `CREATE TABLE` to auto-populate metadata
-- [x] `pg_index` registration (eager `register_user_index` + lazy `LazyCatalogSource::indexes()`)
-- [x] `pg_constraint` / `pg_attrdef` registration for user objects (eager `register_user_constraint` /
-      `register_user_tables`, lazy `LazyCatalogSource::constraints()` / `columns()`)
+- [x] `pg_index` registration (`LazyCatalogSource::indexes()`)
+- [x] `pg_constraint` / `pg_attrdef` registration for user objects
+      (`LazyCatalogSource::constraints()` / `columns()`; declared tables carry
+      defaults through `DeclaredCatalogSource`)
 - [x] `pg_get_indexdef` / `pg_get_viewdef` text via an integration-supplied resolver (see
       "Runtime functions" below); `pg_get_ruledef` remains a NULL stub
 - [ ] Catalog persistence to disk or external store

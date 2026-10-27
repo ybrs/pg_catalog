@@ -152,6 +152,36 @@ def test_current_schemas(server):
         assert rows == [("pg_catalog",), ("public",)]
 
 
+def test_show_session_user_and_timezone(server):
+    """SHOW reports the authenticated role and the session timezone.
+
+    These used to fall through to the planner, which cannot answer SHOW,
+    so SHOW session_user could not agree with SELECT session_user.
+    """
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SHOW session_user")
+        assert cur.fetchone() == ("dbuser",)
+        cur.execute("SHOW session_authorization")
+        assert cur.fetchone() == ("dbuser",)
+        cur.execute("SET TIME ZONE 'Europe/Istanbul'")
+        cur.execute("SHOW timezone")
+        assert cur.fetchone() == ("Europe/Istanbul",)
+
+
+def test_show_all_lists_tracked_variables(server):
+    """SHOW ALL answers one row per tracked session variable."""
+    with psycopg.connect(CONN_STR) as conn:
+        cur = conn.cursor()
+        cur.execute("SHOW ALL")
+        rows = cur.fetchall()
+    by_name = {row[0]: row[1] for row in rows}
+    assert by_name["session_user"] == "dbuser"
+    assert by_name["search_path"] == '"$user", public'
+    assert "server_version" in by_name
+    assert "timezone" in by_name
+
+
 def test_show_transaction_isolation_level(server):
     with psycopg.connect(CONN_STR) as conn:
         cur = conn.cursor()

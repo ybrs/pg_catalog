@@ -19,13 +19,14 @@ use crate::replace::{
     drop_redundant_oid_and_regclass_casts, name_set_returning_function_column_after_its_alias,
     regclass_udfs, replace_regclass, replace_set_command_with_namespace,
     resolve_order_by_names_to_output_positions, resolve_regproc_columns_to_oids_in_comparisons,
-    resolve_regtype_literals_to_type_oids, rewrite_array_agg_varchar_cast,
-    rewrite_array_index_iteration_to_any_comparison, rewrite_array_over_unnest_to_array_expression,
-    rewrite_array_subquery, rewrite_array_upper_to_array_length,
-    rewrite_available_extension_versions_source, rewrite_available_updates,
-    rewrite_boolean_column_char_comparisons, rewrite_boolean_scalar_subquery_to_exists,
-    rewrite_brace_array_literal, rewrite_char_cast, rewrite_correlated_limit_one_subquery_to_max,
-    rewrite_exists_to_count, rewrite_information_schema_casts, rewrite_name_cast, rewrite_oid_cast,
+    resolve_regproc_literals_to_function_oids, resolve_regtype_literals_to_type_oids,
+    rewrite_array_agg_varchar_cast, rewrite_array_index_iteration_to_any_comparison,
+    rewrite_array_over_unnest_to_array_expression, rewrite_array_subquery,
+    rewrite_array_upper_to_array_length, rewrite_available_extension_versions_source,
+    rewrite_available_updates, rewrite_boolean_column_char_comparisons,
+    rewrite_boolean_scalar_subquery_to_exists, rewrite_brace_array_literal, rewrite_char_cast,
+    rewrite_correlated_limit_one_subquery_to_max, rewrite_exists_to_count,
+    rewrite_information_schema_casts, rewrite_name_cast, rewrite_oid_cast,
     rewrite_pg_custom_operator, rewrite_pg_truetypid_composite_args, rewrite_regoper_cast,
     rewrite_regoperator_cast, rewrite_regproc_cast, rewrite_regprocedure_cast,
     rewrite_regtype_cast, rewrite_schema_qualified_custom_types, rewrite_schema_qualified_text,
@@ -61,8 +62,8 @@ use crate::user_functions::{
     register_pg_table_size, register_pg_total_relation_size, register_pg_truetypid_helpers,
     register_pg_wrap_array_elements, register_qualified_array_length,
     register_qualified_builtin_aliases, register_quote_ident, register_row_security_active,
-    register_scalar_array_to_string, register_scalar_format_type, register_scalar_pg_age,
-    register_scalar_pg_encoding_to_char, register_scalar_pg_get_expr,
+    register_scalar_array_to_string, register_scalar_encoding_name_functions,
+    register_scalar_format_type, register_scalar_pg_age, register_scalar_pg_get_expr,
     register_scalar_pg_get_partkeydef, register_scalar_pg_get_userbyid,
     register_scalar_pg_is_in_recovery, register_scalar_pg_proc_oid,
     register_scalar_pg_table_is_visible, register_scalar_pg_tablespace_location,
@@ -72,6 +73,7 @@ use crate::user_functions::{
 };
 
 use crate::scalar_to_cte::rewrite_scalar_subqueries_to_ctes;
+use crate::session_identity_spellings::normalize_session_identity_spellings;
 use bytes::Bytes;
 
 use datafusion::common::{config::ConfigEntry, config_err};
@@ -81,7 +83,7 @@ use datafusion::scalar::ScalarValue;
 /// startup (when no explicit schema path is given) far faster than parsing the
 /// YAML. Regenerate with `cargo run --release --bin gen_schema_ipc` after the
 /// YAML catalog changes; the YAML zip remains the human-editable source.
-static SCHEMA_IPC: &[u8] = include_bytes!(concat!(
+pub(crate) static SCHEMA_IPC: &[u8] = include_bytes!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/pg_catalog_data/postgres-schema-nightly-ipc.zip"
 ));
@@ -210,6 +212,13 @@ pub struct ClientOpts {
     pub application_name: String,
     pub datestyle: String,
     pub search_path: String,
+    /// The session's `TimeZone` GUC, set by `SET TIME ZONE` / `SET timezone`.
+    ///
+    /// Held for `SHOW timezone` and `current_setting('timezone')` to read
+    /// back. It does not shift how this crate renders timestamps - the
+    /// catalog snapshots carry no session-local times - so it is session
+    /// STATE, faithfully stored and reported, not a rendering switch.
+    pub timezone: String,
     /// The role this connection authenticated as, reported by `current_user`,
     /// `session_user` and `current_role`.
     ///
@@ -226,15 +235,25 @@ pub struct ClientOpts {
 /// The role a connection reports before its host has said who connected.
 pub const DEFAULT_SESSION_USER: &str = "postgres";
 
+/// The `TimeZone` value a connection starts with, and what `SET TIME ZONE
+/// DEFAULT` resets to.
+///
+/// A real server's default comes from initdb's locale, so it differs per
+/// machine; an emulation has no locale to inherit and UTC is the one value
+/// that means the same thing everywhere.
+pub const DEFAULT_TIMEZONE: &str = "UTC";
+
 impl Default for ClientOpts {
     /// The GUC values a connection starts with before its host overrides any:
     /// `PostgreSQL`'s own defaults for `DateStyle` and `search_path`, an empty
-    /// application name, and [`DEFAULT_SESSION_USER`] as the role.
+    /// application name, [`DEFAULT_TIMEZONE`], and [`DEFAULT_SESSION_USER`] as
+    /// the role.
     fn default() -> Self {
         Self {
             application_name: String::new(),
             datestyle: "ISO, MDY".to_string(),
             search_path: "\"$user\", public".to_string(),
+            timezone: DEFAULT_TIMEZONE.to_string(),
             session_user: DEFAULT_SESSION_USER.to_string(),
         }
     }
@@ -318,10 +337,17 @@ impl ExtensionOptions for ClientOpts {
                 self.search_path = value.to_string();
                 Ok(())
             }
-            "session_user" => {
-                self.session_user = value.to_string();
+            "timezone" => {
+                self.timezone = value.to_string();
                 Ok(())
             }
+            // `session_user` is deliberately not settable here: it records
+            // who the host authenticated, and a client that could write it
+            // through `SET pg_catalog.session_user = ...` would be
+            // impersonating another role to `current_user`, `session_user`
+            // and every catalog view that reads them. The host writes the
+            // field directly through `set_session_user`; through SQL it is
+            // an unknown key like any other unwritable one.
             "extra_float_digits" => Ok(()),
             _ => config_err!("unknown key {key}"),
         }
@@ -344,6 +370,11 @@ impl ExtensionOptions for ClientOpts {
             ConfigEntry {
                 key: "search_path".to_string(),
                 value: Some(self.search_path.clone()),
+                description: "",
+            },
+            ConfigEntry {
+                key: "timezone".to_string(),
+                value: Some(self.timezone.clone()),
                 description: "",
             },
             ConfigEntry {
@@ -761,12 +792,19 @@ pub fn print_params(params: &[Option<Bytes>]) {
 /// the SQL those two passes were handed no longer parses even though the passes
 /// before them accepted it.
 pub fn rewrite_filters(sql: &str) -> datafusion::error::Result<(String, HashMap<String, String>)> {
-    let sql = replace_set_command_with_namespace(sql)?;
+    // First, because two of the spellings it handles (`pg_catalog.current_user()`
+    // and its session_user twin) do not PARSE, so every pass below would fail on
+    // them before it could run.
+    let sql = normalize_session_identity_spellings(sql)?;
+    let sql = replace_set_command_with_namespace(&sql)?;
     let sql = strip_default_collate(&sql)?;
     let sql = rewrite_time_zone_utc(&sql)?;
     let sql = rewrite_regoper_cast(&sql)?;
     let sql = rewrite_regoperator_cast(&sql)?;
     let sql = rewrite_regprocedure_cast(&sql)?;
+    // Before rewrite_regproc_cast, which would flatten the literal to TEXT and
+    // leave rewrite_oid_cast resolving the function name against pg_class.
+    let sql = resolve_regproc_literals_to_function_oids(&sql)?;
     let sql = rewrite_regproc_cast(&sql)?;
     let sql = rewrite_available_updates(&sql)?;
     // Before rewrite_array_upper_to_array_length and the prefix strip, so the
@@ -1008,6 +1046,282 @@ fn bind_parameter_as_scalar(
     })
 }
 
+/// The bare variable name a `SET` addresses, however it was written.
+///
+/// Accepts a bare name (`search_path`) or a `pg_catalog`-qualified one
+/// (`pg_catalog.search_path`) and returns the name `ClientOpts` stores it
+/// under: an unquoted name folds to lower case, as `PostgreSQL` matches GUC
+/// names case-insensitively, while a quoted name keeps its spelling. Any
+/// other qualification is not a session variable this crate owns, so it
+/// answers `None`.
+fn bare_session_variable_name(variable: &sqlparser::ast::ObjectName) -> Option<String> {
+    use sqlparser::ast::ObjectNamePart;
+    /// The stored spelling of one identifier: folded unless it was quoted.
+    fn stored_spelling(ident: &sqlparser::ast::Ident) -> String {
+        if ident.quote_style.is_none() {
+            ident.value.to_ascii_lowercase()
+        } else {
+            ident.value.clone()
+        }
+    }
+    match variable.0.as_slice() {
+        [ObjectNamePart::Identifier(name)] => Some(stored_spelling(name)),
+        [ObjectNamePart::Identifier(schema), ObjectNamePart::Identifier(name)]
+            if schema.value.eq_ignore_ascii_case("pg_catalog") =>
+        {
+            Some(stored_spelling(name))
+        }
+        _ => None,
+    }
+}
+
+/// The value `SET <key> = DEFAULT` restores for a session variable.
+///
+/// These are the same values `ClientOpts::default` starts a connection
+/// with, so a reset and a fresh connection agree. `extra_float_digits` has
+/// no stored value to restore - it is accepted and ignored - so it resets
+/// to the empty string its setter discards anyway. A key this crate does
+/// not store answers `None`.
+fn session_variable_default_value(key: &str) -> Option<String> {
+    let defaults = ClientOpts::default();
+    match key {
+        "application_name" => Some(defaults.application_name),
+        "datestyle" => Some(defaults.datestyle),
+        "search_path" => Some(defaults.search_path),
+        "timezone" => Some(defaults.timezone),
+        "extra_float_digits" => Some(String::new()),
+        _ => None,
+    }
+}
+
+/// Write one session variable into the connection's `ClientOpts`.
+///
+/// # Errors
+///
+/// Returns an error when `ctx` carries no `ClientOpts` extension, or when
+/// `key` is not a variable `ClientOpts` accepts - `session_user` included,
+/// deliberately (see `ClientOpts::set`).
+fn store_session_variable(
+    ctx: &SessionContext,
+    key: &str,
+    value: &str,
+) -> datafusion::error::Result<()> {
+    let state_ref = ctx.state_ref();
+    let mut state = state_ref.write();
+    let opts = state
+        .config_mut()
+        .options_mut()
+        .extensions
+        .get_mut::<ClientOpts>()
+        .ok_or_else(|| {
+            DataFusionError::Execution(
+                "this session has no ClientOpts, so a session variable cannot be stored"
+                    .to_string(),
+            )
+        })?;
+    opts.set(key, value)
+}
+
+/// The text a bound parameter contributes to a `SET` value.
+///
+/// # Errors
+///
+/// Returns an error when the parameter is NULL (`PostgreSQL` rejects
+/// `SET <variable> = NULL`) or carries a type a `SET` value cannot be
+/// written from.
+fn bound_parameter_as_set_value(
+    scalar: &ScalarValue,
+    position: usize,
+) -> datafusion::error::Result<String> {
+    match scalar {
+        ScalarValue::Utf8(Some(text))
+        | ScalarValue::LargeUtf8(Some(text))
+        | ScalarValue::Utf8View(Some(text)) => Ok(text.clone()),
+        ScalarValue::Boolean(Some(flag)) => Ok(flag.to_string()),
+        ScalarValue::Int8(Some(number)) => Ok(number.to_string()),
+        ScalarValue::Int16(Some(number)) => Ok(number.to_string()),
+        ScalarValue::Int32(Some(number)) => Ok(number.to_string()),
+        ScalarValue::Int64(Some(number)) => Ok(number.to_string()),
+        ScalarValue::UInt8(Some(number)) => Ok(number.to_string()),
+        ScalarValue::UInt16(Some(number)) => Ok(number.to_string()),
+        ScalarValue::UInt32(Some(number)) => Ok(number.to_string()),
+        ScalarValue::UInt64(Some(number)) => Ok(number.to_string()),
+        ScalarValue::Float32(Some(number)) => Ok(number.to_string()),
+        ScalarValue::Float64(Some(number)) => Ok(number.to_string()),
+        _ if scalar.is_null() => Err(DataFusionError::Plan(format!(
+            "parameter ${position} is NULL, and a SET value cannot be NULL"
+        ))),
+        _ => Err(DataFusionError::Plan(format!(
+            "parameter ${position} has type {}, which a SET value cannot be written from",
+            scalar.data_type()
+        ))),
+    }
+}
+
+/// The text one `SET` value expression contributes to the stored value.
+///
+/// A literal contributes itself, a bare word contributes its spelling
+/// (`SET search_path = public` stores `public`), and a `$n` placeholder
+/// contributes the parameter bound at that position. Anything computed -
+/// a function call, an arithmetic expression - is not a value
+/// `PostgreSQL` accepts for `SET` either, and is reported.
+///
+/// # Errors
+///
+/// Returns an error for a computed expression, for a placeholder with no
+/// bound parameters, or for a placeholder past the bound ones.
+fn set_value_expression_as_text(
+    expression: &sqlparser::ast::Expr,
+    bound_scalars: Option<&[ScalarValue]>,
+) -> datafusion::error::Result<String> {
+    use sqlparser::ast::{Expr, UnaryOperator, Value};
+    match expression {
+        Expr::Value(value_with_span) => match &value_with_span.value {
+            Value::SingleQuotedString(text)
+            | Value::DoubleQuotedString(text)
+            | Value::Number(text, _) => Ok(text.clone()),
+            Value::Boolean(flag) => Ok(flag.to_string()),
+            Value::Placeholder(placeholder) => {
+                let position: usize =
+                    placeholder.trim_start_matches('$').parse().map_err(|_| {
+                        DataFusionError::Plan(format!(
+                            "placeholder {placeholder} does not name a parameter position"
+                        ))
+                    })?;
+                let scalars = bound_scalars.ok_or_else(|| {
+                    DataFusionError::Plan(format!(
+                        "SET uses parameter ${position} but no parameters were bound"
+                    ))
+                })?;
+                let scalar = scalars.get(position.wrapping_sub(1)).ok_or_else(|| {
+                    DataFusionError::Plan(format!(
+                        "SET uses parameter ${position} but only {} parameters were bound",
+                        scalars.len()
+                    ))
+                })?;
+                bound_parameter_as_set_value(scalar, position)
+            }
+            unsupported => Err(DataFusionError::Plan(format!(
+                "unsupported SET value: {unsupported}"
+            ))),
+        },
+        Expr::Identifier(ident) => Ok(ident.value.clone()),
+        Expr::UnaryOp {
+            op: UnaryOperator::Minus,
+            expr: operand,
+        } => Ok(format!(
+            "-{}",
+            set_value_expression_as_text(operand, bound_scalars)?
+        )),
+        Expr::UnaryOp {
+            op: UnaryOperator::Plus,
+            expr: operand,
+        } => set_value_expression_as_text(operand, bound_scalars),
+        unsupported => Err(DataFusionError::Plan(format!(
+            "unsupported SET value expression: {unsupported}"
+        ))),
+    }
+}
+
+/// Whether one `SET` value expression is the `DEFAULT` keyword.
+///
+/// Only a bare, unquoted `DEFAULT` means reset; a quoted `'default'` is a
+/// value like any other.
+fn set_value_expression_is_default(expression: &sqlparser::ast::Expr) -> bool {
+    use sqlparser::ast::Expr;
+    matches!(expression, Expr::Identifier(ident) if ident.quote_style.is_none() && ident.value.eq_ignore_ascii_case("default"))
+}
+
+/// Apply a statement that sets a session variable this crate stores, and
+/// say whether this function handled it.
+///
+/// `DataFusion`'s own `SET` handling accepts exactly one literal value per
+/// statement, which is narrower than `PostgreSQL`: `SET search_path TO
+/// a, b` is one variable holding a list, a driver may bind the value as a
+/// parameter (`SET application_name = $1`), and `SET LOCAL ...` outside a
+/// transaction must answer a `SET` tag while changing nothing. All three
+/// are faithful only if this crate applies them itself, so a statement
+/// [`crate::router::classify_set_statement`] calls `ApplyToSession` is
+/// stored here, one it calls `AcknowledgeWithoutApplying` is answered
+/// without storing, and anything else answers `Ok(None)` so the caller
+/// runs it through the normal pipeline - which is also where a `SET` on a
+/// variable this crate does not own, `session_user` included, gets its
+/// error.
+///
+/// The handled result is the empty batch set a planned `SET` produces.
+///
+/// # Errors
+///
+/// Returns an error when the classified statement's value cannot be read
+/// (a computed expression, an unbound placeholder) or the session carries
+/// no `ClientOpts` to store into.
+fn apply_session_set_statement(
+    ctx: &SessionContext,
+    sql: &str,
+    bound_scalars: Option<&[ScalarValue]>,
+) -> datafusion::error::Result<Option<(Vec<RecordBatch>, Arc<Schema>)>> {
+    use crate::router::{classify_set_statement, SetStatementDisposition};
+    use sqlparser::ast::{Set, Statement};
+    use sqlparser::dialect::PostgreSqlDialect;
+    use sqlparser::parser::Parser;
+
+    let disposition = classify_set_statement(sql);
+    if disposition == SetStatementDisposition::NotASessionSet {
+        return Ok(None);
+    }
+    let handled = || Some((Vec::new(), Arc::new(Schema::empty())));
+    if disposition == SetStatementDisposition::AcknowledgeWithoutApplying {
+        return Ok(handled());
+    }
+
+    let dialect = PostgreSqlDialect {};
+    let Ok(statements) = Parser::parse_sql(&dialect, sql) else {
+        return Ok(None);
+    };
+    let [Statement::Set(set)] = statements.as_slice() else {
+        return Ok(None);
+    };
+    match set {
+        Set::SetTimeZone { value, .. } => {
+            let stored_value = if set_value_expression_is_default(value) {
+                DEFAULT_TIMEZONE.to_string()
+            } else {
+                set_value_expression_as_text(value, bound_scalars)?
+            };
+            store_session_variable(ctx, "timezone", &stored_value)?;
+        }
+        Set::SingleAssignment {
+            variable, values, ..
+        } => {
+            let Some(key) = bare_session_variable_name(variable) else {
+                return Ok(None);
+            };
+            let stored_value = match values.as_slice() {
+                [single] if set_value_expression_is_default(single) => {
+                    session_variable_default_value(&key).ok_or_else(|| {
+                        DataFusionError::Plan(format!(
+                            "session variable {key} has no default to reset to"
+                        ))
+                    })?
+                }
+                [] => {
+                    return Err(DataFusionError::Plan(
+                        "SET with no value is not supported".to_string(),
+                    ))
+                }
+                _ => values
+                    .iter()
+                    .map(|value| set_value_expression_as_text(value, bound_scalars))
+                    .collect::<datafusion::error::Result<Vec<_>>>()?
+                    .join(", "),
+            };
+            store_session_variable(ctx, &key, &stored_value)?;
+        }
+        _ => return Ok(None),
+    }
+    Ok(handled())
+}
+
 /// Rewrite a client's `PostgreSQL` statement into SQL `DataFusion` can plan, run
 /// it on `ctx`, and return the result batches with the schema the client expects.
 ///
@@ -1032,13 +1346,55 @@ pub async fn rewrite_and_execute_sql(
 ) -> datafusion::error::Result<(Vec<RecordBatch>, Arc<Schema>)> {
     log::debug!("input sql {sql:?}");
 
+    // Decode the bound parameters first: a `SET` whose value is a
+    // placeholder (`SET application_name = $1`) is applied below from these
+    // scalars, before any rewrite pass sees the statement.
+    let scalars: Option<Vec<ScalarValue>> =
+        if let (Some(params), Some(types)) = (param_values, param_types) {
+            log::debug!("params {params:?}");
+            print_params(&params);
+
+            let mut scalars = Vec::new();
+            for (position, (param, typ)) in params.into_iter().zip(types).enumerate() {
+                scalars.push(bind_parameter_as_scalar(
+                    param.as_deref(),
+                    &typ,
+                    position + 1,
+                )?);
+            }
+            Some(scalars)
+        } else {
+            None
+        };
+
+    // A `SET` on a session variable this crate stores is applied here, not
+    // planned: DataFusion's SET accepts one literal value, so a list value
+    // (`SET search_path TO a, b`), a bound parameter, and `SET LOCAL` all
+    // fail or misbehave on the planning path. `apply_session_set_statement`
+    // answers only the statements the router classifies as the session's
+    // own; everything else falls through to the pipeline below.
+    if let Some(handled) = apply_session_set_statement(ctx, sql, scalars.as_deref())? {
+        return Ok(handled);
+    }
+
+    // Before every other pass, because two of the spellings it handles
+    // (`pg_catalog.current_user()` and its session_user twin) do not PARSE:
+    // sqlparser reads the keyword as parenthesis-less and rejects the `(`. Any
+    // pass that runs first fails on them, whatever it was looking for.
+    //
+    // `rewrite_filters` normalises too, for the callers that reach it directly
+    // (view creation, and anything embedding this crate). Doing it twice is
+    // deliberate and safe - the rewrite is a fixed point, asserted by
+    // `every_accepted_spelling_becomes_a_call_that_re_parses`.
+    let sql = normalize_session_identity_spellings(sql)?;
+
     // A correlated scalar subquery with `LIMIT 1` decorrelates into a plan that
     // limits the whole subquery relation rather than each outer row, silently
     // returning NULL instead of the matching value. Turning it into a `max`
     // aggregate keeps the meaning and decorrelates correctly. Runs on the
     // client's SQL before the passes below reshape it, so the shape it matches
     // is the one the client actually sent.
-    let sql = rewrite_correlated_limit_one_subquery_to_max(sql)?;
+    let sql = rewrite_correlated_limit_one_subquery_to_max(&sql)?;
 
     // Turn `(srf(x)).field` set-returning-function projections into an
     // `unnest(List<Struct>)` form DataFusion can plan. Runs BEFORE rewrite_filters
@@ -1063,24 +1419,6 @@ pub async fn rewrite_and_execute_sql(
     // can't plan multi-column IN). Runs AFTER rewrite_exists_to_count so the
     // EXISTS it emits stays a native WHERE predicate.
     let sql = rewrite_tuple_in_subquery_to_exists(&sql)?;
-
-    let scalars: Option<Vec<ScalarValue>> =
-        if let (Some(params), Some(types)) = (param_values, param_types) {
-            log::debug!("params {params:?}");
-            print_params(&params);
-
-            let mut scalars = Vec::new();
-            for (position, (param, typ)) in params.into_iter().zip(types).enumerate() {
-                scalars.push(bind_parameter_as_scalar(
-                    param.as_deref(),
-                    &typ,
-                    position + 1,
-                )?);
-            }
-            Some(scalars)
-        } else {
-            None
-        };
 
     let (results, schema) = plan_collect_and_rename(ctx, &sql, scalars, &aliases).await?;
 
@@ -1298,6 +1636,35 @@ fn schemas_to_ipc_zip(
     out
 }
 
+/// Read entry `index` of `bytes` a second time and describe what happened, for
+/// the panic message of a first read that failed.
+///
+/// The two outcomes mean different things and the message should say which one
+/// it is. A repeat read that succeeds means the bytes on the second attempt
+/// were fine, so the first read was corrupted in flight - memory, not the
+/// artifact. A repeat read that fails the same way means the artifact really
+/// does disagree with the CRC it carries, so it needs regenerating.
+fn describe_repeat_read(bytes: &[u8], index: usize) -> String {
+    let repeat = ZipArchive::new(Cursor::new(bytes))
+        .map_err(|e| e.to_string())
+        .and_then(|mut archive| {
+            let mut entry = archive.by_index(index).map_err(|e| e.to_string())?;
+            let mut buf: Vec<u8> = Vec::new();
+            entry.read_to_end(&mut buf).map_err(|e| e.to_string())?;
+            Ok(buf.len())
+        });
+    match repeat {
+        Ok(bytes_read) => format!(
+            "reading it again SUCCEEDED ({bytes_read} bytes), so the artifact is intact and \
+             the first read was corrupted in flight - suspect memory, not the artifact"
+        ),
+        Err(e) => format!(
+            "reading it again failed the same way ({e}), so the artifact itself disagrees \
+             with the CRC it carries - regenerate it with gen_schema_ipc"
+        ),
+    }
+}
+
 /// Load the catalog from a zip of per-table Arrow IPC streams (the fast path for
 /// the embedded artifact). The inverse of [`schemas_to_ipc_zip`].
 ///
@@ -1305,7 +1672,20 @@ fn schemas_to_ipc_zip(
 ///
 /// Panics if the archive cannot be read, an entry is not a readable IPC stream,
 /// or a stream is missing the `pgcat.catalog` / `pgcat.schema` / `pgcat.table`
-/// metadata that says where its table belongs.
+/// metadata that says where its table belongs. The message names the entry that
+/// failed and, for a read that failed, says whether reading it again failed the
+/// same way. The message names the entry that
+/// failed and, for a read that failed, says whether reading it again failed the
+/// Load the catalog from a zip of per-table Arrow IPC streams (the fast path for
+/// the embedded artifact). The inverse of [`schemas_to_ipc_zip`].
+///
+/// # Panics
+///
+/// Panics if the archive cannot be read, an entry is not a readable IPC stream,
+/// or a stream is missing the `pgcat.catalog` / `pgcat.schema` / `pgcat.table`
+/// metadata that says where its table belongs. The message names the entry that
+/// failed and, for a read that failed, says whether reading it again failed the
+/// same way.
 fn parse_schema_ipc_bytes(
     bytes: &[u8],
 ) -> HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> {
@@ -1313,16 +1693,38 @@ fn parse_schema_ipc_bytes(
 
     let reader = Cursor::new(bytes);
     let mut archive = ZipArchive::new(reader).expect("Failed to read ipc zip");
+    let entry_count = archive.len();
     let mut all: HashMap<String, HashMap<String, HashMap<String, ParsedTable>>> = HashMap::new();
-    for i in 0..archive.len() {
-        let mut entry = archive.by_index(i).expect("Invalid zip entry");
+    for i in 0..entry_count {
+        let mut entry = archive
+            .by_index(i)
+            .unwrap_or_else(|e| panic!("embedded catalog entry {i} of {entry_count}: {e}"));
         if !has_extension(entry.name(), "arrow") {
             continue;
         }
+        let entry_name = entry.name().to_string();
+        let declared_size = entry.size();
         let mut buf: Vec<u8> = Vec::new();
-        entry.read_to_end(&mut buf).expect("read ipc entry");
+        if let Err(e) = entry.read_to_end(&mut buf) {
+            let bytes_read = buf.len();
+            drop(entry);
+            // Name the entry, say how far the read got, and say whether reading
+            // it again fails the same way. "Invalid checksum" on its own says
+            // only that the decompressed bytes did not match the CRC recorded
+            // when the artifact was built, which cannot distinguish a bad
+            // artifact from a bad read of a good one - and the artifact is a
+            // read-only mapping of this binary, so it always tests clean
+            // afterwards. The repeat read is what tells those apart.
+            panic!(
+                "embedded catalog entry {entry_name} (index {i} of {entry_count}, \
+                 {declared_size} bytes declared) failed to decompress after \
+                 {bytes_read} bytes: {e}; {}",
+                describe_repeat_read(bytes, i)
+            );
+        }
 
-        let mut stream = StreamReader::try_new(Cursor::new(buf), None).expect("ipc reader");
+        let mut stream = StreamReader::try_new(Cursor::new(buf), None)
+            .unwrap_or_else(|e| panic!("embedded catalog entry {entry_name}: ipc reader: {e}"));
         let md_schema = stream.schema();
         let md = md_schema.metadata();
         let catalog = md
@@ -2387,6 +2789,41 @@ async fn build_base_session_context_inner(
 ///
 /// Returns an error if any registration fails, which means two functions were
 /// registered under one name or a function's signature was rejected.
+/// Register the UDFs whose answers are read out of the catalog tables at
+/// registration time, so they must run after the base tables exist.
+///
+/// The type-name map is rendered once and shared: the operator-signature
+/// snapshot calls the `format_type` UDF in SQL, and `pg_describe_object` and
+/// `pg_get_functiondef` render through the same `format_type_name`, so all of
+/// them agree on every type spelling.
+async fn register_snapshot_backed_functions(ctx: &SessionContext) -> datafusion::error::Result<()> {
+    let typnames = crate::user_functions::load_typname_by_oid(ctx).await?;
+    let rendered_type_names: std::collections::HashMap<i64, String> = typnames
+        .keys()
+        .map(|oid| {
+            (
+                *oid,
+                crate::user_functions::format_type_name(*oid, None, &typnames),
+            )
+        })
+        .collect();
+    crate::describe_object::register_scalar_pg_describe_object(ctx, rendered_type_names.clone())
+        .await?;
+    // Same rendered type-name map, so \sf and format_type spell every
+    // argument and return type identically.
+    crate::function_definitions::register_scalar_pg_get_functiondef(ctx, rendered_type_names)
+        .await?;
+
+    // It captures the pg_available_extensions relation's rows for the
+    // function form psql 18 joins.
+    crate::user_functions::register_pg_available_extensions_function(ctx).await?;
+
+    // The pg_settings rows as they stand here are what it answers for every
+    // parameter ClientOpts does not carry live.
+    crate::user_functions::register_scalar_current_setting(ctx).await?;
+    Ok(())
+}
+
 async fn register_pg_compatibility_functions(
     ctx: &SessionContext,
 ) -> datafusion::error::Result<()> {
@@ -2412,7 +2849,10 @@ async fn register_pg_compatibility_functions(
     register_scalar_pg_get_partkeydef(ctx)?;
     register_scalar_pg_table_is_visible(ctx)?;
     register_scalar_pg_get_userbyid(ctx)?;
-    register_scalar_pg_encoding_to_char(ctx)?;
+    register_scalar_encoding_name_functions(ctx)?;
+
+    register_snapshot_backed_functions(ctx).await?;
+
     register_scalar_array_to_string(ctx)?;
     register_pg_get_one(ctx)?;
     register_pg_get_array(ctx)?;
@@ -2491,6 +2931,78 @@ mod tests {
     use arrow::datatypes::DataType;
     use std::io::Write;
     use tempfile::NamedTempFile;
+
+    /// An archive holding one uncompressed member whose stored bytes have been
+    /// altered, so reading it to the end fails the CRC the archive recorded.
+    ///
+    /// Returns the archive and the member's name.
+    fn ipc_archive_with_one_member_that_fails_its_crc() -> (Vec<u8>, &'static str) {
+        use zip::write::FileOptions;
+
+        let member_name = "00000.arrow";
+        let payload = b"arrow stream bytes, stored verbatim so they can be altered";
+        let mut archive: Vec<u8> = Vec::new();
+        {
+            let mut writer = zip::ZipWriter::new(Cursor::new(&mut archive));
+            let options: FileOptions<()> =
+                FileOptions::default().compression_method(zip::CompressionMethod::Stored);
+            writer
+                .start_file(member_name, options)
+                .expect("start zip member");
+            writer.write_all(payload).expect("write zip member");
+            writer.finish().expect("finish zip");
+        }
+        // Stored members are written verbatim, so the payload is findable and a
+        // flipped byte in it leaves the recorded CRC describing other bytes.
+        let payload_offset = archive
+            .windows(payload.len())
+            .position(|window| window == payload)
+            .expect("a stored member appears verbatim in the archive");
+        archive[payload_offset] ^= 0xff;
+        (archive, member_name)
+    }
+
+    /// A member of the embedded artifact that does not survive the read fails
+    /// with a message naming that member.
+    ///
+    /// The load is fatal by design - a half-read catalog would answer queries
+    /// wrongly - so the only thing a report of this failure can carry is the
+    /// panic message, and "read ipc entry" alone does not say which of the 211
+    /// members went wrong or how far it got.
+    #[test]
+    fn a_member_that_fails_its_crc_names_itself_in_the_panic() {
+        let (archive, member_name) = ipc_archive_with_one_member_that_fails_its_crc();
+
+        let previous_hook = std::panic::take_hook();
+        std::panic::set_hook(Box::new(|_| {}));
+        let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            parse_schema_ipc_bytes(&archive);
+        }));
+        std::panic::set_hook(previous_hook);
+
+        let Err(failure) = outcome else {
+            panic!("a member that fails its CRC must fail the load");
+        };
+        let message = failure
+            .downcast_ref::<String>()
+            .expect("the panic carries a formatted message");
+        assert!(
+            message.contains(member_name),
+            "the message must name the member that failed, got: {message}"
+        );
+        assert!(
+            message.contains("failed to decompress"),
+            "the message must say what the member failed to do, got: {message}"
+        );
+        // These bytes really are inconsistent with their CRC, so the repeat read
+        // must fail too and the message must say so - that is the half of the
+        // report that separates a bad artifact from a bad read of a good one.
+        assert!(
+            message.contains("failed the same way"),
+            "a genuinely corrupt member must be reported as reproducibly corrupt, \
+             got: {message}"
+        );
+    }
 
     /// A YAML table's columns keep their declared types and its rows keep their
     /// values through the load.

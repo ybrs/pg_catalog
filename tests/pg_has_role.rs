@@ -80,7 +80,11 @@ async fn test_pg_has_role_over_a_column() -> DFResult<()> {
         "SELECT pg_has_role(oid, 'USAGE') FROM pg_catalog.pg_namespace",
     )
     .await?;
-    assert!(!rows.is_empty());
+    assert_ne!(
+        rows,
+        Vec::<Option<bool>>::new(),
+        "no rows returned, so the per-row check below would be vacuous"
+    );
     assert!(
         rows.iter().all(|r| *r == Some(true)),
         "pg_has_role must be true for every row, got {rows:?}"

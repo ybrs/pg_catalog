@@ -9,8 +9,14 @@
 //! catalog or to the embedder's own query handler, and at
 //! [`get_base_session_context`], which builds a session with the catalog loaded.
 
+pub mod catalog_oid_registry;
+pub mod catalog_relation_columns;
 pub mod clean_duplicate_columns;
+pub mod combined_catalog_source;
 pub mod db_table;
+pub mod declared_catalog_source;
+pub mod describe_object;
+pub mod function_definitions;
 pub mod lazy_catalog;
 pub mod lazy_pg_catalog_helpers;
 pub mod logical_plan_rules;
@@ -23,13 +29,14 @@ pub mod runtime_function_resolvers;
 pub mod scalar_to_cte;
 pub mod server;
 pub mod session;
+pub mod session_identity_spellings;
 pub mod user_functions;
 // Re-export all public functions from pg_catalog_helpers for convenience.
 pub use lazy_catalog::*;
 pub use lazy_pg_catalog_helpers::*;
 pub use pg_catalog_helpers::*;
 // Re-export commonly used functions at crate root for convenience.
-pub use router::dispatch_query;
+pub use router::{classify_set_statement, dispatch_query, SetStatementDisposition};
 // Every `set_<fn>_resolver` / `clear_<fn>_resolver` the macro generates is public API.
 pub use runtime_function_resolvers::*;
 pub use server::start_server;

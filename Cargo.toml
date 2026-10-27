@@ -34,6 +34,7 @@ zip = "8"
 # Build-time identifier concatenation so one declarative line per catalog function
 # generates its explicit `set_<fn>_resolver` API (see runtime_function_resolvers).
 paste = "1"
+redb = "4"
 
 [dev-dependencies]
 tempfile = "3"
