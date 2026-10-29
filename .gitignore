@@ -9,6 +9,7 @@ pg_catalog_data/view_snapshots.duckdb.tmp
 postgres-data
 venv/
 *.pyc
+__pycache__/
 run_genp.py
 pgapply_patch.py
 llm_apply_patch.py

@@ -1124,11 +1124,11 @@ mod rewriter {
                     // relation. Those resolve against the function registry,
                     // where earlier rewrites have already put the spelling the
                     // planner accepts, so qualifying one would undo that.
-                    TableFactor::Table { name, args, .. } => {
-                        if name.0.len() == 1 && args.is_none() {
-                            name.0
-                                .insert(0, ObjectNamePart::Identifier(Ident::new("pg_catalog")));
-                        }
+                    TableFactor::Table { name, args, .. }
+                        if name.0.len() == 1 && args.is_none() =>
+                    {
+                        name.0
+                            .insert(0, ObjectNamePart::Identifier(Ident::new("pg_catalog")));
                     }
                     TableFactor::Derived { subquery, .. } => {
                         ScalarToCte::qualify_pg_catalog_tables(subquery);
